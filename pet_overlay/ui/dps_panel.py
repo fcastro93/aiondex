@@ -85,13 +85,19 @@ class DpsPanel(QWidget):
         else:
             state = "terminada" if encounter.ended else "en curso"
             target = encounter.main_target or "Pelea"
-            self.content.addWidget(SectionTitle(f"{target} · {mmss(encounter.duration)} · {state}", f))
             group = self.ctl.combat.group
-            # Names only for you and your party/force; everyone else is one anonymous bar.
+            act = encounter.activity(group)
+            self.content.addWidget(SectionTitle(f"{act.label} · {target} · {mmss(encounter.duration)} · {state}", f))
+            if act.boss:
+                self._boss_hp(encounter)
+            # Names only for you and your party/force; everyone else is anonymous.
             named = [a for a in encounter.ranking() if a.is_self or (a.name in group and not only_me)]
             outsiders = [a for a in encounter.actors.values() if not (a.is_self or a.name in group)]
+            crowd = act.kind == "crowd"
+            if crowd:                       # a mass fight: what matters is your share of the boss
+                self._contribution(encounter, group, outsiders)
             rows = [(a.name, a.damage, a.is_self) for a in named[:ROWS[compact]]]
-            if outsiders and not only_me:
+            if outsiders and not only_me and not crowd:
                 rows.append((f"Otros jugadores ({len(outsiders)})", sum(a.damage for a in outsiders), False))
             top = max((d for _, d, _ in rows), default=1)
             total = max(1, encounter.total)
@@ -99,12 +105,16 @@ class DpsPanel(QWidget):
                 right = f"{short_number(damage)} · {short_number(damage / encounter.duration)}/s · {100 * damage / total:.0f}%"
                 color = theme.GOLD if is_self else (theme.MUTED if name.startswith("Otros jugadores") else theme.ACCENT)
                 self.content.addWidget(DpsBar(name, right, damage / top, color, f, highlight=is_self))
-            self._contribution(encounter, group, outsiders)
+            if crowd and outsiders and not only_me:
+                self._note(f"y {len(outsiders)} jugadores más ({short_number(sum(a.damage for a in outsiders))} de "
+                           f"daño visible); los ves todos en «Detalles del daño».")
+            elif outsiders:
+                self._contribution(encounter, group, outsiders)
             me = next((a for a in encounter.actors.values() if a.is_self), None)
             if me and me.hits:
-                pct = lambda n: f"{100 * n / me.hits:.0f}%"  # noqa: E731
-                self._note(f"Tus golpes: {me.hits} · críticos {pct(me.crits)} · por la espalda {pct(me.backs)}"
-                           f" · perfect {pct(me.perfects)}" + (f" · DoT {short_number(me.dot)}" if me.dot else ""))
+                pct_of = lambda n: f"{100 * n / me.hits:.0f}%"  # noqa: E731
+                self._note(f"Tus golpes: {me.hits} · críticos {pct_of(me.crits)} · por la espalda {pct_of(me.backs)}"
+                           f" · perfect {pct_of(me.perfects)}" + (f" · DoT {short_number(me.dot)}" if me.dot else ""))
         if ready and encounter is not None:
             toggle = label("Ver: solo yo  (clic para ver a todos)" if only_me else "Ver: todos  (clic para ver solo tu barra)",
                            f.small, theme.ACCENT)
@@ -144,8 +154,6 @@ class DpsPanel(QWidget):
             lines.append(f"Tu {c.group_kind}: {pct(c.share(c.group))}")
         else:
             lines.append("Party / force: no estás en ninguna (aparecerán al unirte).")
-        if hp is not None:
-            lines.append(f"Vida del jefe: {100 * hp:.0f}%")
         if c.hp_lost and c.seen < 0.9:
             lines.append(f"Solo ves los golpes de los jugadores cercanos ({pct(c.seen)} del daño): los porcentajes "
                          f"salen de la vida que pierde el jefe mientras peleas.")
@@ -158,6 +166,17 @@ class DpsPanel(QWidget):
                 lines.append("Un solo jugador de fuera lleva más que tu grupo: difícil ser primeros.")
         for line in lines:
             self._note(line)
+
+    def _boss_hp(self, encounter):
+        """The boss's HP as a bar, with the time left at the current pace (everyone's damage)."""
+        hp = encounter.boss_hp_ratio()
+        if hp is None:
+            return
+        left = encounter.time_to_kill()
+        right = f"{100 * hp:.0f}%" + (f" · quedan ~{mmss(left)}" if left is not None and left < 5400 else "")
+        if encounter.main_target_eid in encounter.dead:
+            right = "derrotado"
+        self.content.addWidget(DpsBar("Vida del jefe", right, hp, theme.COMBAT, self.fonts))
 
     def _note(self, text):
         note = label(text, self.fonts.small, theme.MUTED)

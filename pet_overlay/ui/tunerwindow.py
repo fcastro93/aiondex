@@ -150,8 +150,9 @@ class TunerWindow(QWidget):
 
         self.left.addWidget(SectionTitle(f"Tu macro del juego (K → Macro) — preset {tuner.preset}", f))
         if not setup.ingame:
-            empty = label("Sin pasos. Haz clic en las teclas de la barra en el mismo orden que en tu macro, o usa "
-                          "«+ Añadir paso».", f.small, theme.MUTED)
+            empty = label("El juego guarda tu macro en tu PC y no lo envía, así que AionDex no puede leerlo: haz clic "
+                          "en las teclas de la barra en el mismo orden que tus pasos de K → Macro y pon sus retrasos.",
+                          f.small, theme.MUTED)
             empty.setWordWrap(True)
             self.left.addWidget(empty)
         else:
@@ -216,7 +217,6 @@ class TunerWindow(QWidget):
             else:
                 q = next(q for q in self.tuner.bar if q.slot == slot)
                 s.ingame.append(MacroLine(list(q.priority), 10, slot))
-            s.suggested = True
         self._edit(change)
 
     def _step_row(self, i, line, count):
@@ -361,6 +361,7 @@ class TunerWindow(QWidget):
 
     def _edit(self, change, rebuild=True):
         change(self.tuner.setup)
+        self.tuner.setup.suggested = False
         self.tuner.save()
         if rebuild:
             self.rebuild()

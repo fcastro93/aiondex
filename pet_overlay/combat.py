@@ -20,6 +20,10 @@ AFTER_KILL_END = 3.0    # shorter wait once the main target has died (adds may s
 HISTORY_MAX = 20
 RECENT_MAX = 5          # full encounters kept in memory for the details window
 PARTY_SIZE = 5          # a group roster larger than this is a force (up to 4 parties)
+ABYSS_MAPS = {20}       # game map ids (2136) of the Abyss
+BOSS_HP = 150_000       # a target with this much HP is a boss (seal bosses have ~200K, field mobs ~40K)
+WORLD_BOSS_HP = 50_000_000
+CROWD = 8               # players outside your group hitting the same fight = a mass fight
 CLASS_NAMES = {"11": "Gladiador", "12": "Templario", "13": "Asesino", "14": "Cazador", "15": "Hechicero",
                "16": "Invocador", "17": "Clérigo", "18": "Cantor"}
 
@@ -92,6 +96,15 @@ class Contribution:
 
 
 @dataclass
+class Activity:
+    """What kind of fight this is, so the meter can show what matters for it."""
+    kind: str                   # "farm" | "solo_boss" | "group" | "group_boss" | "crowd"
+    label: str                  # shown in the header: "Farmeo", "Jefe del Abismo"...
+    place: str                  # "mundo" | "abismo" | "instancia"
+    boss: bool
+
+
+@dataclass
 class Encounter:
     start: float
     last: float
@@ -101,6 +114,9 @@ class Encounter:
     dead: set = field(default_factory=set)            # targets that died during the encounter
     hp: dict = field(default_factory=dict)            # target eid -> [current hp, max hp]
     hp_start: dict = field(default_factory=dict)      # target eid -> first hp seen during the encounter
+    hp_at: dict = field(default_factory=dict)         # target eid -> time of that first hp
+    target_max_hp: dict = field(default_factory=dict)  # target eid -> max hp from its spawn
+    map_id: int | None = None                         # game map where the fight happened
     killed: bool = False
     ended: bool = False
 
@@ -124,6 +140,41 @@ class Encounter:
             return None
         now = 0 if eid in self.dead else self.hp[eid][0]
         return max(0, self.hp_start[eid] - now)
+
+    def activity(self, group_names):
+        place = ("abismo" if self.map_id in ABYSS_MAPS else
+                 "mundo" if self.map_id is None or 1000 <= self.map_id < 1200 else "instancia")
+        boss_eid = self.main_target_eid
+        boss_hp = self.target_max_hp.get(boss_eid) or self.hp.get(boss_eid, [0, 0])[1] or 0
+        boss = boss_hp >= BOSS_HP
+        others = [a for a in self.actors.values() if not a.is_self]
+        outsiders = [a for a in others if a.name not in group_names]
+        if len(outsiders) >= CROWD or boss_hp >= WORLD_BOSS_HP:
+            if boss:
+                label = {"abismo": "Jefe del Abismo", "mundo": "Jefe de campo", "instancia": "Jefe de raid"}[place]
+            else:
+                label = "Pelea en el Abismo" if place == "abismo" else "Pelea multitudinaria"
+            return Activity("crowd", label, place, boss)
+        if others:
+            if place == "instancia":
+                label = "Jefe de mazmorra" if boss else "Mazmorra en grupo"
+            else:
+                label = "Jefe en grupo" if boss else ("Abismo en grupo" if place == "abismo" else "En grupo")
+            return Activity("group_boss" if boss else "group", label, place, boss)
+        if boss:
+            return Activity("solo_boss", "Jefe en solitario", place, boss)
+        return Activity("farm", "Abismo" if place == "abismo" else "Farmeo", place, boss)
+
+    def time_to_kill(self):
+        """Seconds left for the main target at the rate it is losing HP (everyone's damage), or None."""
+        eid = self.main_target_eid
+        lost = self.hp_lost(eid)
+        if not lost or eid in self.dead or eid not in self.hp_at:
+            return None
+        elapsed = self.last - self.hp_at[eid]
+        if elapsed < 3:
+            return None
+        return self.hp[eid][0] / (lost / elapsed)
 
     def boss_hp_ratio(self):
         cur_max = self.hp.get(self.main_target_eid)
@@ -193,6 +244,7 @@ class CombatTracker:
         self.max_hp = {}         # eid -> max hp from the spawn
         self.group = set()       # names of your party / force members (from the group roster)
         self.self_eid = None
+        self.map_id = None       # the game map you are in (set on every map entry)
         self.current = None
         self.history = []
         self.recent = deque(maxlen=RECENT_MAX)   # finished encounters (memory only) for the details window
@@ -222,7 +274,8 @@ class CombatTracker:
         enc = self.current
         if enc and not enc.ended and eid in enc.targets:
             enc.hp[eid] = [hp, self.max_hp.get(eid) or max(hp, enc.hp.get(eid, [0, 0])[1])]
-            enc.hp_start.setdefault(eid, hp)
+            if eid not in enc.hp_start:
+                enc.hp_start[eid], enc.hp_at[eid] = hp, enc.last
 
     # --- combat ----------------------------------------------------------------------------------
     def on_hit(self, hit):
@@ -236,7 +289,7 @@ class CombatTracker:
         enc = self.current
         if enc is None or enc.ended or hit.ts - enc.last > IDLE_END:
             finished = self._finish() if enc and not enc.ended else None
-            enc = self.current = Encounter(start=hit.ts, last=hit.ts)
+            enc = self.current = Encounter(start=hit.ts, last=hit.ts, map_id=self.map_id)
         enc.last = hit.ts
         actor = enc.actors.get(attacker)
         if actor is None:
@@ -255,6 +308,8 @@ class CombatTracker:
         enc.targets[hit.target] += hit.amount
         if hit.target in self.npc_names:
             enc.target_names[hit.target] = self.npc_names[hit.target]
+        if hit.target in self.max_hp:
+            enc.target_max_hp[hit.target] = self.max_hp[hit.target]
         return finished
 
     def on_death(self, eid):

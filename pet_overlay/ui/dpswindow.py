@@ -229,7 +229,8 @@ class DpsDetailsWindow(QWidget):
         rows = [r for r in rows if (not chosen or r[0].class_name == chosen)
                 and (not query or query in r[1].lower() or query in r[0].class_name.lower())]
         total = sum(r[3] for r in self._rows(enc)) or 1
-        summary = (f"{enc.main_target or 'Pelea'} · {mmss(enc.duration)} · {len(enc.actors)} jugadores · "
+        summary = (f"{enc.activity(self.ctl.combat.group).label} · {enc.main_target or 'Pelea'} · "
+                   f"{mmss(enc.duration)} · {len(enc.actors)} jugadores · "
                    f"{short_number(enc.total)} de daño visible")
         contribution = enc.contribution(self.ctl.combat.group)
         if self.target_box.currentData() == "boss" and contribution:

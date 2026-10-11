@@ -22,9 +22,10 @@ CAST_OPCODE = bytes.fromhex("0238")
 SKILL_LIST_OPCODE = bytes.fromhex("0051")
 PRESETS_OPCODE = bytes.fromhex("8ce2")
 REJECT_TOO_SOON = 0x1813    # the most common rejection: pressed 0.1-0.5 s after another cast, skill off cooldown
-# quickslot -> default key in the game's bar: 1-8, then Q, E, mouse, T (each slot holds up to 4 skills by priority)
-SLOT_KEYS = {**{i: str(i + 1) for i in range(8)}, 20: "Q", 21: "E", 22: "Ratón", 23: "T"}
-BAR_SLOTS = list(SLOT_KEYS)
+# quickslot -> key in the game's bar (checked against the game's bar screen); each slot holds up to 4 skills by
+# priority. The bar shows them as 1-4 | 5-8 | Q E mouse | T.
+SLOT_KEYS = {2: "1", 3: "2", 4: "3", 5: "4", 20: "5", 21: "6", 22: "7", 23: "8", 6: "Q", 7: "E", 0: "Ratón", 1: "T"}
+BAR_SLOTS = list(SLOT_KEYS)                 # in the game's order, left to right
 
 
 def base_skill(skill_id):

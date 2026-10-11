@@ -424,6 +424,7 @@ class Controller(QObject):
 
     def on_map_entered(self, event):
         seq, map_id, _ = event
+        self.combat.map_id = map_id
         open_world = 1000 <= map_id < 1200
         # Instances (seals, dungeons) keep the last open-world zone as "where you farm".
         if open_world or game_map_faction(map_id) != self.location_faction():

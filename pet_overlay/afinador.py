@@ -6,7 +6,7 @@ from collections import Counter, deque
 from pathlib import Path
 
 from .skills import SLOT_KEYS, OwnSkill, QuickSlot, base_skill, chain_parents, is_basic_attack
-from .tuner import Finding, MacroLine, MacroSetup, TunerSession, analyze
+from .tuner import Finding, MacroSetup, TunerSession, analyze
 
 CAST_MATCH_SECONDS = 0.2     # the cast (0238) and the reply to its press (0138) arrive in the same packet
 FRESH_LOADOUT = 15.0         # a skill list this recent belongs to the character that logs in right after it
@@ -153,8 +153,9 @@ class Afinador:
         self._setup_key = None
 
     def _sync_lines(self):
-        """Steps linked to a key of the bar follow the game's priority list; with no steps yet, suggest the keys
-        that hold several skills (those are made for the macro)."""
+        """Steps linked to a key of the bar follow the game's priority list. The macro itself never travels on the
+        network (the game keeps it on your PC), so its steps are whatever you clicked; steps that 1.5.0 guessed
+        and you never touched are dropped."""
         if not hasattr(self, "_setup") or not self.bar or self._loadout_for != self.key \
                 or self._setup_key != (self.key, self.preset):
             return
@@ -165,9 +166,12 @@ class Afinador:
             q = by_slot.get(line.slot)
             if q and line.skills != q.priority:
                 line.skills, changed = list(q.priority), True
-        if not setup.ingame and not setup.suggested:
-            setup.ingame = [MacroLine(list(q.priority), 10, q.slot) for q in self.bar if len(q.priority) >= 2]
-            setup.suggested = changed = bool(setup.ingame)
+        guessed = [q.slot for q in self.bar if len(q.priority) >= 2]
+        untouched = all(line.delay_ms == 10 for line in setup.ingame)
+        if setup.suggested and [line.slot for line in setup.ingame] == guessed and untouched:
+            setup.ingame, changed = [], True
+        if setup.suggested:
+            setup.suggested, changed = False, True
         if changed and self.ctl.character_name():
             self.save()
 

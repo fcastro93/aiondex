@@ -75,7 +75,7 @@ def _simulate_fight(controller):
 def _simulate_skills(controller):
     """A Ranger's skill list and bar, plus a finished Afinador test where the click eats the macro's turns."""
     from .skills import OwnSkill, QuickSlot
-    from .tuner import ExternalStep, TunerSession, analyze
+    from .tuner import ExternalStep, MacroLine, TunerSession, analyze
     tuner = controller.tuner
     levels = {14020000: (14, [3, 4]), 14110000: (14, [3, 4]), 14050000: (14, [3, 4]), 14080000: (14, [2, 4]),
               14130000: (13, [2, 3]), 14010000: (13, [2, 3]), 14340000: (12, [3, 4]), 14070000: (11, [1]),
@@ -93,6 +93,7 @@ def _simulate_skills(controller):
                   (22, [14380000]), (23, [14310000])]),
         3: []})
     setup = tuner.setup
+    setup.ingame = [MacroLine(list(q.priority), 10, q.slot) for q in tuner.bar if q.slot in (2, 3)]
     setup.external = [ExternalStep("click_izq", 20, 10), ExternalStep("macro", 20, 10)]
     cooldown = {14060000: 41950, 14130000: 13950, 14080000: 18650, 14110000: 18650, 14050000: 4650, 14340000: 0}
     rng = random.Random(5)

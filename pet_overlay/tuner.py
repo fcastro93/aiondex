@@ -42,7 +42,7 @@ class MacroSetup:
     external: list = field(default_factory=list)    # [ExternalStep]
     external_repeat: bool = True                    # "repeat while held"
     skill_queue: bool = True                        # game option "Skill Queue" (스킬 예약)
-    suggested: bool = False                         # steps were once filled in from the quickslot bar
+    suggested: bool = False                         # 1.5.0 guessed the steps from the bar (not reviewed yet)
 
     def to_json(self):
         return asdict(self)
