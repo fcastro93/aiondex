@@ -23,6 +23,7 @@ def main():
     parser.add_argument("--open-map", type=int, metavar="PET_ID", help="open the map window on a pet")
     parser.add_argument("--open-menu", action="store_true", help="(dev) open the app menu before --screenshot")
     parser.add_argument("--open-tuner", action="store_true", help="(dev) open the Afinador window")
+    parser.add_argument("--diagnose", metavar="PROBLEM", help="(dev) open Diagnóstico and run a problem (or 'none')")
     args = parser.parse_args()
 
     if not args.preview and not _single_instance():
@@ -44,11 +45,21 @@ def main():
     else:
         from pet_overlay.sniffer import GameSniffer
         ctl = Controller(DATA_DIR)
-        sniffer = GameSniffer(ctl.bridge.on_message, ctl.bridge.on_status)
+        sniffer = GameSniffer(ctl.bridge.on_message, ctl.bridge.on_status, health=ctl.health)
+        ctl.sniffer = sniffer
         sniffer.start()
 
     if args.open_tuner:
         QTimer.singleShot(300, ctl.open_tuner)
+
+    if args.diagnose:
+        def diagnose():
+            from pet_overlay.diagnostics import PROBLEMS
+            ctl.open_diagnostics()
+            problem = next((p for p in PROBLEMS if p[0] == args.diagnose), None)
+            if problem:
+                ctl.diag_window.run(problem)
+        QTimer.singleShot(1500, diagnose)
 
     if args.open_map:
         QTimer.singleShot(300, lambda: ctl.open_map(args.open_map))
@@ -69,6 +80,8 @@ def main():
             ctl.window.grab().save(args.screenshot)
             if ctl.toasts.toasts:
                 _composite([ctl.window] + ctl.toasts.toasts, args.screenshot.replace(".png", "_toasts.png"))
+            if ctl.diag_window and ctl.diag_window.isVisible():
+                ctl.diag_window.grab().save(args.screenshot.replace(".png", "_diag.png"))
             if getattr(ctl, "tuner_window", None) and ctl.tuner_window.isVisible():
                 ctl.tuner_window.grab().save(args.screenshot.replace(".png", "_tuner.png"))
             if ctl.map_window and ctl.map_window.isVisible():

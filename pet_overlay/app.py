@@ -11,7 +11,7 @@ from PySide6.QtGui import QAction, QActionGroup, QIcon
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
 from .character import CHARACTER_OPCODE, parse_character
-from .world import SPAWN_OPCODE, WorldTracker, game_map_faction, parse_spawn_full
+from .world import MAP_ENTER_OPCODE, SPAWN_OPCODE, WorldTracker, game_map_faction, parse_spawn_full
 from .combat import PLAYER_SPAWN_OPCODE, CombatTracker, parse_player
 from .damage import (DAMAGE_OPCODES, DEATH_OPCODE, READY as DAMAGE_READY, STATS_OPCODE, parse_damage, parse_hp,
                      summon_owner)
@@ -19,6 +19,7 @@ from .roster import ROSTER_OPCODE, parse_roster
 from .skills import (CAST_OPCODE, PRESETS_OPCODE, REQUEST_OPCODE, SKILL_LIST_OPCODE, caster_of, parse_cast,
                      parse_presets, parse_request, parse_skill_list)
 from .protocol import read_varint
+from .health import Health
 from .mapdata import MapData
 from .paths import ASSETS_DIR
 from .pets import Collection, Pet, PROGRESS_OPCODE, SNAPSHOT_OPCODE, parse_progress, parse_snapshot
@@ -32,6 +33,7 @@ from .modules.pets import PetsModule
 from .modules.settings import SettingsModule
 from .modules.dps import DpsModule
 from .modules.tuner import TunerModule
+from .modules.diagnostics import DiagnosticsModule, open_problems
 from .afinador import STORE_DELAY, Afinador
 from .update_controller import UpdateController
 from .notifications import NotificationCenter
@@ -72,6 +74,12 @@ def _short_state(pet):
     return f"nivel {pet.level}, {pet.progress}/{pet.threshold}"
 
 
+# message kinds counted for the Diagnóstico module
+OP_KIND = {SNAPSHOT_OPCODE: "collection", PROGRESS_OPCODE: "progress", CHARACTER_OPCODE: "character",
+           MAP_ENTER_OPCODE: "map", SPAWN_OPCODE: "spawn", REQUEST_OPCODE: "press", SKILL_LIST_OPCODE: "skills",
+           PRESETS_OPCODE: "bar", ROSTER_OPCODE: "roster", **{op: "combat" for op in DAMAGE_OPCODES}}
+
+
 class Bridge(QObject):
     """Moves parsed game messages from the capture thread to the UI thread."""
     snapshot = Signal(object)
@@ -89,9 +97,10 @@ class Bridge(QObject):
                                      # ("skills", {base: OwnSkill}) | ("bar", [QuickSlot])
     status = Signal(str)
 
-    def __init__(self, tracker=None):
+    def __init__(self, tracker=None, health=None):
         super().__init__()
         self.tracker = tracker
+        self.health = health
         self._pending_hits = []          # filled on the capture thread, drained by the UI every 200 ms
         self._hits_lock = threading.Lock()
         self.self_eid = None             # your entity id, to keep only your own casts
@@ -102,6 +111,8 @@ class Bridge(QObject):
         return hits
 
     def on_message(self, op, body):
+        if self.health:
+            self.health.saw(OP_KIND.get(op))
         if self.tracker:
             event = self.tracker.on_message(op, body)
             if event:
@@ -226,7 +237,10 @@ class Controller(QObject):
         self.map_window = None
         self.capture_status = "Iniciando captura…"
         self.flash_ids = set()
-        self.bridge = Bridge(self._make_tracker())
+        self.sniffer = None             # set by run.py (not in preview)
+        self.health = Health(self.data_dir)
+        self.health.install_log_handler()
+        self.bridge = Bridge(self._make_tracker(), self.health)
         self.bridge.snapshot.connect(self.on_snapshot)
         self.bridge.progress.connect(self.on_progress)
         self.bridge.character.connect(self.on_character)
@@ -262,8 +276,9 @@ class Controller(QObject):
         # Feature modules, switchable from the app menu. New features register here.
         self.tuner = Afinador(self)
         self.tuner_window = None
+        self.diag_window = None
         self.modules = [PetsModule(self), DpsModule(self), TunerModule(self), NotificationsModule(self),
-                        SettingsModule(self)]
+                        DiagnosticsModule(self), SettingsModule(self)]
         for module in self.modules:
             self.window.add_panel(module.create_panel(self.fonts))
         self.active_module = next((m for m in self.modules if m.key == self.settings["module"]), self.modules[0])
@@ -280,12 +295,21 @@ class Controller(QObject):
         self._tick.start()
         self._combat_tick = QTimer(self, interval=1000, timeout=self._on_combat_tick)
         self._combat_tick.start()
+        self._problems_seen = {}        # problem title -> first time seen (a notice once it lasts)
+        self._problems_notified = set()
+        self._health_tick = QTimer(self, interval=15_000, timeout=self._watch_health)
         if self.persist:            # not in preview mode
             self.updates.start()
             self._ensure_icons()
+            self._health_tick.start()
             if not self.npcap_installed():
+                self._problems_notified.add("Lectura del juego")
                 self.notify("warn", "Falta Npcap: AionDex no puede leer el juego",
                             "Instálalo desde npcap.com (el enlace está en Ajustes) y vuelve a abrir AionDex.")
+            prev = self.health.previous
+            if prev and prev["clean"] is False:
+                self.notify("warn", "AionDex se cerró de forma inesperada la última vez",
+                            "Si no lo cerraste tú, abre Diagnóstico → «Se cerró solo» y envía el informe.")
 
     # --- game events (UI thread) -----------------------------------------------------
     def on_snapshot(self, snapshot):
@@ -376,6 +400,7 @@ class Controller(QObject):
         self.character = info
         self.combat.set_self(info.entity_id, info.name)
         self.tuner.on_character()
+        self._sync_tracker_side()
         chars = self.settings.setdefault("characters", {})
         entry = chars.setdefault(info.name, {})
         entry.update({"server": info.server, "job": info.job, "level": info.level})
@@ -482,6 +507,12 @@ class Controller(QObject):
             return
         self.settings.setdefault("characters", {}).setdefault(self.character.name, {})["faction"] = faction
         self._save_settings()
+        self._sync_tracker_side()
+
+    def _sync_tracker_side(self):
+        """Until a map entry is seen, zone detection uses the side the user set for the character."""
+        if self.bridge.tracker:
+            self.bridge.tracker.fallback_side = self.character_faction()
 
     def map_faction(self):
         """Faction used to filter where-to-farm results: explicit choice, else where the player is,
@@ -641,11 +672,45 @@ class Controller(QObject):
             self.db = _load_json(self.data_dir / "pets_db.json")
             self.mapdata = MapData(self.data_dir / "map_db.json")
             self.bridge.tracker = self._make_tracker()
+            self._sync_tracker_side()
             if self.map_window:
                 self.map_window.data = self.mapdata
                 self.map_window.refresh()
             self.refresh()
         self.notify("info" if ok else "warn", f"Base de datos {'actualizada' if ok else 'NO actualizada'}", summary)
+
+    def reset_zone(self):
+        """Forget the nearby NPCs and the zone; it is detected again from what spawns next."""
+        if self.bridge.tracker:
+            self.bridge.tracker.reset()
+        self.current_zone, self.zone_from_npcs = None, False
+        self.refresh()
+
+    def restart_capture(self):
+        if self.sniffer:
+            self.sniffer.restart()
+
+    def open_diagnostics(self):
+        from .ui.diagwindow import DiagnosticsWindow
+        if self.diag_window is None:
+            self.diag_window = DiagnosticsWindow(self)
+        self.diag_window.show()
+        self.diag_window.raise_()
+        self.diag_window.activateWindow()
+
+    def _watch_health(self):
+        """Tell the player once about a serious problem that lasts (e.g. nothing arrives from the game)."""
+        now = time.time()
+        bad = {c.title: c for c in open_problems(self) if c.level == "bad"}
+        self._problems_seen = {t: self._problems_seen.get(t, now) for t in bad}
+        for title, check in bad.items():
+            if now - self._problems_seen[title] >= 25 and title not in self._problems_notified:
+                self._problems_notified.add(title)
+                self.notify("warn", f"Problema: {title.lower()}",
+                            f"{check.detail} Abre Diagnóstico en el menú: AionDex busca la causa y te dice cómo "
+                            f"arreglarlo.")
+        if self.active_module.key == "diagnostics":
+            self.refresh()
 
     def open_tuner(self):
         from .ui.tunerwindow import TunerWindow
@@ -758,6 +823,7 @@ class Controller(QObject):
         getattr(self, HOTKEY_ACTIONS[hotkey_id - 1])()
 
     def quit(self):
+        log.info("AionDex closing")
         self.remember_position(self.window.pos())
         hwnd = int(self.window.winId())
         for i in range(1, len(HOTKEY_ACTIONS) + 1):

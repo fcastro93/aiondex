@@ -6,6 +6,7 @@
 Validated against LOXIN fight logs (entity -> npc ids, deaths) on the user's captures.
 """
 import struct
+import time
 from collections import Counter
 
 from .protocol import read_varint
@@ -15,6 +16,7 @@ SPAWN_OPCODE = bytes.fromhex("4136")
 DESPAWN_OPCODE = bytes.fromhex("4236")
 SUMMON_IDS = range(2_920_000, 2_930_000)
 MIN_VOTES = 2
+MAX_UNKNOWN = 500       # unknown NPCs remembered for the Diagnóstico module
 
 
 def parse_map_enter(body):
@@ -82,7 +84,11 @@ class WorldTracker:
         self.npc_zones = npc_zones          # npc id -> [zone slugs]
         self.zone_faction = zone_faction    # zone slug -> faction
         self.map_id = None
+        self.fallback_side = None           # the character's side, used until a map entry tells where we are
         self.nearby = {}                    # entity id -> npc id (only npcs we can place in a zone)
+        self.unknown = {}                   # entity id -> npc id of nearby npcs the database cannot place
+        self.spawned = {}                   # entity id -> when it appeared (both kinds)
+        self.votes = Counter()              # zone slug -> votes at the last change
         self.zone = None
 
     def on_message(self, op, body):
@@ -92,29 +98,60 @@ class WorldTracker:
                 seq, map_id, pos = parsed
                 self.map_id = map_id
                 self.nearby.clear()
+                self.unknown.clear()
+                self.spawned.clear()
+                self.votes = Counter()
                 self.zone = None
                 return ("map", (seq, map_id, pos))
         elif op == SPAWN_OPCODE:
             parsed = parse_spawn(body)
-            if parsed and parsed[1] not in SUMMON_IDS and parsed[1] in self.npc_zones:
-                self.nearby[parsed[0]] = parsed[1]
-                return self._zone_event()
+            if parsed and parsed[1] not in SUMMON_IDS:
+                self.spawned[parsed[0]] = time.time()
+                if parsed[1] in self.npc_zones:
+                    self.nearby[parsed[0]] = parsed[1]
+                    return self._zone_event()
+                self.unknown[parsed[0]] = parsed[1]
+                if len(self.unknown) > MAX_UNKNOWN:
+                    self.spawned.pop(next(iter(self.unknown)), None)
+                    del self.unknown[next(iter(self.unknown))]
         elif op == DESPAWN_OPCODE:
             eid, _ = read_varint(body, 0)
+            self.unknown.pop(eid, None)
+            self.spawned.pop(eid, None)
             if self.nearby.pop(eid, None) is not None:
                 return self._zone_event()
         return None
 
     def _zone_event(self):
-        side = game_map_faction(self.map_id) if self.map_id is not None else None
+        side = game_map_faction(self.map_id) if self.map_id is not None else self.fallback_side
         votes = Counter()
         for npc in self.nearby.values():
             zones = [z for z in self.npc_zones[npc] if not side or self.zone_faction.get(z) in (side, "abyss", None)]
             for z in zones:
                 votes[z] += 1 / len(zones)
+        self.votes = votes
         best = votes.most_common(1)
         zone = best[0][0] if best and best[0][1] >= MIN_VOTES else self.zone
         if zone != self.zone:
             self.zone = zone
             return ("zone", zone)
         return None
+
+    def snapshot(self):
+        """Copy of what the tracker sees, safe to call from another thread:
+        {"map_id", "nearby" {entity: npc}, "unknown" {entity: npc}, "votes", "spawned" {entity: time}}."""
+        for _ in range(5):
+            try:
+                return {"map_id": self.map_id, "nearby": dict(self.nearby), "unknown": dict(self.unknown),
+                        "votes": Counter(self.votes), "spawned": dict(self.spawned)}
+            except RuntimeError:        # changed size while copying: try again
+                continue
+        return {"map_id": self.map_id, "nearby": {}, "unknown": {}, "votes": Counter(), "spawned": {}}
+
+    def reset(self):
+        """Forget the nearby NPCs and the zone (they may be from before a teleport AionDex did not see)."""
+        self.nearby.clear()
+        self.unknown.clear()
+        self.spawned.clear()
+        self.votes = Counter()
+        self.zone = None

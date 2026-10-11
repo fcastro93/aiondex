@@ -15,9 +15,13 @@ GAME_PROCESS = "aion2.exe"
 RESCAN_SECONDS = 10
 
 
-def find_server_endpoints():
+def game_pids():
+    return {p.pid for p in psutil.process_iter(["name"]) if (p.info["name"] or "").lower() == GAME_PROCESS}
+
+
+def find_server_endpoints(pids=None):
     """Set of (ip, port) the game client is connected to, excluding its own loopback pairs."""
-    pids = {p.pid for p in psutil.process_iter(["name"]) if (p.info["name"] or "").lower() == GAME_PROCESS}
+    pids = game_pids() if pids is None else pids
     if not pids:
         return set()
     conns = [c for c in psutil.net_connections("tcp") if c.pid in pids and c.raddr]
@@ -28,7 +32,8 @@ def find_server_endpoints():
 
 
 def _loopback_iface():
-    return next(i for i in conf.ifaces.values() if "npf_loopback" in i.network_name.lower())
+    """Npcap's loopback adapter, or None when Npcap was installed without loopback support."""
+    return next((i for i in conf.ifaces.values() if "npf_loopback" in i.network_name.lower()), None)
 
 
 def _plan(endpoints):
@@ -37,6 +42,8 @@ def _plan(endpoints):
     for ip, port in sorted(endpoints):
         if ipaddress.ip_address(ip).is_loopback:
             iface, expr = _loopback_iface(), f"(tcp port {port})"
+            if iface is None:
+                continue
         else:
             iface, expr = conf.route.route(ip)[0], f"(host {ip} and tcp port {port})"
         by_iface.setdefault(iface, set()).add(expr)
@@ -46,30 +53,43 @@ def _plan(endpoints):
 class GameSniffer:
     """Calls on_message(opcode_bytes, body) for every server->client game message."""
 
-    def __init__(self, on_message, on_status=None):
+    def __init__(self, on_message, on_status=None, health=None):
         self.on_message = on_message
         self.on_status = on_status or (lambda text: None)
+        self.health = health
         self.endpoints = set()
         self.plan = {}
         self.streams = {}
         self.sniffers = []
         self.lock = threading.Lock()
         self._stop = threading.Event()
+        self._wake = threading.Event()
+        self._force_restart = False
 
     def start(self):
         threading.Thread(target=self._watch, daemon=True, name="aion2-watch").start()
 
     def stop(self):
         self._stop.set()
+        self._wake.set()
         self._stop_sniffers()
+
+    def restart(self):
+        """Look for the game again and restart the capture now (Diagnóstico)."""
+        self._force_restart = True
+        self._wake.set()
 
     def _watch(self):
         while not self._stop.is_set():
+            running = None
             try:
-                endpoints = find_server_endpoints()
+                pids = game_pids()
+                running = bool(pids)
+                endpoints = find_server_endpoints(pids)
             except psutil.Error as exc:
                 log.warning("process scan failed: %s", exc)
                 endpoints = self.endpoints
+            self._report(running, endpoints)
             if not endpoints:
                 if self.sniffers:
                     self._stop_sniffers()
@@ -78,19 +98,41 @@ class GameSniffer:
             else:
                 plan = _plan(endpoints)
                 self.endpoints = endpoints
-                if plan != self.plan or not self.sniffers:
+                if plan != self.plan or not self.sniffers or self._force_restart:
+                    self._force_restart = False
                     self._restart(plan)
-            self._stop.wait(RESCAN_SECONDS)
+            self._wake.wait(RESCAN_SECONDS)
+            self._wake.clear()
+
+    def _report(self, running, endpoints):
+        h = self.health
+        if h is None:
+            return
+        h.game_running = running
+        h.endpoints = len(endpoints)
+        h.loopback = any(ipaddress.ip_address(ip).is_loopback for ip, _ in endpoints)
+        h.loopback_adapter = not h.loopback or _loopback_iface() is not None
+        h.sniffing = bool(self.sniffers)
 
     def _restart(self, plan):
         self._stop_sniffers()
         self.plan = plan
         for iface, bpf in plan.items():
             log.info("sniffing %s with filter %s", iface, bpf)
-            sniffer = AsyncSniffer(iface=iface, filter=bpf, store=False, prn=self._on_packet)
-            sniffer.start()
+            try:
+                sniffer = AsyncSniffer(iface=iface, filter=bpf, store=False, prn=self._on_packet)
+                sniffer.start()
+            except Exception as exc:  # Npcap missing or broken, adapter gone...
+                log.error("capture failed on %s: %s", iface, exc)
+                if self.health:
+                    self.health.capture_error = str(exc)
+                continue
             self.sniffers.append(sniffer)
-        self.on_status("Capturando tráfico del juego")
+            if self.health:
+                self.health.capture_error = ""
+        if self.health:
+            self.health.sniffing = bool(self.sniffers)
+        self.on_status("Capturando tráfico del juego" if self.sniffers else "No se pudo capturar el tráfico")
 
     def _stop_sniffers(self):
         for s in self.sniffers:
@@ -118,6 +160,8 @@ class GameSniffer:
             if Raw not in pkt:
                 return
             frames = stream.on_segment(tcp.seq, bytes(pkt[Raw].load))
+            if stream.is_tls and self.health:
+                self.health.tls = True
         for frame in frames:
             for op, body in expand(frame):
                 try:

@@ -8,6 +8,7 @@ Overlay para **AION 2** que sigue tu colección de pets en tiempo real, te dice 
 - **Mapa de pets**: clic en un pet y ves dónde aparecen sus monstruos, con qué probabilidad de alma, y qué otros pets que te faltan se farmean en esas mismas zonas. Marca los pets exclusivos de **Elyos** o **Asmodian**.
 - **DPS**: medidor de daño en tiempo real para ti y tu grupo (daño, DPS, % del grupo, críticos, ataques por la espalda, perfect, DoT) y el historial de tus últimas peleas. En jefes compartidos muestra la **contribución** de tu party/force al jefe (los demás jugadores aparecen solo como un total anónimo) y la vida restante del jefe.
 - **Afinador de macros**: lee del juego tus habilidades (nivel y especialización), estigmas, pasivas y tu barra rápida con su orden de prioridad; tú indicas el retraso de cada paso de tu macro del juego y, si usas uno, tu macro externo (Synapse, iCUE, G HUB…). Durante una prueba compara lo que se lanzó con lo que la recarga de cada habilidad permitía, cuenta las pulsaciones que el juego rechazó y te dice qué cambiar (prioridades, retrasos, separación entre el clic y la tecla del macro…).
+- **Diagnóstico**: el estado de cada parte de AionDex (lectura del juego, personaje, colección, zona, base de datos, actualizaciones, errores) y un botón por cada problema común. Al pulsarlo, AionDex revisa lo que está recibiendo, arregla lo que puede él solo y te dice qué hacer; si sigue igual, copia un informe (sin tu nombre de personaje ni tu usuario de Windows) para mandárselo al creador o abrir un reporte en GitHub.
 - **Detección automática**: personaje, mapa y zona en la que estás.
 - **Notificaciones**: globos al costado del overlay (progreso, subidas de nivel, pets nuevos, zona) y un historial por si te perdiste alguno.
 - **Se actualiza solo** con actualizaciones firmadas.
@@ -31,7 +32,7 @@ Overlay para **AION 2** que sigue tu colección de pets en tiempo real, te dice 
 | `Alt+Shift+C` | Compacto / expandido |
 | `Alt+Shift+M` | Mapa de pets |
 
-- Clic en el **logo** de la cabecera: menú (**Pets**, **DPS**, **Afinador**, **Notificaciones**, **Ajustes**, **Salir**).
+- Clic en el **logo** de la cabecera: menú (**Pets**, **DPS**, **Afinador**, **Notificaciones**, **Diagnóstico**, **Ajustes**, **Salir**).
 - Desbloqueado se puede arrastrar; clic en un pet abre el mapa; clic derecho lo fija como objetivo.
 - El icono en la bandeja del sistema tiene opacidad, tamaño, notificaciones y más.
 
