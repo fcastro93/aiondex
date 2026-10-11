@@ -1,0 +1,1244 @@
+{
+ "1047": {
+  "name": "Aberrant Armadon",
+  "slug": "aberrant-armadon",
+  "mob": "Splendent Armadon",
+  "mob_level": 12
+ },
+ "1118": {
+  "name": "Aberrant Bee",
+  "slug": "aberrant-bee",
+  "mob": "Black Pattern Bee",
+  "mob_level": 18
+ },
+ "1119": {
+  "name": "Aberrant Coradon",
+  "slug": "aberrant-coradon",
+  "mob": "Hill Coradon",
+  "mob_level": 39
+ },
+ "1021": {
+  "name": "Aberrant Odyle Spider",
+  "slug": "aberrant-odyle-spider",
+  "mob": null,
+  "mob_level": null
+ },
+ "1053": {
+  "name": "Aberrant Potcrab",
+  "slug": "aberrant-potcrab",
+  "mob": "Eternal Moss Crab",
+  "mob_level": 46
+ },
+ "1089": {
+  "name": "Aberrant Skama",
+  "slug": "aberrant-skama",
+  "mob": "Abyss Sulfur Skama",
+  "mob_level": 51
+ },
+ "1126": {
+  "name": "Aberrant Tog",
+  "slug": "aberrant-tog",
+  "mob": "Aberrant Tog",
+  "mob_level": 32
+ },
+ "1125": {
+  "name": "Aberrant Zaif",
+  "slug": "aberrant-zaif",
+  "mob": "Golden Zaif",
+  "mob_level": 40
+ },
+ "1038": {
+  "name": "Airon",
+  "slug": "airon",
+  "mob": "Canyon Airon",
+  "mob_level": 40
+ },
+ "1046": {
+  "name": "Armadon",
+  "slug": "armadon",
+  "mob": "Withered Armadon",
+  "mob_level": 21
+ },
+ "1198": {
+  "name": "Ashen Basilisk",
+  "slug": "ashen-basilisk",
+  "mob": null,
+  "mob_level": null
+ },
+ "1132": {
+  "name": "Ashen Lupyllini",
+  "slug": "ashen-lupyllini",
+  "mob": null,
+  "mob_level": null
+ },
+ "1114": {
+  "name": "Ashen Spider",
+  "slug": "ashen-spider",
+  "mob": "White Shell Octaside",
+  "mob_level": 18
+ },
+ "1008": {
+  "name": "Baby Odyle Spider",
+  "slug": "baby-odyle-spider",
+  "mob": "Coastal Odyle Spider",
+  "mob_level": 16
+ },
+ "1163": {
+  "name": "Basilisk",
+  "slug": "basilisk",
+  "mob": "Black Ash Basilisk",
+  "mob_level": 21
+ },
+ "1181": {
+  "name": "Brax",
+  "slug": "brax",
+  "mob": "Hungry Brax",
+  "mob_level": 18
+ },
+ "1071": {
+  "name": "Cadaver Insectoid",
+  "slug": "cadaver-insectoid",
+  "mob": "Drana Cadaver Insectoid",
+  "mob_level": 12
+ },
+ "1041": {
+  "name": "Cave Bat",
+  "slug": "cave-bat",
+  "mob": "Drana Mutated Bat",
+  "mob_level": 41
+ },
+ "1057": {
+  "name": "Coradon",
+  "slug": "coradon",
+  "mob": null,
+  "mob_level": null
+ },
+ "1022": {
+  "name": "Crasaur",
+  "slug": "crasaur",
+  "mob": "Eternal Crasaur",
+  "mob_level": 49
+ },
+ "1039": {
+  "name": "Crestlich",
+  "slug": "crestlich",
+  "mob": "Ellun River Crestlich Female",
+  "mob_level": 18
+ },
+ "1014": {
+  "name": "Drakan Guard Dog",
+  "slug": "drakan-guard-dog",
+  "mob": "Nahid Drakan Guard Dog",
+  "mob_level": 45
+ },
+ "1099": {
+  "name": "Elite Karnif",
+  "slug": "elite-karnif",
+  "mob": "Crimson Blizzard Renulf",
+  "mob_level": 80
+ },
+ "1032": {
+  "name": "Elite Keneire",
+  "slug": "elite-keneire",
+  "mob": null,
+  "mob_level": null
+ },
+ "1043": {
+  "name": "Elite Ursus",
+  "slug": "elite-ursus",
+  "mob": null,
+  "mob_level": null
+ },
+ "1134": {
+  "name": "Eternal Coradon",
+  "slug": "eternal-coradon",
+  "mob": "Abyss Eternal Coradon",
+  "mob_level": 52
+ },
+ "1199": {
+  "name": "Flame Barghest",
+  "slug": "flame-barghest",
+  "mob": null,
+  "mob_level": null
+ },
+ "1004": {
+  "name": "Fossa",
+  "slug": "fossa",
+  "mob": "Patrolling Fossa",
+  "mob_level": 25
+ },
+ "1059": {
+  "name": "Giant Bee",
+  "slug": "giant-bee",
+  "mob": "Giant Stripe Bee",
+  "mob_level": 27
+ },
+ "1034": {
+  "name": "Giant Sparkie",
+  "slug": "giant-sparkie",
+  "mob": "Highland Giant Odyle Sparkie",
+  "mob_level": 33
+ },
+ "1055": {
+  "name": "Grave Rat",
+  "slug": "grave-rat",
+  "mob": null,
+  "mob_level": null
+ },
+ "1015": {
+  "name": "Kailin",
+  "slug": "kailin",
+  "mob": "Kailin",
+  "mob_level": 20
+ },
+ "1097": {
+  "name": "Karnif",
+  "slug": "karnif",
+  "mob": "Tamed Karnif",
+  "mob_level": 40
+ },
+ "1009": {
+  "name": "Kernon",
+  "slug": "kernon",
+  "mob": null,
+  "mob_level": null
+ },
+ "1036": {
+  "name": "Lupyllini",
+  "slug": "lupyllini",
+  "mob": "Tail Feather Lupyllini",
+  "mob_level": 34
+ },
+ "1037": {
+  "name": "Male Crestlich",
+  "slug": "male-crestlich",
+  "mob": "Ellun River Crestlich Male",
+  "mob_level": 18
+ },
+ "1098": {
+  "name": "Modified Karnif",
+  "slug": "modified-karnif",
+  "mob": "Abyss Search Party Karnif",
+  "mob_level": 53
+ },
+ "1025": {
+  "name": "Mutated Aberrant Odyle Spider",
+  "slug": "mutated-aberrant-odyle-spider",
+  "mob": "Unstable Ashen Spider",
+  "mob_level": 48
+ },
+ "1130": {
+  "name": "Mutated Cadaver Insectoid",
+  "slug": "mutated-cadaver-insectoid",
+  "mob": "Ridge Spider",
+  "mob_level": 27
+ },
+ "1145": {
+  "name": "Mutated Insectoid Valka",
+  "slug": "mutated-insectoid-valka",
+  "mob": null,
+  "mob_level": null
+ },
+ "1143": {
+  "name": "Mutated Ursus",
+  "slug": "mutated-ursus",
+  "mob": "Ashen Ursus",
+  "mob_level": 21
+ },
+ "1066": {
+  "name": "Papis",
+  "slug": "papis",
+  "mob": "Faded Papis",
+  "mob_level": 40
+ },
+ "1007": {
+  "name": "Potcrab",
+  "slug": "potcrab",
+  "mob": "Moss Crab",
+  "mob_level": 32
+ },
+ "1067": {
+  "name": "Scorpion",
+  "slug": "scorpion",
+  "mob": "Contaminated Scorpion",
+  "mob_level": 36
+ },
+ "1035": {
+  "name": "Skama",
+  "slug": "skama",
+  "mob": "Foul Skama",
+  "mob_level": 14
+ },
+ "1011": {
+  "name": "Skyray",
+  "slug": "skyray",
+  "mob": "Tolbas Forest Lake Skyray",
+  "mob_level": 25
+ },
+ "1016": {
+  "name": "Slink",
+  "slug": "slink",
+  "mob": "Abyss Slink",
+  "mob_level": 51
+ },
+ "1006": {
+  "name": "Sparkie",
+  "slug": "sparkie",
+  "mob": "Aullaeu Forest Sparkie",
+  "mob_level": 27
+ },
+ "1083": {
+  "name": "Spider",
+  "slug": "spider",
+  "mob": "Abyss Odyle Mutated Insectoid",
+  "mob_level": 50
+ },
+ "1060": {
+  "name": "Starturtle",
+  "slug": "starturtle",
+  "mob": "Eternal Starturtle",
+  "mob_level": 49
+ },
+ "1045": {
+  "name": "Sylphen",
+  "slug": "sylphen",
+  "mob": "Highland Sylphen",
+  "mob_level": 32
+ },
+ "1203": {
+  "name": "Tamed Karnif",
+  "slug": "tamed-karnif",
+  "mob": "Tamed Blades Beast",
+  "mob_level": 37
+ },
+ "1189": {
+  "name": "Tamed Zaif",
+  "slug": "tamed-zaif",
+  "mob": "Tamed Zaif",
+  "mob_level": 52
+ },
+ "1106": {
+  "name": "Tayga",
+  "slug": "tayga",
+  "mob": "Search Party Tayga",
+  "mob_level": 40
+ },
+ "1072": {
+  "name": "Tog",
+  "slug": "tog",
+  "mob": "Tog",
+  "mob_level": 18
+ },
+ "1117": {
+  "name": "Unstable Spider",
+  "slug": "unstable-spider",
+  "mob": "Flame Rock Spider",
+  "mob_level": 27
+ },
+ "1042": {
+  "name": "Ursus",
+  "slug": "ursus",
+  "mob": "Ursus",
+  "mob_level": 32
+ },
+ "1158": {
+  "name": "Venomous Insect Sram",
+  "slug": "venomous-insect-sram",
+  "mob": null,
+  "mob_level": null
+ },
+ "1188": {
+  "name": "Vivel",
+  "slug": "vivel",
+  "mob": "Vampire Vivel",
+  "mob_level": 14
+ },
+ "1116": {
+  "name": "Withered Branch Spider",
+  "slug": "withered-branch-spider",
+  "mob": "Withered Branch Spider",
+  "mob_level": 13
+ },
+ "1120": {
+  "name": "Young Kailin",
+  "slug": "young-kailin",
+  "mob": "Ellun River Young Kailin",
+  "mob_level": 18
+ },
+ "1121": {
+  "name": "Young Slink",
+  "slug": "young-slink",
+  "mob": "Young Wetland Slink",
+  "mob_level": 18
+ },
+ "1122": {
+  "name": "Young Tog",
+  "slug": "young-tog",
+  "mob": null,
+  "mob_level": null
+ },
+ "1123": {
+  "name": "Young Ursus",
+  "slug": "young-ursus",
+  "mob": "Young Ursus",
+  "mob_level": 17
+ },
+ "1124": {
+  "name": "Zaif",
+  "slug": "zaif",
+  "mob": "Highland Forest Zaif",
+  "mob_level": 35
+ },
+ "1207": {
+  "name": "Agrint",
+  "slug": "agrint",
+  "mob": "Mutated Elim",
+  "mob_level": 22
+ },
+ "1177": {
+  "name": "Ancient Spirit",
+  "slug": "ancient-spirit",
+  "mob": null,
+  "mob_level": null
+ },
+ "1208": {
+  "name": "Ashen Agrint",
+  "slug": "ashen-agrint",
+  "mob": "Unstable Agrint",
+  "mob_level": 48
+ },
+ "1135": {
+  "name": "Ashen Dionae",
+  "slug": "ashen-dionae",
+  "mob": "Ashen Dionae",
+  "mob_level": 21
+ },
+ "1058": {
+  "name": "Black Smoke Murute",
+  "slug": "black-smoke-murute",
+  "mob": null,
+  "mob_level": null
+ },
+ "1214": {
+  "name": "Black Spirit",
+  "slug": "black-spirit",
+  "mob": "Abyss Corrupted Spirit",
+  "mob_level": 48
+ },
+ "1081": {
+  "name": "Dionae",
+  "slug": "dionae",
+  "mob": null,
+  "mob_level": null
+ },
+ "1131": {
+  "name": "Drana Spore",
+  "slug": "drana-spore",
+  "mob": "Crimson Mutated Spore",
+  "mob_level": 47
+ },
+ "1102": {
+  "name": "Dried Up Forest Guardian",
+  "slug": "dried-up-forest-guardian",
+  "mob": null,
+  "mob_level": null
+ },
+ "1210": {
+  "name": "Dry Leaf Agrint",
+  "slug": "dry-leaf-agrint",
+  "mob": "Twilight Dry Leaf Agrint",
+  "mob_level": 53
+ },
+ "1190": {
+  "name": "Elite Poisonous Spore Fungen",
+  "slug": "elite-poisonous-spore-fungen",
+  "mob": null,
+  "mob_level": null
+ },
+ "1133": {
+  "name": "Forest Dionae",
+  "slug": "forest-dionae",
+  "mob": null,
+  "mob_level": null
+ },
+ "1101": {
+  "name": "Forest Guardian",
+  "slug": "forest-guardian",
+  "mob": "Enraged Forest Guardian",
+  "mob_level": 50
+ },
+ "1003": {
+  "name": "Forest Specter",
+  "slug": "forest-specter",
+  "mob": "Tainted Vine Specter",
+  "mob_level": 44
+ },
+ "1048": {
+  "name": "Forest Spirit",
+  "slug": "forest-spirit",
+  "mob": "Marsh Vine Spirit",
+  "mob_level": 13
+ },
+ "1086": {
+  "name": "Fungen",
+  "slug": "fungen",
+  "mob": "Red Cap Fungen",
+  "mob_level": 12
+ },
+ "1012": {
+  "name": "Fungie",
+  "slug": "fungie",
+  "mob": "Red Cap Fungie",
+  "mob_level": 12
+ },
+ "1050": {
+  "name": "Gravi",
+  "slug": "gravi",
+  "mob": "Tolbas Gravi",
+  "mob_level": 24
+ },
+ "1165": {
+  "name": "Intermediate Earth Spirit",
+  "slug": "intermediate-earth-spirit",
+  "mob": "Violent Earth Spirit",
+  "mob_level": 51
+ },
+ "1187": {
+  "name": "Intermediate Fire Spirit",
+  "slug": "intermediate-fire-spirit",
+  "mob": "Immortal Fire Spirit",
+  "mob_level": 51
+ },
+ "1169": {
+  "name": "Intermediate Water Spirit",
+  "slug": "intermediate-water-spirit",
+  "mob": "Wandering Water Spirit",
+  "mob_level": 45
+ },
+ "1094": {
+  "name": "Intermediate Wind Spirit",
+  "slug": "intermediate-wind-spirit",
+  "mob": "Immortal Wind Spirit",
+  "mob_level": 51
+ },
+ "1031": {
+  "name": "Konutin Worker",
+  "slug": "konutin-worker",
+  "mob": "Tolbas Konutin Worker",
+  "mob_level": 24
+ },
+ "1052": {
+  "name": "Large Leaf Gravi",
+  "slug": "large-leaf-gravi",
+  "mob": "Large Leaf Gravi",
+  "mob_level": 44
+ },
+ "1164": {
+  "name": "Lesser Earth Spirit",
+  "slug": "lesser-earth-spirit",
+  "mob": "Eternal Earth Spirit",
+  "mob_level": 51
+ },
+ "1213": {
+  "name": "Lesser Fire Spirit",
+  "slug": "lesser-fire-spirit",
+  "mob": "Eternal Fire Spirit",
+  "mob_level": 51
+ },
+ "1168": {
+  "name": "Lesser Water Spirit",
+  "slug": "lesser-water-spirit",
+  "mob": "Eternal Water Spirit",
+  "mob_level": 51
+ },
+ "1092": {
+  "name": "Lesser Wind Spirit",
+  "slug": "lesser-wind-spirit",
+  "mob": "Soft Breeze Spirit",
+  "mob_level": 26
+ },
+ "1051": {
+  "name": "Magic Gravi",
+  "slug": "magic-gravi",
+  "mob": "Unstable Gravi",
+  "mob_level": 46
+ },
+ "1144": {
+  "name": "Mutated Forest Guardian",
+  "slug": "mutated-forest-guardian",
+  "mob": "Unstable Forest Guardian",
+  "mob_level": 48
+ },
+ "1049": {
+  "name": "Mutated Forest Spirit",
+  "slug": "mutated-forest-spirit",
+  "mob": "Contaminated Vine Bundle",
+  "mob_level": 37
+ },
+ "1073": {
+  "name": "Nepenthes",
+  "slug": "nepenthes",
+  "mob": "Tolbas Nepenthes",
+  "mob_level": 24
+ },
+ "1127": {
+  "name": "Odyle Stone Spirit",
+  "slug": "odyle-stone-spirit",
+  "mob": "Faded Odyle Spirit",
+  "mob_level": 46
+ },
+ "1136": {
+  "name": "Rafflesia",
+  "slug": "rafflesia",
+  "mob": "Crimson Rafflesia",
+  "mob_level": 47
+ },
+ "1091": {
+  "name": "Red Spark Ignus",
+  "slug": "red-spark-ignus",
+  "mob": null,
+  "mob_level": null
+ },
+ "1178": {
+  "name": "Spirit King's Bodyguard Warrior",
+  "slug": "spirit-kings-bodyguard-warrior",
+  "mob": "Spirit King's Bodyguard Warrior",
+  "mob_level": 54
+ },
+ "1069": {
+  "name": "Stone Spirit",
+  "slug": "stone-spirit",
+  "mob": "Twilight Odyle Stone Spirit",
+  "mob_level": 52
+ },
+ "1166": {
+  "name": "Superior Earth Spirit",
+  "slug": "superior-earth-spirit",
+  "mob": "Peculiar Rock Spirit",
+  "mob_level": 45
+ },
+ "1096": {
+  "name": "Superior Fire Spirit",
+  "slug": "superior-fire-spirit",
+  "mob": "Hellfire Spirit",
+  "mob_level": 45
+ },
+ "1155": {
+  "name": "Superior Water Spirit",
+  "slug": "superior-water-spirit",
+  "mob": "Water Mist Spirit",
+  "mob_level": 29
+ },
+ "1095": {
+  "name": "Superior Wind Spirit",
+  "slug": "superior-wind-spirit",
+  "mob": "Immortal Wind Spirit Guardian",
+  "mob_level": 51
+ },
+ "1209": {
+  "name": "Thin Agrint",
+  "slug": "thin-agrint",
+  "mob": "Crimson Agrint",
+  "mob_level": 46
+ },
+ "1100": {
+  "name": "Ultimate Earth Spirit",
+  "slug": "ultimate-earth-spirit",
+  "mob": null,
+  "mob_level": null
+ },
+ "1082": {
+  "name": "Ultimate Fire Spirit",
+  "slug": "ultimate-fire-spirit",
+  "mob": null,
+  "mob_level": null
+ },
+ "1090": {
+  "name": "Ultimate Water Spirit",
+  "slug": "ultimate-water-spirit",
+  "mob": null,
+  "mob_level": null
+ },
+ "1079": {
+  "name": "Ultimate Wind Spirit",
+  "slug": "ultimate-wind-spirit",
+  "mob": null,
+  "mob_level": null
+ },
+ "1027": {
+  "name": "Withered Agrint",
+  "slug": "withered-agrint",
+  "mob": "Withered Sulfur Agrint",
+  "mob_level": 46
+ },
+ "1219": {
+  "name": "Zelophi",
+  "slug": "zelophi",
+  "mob": "Abyss Zelophi",
+  "mob_level": 51
+ },
+ "1110": {
+  "name": "Blue Kalgolem",
+  "slug": "blue-kalgolem",
+  "mob": "Abyss Blue Kalgolem",
+  "mob_level": 52
+ },
+ "1157": {
+  "name": "Cadaver Cleaner",
+  "slug": "cadaver-cleaner",
+  "mob": "Ferocious Cadaver Cleaner",
+  "mob_level": 34
+ },
+ "1217": {
+  "name": "Congealed Drana",
+  "slug": "congealed-drana",
+  "mob": "Congealed Drana",
+  "mob_level": 12
+ },
+ "1062": {
+  "name": "Contaminated Slime",
+  "slug": "contaminated-slime",
+  "mob": "Marsh Slime",
+  "mob_level": 13
+ },
+ "1216": {
+  "name": "Dark Spirit",
+  "slug": "dark-spirit",
+  "mob": "Wandering Dark Spirit",
+  "mob_level": 45
+ },
+ "1142": {
+  "name": "Distorted Mutant",
+  "slug": "distorted-mutant",
+  "mob": "Consumed Spirit Guardian",
+  "mob_level": 30
+ },
+ "1056": {
+  "name": "Drakan Probe",
+  "slug": "drakan-probe",
+  "mob": "Drana Processing Maintenance Machine",
+  "mob_level": 41
+ },
+ "1148": {
+  "name": "Drakana Kalgolem",
+  "slug": "drakana-kalgolem",
+  "mob": "Crash Site Kalgolem",
+  "mob_level": 11
+ },
+ "1160": {
+  "name": "Drana Contaminant",
+  "slug": "drana-contaminant",
+  "mob": null,
+  "mob_level": null
+ },
+ "1179": {
+  "name": "Drana Mutant",
+  "slug": "drana-mutant",
+  "mob": "Twisted Mutant",
+  "mob_level": 10
+ },
+ "1153": {
+  "name": "Drana Mutant Brute",
+  "slug": "drana-mutant-brute",
+  "mob": "Eternal Drana Mutant",
+  "mob_level": 50
+ },
+ "1174": {
+  "name": "Drana Predator",
+  "slug": "drana-predator",
+  "mob": "Drana Predator",
+  "mob_level": 12
+ },
+ "1128": {
+  "name": "Drana Slime",
+  "slug": "drana-slime",
+  "mob": "Drana Slime",
+  "mob_level": 11
+ },
+ "1129": {
+  "name": "Drana Swarm",
+  "slug": "drana-swarm",
+  "mob": "Crimson Drana Swarm",
+  "mob_level": 46
+ },
+ "1173": {
+  "name": "Duduka Trebuchet Worker",
+  "slug": "duduka-trebuchet-worker",
+  "mob": "Duduka Slinger",
+  "mob_level": 42
+ },
+ "1172": {
+  "name": "Duduka Worker",
+  "slug": "duduka-worker",
+  "mob": "Duduka Worker",
+  "mob_level": 41
+ },
+ "1206": {
+  "name": "Elite Guardite",
+  "slug": "elite-guardite",
+  "mob": "Divine Ansas",
+  "mob_level": 45
+ },
+ "1182": {
+  "name": "Elite Soulless Corpse Gnat",
+  "slug": "elite-soulless-corpse-gnat",
+  "mob": null,
+  "mob_level": null
+ },
+ "1218": {
+  "name": "Faded Drana",
+  "slug": "faded-drana",
+  "mob": "Faded Chunk",
+  "mob_level": 35
+ },
+ "1161": {
+  "name": "Faded Floater",
+  "slug": "faded-floater",
+  "mob": "Faded Floater",
+  "mob_level": 35
+ },
+ "1180": {
+  "name": "Faded Mutant",
+  "slug": "faded-mutant",
+  "mob": "Abyss Drana Mutant",
+  "mob_level": 53
+ },
+ "1154": {
+  "name": "Faded Mutant Brute",
+  "slug": "faded-mutant-brute",
+  "mob": "Abyss Giant Mutant",
+  "mob_level": 53
+ },
+ "1175": {
+  "name": "Faded Predator",
+  "slug": "faded-predator",
+  "mob": "Faded Predator",
+  "mob_level": 35
+ },
+ "1167": {
+  "name": "Flame Stone Guardian Statue",
+  "slug": "flame-stone-guardian-statue",
+  "mob": null,
+  "mob_level": null
+ },
+ "1140": {
+  "name": "Forest Monster",
+  "slug": "forest-monster",
+  "mob": "Burned Forester",
+  "mob_level": 21
+ },
+ "1146": {
+  "name": "Gatekeeper Pinopi",
+  "slug": "gatekeeper-pinopi",
+  "mob": null,
+  "mob_level": null
+ },
+ "1194": {
+  "name": "Guardite",
+  "slug": "guardite",
+  "mob": "Uncontrollable Guardite",
+  "mob_level": 36
+ },
+ "1077": {
+  "name": "Harcon",
+  "slug": "harcon",
+  "mob": "Enhanced Harcon",
+  "mob_level": 70
+ },
+ "1084": {
+  "name": "Kalgolem",
+  "slug": "kalgolem",
+  "mob": "Ashen Kalgolem",
+  "mob_level": 34
+ },
+ "1028": {
+  "name": "Krao Mutant",
+  "slug": "krao-mutant",
+  "mob": null,
+  "mob_level": null
+ },
+ "1107": {
+  "name": "Krao Seal Guardian",
+  "slug": "krao-seal-guardian",
+  "mob": null,
+  "mob_level": null
+ },
+ "1068": {
+  "name": "Krao Test Subject",
+  "slug": "krao-test-subject",
+  "mob": null,
+  "mob_level": null
+ },
+ "1141": {
+  "name": "Marsh Targon",
+  "slug": "marsh-targon",
+  "mob": "Abyss Marsh Targon",
+  "mob_level": 52
+ },
+ "1176": {
+  "name": "Mudthorn",
+  "slug": "mudthorn",
+  "mob": "Remnant of Subspace",
+  "mob_level": 44
+ },
+ "1064": {
+  "name": "Oculazen",
+  "slug": "oculazen",
+  "mob": "Oculazen",
+  "mob_level": 44
+ },
+ "1159": {
+  "name": "Parasite Swarm",
+  "slug": "parasite-swarm",
+  "mob": "Giant Ore Insectoid Adult",
+  "mob_level": 36
+ },
+ "1087": {
+  "name": "Pino",
+  "slug": "pino",
+  "mob": "Pino Worker",
+  "mob_level": 27
+ },
+ "1088": {
+  "name": "Pino Worker",
+  "slug": "pino-worker",
+  "mob": "Harsh Pino Worker",
+  "mob_level": 28
+ },
+ "1186": {
+  "name": "Poison Blood",
+  "slug": "poison-blood",
+  "mob": "Unstable Poison Blood",
+  "mob_level": 47
+ },
+ "1192": {
+  "name": "Silver Blade Rotan",
+  "slug": "silver-blade-rotan",
+  "mob": "Abyss Old Blade Rotan",
+  "mob_level": 46
+ },
+ "1061": {
+  "name": "Slime",
+  "slug": "slime",
+  "mob": "Unruly Slime",
+  "mob_level": 29
+ },
+ "1183": {
+  "name": "Soulless Corpse Gnat",
+  "slug": "soulless-corpse-gnat",
+  "mob": "Soulless Corpse Gnat",
+  "mob_level": 33
+ },
+ "1139": {
+  "name": "Swamp Monster",
+  "slug": "swamp-monster",
+  "mob": null,
+  "mob_level": null
+ },
+ "1013": {
+  "name": "Swarm",
+  "slug": "swarm",
+  "mob": "Abyss Swarm",
+  "mob_level": 50
+ },
+ "1063": {
+  "name": "Vigilant Oculazen",
+  "slug": "vigilant-oculazen",
+  "mob": "Vigilant Oculazen",
+  "mob_level": 32
+ },
+ "1197": {
+  "name": "Watcher Guardite",
+  "slug": "watcher-guardite",
+  "mob": "Contaminated Guardite",
+  "mob_level": 37
+ },
+ "1193": {
+  "name": "Addicted Shulak Cart Worker",
+  "slug": "addicted-shulak-cart-worker",
+  "mob": "Rampaging Shulak Cart Worker",
+  "mob_level": 36
+ },
+ "1040": {
+  "name": "Aullaeu Shaman",
+  "slug": "aullaeu-shaman",
+  "mob": "Aullaeu Apprentice Shaman",
+  "mob_level": 27
+ },
+ "1044": {
+  "name": "Aultross's Doppelganger",
+  "slug": "aultrosss-doppelganger",
+  "mob": null,
+  "mob_level": null
+ },
+ "1065": {
+  "name": "Biruta",
+  "slug": "biruta",
+  "mob": "Biruta Wanderer",
+  "mob_level": 17
+ },
+ "1105": {
+  "name": "Biruta Herbalist",
+  "slug": "biruta-herbalist",
+  "mob": "Biruta Herbalist",
+  "mob_level": 17
+ },
+ "1202": {
+  "name": "Decomposed Lupyllini",
+  "slug": "decomposed-lupyllini",
+  "mob": "Decomposed Lupyllini",
+  "mob_level": 20
+ },
+ "1195": {
+  "name": "Dracuni Herbalist",
+  "slug": "dracuni-herbalist",
+  "mob": "Dracuni Processing Laborer",
+  "mob_level": 41
+ },
+ "1184": {
+  "name": "Drakan Watcher",
+  "slug": "drakan-watcher",
+  "mob": "Processing Facility Drakan Scout",
+  "mob_level": 42
+ },
+ "1147": {
+  "name": "Dratona",
+  "slug": "dratona",
+  "mob": "Scarlet Forest Dratona",
+  "mob_level": 41
+ },
+ "1185": {
+  "name": "Dratona Tinkerer",
+  "slug": "dratona-tinkerer",
+  "mob": null,
+  "mob_level": null
+ },
+ "1196": {
+  "name": "Elite Dratona",
+  "slug": "elite-dratona",
+  "mob": "Predator Colossus Balakh",
+  "mob_level": 80
+ },
+ "1156": {
+  "name": "Elite Klaw",
+  "slug": "elite-klaw",
+  "mob": "Bodyguard Teegant",
+  "mob_level": 45
+ },
+ "1033": {
+  "name": "Elite Manduri Fighter",
+  "slug": "elite-manduri-fighter",
+  "mob": "Black Claw Manduri Fighter",
+  "mob_level": 41
+ },
+ "1108": {
+  "name": "Enhanced Krall Combatant",
+  "slug": "enhanced-krall-combatant",
+  "mob": "Enhanced Krall Combatant",
+  "mob_level": 22
+ },
+ "1109": {
+  "name": "Enhanced Krall Sentry",
+  "slug": "enhanced-krall-sentry",
+  "mob": "Enhanced Krall Sentry",
+  "mob_level": 22
+ },
+ "1191": {
+  "name": "Furious Feruk",
+  "slug": "furious-feruk",
+  "mob": null,
+  "mob_level": null
+ },
+ "1162": {
+  "name": "Kerubar",
+  "slug": "kerubar",
+  "mob": "Eternal Kerubar",
+  "mob_level": 49
+ },
+ "1170": {
+  "name": "Kerubian",
+  "slug": "kerubian",
+  "mob": "Eternal Kerubian",
+  "mob_level": 49
+ },
+ "1171": {
+  "name": "Kerubiel",
+  "slug": "kerubiel",
+  "mob": "Eternal Kerubiel",
+  "mob_level": 49
+ },
+ "1005": {
+  "name": "Klaw",
+  "slug": "klaw",
+  "mob": "Wandering Klaw",
+  "mob_level": 19
+ },
+ "1029": {
+  "name": "Klaw Scout",
+  "slug": "klaw-scout",
+  "mob": "Abyss Klaw",
+  "mob_level": 53
+ },
+ "1002": {
+  "name": "Krall Laborer",
+  "slug": "krall-laborer",
+  "mob": "Krall Sentinel",
+  "mob_level": 21
+ },
+ "1026": {
+  "name": "Krall Warrior",
+  "slug": "krall-warrior",
+  "mob": "Krall Assault Trooper",
+  "mob_level": 21
+ },
+ "1017": {
+  "name": "Krall Warshaman",
+  "slug": "krall-warshaman",
+  "mob": "Modified Krall Healer",
+  "mob_level": 41
+ },
+ "1115": {
+  "name": "Kuru Overseer",
+  "slug": "kuru-overseer",
+  "mob": "Eternal Kuru Overseer",
+  "mob_level": 50
+ },
+ "1075": {
+  "name": "Kuru Tinkerer",
+  "slug": "kuru-tinkerer",
+  "mob": "Eternal Kuru Tinkerer",
+  "mob_level": 50
+ },
+ "1074": {
+  "name": "Kuru Worker",
+  "slug": "kuru-worker",
+  "mob": "Kuru Worker",
+  "mob_level": 50
+ },
+ "1010": {
+  "name": "Manduri Fighter",
+  "slug": "manduri-fighter",
+  "mob": "Black Claw Manduri Combatant",
+  "mob_level": 42
+ },
+ "1104": {
+  "name": "Manduri Trebuchet Worker",
+  "slug": "manduri-trebuchet-worker",
+  "mob": "Hill Manduri",
+  "mob_level": 39
+ },
+ "1201": {
+  "name": "Modified Lupyllini",
+  "slug": "modified-lupyllini",
+  "mob": "Modified Lupyllini",
+  "mob_level": 49
+ },
+ "1138": {
+  "name": "Mumu Overseer",
+  "slug": "mumu-overseer",
+  "mob": null,
+  "mob_level": null
+ },
+ "1054": {
+  "name": "Mumu Warrior",
+  "slug": "mumu-warrior",
+  "mob": "Mumu Watcher",
+  "mob_level": 32
+ },
+ "1137": {
+  "name": "Mumu Worker",
+  "slug": "mumu-worker",
+  "mob": "Mumu Worker",
+  "mob_level": 32
+ },
+ "1200": {
+  "name": "Naga Elite Priest",
+  "slug": "naga-elite-priest",
+  "mob": "Abyss Naga Dark Mage",
+  "mob_level": 54
+ },
+ "1030": {
+  "name": "Nagarant Guardian Warrior",
+  "slug": "nagarant-guardian-warrior",
+  "mob": "Abyss Nagarant Brawler",
+  "mob_level": 54
+ },
+ "1093": {
+  "name": "Phantasmal Lakshmi",
+  "slug": "phantasmal-lakshmi",
+  "mob": "Phantasmal Lakshmi",
+  "mob_level": 45
+ },
+ "1215": {
+  "name": "Predator Saraswati",
+  "slug": "predator-saraswati",
+  "mob": "Predator Saraswati",
+  "mob_level": 70
+ },
+ "1103": {
+  "name": "Pretor Veil Administrator",
+  "slug": "pretor-veil-administrator",
+  "mob": "Gluttonous Egetis",
+  "mob_level": 80
+ },
+ "1080": {
+  "name": "Sentinel K'nash",
+  "slug": "sentinel-knash",
+  "mob": null,
+  "mob_level": null
+ },
+ "1078": {
+  "name": "Urugugu Brawler",
+  "slug": "urugugu-brawler",
+  "mob": null,
+  "mob_level": null
+ },
+ "1018": {
+  "name": "Varg Berserker",
+  "slug": "varg-berserker",
+  "mob": "Varg Berserker",
+  "mob_level": 53
+ },
+ "1001": {
+  "name": "Black Dragon",
+  "slug": "black-dragon",
+  "mob": null,
+  "mob_level": null
+ },
+ "1278": {
+  "name": "Chonky Hamster",
+  "slug": "chonky-hamster",
+  "mob": null,
+  "mob_level": null
+ },
+ "1204": {
+  "name": "Pagati",
+  "slug": "pagati",
+  "mob": null,
+  "mob_level": null
+ },
+ "1111": {
+  "name": "Swift Lugi",
+  "slug": "swift-lugi",
+  "mob": null,
+  "mob_level": null
+ },
+ "1299": {
+  "name": "Two",
+  "slug": "two",
+  "mob": null,
+  "mob_level": null
+ },
+ "1112": {
+  "name": "Wandering Merchant Lugi",
+  "slug": "wandering-merchant-lugi",
+  "mob": null,
+  "mob_level": null
+ },
+ "1240": {
+  "name": "White Bunny",
+  "slug": "white-bunny",
+  "mob": null,
+  "mob_level": null
+ }
+}

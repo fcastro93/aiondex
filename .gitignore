@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Build output
+build/
+dist/
+
+# Local data: personal state, caches and downloaded game art stay out of the repo.
+# Only the pet/zone database is versioned (it is bundled into the installer).
+data/*
+!data/pets_db.json
+!data/map_db.json
+
+# Dev artifacts
+prototipos/
+*.pcap
+*.log
+.vscode/
+.idea/

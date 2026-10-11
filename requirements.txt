@@ -1,0 +1,5 @@
+scapy>=2.6
+psutil>=6.0
+pillow>=10.0
+PySide6-Essentials>=6.8
+cryptography>=42
