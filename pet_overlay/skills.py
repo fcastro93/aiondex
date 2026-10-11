@@ -22,6 +22,9 @@ CAST_OPCODE = bytes.fromhex("0238")
 SKILL_LIST_OPCODE = bytes.fromhex("0051")
 PRESETS_OPCODE = bytes.fromhex("8ce2")
 REJECT_TOO_SOON = 0x1813    # the most common rejection: pressed 0.1-0.5 s after another cast, skill off cooldown
+# quickslot -> default key in the game's bar: 1-8, then Q, E, mouse, T (each slot holds up to 4 skills by priority)
+SLOT_KEYS = {**{i: str(i + 1) for i in range(8)}, 20: "Q", 21: "E", 22: "Ratón", 23: "T"}
+BAR_SLOTS = list(SLOT_KEYS)
 
 
 def base_skill(skill_id):
@@ -136,13 +139,13 @@ def _skip_kv_list(body, p, value_size):
 
 
 def parse_presets(body):
-    """(active preset, [QuickSlot] of the active preset)."""
+    """(active preset, {preset number: [QuickSlot]}) for the 3 presets (an unused preset has no slots)."""
     try:
         p = _skip_kv_list(body, 3, 8) + 3
         p = _skip_kv_list(body, p, 8)
         active, n = body[p], body[p + 1]
         p += 2
-        slots = []
+        presets = {}
         for _ in range(n):
             typ, preset, slot = body[p], body[p + 1], body[p + 2]
             p += 3
@@ -153,11 +156,12 @@ def parse_presets(body):
             m = body[p]
             prio = list(struct.unpack_from(f"<{m}I", body, p + 1))
             p += 1 + 4 * m
-            if typ == 3 and preset == active:
-                slots.append(QuickSlot(slot, skill, [base_skill(s) for s in prio if s] or [base_skill(skill)]))
+            presets.setdefault(preset, [])
+            if typ == 3:
+                presets[preset].append(QuickSlot(slot, skill, [base_skill(s) for s in prio if s] or [base_skill(skill)]))
     except (IndexError, struct.error):
         return None
-    return active, slots
+    return active, presets
 
 
 def chain_parents(skills, known):

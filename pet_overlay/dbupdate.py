@@ -13,6 +13,7 @@ from PIL import Image
 from . import metabot
 
 ICON_PX = 64
+SKILL_ICON_PX = 96
 
 
 def run(data_dir, refresh=False, report=None):
@@ -96,6 +97,21 @@ def download_icons(data_dir, pet_ids, report=None):
         except Exception:  # one missing icon should not abort the rest
             pass
         report("Iconos", i, len(missing))
+    return len(missing)
+
+
+def download_skill_icons(data_dir, skill_ids):
+    """Fetch the skill icons that are not on disk yet (only your own class's skills are asked for)."""
+    icons = Path(data_dir) / "skill_icons"
+    icons.mkdir(parents=True, exist_ok=True)
+    missing = [str(sid) for sid in skill_ids if not (icons / f"{sid}.png").exists()]
+    for sid in missing:
+        try:
+            img = Image.open(io.BytesIO(metabot.fetch(f"/web/aion2/skills/{sid}.webp"))).convert("RGBA")
+            img.thumbnail((SKILL_ICON_PX, SKILL_ICON_PX), Image.LANCZOS)
+            img.save(icons / f"{sid}.png")
+        except Exception:  # one missing icon should not abort the rest
+            pass
     return len(missing)
 
 

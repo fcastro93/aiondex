@@ -166,8 +166,8 @@ class Bridge(QObject):
                 self.own_skill.emit(("skills", skills))
         elif op == PRESETS_OPCODE:
             presets = parse_presets(body)
-            if presets and presets[1]:
-                self.own_skill.emit(("bar", presets[1]))
+            if presets and any(presets[1].values()):
+                self.own_skill.emit(("bar", presets))
         elif op == CHARACTER_OPCODE:
             info = parse_character(body)
             if info:
@@ -198,17 +198,18 @@ class DbUpdateThread(QThread):
 
 
 class IconThread(QThread):
-    """Downloads the pet portraits missing on disk (they are not shipped with the installer)."""
+    """Downloads the pet portraits or skill icons missing on disk (they are not shipped with the installer)."""
     done = Signal(int)
 
-    def __init__(self, data_dir, pet_ids):
+    def __init__(self, data_dir, ids, skills=False):
         super().__init__()
-        self.data_dir, self.pet_ids = data_dir, pet_ids
+        self.data_dir, self.ids, self.skills = data_dir, ids, skills
 
     def run(self):
         from . import dbupdate
         try:
-            self.done.emit(dbupdate.download_icons(self.data_dir, self.pet_ids))
+            download = dbupdate.download_skill_icons if self.skills else dbupdate.download_icons
+            self.done.emit(download(self.data_dir, self.ids))
         except Exception:
             log.exception("icon download failed")
             self.done.emit(0)
@@ -357,12 +358,16 @@ class Controller(QObject):
         elif kind == "cast":
             self.tuner.on_cast(*event[1:])
         elif kind in ("skills", "bar"):
-            (self.tuner.on_skill_list if kind == "skills" else self.tuner.on_bar)(event[1])
+            if kind == "skills":
+                self.tuner.on_skill_list(event[1])
+            else:
+                self.tuner.on_presets(*event[1])
             QTimer.singleShot(int(STORE_DELAY * 1000) + 200, self.tuner_changed)   # once it is attributed
 
     def tuner_changed(self):
         """Skill list or bar read from the game: show it in the Afinador."""
         self.tuner.apply_pending()
+        self._ensure_skill_icons()
         if self.tuner_window and self.tuner_window.isVisible():
             self.tuner_window.rebuild()
         if self.active_module.key == "tuner":
@@ -712,7 +717,19 @@ class Controller(QObject):
         if self.active_module.key == "diagnostics":
             self.refresh()
 
+    def _ensure_skill_icons(self):
+        if not self.persist or (getattr(self, "_skill_icon_thread", None) and self._skill_icon_thread.isRunning()):
+            return
+        missing = [s for s in self.tuner.icon_ids() if not (self.tuner.icons_dir / f"{s}.png").exists()]
+        if not missing:
+            return
+        self._skill_icon_thread = IconThread(self.data_dir, missing, skills=True)
+        self._skill_icon_thread.done.connect(lambda _: self.tuner_window and self.tuner_window.isVisible()
+                                             and self.tuner_window.rebuild())
+        self._skill_icon_thread.start()
+
     def open_tuner(self):
+        self._ensure_skill_icons()
         from .ui.tunerwindow import TunerWindow
         if self.tuner_window is None:
             self.tuner_window = TunerWindow(self)

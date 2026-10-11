@@ -1,31 +1,38 @@
-"""Afinador state: your skills and quickslot bar from the game, per-character macro setup, test recording and
-the last report."""
+"""Afinador state: your skills and the 3 quickslot presets from the game, the macro setup (one per preset, the
+external macro shared), test recording and the last report."""
 import json
 import time
 from collections import Counter, deque
 from pathlib import Path
 
-from .skills import OwnSkill, QuickSlot, base_skill, chain_parents, is_basic_attack
-from .tuner import MacroLine, MacroSetup, TunerSession, analyze
+from .skills import SLOT_KEYS, OwnSkill, QuickSlot, base_skill, chain_parents, is_basic_attack
+from .tuner import Finding, MacroLine, MacroSetup, TunerSession, analyze
 
 CAST_MATCH_SECONDS = 0.2     # the cast (0238) and the reply to its press (0138) arrive in the same packet
 FRESH_LOADOUT = 15.0         # a skill list this recent belongs to the character that logs in right after it
 STORE_DELAY = 3.0            # wait for the login's character info before saving a skill list
+PRESET_MARGIN = 0.15         # how much better another preset must match your presses to be the one you used
+SHARED_KEYS = ("external", "external_repeat", "skill_queue")
+PRESET_KEYS = ("ingame", "suggested")
 
 
 class Afinador:
     def __init__(self, ctl):
         self.ctl = ctl
         self.skills = _load(Path(ctl.data_dir) / "skills_db.json")     # names and types by base id
+        self.icons_dir = Path(ctl.data_dir) / "skill_icons"
         self.session = None
         self.last_report = None
         self.own = {}                # base id -> OwnSkill, from the game's skill list
-        self.bar = []                # [QuickSlot] of the active preset
+        self.presets = {}            # preset number -> [QuickSlot]
+        self.active_preset = None    # the preset in use in the game when it sent the bars
+        self.chosen_preset = None    # the preset picked in the Afinador (None: the game's)
         self.chains = {}             # chain skill base -> (opener base, step)
         self.last_cast = {}          # skill -> (ts, cooldown ms) of its last pressed cast
         self.seen = Counter()        # skills you pressed (fallback when the skill list was not captured)
+        self.loadout_at = None       # when the skills and bars were read from the game
         self._loadout_at = 0.0
-        self._loadout_for = None     # character the skill list and bar belong to (None: not known yet)
+        self._loadout_for = None     # character the skill list and bars belong to (None: not known yet)
         self._store_pending = False
         self._presses = deque(maxlen=8)      # (ts, skill id, folded) accepted presses not matched to a cast yet
         self._casts = deque(maxlen=8)        # (ts, skill id, folded, cooldown ms) own casts not matched yet
@@ -35,23 +42,51 @@ class Afinador:
     def key(self):
         return self.ctl.character_name() or "_sin_personaje"
 
-    def _stored(self):
-        return self.ctl.settings.setdefault("tuner", {}).get(self.key) or {}
+    @property
+    def preset(self):
+        return self.chosen_preset or self.active_preset or 1
+
+    @property
+    def bar(self):
+        return self.presets.get(self.preset, [])
+
+    def _entry(self, create=False):
+        store = self.ctl.settings.setdefault("tuner", {})
+        entry = store.get(self.key)
+        if entry is None:
+            if not create:
+                return {}
+            entry = store[self.key] = {}
+        if "ingame" in entry or "external" in entry:          # 1.3.0: one setup per character
+            old = {k: entry.pop(k) for k in list(entry) if k not in ("loadout", "shared", "setups")}
+            entry["shared"] = {k: old[k] for k in SHARED_KEYS if k in old}
+            entry["setups"] = {str(self.preset): {k: old[k] for k in PRESET_KEYS if k in old}}
+        loadout = entry.get("loadout") or {}
+        if "bar" in loadout:
+            loadout["presets"] = {str(self.preset): loadout.pop("bar")}
+        return entry
 
     @property
     def setup(self):
         self._maybe_store()
-        if not hasattr(self, "_setup") or self._setup_key != self.key:
-            self._setup = MacroSetup.from_json(self._stored())
-            self._setup_key = self.key
+        if getattr(self, "_setup_key", None) != (self.key, self.preset):
+            entry = self._entry()
+            per = entry.get("setups", {}).get(str(self.preset), {})
+            self._setup = MacroSetup.from_json({**entry.get("shared", {}), **per})
+            self._setup_key = (self.key, self.preset)
             self._sync_lines()
         return self._setup
 
     def save(self):
-        store = self.ctl.settings.setdefault("tuner", {})
-        loadout = store.get(self.key, {}).get("loadout")
-        store[self.key] = {**self.setup.to_json(), **({"loadout": loadout} if loadout else {})}
+        data = self.setup.to_json()
+        entry = self._entry(create=True)
+        entry["shared"] = {k: data[k] for k in SHARED_KEYS}
+        entry.setdefault("setups", {})[str(self.preset)] = {k: data[k] for k in PRESET_KEYS}
         self.ctl.settings.save()
+
+    def select_preset(self, number):
+        self.chosen_preset = number
+        self.setup                   # loads that preset's macro and fills it from its bar
 
     # --- game data ----------------------------------------------------------------------------------
     def on_skill_list(self, skills):
@@ -59,13 +94,17 @@ class Afinador:
         self.chains = chain_parents(skills, {int(k) for k in self.skills})
         self._got_loadout()
 
-    def on_bar(self, slots):
-        self.bar = slots
+    def on_presets(self, active, presets):
+        if active != self.active_preset:
+            self.chosen_preset = None            # the game switched preset: follow it
+        self.active_preset = active
+        self.presets = presets
         self._got_loadout()
 
     def on_character(self):
         """The character changed: a fresh skill list is theirs, otherwise use what was saved for them."""
-        if time.time() - self._loadout_at <= FRESH_LOADOUT and (self.own or self.bar):
+        self.chosen_preset = None
+        if time.time() - self._loadout_at <= FRESH_LOADOUT and (self.own or self.presets):
             self._store_loadout()
         else:
             self._restore_loadout()
@@ -73,7 +112,7 @@ class Afinador:
 
     def _got_loadout(self):
         # the login's character info may still follow: attribute (and apply) it once that is clear
-        self._loadout_at = time.time()
+        self._loadout_at = self.loadout_at = time.time()
         self._loadout_for = None if self.ctl.character_name() else self.key
         self._store_pending = True
         self._sync_lines()
@@ -93,28 +132,31 @@ class Afinador:
             return
         self._loadout_for = self.key
         self._sync_lines()
-        store = self.ctl.settings.setdefault("tuner", {})
-        entry = store.setdefault(self.key, {})
+        entry = self._entry(create=True)
         entry["loadout"] = {
             "skills": {str(b): [s.level, s.learned, s.bonus, s.specs] for b, s in self.own.items()},
-            "bar": [[q.slot, q.skill, q.priority] for q in self.bar],
+            "presets": {str(n): [[q.slot, q.skill, q.priority] for q in slots] for n, slots in self.presets.items()},
+            "active": self.active_preset,
+            "at": self.loadout_at,
         }
         self.ctl.settings.save()
 
     def _restore_loadout(self):
         self._store_pending = False
-        loadout = self._stored().get("loadout") or {}
+        loadout = self._entry().get("loadout") or {}
         self.own = {int(b): OwnSkill(int(b), *v) for b, v in loadout.get("skills", {}).items()}
-        self.bar = [QuickSlot(*q) for q in loadout.get("bar", [])]
+        self.presets = {int(n): [QuickSlot(*q) for q in slots] for n, slots in loadout.get("presets", {}).items()}
+        self.active_preset = loadout.get("active")
+        self.loadout_at = loadout.get("at")
         self.chains = chain_parents(self.own, {int(k) for k in self.skills})
         self._loadout_for = self.key
-        if hasattr(self, "_setup"):
-            del self._setup
+        self._setup_key = None
 
     def _sync_lines(self):
-        """Steps linked to a quickslot follow the game's priority list; with no steps yet, suggest the slots
+        """Steps linked to a key of the bar follow the game's priority list; with no steps yet, suggest the keys
         that hold several skills (those are made for the macro)."""
-        if not hasattr(self, "_setup") or not self.bar or self._loadout_for != self.key                 or self._setup_key != self.key:
+        if not hasattr(self, "_setup") or not self.bar or self._loadout_for != self.key \
+                or self._setup_key != (self.key, self.preset):
             return
         by_slot = {q.slot: q for q in self.bar}
         setup = self._setup
@@ -134,7 +176,7 @@ class Afinador:
         if notify:
             notify()
 
-    # --- names -------------------------------------------------------------------------------------
+    # --- names, levels, icons ----------------------------------------------------------------------
     def fold(self, skill_id):
         """Group variants, effects and chain hits under the skill you press."""
         base = base_skill(skill_id)
@@ -152,6 +194,36 @@ class Afinador:
             return f"{self.skill_name(opener)} (golpe {step})"
         return f"Habilidad #{sid}"
 
+    def skill_kind(self, sid):
+        return self.skills.get(str(self.fold(sid)), {}).get("type")
+
+    def level_of(self, sid):
+        own = self.own.get(self.fold(sid))
+        return own.level if own else None
+
+    def icon_path(self, sid):
+        """PNG of the skill's icon (chain hits use their opener's), or None if not downloaded."""
+        if is_basic_attack(sid):
+            return None
+        path = self.icons_dir / f"{self.fold(sid)}.png"
+        return path if path.exists() else None
+
+    def icon_ids(self):
+        """Skills of yours that have an icon on metabot (the ones in the skills database)."""
+        ids = {self.fold(s) for s in self.own}
+        ids |= {self.fold(s) for slots in self.presets.values() for q in slots for s in q.priority}
+        return sorted(s for s in ids if str(s) in self.skills)
+
+    def key_of(self, sid):
+        """The key of the current preset's bar that holds this skill (any priority), or None."""
+        sid = self.fold(sid)
+        q = next((q for q in self.bar if sid in q.priority), None)
+        return SLOT_KEYS.get(q.slot) if q else None
+
+    def slot_label(self, slot):
+        key = SLOT_KEYS.get(slot, str(slot))
+        return "Ratón" if key == "Ratón" else f"Tecla {key}"
+
     def class_prefix(self):
         own = list(self.own) or [q.skill for q in self.bar] or [s for s, _ in self.seen.most_common(20)]
         prefixes = Counter(str(s)[:2] for s in own if str(base_skill(s)) in self.skills)
@@ -165,18 +237,14 @@ class Afinador:
         return sorted(items, key=lambda x: x[1])
 
     def loadout_groups(self):
-        """[(title, ["Snipe 14 · esp. 3, 4", ...])] for actives, stigmas and passives from the game."""
+        """[(title, [OwnSkill])] for actives, stigmas and passives, highest level first."""
         groups = {"active": [], "stigma": [], "passive": []}
         for base, own in sorted(self.own.items(), key=lambda x: -x[1].level):
             kind = self.skills.get(str(base), {}).get("type")
             if kind in groups:
-                specs = f" · esp. {', '.join(map(str, own.specs))}" if own.specs else ""
-                groups[kind].append(f"{self.skill_name(base)} {own.level}{specs}")
+                groups[kind].append(own)
         titles = {"active": "Activas", "stigma": "Estigmas", "passive": "Pasivas"}
         return [(titles[k], v) for k, v in groups.items() if v]
-
-    def slot_label(self, slot):
-        return f"Ranura {slot + 1}" if slot < 20 else f"Ranura extra {slot - 19}"
 
     # --- recording --------------------------------------------------------------------------------
     @property
@@ -219,8 +287,29 @@ class Afinador:
         if not self.session:
             return None
         self.session.ended = self.session.ended or time.time()
+        used = self.preset_used(self.session)
+        switched = used is not None and used != self.preset
+        if switched:
+            self.select_preset(used)
         self.last_report = analyze(self.session, self.setup, name=self.skill_name)
+        if switched:
+            self.last_report.findings.append(Finding(
+                "info", f"Analizado con el preset {used}: es el que coincide con las habilidades que lanzaste.",
+                "Si no es el que usabas, elige otro preset arriba y repite la prueba."))
         return self.last_report
+
+    def preset_used(self, session):
+        """The preset whose bar holds most of what you pressed during the test (None if it is not clear)."""
+        pressed = Counter(s for _, s, r in session.presses if r == 0 and not is_basic_attack(s))
+        total = sum(pressed.values())
+        if not total:
+            return None
+        scores = {n: sum(c for s, c in pressed.items() if s in {x for q in slots for x in q.priority}) / total
+                  for n, slots in self.presets.items() if slots}
+        if not scores:
+            return None
+        best = max(scores, key=scores.get)
+        return best if scores[best] - scores.get(self.preset, 0) >= PRESET_MARGIN else None
 
 
 def _take(pending, ts, skill, sid):
