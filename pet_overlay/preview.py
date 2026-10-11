@@ -38,4 +38,28 @@ def start_simulation(controller, interval_ms=2500):
     timer.start()
     # After a moment the player "arrives" in a zone: the panel switches from stats to nearby pets.
     QTimer.singleShot(2000, lambda: controller.on_zone_detected("southern-gribade-highland"))
+    _simulate_fight(controller)
     return timer
+
+
+def _simulate_fight(controller):
+    """A short group fight so the DPS module has something to show."""
+    from .combat import Hit
+    combat = controller.combat
+    controller.dps_ready = True
+    combat.set_self(1, "Charfire")
+    combat.add_player(2, "Lynndrell")
+    combat.add_player(3, "Sephyr")
+    combat.add_npc(100, "Old Commander Mardel")
+    rng = random.Random(3)
+    power = {1: 2600, 2: 3100, 3: 1700}
+
+    def swing():
+        now = time.time()
+        hits = [Hit(now, eid, 100, int(base * rng.uniform(0.6, 1.8)), skill=rng.randint(1, 6),
+                    crit=rng.random() < 0.3) for eid, base in power.items()]
+        controller.bridge.hits.emit(hits)
+
+    timer = QTimer(controller, interval=250, timeout=swing)
+    timer.start()
+    controller._fight_timer = timer

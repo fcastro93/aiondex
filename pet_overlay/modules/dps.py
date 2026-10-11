@@ -1,0 +1,30 @@
+from . import Module, ModuleView
+from ..ui import theme
+from ..ui.appmenu import glyph_icon
+from ..ui.dps_panel import DpsPanel, mmss, short_number
+
+GLYPH_SWORD = ""      # lightning bolt in Segoe MDL2/Fluent
+
+
+class DpsModule(Module):
+    key = "dps"
+    title = "DPS"
+
+    def icon(self):
+        return glyph_icon(GLYPH_SWORD, theme.ACCENT, self.ctl.fonts.icons_family)
+
+    def create_panel(self, fonts):
+        self.panel = DpsPanel(self.ctl, fonts)
+        return self.panel
+
+    def render(self, compact):
+        combat = self.ctl.combat
+        enc = combat.current
+        self.panel.render(enc, combat.history, compact, self.ctl.settings.get("dps_only_me", False),
+                          self.ctl.dps_ready)
+        summary, footer = "", ""
+        if enc:
+            me = next((a for a in enc.actors.values() if a.is_self), None)
+            summary = f"{short_number(enc.dps(me))}/s" if me else ""
+            footer = f"{'Pelea terminada' if enc.ended else 'En combate'} · {mmss(enc.duration)}"
+        return ModuleView(summary=summary, footer=footer)

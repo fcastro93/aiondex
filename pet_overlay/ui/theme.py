@@ -7,6 +7,7 @@ GOLD = QColor("#f0c24e")          # logo gold
 GAIN = QColor("#7bd88f")
 WARN = QColor("#e0a050")
 ELYOS = QColor("#7cc4ff")
+COMBAT = QColor("#ff7a59")
 ASMODIAN = QColor("#c38bff")
 BAR_BG = QColor(255, 255, 255, 22)
 BORDER = QColor(255, 255, 255, 20)

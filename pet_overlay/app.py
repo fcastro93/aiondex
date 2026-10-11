@@ -10,7 +10,10 @@ from PySide6.QtGui import QAction, QActionGroup, QIcon
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
 from .character import CHARACTER_OPCODE, parse_character
-from .world import WorldTracker, game_map_faction
+from .world import SPAWN_OPCODE, WorldTracker, game_map_faction, parse_spawn_full
+from .combat import PLAYER_SPAWN_OPCODE, CombatTracker, parse_player
+from .damage import DAMAGE_OPCODES, DEATH_OPCODE, READY as DAMAGE_READY, parse_damage, summon_owner
+from .protocol import read_varint
 from .mapdata import MapData
 from .paths import ASSETS_DIR
 from .pets import Collection, Pet, PROGRESS_OPCODE, SNAPSHOT_OPCODE, parse_progress, parse_snapshot
@@ -22,6 +25,7 @@ from . import APP_NAME
 from .modules.notifications import NotificationsModule
 from .modules.pets import PetsModule
 from .modules.settings import SettingsModule
+from .modules.dps import DpsModule
 from .update_controller import UpdateController
 from .notifications import NotificationCenter
 from .ui.toasts import ToastManager
@@ -68,6 +72,10 @@ class Bridge(QObject):
     character = Signal(object)
     map_entered = Signal(object)
     zone_detected = Signal(object)
+    player = Signal(object)          # (eid, name, job)
+    npc = Signal(object)             # (eid, npc_id, owner entity id for summons or None, max hp)
+    hits = Signal(object)            # [combat.Hit]
+    death = Signal(int)
     status = Signal(str)
 
     def __init__(self, tracker=None):
@@ -79,8 +87,24 @@ class Bridge(QObject):
             event = self.tracker.on_message(op, body)
             if event:
                 (self.map_entered if event[0] == "map" else self.zone_detected).emit(event[1])
-                return
-        if op == SNAPSHOT_OPCODE:
+        if op in DAMAGE_OPCODES:
+            hits = parse_damage(op, body)
+            if hits:
+                self.hits.emit(hits)
+        elif op == SPAWN_OPCODE:
+            spawn = parse_spawn_full(body)
+            if spawn:
+                eid, npc_id, owner_name, max_hp = spawn
+                self.npc.emit((eid, npc_id, summon_owner(body) if owner_name else None, max_hp))
+        elif op == PLAYER_SPAWN_OPCODE:
+            player = parse_player(body)
+            if player:
+                self.player.emit(player)
+        elif op == DEATH_OPCODE:
+            eid, _ = read_varint(body, 0)
+            if eid is not None:
+                self.death.emit(eid)
+        elif op == SNAPSHOT_OPCODE:
             snap = parse_snapshot(body)
             if snap:
                 self.snapshot.emit(snap)
@@ -163,6 +187,13 @@ class Controller(QObject):
         self.bridge.map_entered.connect(self.on_map_entered)
         self.bridge.zone_detected.connect(self.on_zone_detected)
         self.bridge.status.connect(self.on_status)
+        self.combat = CombatTracker()
+        self.boss_names = _loxin_boss_names()
+        self.dps_ready = DAMAGE_READY
+        self.bridge.player.connect(lambda p: self.combat.add_player(p[0], p[1]))
+        self.bridge.npc.connect(self.on_npc)
+        self.bridge.hits.connect(self.on_hits)
+        self.bridge.death.connect(self.on_death)
 
         self.fonts = Fonts(self.settings["scale"])
         self.notifications = NotificationCenter(self.data_dir / "notifications.json" if self.persist else None)
@@ -178,7 +209,7 @@ class Controller(QObject):
         self.updates = UpdateController(self)
         self.updates.changed.connect(self._updates_changed)
         # Feature modules, switchable from the app menu. New features register here.
-        self.modules = [PetsModule(self), NotificationsModule(self), SettingsModule(self)]
+        self.modules = [PetsModule(self), DpsModule(self), NotificationsModule(self), SettingsModule(self)]
         for module in self.modules:
             self.window.add_panel(module.create_panel(self.fonts))
         self.active_module = next((m for m in self.modules if m.key == self.settings["module"]), self.modules[0])
@@ -193,6 +224,8 @@ class Controller(QObject):
         self._register_hotkeys()
         self._tick = QTimer(self, interval=10_000, timeout=self.refresh)
         self._tick.start()
+        self._combat_tick = QTimer(self, interval=1000, timeout=self._on_combat_tick)
+        self._combat_tick.start()
         if self.persist:            # not in preview mode
             self.updates.start()
             self._ensure_icons()
@@ -222,11 +255,53 @@ class Controller(QObject):
         self._save_collection()
         self.refresh()
 
+    # --- combat (DPS module) -------------------------------------------------------------------
+    def on_npc(self, spawn):
+        eid, npc_id, owner, max_hp = spawn
+        if owner is not None:
+            self.combat.add_summon(eid, owner)
+            return
+        slug = self.mapdata.db.get("npcs", {}).get(str(npc_id))
+        name = self.mapdata.monsters.get(slug, {}).get("name") if slug else None
+        self.combat.add_npc(eid, name or self.boss_names.get(npc_id), max_hp)
+
+    def on_hits(self, hits):
+        for hit in hits:
+            finished = self.combat.on_hit(hit)
+            if finished:
+                self._encounter_notice(finished)
+
+    def on_death(self, eid):
+        finished = self.combat.on_death(eid)
+        if finished:
+            self._encounter_notice(finished)
+            self.refresh()
+
+    def _on_combat_tick(self):
+        finished = self.combat.tick()
+        if finished:
+            self._encounter_notice(finished)
+        if self.active_module.key == "dps" and (finished or (self.combat.current and not self.combat.current.ended)):
+            self.refresh()
+
+    def _encounter_notice(self, enc):
+        me = next((a for a in enc.actors.values() if a.is_self), None)
+        if not me or enc.duration < 8 and not enc.killed:
+            return
+        from .ui.dps_panel import mmss, short_number
+        target = enc.main_target or "un enemigo"
+        others = len(enc.actors) - 1
+        group = f" Hiciste el {100 * me.damage / max(1, enc.total):.0f}% del daño del grupo." if others else ""
+        self.notify("combat", f"Pelea terminada: {target}{' (derrotado)' if enc.killed else ''}",
+                    f"Tu DPS fue {short_number(enc.dps(me))}/s durante {mmss(enc.duration)} "
+                    f"({short_number(me.damage)} de daño).{group}")
+
     def on_character(self, info):
         if self.character and self.character.name == info.name:
             self.character = info
             return
         self.character = info
+        self.combat.set_self(info.entity_id, info.name)
         chars = self.settings.setdefault("characters", {})
         entry = chars.setdefault(info.name, {})
         entry.update({"server": info.server, "job": info.job, "level": info.level})
@@ -679,6 +754,20 @@ def _submenu(parent, title):
     sub.setTitle(title)
     parent.addMenu(sub)
     return sub
+
+
+def _loxin_boss_names():
+    """npc id -> boss name from LOXIN's local boss log, if that app is installed (read-only)."""
+    import os
+    data = _load_json(Path(os.environ.get("LOCALAPPDATA", "")) / "LOXIN" / "boss_kills.json")
+    names = {}
+    for npc_id, entry in data.items():
+        if isinstance(entry, list) and entry and isinstance(entry[0], str):
+            try:
+                names[int(npc_id)] = entry[0]
+            except ValueError:
+                continue
+    return names
 
 
 def _load_json(path):

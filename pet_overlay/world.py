@@ -38,6 +38,34 @@ def parse_spawn(body):
     return eid, struct.unpack_from("<I", body, p)[0]
 
 
+def parse_spawn_full(body):
+    """4136 -> (entity id, npc id, owner name or None, max hp or None); summons carry their owner's name.
+    After npc_id: 2 bytes | f32 x,y,z | 4 bytes | 3 bytes | varint hp | varint max hp."""
+    eid, p = read_varint(body, 0)
+    if eid is None or p + 3 > len(body):
+        return None
+    p += 2
+    owner = None
+    if body[p]:
+        n = body[p + 1]
+        try:
+            owner = body[p + 2:p + 2 + n].decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+        p += 2 + n
+    else:
+        p += 1
+    if p + 4 > len(body):
+        return None
+    npc_id = struct.unpack_from("<I", body, p)[0]
+    max_hp = None
+    q = p + 4 + 2 + 12 + 4 + 3
+    if q < len(body):
+        _, q = read_varint(body, q)
+        max_hp, _ = read_varint(body, q) if q < len(body) else (None, q)
+    return eid, npc_id, owner, max_hp
+
+
 def game_map_faction(map_id):
     """Faction of an open-world map id (1010 Verteron, 1110 Altgard; Seal_Verteron 3100NN, Seal_Altgard 3200NN)."""
     if 1000 <= map_id < 1100 or 310000 <= map_id < 311000:
