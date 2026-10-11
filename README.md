@@ -4,7 +4,7 @@
 
 Overlay para **AION 2** que sigue tu colección de pets en tiempo real, te dice dónde farmear cada uno y te avisa de lo importante sin taparte el juego.
 
-- **Pets**: el pet que estás farmeando con su progreso, cuánto falta, ritmo por hora y tiempo estimado; lo que ganaste en la sesión; qué otros pets se farmean en la zona donde estás; los más cerca de subir.
+- **Pets**: los pets que puedes farmear en la zona donde estás, ordenados por el más cercano al nivel máximo y con qué mob matar; si no hay ninguno, las estadísticas de tu colección (cuántos pets tienes en cada nivel y en qué %).
 - **Mapa de pets**: clic en un pet y ves dónde aparecen sus monstruos, con qué probabilidad de alma, y qué otros pets que te faltan se farmean en esas mismas zonas. Marca los pets exclusivos de **Elyos** o **Asmodian**.
 - **Detección automática**: personaje, mapa y zona en la que estás.
 - **Notificaciones**: globos al costado del overlay (progreso, subidas de nivel, pets nuevos, zona) y un historial por si te perdiste alguno.

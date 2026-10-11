@@ -9,6 +9,10 @@ from .toasts import kind_color
 from .widgets import label, pet_pixmap
 
 
+KIND_LABEL = {"progress": "Progreso de pet", "levelup": "Subida de nivel", "unlock": "Pet nuevo",
+              "zone": "Zona", "sync": "Colección", "info": "Aviso", "warn": "Atención"}
+
+
 def ago(ts, now=None):
     seconds = int((now or time.time()) - ts)
     if seconds < 60:
@@ -56,7 +60,7 @@ class NotificationsPanel(QWidget):
         f = self.fonts
         row = QWidget()
         lay = QHBoxLayout(row)
-        lay.setContentsMargins(f.px(4), f.px(3), f.px(4), f.px(3))
+        lay.setContentsMargins(f.px(4), f.px(4), f.px(4), f.px(4))
         lay.setSpacing(f.px(8))
         dot = label("●", f.small, kind_color(n.kind) if unread else theme.BORDER)
         lay.addWidget(dot, 0, Qt.AlignTop)
@@ -68,15 +72,17 @@ class NotificationsPanel(QWidget):
                 icon.setAttribute(Qt.WA_TransparentForMouseEvents)
                 lay.addWidget(icon, 0, Qt.AlignTop)
         col = QVBoxLayout()
-        col.setSpacing(0)
-        top = QHBoxLayout()
+        col.setSpacing(f.px(1))
         title_color = theme.GOLD if n.kind in ("levelup", "unlock") else theme.TEXT
-        top.addWidget(label(n.title, f.name, title_color, elide=True), 1)
-        top.addWidget(label(f"{time.strftime('%H:%M', time.localtime(n.updated))} · {ago(n.updated)}",
-                            f.small, theme.MUTED))
-        col.addLayout(top)
+        title = label(n.title, f.name, title_color)
+        title.setWordWrap(True)
+        col.addWidget(title)
         if n.body:
-            col.addWidget(label(n.body, f.small, theme.MUTED, elide=True))
+            body = label(n.body, f.small, theme.TEXT)
+            body.setWordWrap(True)
+            col.addWidget(body)
+        meta = f"{KIND_LABEL.get(n.kind, 'Aviso')} · {time.strftime('%H:%M', time.localtime(n.updated))} · {ago(n.updated)}"
+        col.addWidget(label(meta, f.small, kind_color(n.kind) if unread else theme.MUTED))
         lay.addLayout(col, 1)
         if n.pet_id is not None:
             row.on_click = lambda pid=n.pet_id: self.ctl.open_map(pid)

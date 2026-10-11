@@ -28,13 +28,6 @@ def pet_pixmap(icons_dir, pet_id, size, dpr):
     return _icon_cache[key]
 
 
-def format_eta(seconds):
-    if seconds is None:
-        return None
-    minutes = max(1, round(seconds / 60))
-    return f"~{minutes} min" if minutes < 60 else f"~{minutes // 60} h {minutes % 60:02d} min"
-
-
 class ElidedLabel(QLabel):
     """Single-line label that shrinks with '…' instead of clipping."""
 
@@ -176,55 +169,6 @@ def side_chip(side, fonts):
     lbl.setStyleSheet(f"color: {color.name()}; border: 1px solid {color.name()}; border-radius: 6px;"
                       f" padding: 0 4px; background: transparent;")
     return lbl
-
-
-class FocusCard(_Flashable):
-    """The pet being farmed: big portrait, mob to kill, progress, remaining and ETA."""
-
-    def __init__(self, pet, info, name, fonts, icons_dir, session, pinned, side=None, parent=None):
-        super().__init__(parent)
-        self.pet_id = pet.pet_id
-        f = fonts
-        row = QHBoxLayout(self)
-        row.setContentsMargins(f.px(6), f.px(6), f.px(8), f.px(6))
-        row.setSpacing(f.px(10))
-        row.addWidget(PetIcon(icons_dir, pet, f.px(46), f), 0, Qt.AlignTop)
-
-        col = QVBoxLayout()
-        col.setSpacing(f.px(3))
-        top = QHBoxLayout()
-        top.setSpacing(f.px(6))
-        title = label(name, f.name_big, theme.TEXT, elide=True)
-        top.addWidget(title, 1)
-        chip = side_chip(side, f)
-        if chip:
-            top.addWidget(chip)
-        if pinned:
-            top.addWidget(label(theme.GLYPH_PIN, f.glyph, theme.MUTED))
-        top.addWidget(label(_progress_text(pet), f.count_big, theme.GOLD if pet.is_max else theme.TEXT))
-        col.addLayout(top)
-
-        if info.get("mob"):
-            mob = info["mob"] + (f" · Lv{info['mob_level']}" if info.get("mob_level") else "")
-            col.addWidget(label(mob, f.small, theme.MUTED, elide=True))
-
-        col.addWidget(ProgressBar(pet.ratio, theme.GOLD if pet.is_max else theme.ACCENT, f.px(6)))
-
-        bits = []
-        if pet.remaining is not None:
-            n = pet.remaining
-            what = ("alma" if n == 1 else "almas") if pet.level == 0 else ("kill" if n == 1 else "kills")
-            bits.append(f"{'falta' if n == 1 else 'faltan'} {n} {what}")
-            eta = format_eta(session.eta_seconds(pet))
-            if eta:
-                bits.append(eta)
-        detail = QHBoxLayout()
-        detail.addWidget(label(" · ".join(bits) or "Nivel máximo", f.small, theme.MUTED), 1)
-        gained = session.per_pet.get(pet.pet_id, 0)
-        if gained:
-            detail.addWidget(label(f"+{gained}", f.name, theme.GAIN))
-        col.addLayout(detail)
-        row.addLayout(col, 1)
 
 
 class PetRow(_Flashable):

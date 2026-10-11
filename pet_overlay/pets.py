@@ -75,6 +75,14 @@ class Pet:
         return None if self.is_max or not self.threshold else max(0, self.threshold - self.progress)
 
     @property
+    def remaining_to_max(self):
+        """Progress still needed to reach the max level (souls + kills); 0 when maxed."""
+        if self.is_max:
+            return 0
+        steps = sum(LEVEL_THRESHOLDS.get(level) or 0 for level in range(self.level, MAX_LEVEL))
+        return max(0, steps - self.progress)
+
+    @property
     def ratio(self):
         if self.is_max:
             return 1.0

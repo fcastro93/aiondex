@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from .. import REPO, __version__
 from . import theme
+from .notifications_panel import ago
 from .widgets import SectionTitle, label
 
 
@@ -92,6 +93,8 @@ class SettingsPanel(QWidget):
         status = label(up.detail or "Aún no se buscaron actualizaciones", f.small, color)
         status.setWordWrap(True)
         self.content.addWidget(status)
+        if up.last_check:
+            self.content.addWidget(label(f"Última búsqueda: {ago(up.last_check)}", f.small, theme.MUTED))
         self.content.addWidget(self._toggle("Actualizar automáticamente", "auto_update"))
 
         self.content.addWidget(SectionTitle("Sistema", f))

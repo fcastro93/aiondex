@@ -24,7 +24,7 @@ class NotificationsModule(Module):
     def render(self, compact):
         center = self.ctl.notifications
         unread_ids = {n.id for n in center.history if not n.read}
-        self.panel.render(center.recent(4 if compact else 12), len(center.history), unread_ids)
+        self.panel.render(center.recent(3 if compact else 8), len(center.history), unread_ids)
         center.mark_all_read()      # the player is looking at them now
         total = len(center.history)
         return ModuleView(summary=str(total) if total else "")

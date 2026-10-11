@@ -36,4 +36,6 @@ def start_simulation(controller, interval_ms=2500):
 
     timer = QTimer(controller, interval=interval_ms, timeout=tick)
     timer.start()
+    # After a moment the player "arrives" in a zone: the panel switches from stats to nearby pets.
+    QTimer.singleShot(2000, lambda: controller.on_zone_detected("southern-gribade-highland"))
     return timer

@@ -13,7 +13,7 @@ from .character import CHARACTER_OPCODE, parse_character
 from .world import WorldTracker, game_map_faction
 from .mapdata import MapData
 from .paths import ASSETS_DIR
-from .pets import Collection, PROGRESS_OPCODE, SNAPSHOT_OPCODE, parse_progress, parse_snapshot
+from .pets import Collection, Pet, PROGRESS_OPCODE, SNAPSHOT_OPCODE, parse_progress, parse_snapshot
 from .session import Session
 from .settings import Settings
 from .ui import theme, winapi
@@ -34,14 +34,31 @@ HOTKEY_ACTIONS = ["toggle_visible", "toggle_lock", "toggle_compact", "toggle_map
 ZONE_NOTICE_COOLDOWN = 600      # seconds before the same zone's "pets here" notice repeats
 
 
-def _progress_text(pet):
+def _plural(n, one, many):
+    return f"{n} {one if n == 1 else many}"
+
+
+def _next_step(pet):
+    """What the player needs next, as a sentence."""
     left = pet.remaining
     if left is None:
-        return "Nivel máximo"
+        return "Ya está al nivel máximo."
     if pet.level == 0:
-        return f"Almas {pet.progress}/{pet.threshold} · {'falta' if left == 1 else 'faltan'} {left}"
-    noun = "kill" if left == 1 else "kills"
-    return f"N{pet.level} · {pet.progress}/{pet.threshold} · {'falta' if left == 1 else 'faltan'} {left} {noun}"
+        return f"Te {'falta' if left == 1 else 'faltan'} {_plural(left, 'alma', 'almas')} para desbloquearlo."
+    return f"Te {'falta' if left == 1 else 'faltan'} {_plural(left, 'kill', 'kills')} para el nivel {pet.level + 1}."
+
+
+def _progress_sentence(pet):
+    if pet.is_max:
+        return "Ya está al nivel máximo."
+    where = "Almas" if pet.level == 0 else f"Nivel {pet.level}"
+    return f"{where}: {pet.progress}/{pet.threshold}. {_next_step(pet)}"
+
+
+def _short_state(pet):
+    if pet.level == 0:
+        return "aún no lo tienes" if pet.progress == 0 else f"almas {pet.progress}/{pet.threshold}"
+    return f"nivel {pet.level}, {pet.progress}/{pet.threshold}"
 
 
 class Bridge(QObject):
@@ -180,7 +197,8 @@ class Controller(QObject):
             self.updates.start()
             self._ensure_icons()
             if not self.npcap_installed():
-                self.notify("warn", "Falta Npcap", "Instálalo desde npcap.com (Ajustes tiene el enlace)")
+                self.notify("warn", "Falta Npcap: AionDex no puede leer el juego",
+                            "Instálalo desde npcap.com (el enlace está en Ajustes) y vuelve a abrir AionDex.")
 
     # --- game events (UI thread) -----------------------------------------------------
     def on_snapshot(self, snapshot):
@@ -191,8 +209,10 @@ class Controller(QObject):
         if self._synced_for != who or self._synced_for is None:
             self._synced_for = who or ""
             owned = [p for p in self.collection.pets.values() if p.level >= 1]
-            self.notify("sync", "Colección sincronizada",
-                        f"{len(owned)} pets · {sum(p.is_max for p in owned)} MAX" + (f" · {who}" if who else ""))
+            _, total = self.collection_stats()
+            self.notify("sync", "Colección cargada desde el juego",
+                        f"Tienes {len(owned)} de {total} pets, {sum(p.is_max for p in owned)} al nivel máximo"
+                        + (f" (personaje {who})." if who else "."))
         self.refresh()
 
     def on_progress(self, updates):
@@ -232,19 +252,19 @@ class Controller(QObject):
         self.refresh()
 
     def _zone_notice(self, zone_slug):
-        """Tell the player which pets they still need can be farmed where they just arrived."""
+        """Tell the player which pets they can farm where they just arrived."""
         now = time.time()
         if now - self._last_zone_notice.get(zone_slug, 0) < ZONE_NOTICE_COOLDOWN:
             return
-        focus, _ = self.focus_pet()
-        zone, pets = self.zone_suggestions({focus.pet_id} if focus else set())
-        if not zone or not pets:
+        zone, nearby, _ = self.nearby_pets()
+        if not zone or not nearby:
             return
         self._last_zone_notice[zone_slug] = now
-        names = ", ".join(self.pet_info(p.pet_id)[1] for p in pets[:3])
-        missing = sum(1 for p in pets if p.level == 0)
-        extra = f" ({missing} te faltan)" if missing else ""
-        self.notify("zone", f"{zone['name']} · {zone['region']}", f"Aquí también: {names}{extra}")
+        shown = [f"{self.pet_info(p.pet_id)[1]} ({_short_state(p)})" for p, _ in nearby[:3]]
+        more = f" y {len(nearby) - 3} más" if len(nearby) > 3 else ""
+        count = f"{len(nearby)} pet" + ("s" if len(nearby) > 1 else "")
+        self.notify("zone", f"Estás en {zone['name']} ({zone['region']})",
+                    f"Aquí puedes farmear {count}: {', '.join(shown)}{more}.")
 
     def on_status(self, text):
         self.capture_status = text
@@ -264,15 +284,16 @@ class Controller(QObject):
         _, name = self.pet_info(event.pet_id)
         if event.leveled_up:
             if pet.level == 1:
-                self.notify("unlock", f"¡Nuevo pet: {name}!", "Ya forma parte de tu colección", pet_id=pet.pet_id)
+                self.notify("unlock", f"¡Desbloqueaste un pet nuevo: {name}!",
+                            f"Ya está en tu colección (nivel 1). {_next_step(pet)}", pet_id=pet.pet_id)
             else:
                 self.notify("levelup", f"¡{name} subió a nivel {pet.level}!",
-                            "Nivel máximo" if pet.is_max else _progress_text(pet), pet_id=pet.pet_id)
+                            "Llegó al nivel máximo." if pet.is_max else _next_step(pet), pet_id=pet.pet_id)
             if self.settings["sound"]:
                 winsound.PlaySound("SystemAsterisk", winsound.SND_ALIAS | winsound.SND_ASYNC)
         elif self.settings["toast_progress"]:
-            self.notify("progress", "", _progress_text(pet), pet_id=pet.pet_id, key=f"progress:{pet.pet_id}",
-                        amount=event.gain, title_template=f"{name} +{{amount}}")
+            self.notify("progress", "", _progress_sentence(pet), pet_id=pet.pet_id, key=f"progress:{pet.pet_id}",
+                        amount=event.gain, title_template=f"{name}: +{{amount}} de progreso")
 
     # --- notifications ------------------------------------------------------------------------
     def notify(self, kind, title, body="", **kwargs):
@@ -339,47 +360,54 @@ class Controller(QObject):
         return self.mapdata.exclusive(pet_id)
 
     def focus_pet(self):
+        """The pet the map opens on by default: pinned, else the last one that progressed."""
         pets = self.collection.pets
         pinned = self.settings["pinned"]
         if pinned in pets:
             return pets[pinned], True
         active = [p for p in pets.values() if p.session_gain and not p.is_max]
-        if active:
-            return max(active, key=lambda p: p.last_change), False
-        faction = self.map_faction()
-        candidates = [p for p in pets.values()
-                      if not p.is_max and p.threshold and self.mapdata.can_farm(p.pet_id, faction)]
-        return (max(candidates, key=lambda p: p.ratio) if candidates else None), False
+        return (max(active, key=lambda p: p.last_change) if active else None), False
 
-    def zone_suggestions(self, exclude):
-        """Pets (not maxed) farmable in the zone the player seems to be in."""
+    def nearby_pets(self):
+        """Pets (not maxed) farmable in the zone the player is in, closest to max level first.
+        Returns (zone, [(pet, [monster names here])], number of maxed pets in the zone)."""
         if not self.current_zone:
-            return None, []
+            return None, [], 0
         zone = self.mapdata.zones.get(self.current_zone)
-        found = self.mapdata.pets_in_zones([self.current_zone], exclude=exclude)
-        out = []
-        for pid in found:
-            pet = self.collection.pets.get(pid)
-            if pet and pet.is_max:
+        found = self.mapdata.pets_in_zones([self.current_zone])
+        out, maxed = [], 0
+        for pid, mob_slugs in found.items():
+            pet = self.collection.pets.get(pid) or Pet(pid, 0, 0)
+            if pet.is_max:
+                maxed += 1
                 continue
-            out.append(pet or _Unowned(pid))
-        out.sort(key=lambda p: (p.level > 0, -p.ratio))
-        return zone, out[:4]
+            mobs = [self.mapdata.monsters[s]["name"] for s in mob_slugs if s in self.mapdata.monsters]
+            out.append((pet, mobs))
+        out.sort(key=lambda e: (e[0].remaining_to_max, -e[0].ratio))
+        return zone, out, maxed
+
+    def collection_stats(self):
+        """[(label, count, color)] covering every known pet, plus the total."""
+        total = max(len(self.db), len(self.collection.pets))
+        by_level = {}
+        for p in self.collection.pets.values():
+            by_level[p.level] = by_level.get(p.level, 0) + 1
+        rows = [
+            ("Nivel máximo", by_level.get(3, 0), theme.GOLD),
+            ("Nivel 2", by_level.get(2, 0), theme.ACCENT),
+            ("Nivel 1", by_level.get(1, 0), theme.ELYOS),
+            ("Con almas, sin desbloquear", by_level.get(0, 0), theme.WARN),
+            ("Sin empezar", max(0, total - len(self.collection.pets)), theme.MUTED),
+        ]
+        return rows, total
 
     def view_state(self):
         pets = self.collection.pets
         owned = [p for p in pets.values() if p.level >= 1]
-        faction = self.map_faction()
-        focus, pinned = self.focus_pet()
-        shown = {focus.pet_id} if focus else set()
-        recent = sorted((p for p in pets.values() if p.session_gain and p.pet_id not in shown),
-                        key=lambda p: -p.last_change)[:5]
-        shown |= {p.pet_id for p in recent}
-        zone, nearby = self.zone_suggestions(shown)
-        shown |= {p.pet_id for p in nearby}
-        closest = sorted((p for p in pets.values() if p.pet_id not in shown and not p.is_max and p.threshold
-                          and self.mapdata.can_farm(p.pet_id, faction)),
-                         key=lambda p: p.ratio, reverse=True)[:self.settings["rows"]]
+        pinned = pets.get(self.settings["pinned"])
+        recent = sorted((p for p in pets.values() if p.session_gain), key=lambda p: -p.last_change)[:5]
+        zone, nearby, zone_maxed = self.nearby_pets()
+        stats, total = self.collection_stats()
 
         if self.collection.synced_at:
             status = f"Sincronizado {time.strftime('%H:%M', time.localtime(self.collection.synced_at))}"
@@ -400,8 +428,8 @@ class Controller(QObject):
         status = " · ".join(t for t in (self.character_name(), where, status) if t)
 
         return ViewState(
-            focus=focus, focus_pinned=pinned, recent=recent, closest=closest,
-            zone_name=f"{zone['name']} · {zone['region']}" if zone else "", nearby=nearby,
+            pinned=pinned, recent=recent, zone_name=f"{zone['name']} · {zone['region']}" if zone else "",
+            nearby=nearby, zone_maxed=zone_maxed, stats=stats, total=total,
             summary=f"{len(owned)} · {sum(p.is_max for p in owned)} MAX" if owned else "",
             status=status, status_color=color, session_line=self._session_line(),
             flash_ids=set(self.flash_ids),
@@ -651,20 +679,6 @@ def _submenu(parent, title):
     sub.setTitle(title)
     parent.addMenu(sub)
     return sub
-
-
-class _Unowned:
-    """A pet the player has not started yet, shown in zone suggestions."""
-
-    def __init__(self, pet_id):
-        self.pet_id = pet_id
-        self.level = 0
-        self.progress = 0
-        self.is_max = False
-        self.threshold = 5
-        self.ratio = 0.0
-        self.remaining = 5
-        self.session_gain = 0
 
 
 def _load_json(path):

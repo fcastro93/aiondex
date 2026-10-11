@@ -11,7 +11,7 @@ from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
 from pet_overlay.app import Controller
-from pet_overlay import APP_NAME
+from pet_overlay import APP_NAME, __version__
 from pet_overlay.paths import DATA_DIR, seed_user_data
 
 
@@ -29,6 +29,8 @@ def main():
     seed_user_data()
     logging.basicConfig(filename=DATA_DIR / "overlay.log", level=logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    _log_crashes()
+    logging.getLogger(__name__).info("%s %s starting", APP_NAME, __version__)
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
 
@@ -89,6 +91,22 @@ def _composite(widgets, path):
         p.drawPixmap(w.frameGeometry().topLeft() - area.topLeft(), w.grab())
     p.end()
     canvas.save(path)
+
+
+def _log_crashes():
+    """Record unhandled exceptions (any thread) in overlay.log and hard crashes in crash.log."""
+    import faulthandler
+    import threading
+    global _crash_file
+    _crash_file = open(DATA_DIR / "crash.log", "a", encoding="utf-8")
+    faulthandler.enable(_crash_file)
+    log = logging.getLogger("crash")
+
+    def hook(exc_type, exc, tb):
+        log.error("unhandled exception", exc_info=(exc_type, exc, tb))
+
+    sys.excepthook = hook
+    threading.excepthook = lambda a: hook(a.exc_type, a.exc_value, a.exc_traceback)
 
 
 def _single_instance():
