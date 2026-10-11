@@ -80,13 +80,20 @@ class DpsPanel(QWidget):
             state = "terminada" if encounter.ended else "en curso"
             target = encounter.main_target or "Pelea"
             self.content.addWidget(SectionTitle(f"{target} · {mmss(encounter.duration)} · {state}", f))
-            ranking = [a for a in encounter.ranking() if a.is_self or not only_me][:ROWS[compact]]
-            top = ranking[0].damage if ranking else 1
+            group = self.ctl.combat.group
+            # Names only for you and your party/force; everyone else is one anonymous bar.
+            named = [a for a in encounter.ranking() if a.is_self or (a.name in group and not only_me)]
+            outsiders = [a for a in encounter.actors.values() if not (a.is_self or a.name in group)]
+            rows = [(a.name, a.damage, a.is_self) for a in named[:ROWS[compact]]]
+            if outsiders and not only_me:
+                rows.append((f"Otros jugadores ({len(outsiders)})", sum(a.damage for a in outsiders), False))
+            top = max((d for _, d, _ in rows), default=1)
             total = max(1, encounter.total)
-            for a in ranking:
-                right = f"{short_number(a.damage)} · {short_number(encounter.dps(a))}/s · {100 * a.damage / total:.0f}%"
-                color = theme.GOLD if a.is_self else theme.ACCENT
-                self.content.addWidget(DpsBar(a.name, right, a.damage / top, color, f, highlight=a.is_self))
+            for name, damage, is_self in rows:
+                right = f"{short_number(damage)} · {short_number(damage / encounter.duration)}/s · {100 * damage / total:.0f}%"
+                color = theme.GOLD if is_self else (theme.MUTED if name.startswith("Otros jugadores") else theme.ACCENT)
+                self.content.addWidget(DpsBar(name, right, damage / top, color, f, highlight=is_self))
+            self._contribution(encounter, group, outsiders)
             me = next((a for a in encounter.actors.values() if a.is_self), None)
             if me and me.hits:
                 pct = lambda n: f"{100 * n / me.hits:.0f}%"  # noqa: E731
@@ -109,6 +116,30 @@ class DpsPanel(QWidget):
                 row.setContentsMargins(f.px(4), 0, 0, 0)
                 self.content.addWidget(row)
         self.adjustSize()
+
+    def _contribution(self, encounter, group, outsiders):
+        """For fights shared with other players: your group's share of the damage to the boss."""
+        hp = encounter.boss_hp_ratio()
+        if not outsiders and hp is None:
+            return
+        share = encounter.contribution(group)
+        if not share:
+            return
+        inside, best_out, n_out, _ = share
+        self.content.addWidget(SectionTitle("Contribución al jefe", self.fonts))
+        who = "Tu grupo" if group else "Tú"
+        lines = [f"{who}: {100 * inside:.0f}% del daño al jefe"]
+        if n_out:
+            lines.append(f"Fuera de tu grupo: {n_out} jugadores; el más fuerte lleva {100 * best_out:.0f}%")
+        if hp is not None:
+            lines.append(f"Vida del jefe: {100 * hp:.0f}%")
+        if n_out:
+            if inside > 0.5:
+                lines.append("Más de la mitad del daño: tu grupo va primero seguro.")
+            elif inside < best_out:
+                lines.append("Un solo jugador de fuera lleva más que tu grupo: difícil ser primeros.")
+        for line in lines:
+            self._note(line)
 
     def _note(self, text):
         note = label(text, self.fonts.small, theme.MUTED)

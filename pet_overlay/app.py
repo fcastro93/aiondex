@@ -1,6 +1,7 @@
 """Wires capture, collection state, session stats, character/faction, tray, hotkeys, overlay and map."""
 import json
 import logging
+import threading
 import time
 import winsound
 from pathlib import Path
@@ -12,7 +13,9 @@ from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 from .character import CHARACTER_OPCODE, parse_character
 from .world import SPAWN_OPCODE, WorldTracker, game_map_faction, parse_spawn_full
 from .combat import PLAYER_SPAWN_OPCODE, CombatTracker, parse_player
-from .damage import DAMAGE_OPCODES, DEATH_OPCODE, READY as DAMAGE_READY, parse_damage, summon_owner
+from .damage import (DAMAGE_OPCODES, DEATH_OPCODE, READY as DAMAGE_READY, STATS_OPCODE, parse_damage, parse_hp,
+                     summon_owner)
+from .roster import ROSTER_OPCODE, parse_roster
 from .protocol import read_varint
 from .mapdata import MapData
 from .paths import ASSETS_DIR
@@ -76,11 +79,20 @@ class Bridge(QObject):
     npc = Signal(object)             # (eid, npc_id, owner entity id for summons or None, max hp)
     hits = Signal(object)            # [combat.Hit]
     death = Signal(int)
+    roster = Signal(object)          # [(name, server, job, level)] of your party / force
+    hp = Signal(object)              # (eid, current hp)
     status = Signal(str)
 
     def __init__(self, tracker=None):
         super().__init__()
         self.tracker = tracker
+        self._pending_hits = []          # filled on the capture thread, drained by the UI every 200 ms
+        self._hits_lock = threading.Lock()
+
+    def take_hits(self):
+        with self._hits_lock:
+            hits, self._pending_hits = self._pending_hits, []
+        return hits
 
     def on_message(self, op, body):
         if self.tracker:
@@ -90,7 +102,8 @@ class Bridge(QObject):
         if op in DAMAGE_OPCODES:
             hits = parse_damage(op, body)
             if hits:
-                self.hits.emit(hits)
+                with self._hits_lock:
+                    self._pending_hits.extend(hits)
         elif op == SPAWN_OPCODE:
             spawn = parse_spawn_full(body)
             if spawn:
@@ -100,6 +113,14 @@ class Bridge(QObject):
             player = parse_player(body)
             if player:
                 self.player.emit(player)
+        elif op == ROSTER_OPCODE:
+            members = parse_roster(body)
+            if members:
+                self.roster.emit(members)
+        elif op == STATS_OPCODE:
+            update = parse_hp(body)
+            if update:
+                self.hp.emit(update)
         elif op == DEATH_OPCODE:
             eid, _ = read_varint(body, 0)
             if eid is not None:
@@ -192,8 +213,12 @@ class Controller(QObject):
         self.dps_ready = DAMAGE_READY
         self.bridge.player.connect(lambda p: self.combat.add_player(p[0], p[1]))
         self.bridge.npc.connect(self.on_npc)
-        self.bridge.hits.connect(self.on_hits)
+        self.bridge.hits.connect(self.on_hits)          # simulated fights (preview) still emit directly
+        self._hits_drain = QTimer(self, interval=200, timeout=lambda: self.on_hits(self.bridge.take_hits()))
+        self._hits_drain.start()
         self.bridge.death.connect(self.on_death)
+        self.bridge.roster.connect(lambda members: self.combat.set_group([m[0] for m in members]))
+        self.bridge.hp.connect(lambda update: self.combat.on_hp(*update))
 
         self.fonts = Fonts(self.settings["scale"])
         self.notifications = NotificationCenter(self.data_dir / "notifications.json" if self.persist else None)

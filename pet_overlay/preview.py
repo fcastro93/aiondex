@@ -50,15 +50,21 @@ def _simulate_fight(controller):
     combat.set_self(1, "Charfire")
     combat.add_player(2, "Lynndrell")
     combat.add_player(3, "Sephyr")
-    combat.add_npc(100, "Old Commander Mardel")
+    combat.set_group(["Charfire", "Lynndrell", "Sephyr"])
+    for eid, name in enumerate(["Amezi", "Pope", "Smeid", "Zephh", "Harmy", "Yaooo"], start=4):
+        combat.add_player(eid, name)                      # strangers: shown only as an anonymous total
+    combat.add_npc(100, "Ragta", 3_000_000)
     rng = random.Random(3)
-    power = {1: 2600, 2: 3100, 3: 1700}
+    power = {1: 2600, 2: 3100, 3: 1700, 4: 4200, 5: 2200, 6: 1900, 7: 2500, 8: 1500, 9: 1200}
+    boss_hp = [3_000_000]
 
     def swing():
         now = time.time()
         hits = [Hit(now, eid, 100, int(base * rng.uniform(0.6, 1.8)), skill=rng.randint(1, 6),
                     crit=rng.random() < 0.3) for eid, base in power.items()]
         controller.bridge.hits.emit(hits)
+        boss_hp[0] = max(0, boss_hp[0] - sum(h.amount for h in hits))
+        controller.bridge.hp.emit((100, boss_hp[0]))
 
     timer = QTimer(controller, interval=250, timeout=swing)
     timer.start()

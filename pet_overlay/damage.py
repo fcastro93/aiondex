@@ -67,6 +67,30 @@ def parse_damage(op, body):
     return [hit] if hit and hit.amount > 0 else []
 
 
+STATS_OPCODE = bytes.fromhex("008d")
+
+
+def parse_hp(body):
+    """008d stat update: varint entity | u8 mask | [mask&1: u8 n + n*(u8 id, u32)] | [mask&2: u8 n + n*(u8 id, u64)].
+    Stat 0 of the u64 group is the current HP. -> (entity, hp) or None."""
+    try:
+        eid, p = read_varint(body, 0)
+        mask = body[p]
+        p += 1
+        if mask & 1:
+            p += 1 + 5 * body[p]
+        if mask & 2:
+            n = body[p]
+            p += 1
+            for _ in range(n):
+                if body[p] == 0:
+                    return eid, struct.unpack_from("<Q", body, p + 1)[0]
+                p += 9
+    except (IndexError, struct.error):
+        pass
+    return None
+
+
 def summon_owner(body):
     """Owner entity of a summon from its 4136 spawn: the u32 right after the bytes 07 02 06."""
     i = body.find(b"\x07\x02\x06")

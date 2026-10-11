@@ -6,7 +6,7 @@ Overlay para **AION 2** que sigue tu colección de pets en tiempo real, te dice 
 
 - **Pets**: los pets que puedes farmear en la zona donde estás, ordenados por el más cercano al nivel máximo y con qué mob matar; si no hay ninguno, las estadísticas de tu colección (cuántos pets tienes en cada nivel y en qué %).
 - **Mapa de pets**: clic en un pet y ves dónde aparecen sus monstruos, con qué probabilidad de alma, y qué otros pets que te faltan se farmean en esas mismas zonas. Marca los pets exclusivos de **Elyos** o **Asmodian**.
-- **DPS**: medidor de daño en tiempo real para ti y tu grupo (daño, DPS, % del grupo, críticos, ataques por la espalda, perfect, DoT) y el historial de tus últimas peleas.
+- **DPS**: medidor de daño en tiempo real para ti y tu grupo (daño, DPS, % del grupo, críticos, ataques por la espalda, perfect, DoT) y el historial de tus últimas peleas. En jefes compartidos muestra la **contribución** de tu party/force al jefe (los demás jugadores aparecen solo como un total anónimo) y la vida restante del jefe.
 - **Detección automática**: personaje, mapa y zona en la que estás.
 - **Notificaciones**: globos al costado del overlay (progreso, subidas de nivel, pets nuevos, zona) y un historial por si te perdiste alguno.
 - **Se actualiza solo** con actualizaciones firmadas.
@@ -45,7 +45,7 @@ Cada release incluye un manifiesto **firmado** (Ed25519). La app solo instala un
 - AionDex solo **lee** el tráfico de red de tu propio cliente (con Npcap). No modifica el juego, no lee su memoria y no envía nada a ningún servidor.
 - Se conecta únicamente a GitHub (actualizaciones) y a [metabot.gg](https://metabot.gg/en/aion-2) (iconos y mapas).
 - Tus datos (colección, ajustes, historial) se guardan en `%LOCALAPPDATA%\AionDex`.
-- El medidor de DPS muestra el daño de tu grupo solo en tu pantalla y no lo guarda: el historial de peleas guarda únicamente tus propios números.
+- El medidor de DPS solo muestra nombres de tu party/force; el resto de jugadores aparece como un total anónimo. Nada de eso se guarda ni se sube: el historial de peleas guarda únicamente tus propios números.
 - Proyecto de fans, **no afiliado a NCSoft**. Usar herramientas de terceros puede ir contra los términos del juego: úsalo bajo tu responsabilidad.
 
 Datos de pets, monstruos y mapas: [metabot.gg](https://metabot.gg/en/aion-2).

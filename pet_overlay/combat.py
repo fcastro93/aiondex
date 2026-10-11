@@ -43,6 +43,7 @@ class ActorStats:
     doubles: int = 0
     dot: int = 0
     skills: Counter = field(default_factory=Counter)
+    by_target: Counter = field(default_factory=Counter)
 
 
 @dataclass
@@ -53,8 +54,26 @@ class Encounter:
     targets: Counter = field(default_factory=Counter)  # target eid -> damage taken
     target_names: dict = field(default_factory=dict)
     dead: set = field(default_factory=set)            # targets that died during the encounter
+    hp: dict = field(default_factory=dict)            # target eid -> [current hp, max hp]
     killed: bool = False
     ended: bool = False
+
+    def contribution(self, group_names):
+        """Share of the damage dealt to the main target: (group share, best outsider share, outsiders, total)."""
+        boss = self.main_target_eid
+        dealt = [(a, a.by_target[boss]) for a in self.actors.values() if a.by_target[boss]]
+        total = sum(d for _, d in dealt)
+        if not total:
+            return None
+        inside = sum(d for a, d in dealt if a.is_self or a.name in group_names)
+        outsiders = [d for a, d in dealt if not (a.is_self or a.name in group_names)]
+        return inside / total, (max(outsiders) / total if outsiders else 0.0), len(outsiders), total
+
+    def boss_hp_ratio(self):
+        cur_max = self.hp.get(self.main_target_eid)
+        if not cur_max or not cur_max[1]:
+            return None
+        return max(0.0, min(1.0, cur_max[0] / cur_max[1]))
 
     @property
     def main_target_eid(self):
@@ -115,6 +134,8 @@ class CombatTracker:
         self.players = {}        # eid -> name (players around, from spawns and your own character)
         self.owners = {}         # summon eid -> owner eid
         self.npc_names = {}      # eid -> monster name
+        self.max_hp = {}         # eid -> max hp from the spawn
+        self.group = set()       # names of your party / force members (from the group roster)
         self.self_eid = None
         self.current = None
         self.history = []
@@ -134,6 +155,16 @@ class CombatTracker:
         if not name:
             name = f"Jefe ({max_hp // 1000}K HP)" if max_hp and max_hp >= 300_000 else "Enemigo"
         self.npc_names[eid] = name
+        if max_hp:
+            self.max_hp[eid] = max_hp
+
+    def set_group(self, names):
+        self.group = set(names)
+
+    def on_hp(self, eid, hp):
+        enc = self.current
+        if enc and not enc.ended and eid in enc.targets:
+            enc.hp[eid] = [hp, self.max_hp.get(eid) or max(hp, enc.hp.get(eid, [0, 0])[1])]
 
     # --- combat ----------------------------------------------------------------------------------
     def on_hit(self, hit):
@@ -160,6 +191,7 @@ class CombatTracker:
         actor.doubles += hit.double
         actor.dot += hit.amount if hit.dot else 0
         actor.skills[hit.skill] += hit.amount
+        actor.by_target[hit.target] += hit.amount
         enc.targets[hit.target] += hit.amount
         if hit.target in self.npc_names:
             enc.target_names[hit.target] = self.npc_names[hit.target]
