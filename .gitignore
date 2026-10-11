@@ -11,6 +11,7 @@ dist/
 data/*
 !data/pets_db.json
 !data/map_db.json
+!data/skills_db.json
 
 # Dev artifacts
 prototipos/

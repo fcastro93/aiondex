@@ -19,6 +19,7 @@ DEFAULTS = {
     "rows": 6,              # rows in "closest to next level" when expanded
     "map_faction": "auto",  # auto (character's) | elyos | asmodian | all
     "characters": {},       # name -> {faction, server, job, level}
+    "tuner": {},            # character name -> Afinador macro setup (in-game + external macro)
     "hotkeys": {
         "toggle_visible": "Alt+Shift+P",
         "toggle_lock": "Alt+Shift+L",

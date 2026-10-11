@@ -39,6 +39,7 @@ def start_simulation(controller, interval_ms=2500):
     # After a moment the player "arrives" in a zone: the panel switches from stats to nearby pets.
     QTimer.singleShot(2000, lambda: controller.on_zone_detected("southern-gribade-highland"))
     _simulate_fight(controller)
+    _simulate_skills(controller)
     return timer
 
 
@@ -69,3 +70,39 @@ def _simulate_fight(controller):
     timer = QTimer(controller, interval=250, timeout=swing)
     timer.start()
     controller._fight_timer = timer
+
+
+def _simulate_skills(controller):
+    """A Ranger's skill list and bar, plus a finished Afinador test where the click eats the macro's turns."""
+    from .skills import OwnSkill, QuickSlot
+    from .tuner import ExternalStep, TunerSession, analyze
+    tuner = controller.tuner
+    levels = {14020000: (14, [3, 4]), 14110000: (14, [3, 4]), 14050000: (14, [3, 4]), 14080000: (14, [2, 4]),
+              14130000: (13, [2, 3]), 14010000: (13, [2, 3]), 14340000: (12, [3, 4]), 14060000: (5, [1]),
+              14380000: (5, [1]), 14310000: (10, [2]), 14750000: (14, []), 14800000: (13, []), 14780000: (12, [])}
+    tuner.on_skill_list({b: OwnSkill(b, lv, min(lv, 10), max(0, lv - 10), specs) for b, (lv, specs) in levels.items()})
+    tuner.on_bar([QuickSlot(0, 14020000, [14020000]), QuickSlot(2, 14060000, [14060000, 14130000, 14080000]),
+                  QuickSlot(3, 14110000, [14110000, 14050000, 14340000]), QuickSlot(5, 14010000, [14010000])])
+    setup = tuner.setup
+    setup.external = [ExternalStep("click_izq", 20, 10), ExternalStep("macro", 20, 10)]
+    cooldown = {14060000: 41950, 14130000: 13950, 14080000: 18650, 14110000: 18650, 14050000: 4650, 14340000: 0}
+    rng = random.Random(5)
+    now = time.time() - 70
+    session = TunerSession(started=now)
+    ready = {s: now for s in cooldown}
+    t, step = now + 1, 0
+    while t < now + 60:
+        session.presses.append((t, 14000000, 0))                  # the click always lands
+        t += 0.35
+        line = setup.ingame[step % len(setup.ingame)].skills if setup.ingame else []
+        step += 1
+        skill = next((s for s in line if ready.get(s, t) <= t), None)
+        if skill and rng.random() > 0.45:                         # the macro press is often swallowed by the click
+            result = 0x1813 if rng.random() < 0.08 else 0
+            session.presses.append((t, skill, result))
+            if result == 0:
+                session.casts.append((t, skill, cooldown.get(skill, 0)))
+                ready[skill] = t + cooldown.get(skill, 0) / 1000
+        t += 0.35
+    session.ended = now + 60
+    tuner.last_report = analyze(session, setup, name=tuner.skill_name)

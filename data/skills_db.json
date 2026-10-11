@@ -1,0 +1,1955 @@
+{
+ "17290000": {
+  "name": "Absolution",
+  "class": "Cleric",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "absolution"
+ },
+ "15760000": {
+  "name": "Absorb Essence",
+  "class": "Sorcerer",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "absorb-essence"
+ },
+ "13230000": {
+  "name": "Aerial Bind",
+  "class": "Assassin",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "aerial-bind"
+ },
+ "11300000": {
+  "name": "Aerial Snare",
+  "class": "Gladiator",
+  "type": "active",
+  "max_level": 40,
+  "slug": "aerial-snare"
+ },
+ "13060000": {
+  "name": "Ambush",
+  "class": "Assassin",
+  "type": "active",
+  "max_level": 40,
+  "slug": "ambush"
+ },
+ "14120000": {
+  "name": "Ambush Kick",
+  "class": "Ranger",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "ambush-kick"
+ },
+ "13770000": {
+  "name": "Ambush Stance",
+  "class": "Assassin",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "ambush-stance"
+ },
+ "11200000": {
+  "name": "Ankle Slice",
+  "class": "Gladiator",
+  "type": "active",
+  "max_level": 40,
+  "slug": "ankle-slice"
+ },
+ "12300000": {
+  "name": "Annihilate",
+  "class": "Templar",
+  "type": "active",
+  "max_level": 40,
+  "slug": "annihilate"
+ },
+ "13730000": {
+  "name": "Apply Poison",
+  "class": "Assassin",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "apply-poison"
+ },
+ "15230000": {
+  "name": "Arctic Armor",
+  "class": "Sorcerer",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "arctic-armor"
+ },
+ "11130000": {
+  "name": "Armor of Balance",
+  "class": "Gladiator",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "armor-of-balance"
+ },
+ "12200000": {
+  "name": "Armor of Balance",
+  "class": "Templar",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "armor-of-balance-templar"
+ },
+ "14330000": {
+  "name": "Arrow Scattershot",
+  "class": "Ranger",
+  "type": "active",
+  "max_level": 40,
+  "slug": "arrow-scattershot"
+ },
+ "14270000": {
+  "name": "Arrow Storm",
+  "class": "Ranger",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "arrow-storm"
+ },
+ "13700000": {
+  "name": "Assault Ambush",
+  "class": "Assassin",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "assault-ambush"
+ },
+ "15700000": {
+  "name": "Assault Bombardment",
+  "class": "Sorcerer",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "assault-bombardment"
+ },
+ "12700000": {
+  "name": "Assault Fury",
+  "class": "Templar",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "assault-fury"
+ },
+ "17700000": {
+  "name": "Assault Mark",
+  "class": "Cleric",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "assault-mark"
+ },
+ "18700000": {
+  "name": "Assault Shock",
+  "class": "Chanter",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "assault-shock"
+ },
+ "14700000": {
+  "name": "Assault Smite",
+  "class": "Ranger",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "assault-smite"
+ },
+ "13750000": {
+  "name": "Assault Stance",
+  "class": "Assassin",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "assault-stance"
+ },
+ "11700000": {
+  "name": "Assault Strike",
+  "class": "Gladiator",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "assault-strike"
+ },
+ "16700000": {
+  "name": "Assault Terror",
+  "class": "Spiritmaster",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "assault-terror"
+ },
+ "11750000": {
+  "name": "Attack Preparation",
+  "class": "Gladiator",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "attack-preparation"
+ },
+ "18750000": {
+  "name": "Attack Preparation",
+  "class": "Chanter",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "attack-preparation-chanter"
+ },
+ "18440000": {
+  "name": "Barrier Spell",
+  "class": "Chanter",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "barrier-spell"
+ },
+ "12450000": {
+  "name": "Battlefield Banner",
+  "class": "Templar",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "battlefield-banner"
+ },
+ "17160000": {
+  "name": "Benevolence",
+  "class": "Cleric",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "benevolence"
+ },
+ "15280000": {
+  "name": "Bittercold Wind",
+  "class": "Sorcerer",
+  "type": "active",
+  "max_level": 40,
+  "slug": "bittercold-wind"
+ },
+ "11080000": {
+  "name": "Blade Toss",
+  "class": "Gladiator",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "blade-toss"
+ },
+ "15050000": {
+  "name": "Blaze",
+  "class": "Sorcerer",
+  "type": "active",
+  "max_level": 40,
+  "slug": "blaze"
+ },
+ "18710000": {
+  "name": "Blessing of Life",
+  "class": "Chanter",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "blessing-of-life"
+ },
+ "12800000": {
+  "name": "Block Pain",
+  "class": "Templar",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "block-pain"
+ },
+ "11730000": {
+  "name": "Blood Absorption",
+  "class": "Gladiator",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "blood-absorption"
+ },
+ "17060000": {
+  "name": "Bolt",
+  "class": "Cleric",
+  "type": "active",
+  "max_level": 40,
+  "slug": "bolt"
+ },
+ "14220000": {
+  "name": "Bow of Blessing",
+  "class": "Ranger",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "bow-of-blessing"
+ },
+ "14080000": {
+  "name": "Burst Arrow",
+  "class": "Ranger",
+  "type": "active",
+  "max_level": 40,
+  "slug": "burst-arrow"
+ },
+ "17070000": {
+  "name": "Chain of Torment",
+  "class": "Cleric",
+  "type": "active",
+  "max_level": 40,
+  "slug": "chain-of-torment"
+ },
+ "16010000": {
+  "name": "Cold Shock",
+  "class": "Spiritmaster",
+  "type": "active",
+  "max_level": 40,
+  "slug": "cold-shock"
+ },
+ "15730000": {
+  "name": "Cold Snap",
+  "class": "Sorcerer",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "cold-snap"
+ },
+ "15200000": {
+  "name": "Cold Storm",
+  "class": "Sorcerer",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "cold-storm"
+ },
+ "16040000": {
+  "name": "Combustion",
+  "class": "Spiritmaster",
+  "type": "active",
+  "max_level": 40,
+  "slug": "combustion"
+ },
+ "16170000": {
+  "name": "Command: Proxy",
+  "class": "Spiritmaster",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "command-proxy"
+ },
+ "12250000": {
+  "name": "Comrade in Arms",
+  "class": "Templar",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "comrade-in-arms"
+ },
+ "14720000": {
+  "name": "Concentrated Fire",
+  "class": "Ranger",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "concentrated-fire"
+ },
+ "17350000": {
+  "name": "Condemnation",
+  "class": "Cleric",
+  "type": "active",
+  "max_level": 40,
+  "slug": "condemnation"
+ },
+ "16800000": {
+  "name": "Consecutive Countercurrent",
+  "class": "Spiritmaster",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "consecutive-countercurrent"
+ },
+ "16740000": {
+  "name": "Corrode",
+  "class": "Spiritmaster",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "corrode"
+ },
+ "18720000": {
+  "name": "Crossguard",
+  "class": "Chanter",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "crossguard"
+ },
+ "11050000": {
+  "name": "Crushing Wave",
+  "class": "Gladiator",
+  "type": "active",
+  "max_level": 40,
+  "slug": "crushing-wave"
+ },
+ "16080000": {
+  "name": "Cry of Terror",
+  "class": "Spiritmaster",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "cry-of-terror"
+ },
+ "15140000": {
+  "name": "Curse: Tree",
+  "class": "Sorcerer",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "curse-tree"
+ },
+ "16220000": {
+  "name": "Cursed Cloud",
+  "class": "Spiritmaster",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "cursed-cloud"
+ },
+ "18100000": {
+  "name": "Dark Crush",
+  "class": "Chanter",
+  "type": "active",
+  "max_level": 40,
+  "slug": "dark-crush"
+ },
+ "14010000": {
+  "name": "Deadshot",
+  "class": "Ranger",
+  "type": "active",
+  "max_level": 40,
+  "slug": "deadshot"
+ },
+ "17080000": {
+  "name": "Debilitating Mark",
+  "class": "Cleric",
+  "type": "active",
+  "max_level": 40,
+  "slug": "debilitating-mark"
+ },
+ "12270000": {
+  "name": "Debilitating Smash",
+  "class": "Templar",
+  "type": "active",
+  "max_level": 40,
+  "slug": "debilitating-smash"
+ },
+ "13780000": {
+  "name": "Defense Break",
+  "class": "Assassin",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "defense-break"
+ },
+ "11260000": {
+  "name": "Defiance",
+  "class": "Gladiator",
+  "type": "active",
+  "max_level": 40,
+  "slug": "defiance"
+ },
+ "13260000": {
+  "name": "Defiance",
+  "class": "Assassin",
+  "type": "active",
+  "max_level": 40,
+  "slug": "defiance-assassin"
+ },
+ "18200000": {
+  "name": "Defiance",
+  "class": "Chanter",
+  "type": "active",
+  "max_level": 40,
+  "slug": "defiance-chanter"
+ },
+ "17240000": {
+  "name": "Defiance",
+  "class": "Cleric",
+  "type": "active",
+  "max_level": 40,
+  "slug": "defiance-cleric"
+ },
+ "14260000": {
+  "name": "Defiance",
+  "class": "Ranger",
+  "type": "active",
+  "max_level": 40,
+  "slug": "defiance-ranger"
+ },
+ "15240000": {
+  "name": "Defiance",
+  "class": "Sorcerer",
+  "type": "active",
+  "max_level": 40,
+  "slug": "defiance-sorcerer"
+ },
+ "16200000": {
+  "name": "Defiance",
+  "class": "Spiritmaster",
+  "type": "active",
+  "max_level": 40,
+  "slug": "defiance-spiritmaster"
+ },
+ "12260000": {
+  "name": "Defiance",
+  "class": "Templar",
+  "type": "active",
+  "max_level": 40,
+  "slug": "defiance-templar"
+ },
+ "15320000": {
+  "name": "Delayed Explosion",
+  "class": "Sorcerer",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "delayed-explosion"
+ },
+ "11770000": {
+  "name": "Destructive Impulse",
+  "class": "Gladiator",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "destructive-impulse"
+ },
+ "13800000": {
+  "name": "Determination",
+  "class": "Assassin",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "determination"
+ },
+ "16330000": {
+  "name": "Dimensional Control",
+  "class": "Spiritmaster",
+  "type": "active",
+  "max_level": 40,
+  "slug": "dimensional-control"
+ },
+ "17150000": {
+  "name": "Divine Aura",
+  "class": "Cleric",
+  "type": "active",
+  "max_level": 40,
+  "slug": "divine-aura"
+ },
+ "15360000": {
+  "name": "Divine Burst",
+  "class": "Sorcerer",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "divine-burst"
+ },
+ "12070000": {
+  "name": "Doom Shield",
+  "class": "Templar",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "doom-shield"
+ },
+ "14050000": {
+  "name": "Drill Dart",
+  "class": "Ranger",
+  "type": "active",
+  "max_level": 40,
+  "slug": "drill-dart"
+ },
+ "17400000": {
+  "name": "Earth Punishment",
+  "class": "Cleric",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "earth-punishment"
+ },
+ "17780000": {
+  "name": "Earth's Grace",
+  "class": "Cleric",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "earths-grace"
+ },
+ "18780000": {
+  "name": "Earth's Promise",
+  "class": "Chanter",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "earths-promise"
+ },
+ "17010000": {
+  "name": "Earth's Retribution",
+  "class": "Cleric",
+  "type": "active",
+  "max_level": 40,
+  "slug": "earths-retribution"
+ },
+ "15400000": {
+  "name": "Element Enhancement",
+  "class": "Sorcerer",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "element-enhancement"
+ },
+ "16780000": {
+  "name": "Element Unification",
+  "class": "Spiritmaster",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "element-unification"
+ },
+ "16300000": {
+  "name": "Elemental Fusion",
+  "class": "Spiritmaster",
+  "type": "active",
+  "max_level": 40,
+  "slug": "elemental-fusion"
+ },
+ "17720000": {
+  "name": "Empyrean Lords' Benediction",
+  "class": "Cleric",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "empyrean-lords-benediction"
+ },
+ "17730000": {
+  "name": "Empyrean Lord's Grace",
+  "class": "Cleric",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "empyrean-lords-grace"
+ },
+ "12310000": {
+  "name": "Empyrean Lord's Punishment",
+  "class": "Templar",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "empyrean-lords-punishment"
+ },
+ "12710000": {
+  "name": "Enhance Health",
+  "class": "Templar",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "enhance-health"
+ },
+ "16190000": {
+  "name": "Enhance: Spirit's Benediction",
+  "class": "Spiritmaster",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "enhance-spirits-benediction"
+ },
+ "18230000": {
+  "name": "Ensnaring Mark",
+  "class": "Chanter",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "ensnaring-mark"
+ },
+ "14180000": {
+  "name": "Ensnaring Trap",
+  "class": "Ranger",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "ensnaring-trap"
+ },
+ "13370000": {
+  "name": "Evasion Contract",
+  "class": "Assassin",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "evasion-contract"
+ },
+ "13080000": {
+  "name": "Evasion Stance",
+  "class": "Assassin",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "evasion-stance"
+ },
+ "12410000": {
+  "name": "Executing Blade",
+  "class": "Templar",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "executing-blade"
+ },
+ "11780000": {
+  "name": "Experienced Counterstrike",
+  "class": "Gladiator",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "experienced-counterstrike"
+ },
+ "13720000": {
+  "name": "Exploit Weakness",
+  "class": "Assassin",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "exploit-weakness"
+ },
+ "14170000": {
+  "name": "Explosion Trap",
+  "class": "Ranger",
+  "type": "active",
+  "max_level": 40,
+  "slug": "explosion-trap"
+ },
+ "14360000": {
+  "name": "Explosive Arrow",
+  "class": "Ranger",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "explosive-arrow"
+ },
+ "15710000": {
+  "name": "Fire Mark",
+  "class": "Sorcerer",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "fire-mark"
+ },
+ "15390000": {
+  "name": "Fire Wall",
+  "class": "Sorcerer",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "fire-wall"
+ },
+ "15040000": {
+  "name": "Firestorm",
+  "class": "Sorcerer",
+  "type": "active",
+  "max_level": 40,
+  "slug": "firestorm"
+ },
+ "15210000": {
+  "name": "Flame Arrow",
+  "class": "Sorcerer",
+  "type": "active",
+  "max_level": 40,
+  "slug": "flame-arrow"
+ },
+ "16370000": {
+  "name": "Flame Blessing",
+  "class": "Spiritmaster",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "flame-blessing"
+ },
+ "15010000": {
+  "name": "Flame Scattershot",
+  "class": "Sorcerer",
+  "type": "active",
+  "max_level": 40,
+  "slug": "flame-scattershot"
+ },
+ "12340000": {
+  "name": "Flash Rampage",
+  "class": "Templar",
+  "type": "active",
+  "max_level": 40,
+  "slug": "flash-rampage"
+ },
+ "13050000": {
+  "name": "Flash Slice",
+  "class": "Assassin",
+  "type": "active",
+  "max_level": 40,
+  "slug": "flash-slice"
+ },
+ "11110000": {
+  "name": "Focused Block",
+  "class": "Gladiator",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "focused-block"
+ },
+ "18140000": {
+  "name": "Focused Defense",
+  "class": "Chanter",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "focused-defense"
+ },
+ "14740000": {
+  "name": "Focused Eye",
+  "class": "Ranger",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "focused-eye"
+ },
+ "11430000": {
+  "name": "Forced Restraint",
+  "class": "Gladiator",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "forced-restraint"
+ },
+ "18130000": {
+  "name": "Fracturing Blow",
+  "class": "Chanter",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "fracturing-blow"
+ },
+ "11450000": {
+  "name": "Fracturing Rush",
+  "class": "Gladiator",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "fracturing-rush"
+ },
+ "15150000": {
+  "name": "Frost",
+  "class": "Sorcerer",
+  "type": "active",
+  "max_level": 40,
+  "slug": "frost"
+ },
+ "15220000": {
+  "name": "Frost Burst",
+  "class": "Sorcerer",
+  "type": "active",
+  "max_level": 40,
+  "slug": "frost-burst"
+ },
+ "12780000": {
+  "name": "Fury",
+  "class": "Templar",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "fury"
+ },
+ "14110000": {
+  "name": "Gale Arrow",
+  "class": "Ranger",
+  "type": "active",
+  "max_level": 40,
+  "slug": "gale-arrow"
+ },
+ "15120000": {
+  "name": "Glacial Smite",
+  "class": "Sorcerer",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "glacial-smite"
+ },
+ "15780000": {
+  "name": "Grace of Enhancement",
+  "class": "Sorcerer",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "grace-of-enhancement"
+ },
+ "15770000": {
+  "name": "Grace of Resistance",
+  "class": "Sorcerer",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "grace-of-resistance"
+ },
+ "12220000": {
+  "name": "Grapple",
+  "class": "Templar",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "grapple"
+ },
+ "14060000": {
+  "name": "Griffon Arrow",
+  "class": "Ranger",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "griffon-arrow"
+ },
+ "18420000": {
+  "name": "Guardian Blessing",
+  "class": "Chanter",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "guardian-blessing"
+ },
+ "12750000": {
+  "name": "Guarding Seal",
+  "class": "Templar",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "guarding-seal"
+ },
+ "18300000": {
+  "name": "Gust Rampage",
+  "class": "Chanter",
+  "type": "active",
+  "max_level": 40,
+  "slug": "gust-rampage"
+ },
+ "17760000": {
+  "name": "Heal Block",
+  "class": "Cleric",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "heal-block"
+ },
+ "17740000": {
+  "name": "Healing Enhancement",
+  "class": "Cleric",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "healing-enhancement"
+ },
+ "17100000": {
+  "name": "Healing Light",
+  "class": "Cleric",
+  "type": "active",
+  "max_level": 40,
+  "slug": "healing-light"
+ },
+ "18170000": {
+  "name": "Healing Touch",
+  "class": "Chanter",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "healing-touch"
+ },
+ "13350000": {
+  "name": "Heart Gore",
+  "class": "Assassin",
+  "type": "active",
+  "max_level": 40,
+  "slug": "heart-gore"
+ },
+ "18150000": {
+  "name": "Heat Wave Blow",
+  "class": "Chanter",
+  "type": "active",
+  "max_level": 40,
+  "slug": "heat-wave-blow"
+ },
+ "13710000": {
+  "name": "Heightened Sixth Sense",
+  "class": "Assassin",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "heightened-sixth-sense"
+ },
+ "15060000": {
+  "name": "Hellfire",
+  "class": "Sorcerer",
+  "type": "active",
+  "max_level": 40,
+  "slug": "hellfire"
+ },
+ "15410000": {
+  "name": "Hibernation",
+  "class": "Sorcerer",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "hibernation"
+ },
+ "14750000": {
+  "name": "Hunter's Resolve",
+  "class": "Ranger",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "hunters-resolve"
+ },
+ "14800000": {
+  "name": "Hunter's Soul",
+  "class": "Ranger",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "hunters-soul"
+ },
+ "15090000": {
+  "name": "Ice Chain",
+  "class": "Sorcerer",
+  "type": "active",
+  "max_level": 40,
+  "slug": "ice-chain"
+ },
+ "11740000": {
+  "name": "Identify Weakness",
+  "class": "Gladiator",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "identify-weakness"
+ },
+ "13310000": {
+  "name": "Illusive Clone",
+  "class": "Assassin",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "illusive-clone"
+ },
+ "14150000": {
+  "name": "Illusory Arrow",
+  "class": "Ranger",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "illusory-arrow"
+ },
+ "17750000": {
+  "name": "Immortal Veil",
+  "class": "Cleric",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "immortal-veil"
+ },
+ "11760000": {
+  "name": "Impact Hit",
+  "class": "Gladiator",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "impact-hit"
+ },
+ "13760000": {
+  "name": "Impact Hit",
+  "class": "Assassin",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "impact-hit-assassin"
+ },
+ "18760000": {
+  "name": "Impact Hit",
+  "class": "Chanter",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "impact-hit-chanter"
+ },
+ "12760000": {
+  "name": "Impact Hit",
+  "class": "Templar",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "impact-hit-templar"
+ },
+ "18060000": {
+  "name": "Impactful Crush",
+  "class": "Chanter",
+  "type": "active",
+  "max_level": 40,
+  "slug": "impactful-crush"
+ },
+ "18240000": {
+  "name": "Impeding Authority",
+  "class": "Chanter",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "impeding-authority"
+ },
+ "18040000": {
+  "name": "Incandescent Blow",
+  "class": "Chanter",
+  "type": "active",
+  "max_level": 40,
+  "slug": "incandescent-blow"
+ },
+ "13360000": {
+  "name": "Infiltrate",
+  "class": "Assassin",
+  "type": "active",
+  "max_level": 40,
+  "slug": "infiltrate"
+ },
+ "13130000": {
+  "name": "Insignia Explosion",
+  "class": "Assassin",
+  "type": "active",
+  "max_level": 40,
+  "slug": "insignia-explosion"
+ },
+ "18740000": {
+  "name": "Inspiring Spell",
+  "class": "Chanter",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "inspiring-spell"
+ },
+ "12770000": {
+  "name": "Insulting Roar",
+  "class": "Templar",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "insulting-roar"
+ },
+ "12740000": {
+  "name": "Ironclad Defense",
+  "class": "Templar",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "ironclad-defense"
+ },
+ "16150000": {
+  "name": "Jointstrike: Corrode",
+  "class": "Spiritmaster",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "jointstrike-corrode"
+ },
+ "16140000": {
+  "name": "Jointstrike: Curse",
+  "class": "Spiritmaster",
+  "type": "active",
+  "max_level": 40,
+  "slug": "jointstrike-curse"
+ },
+ "16240000": {
+  "name": "Jointstrike: Destructive Attack",
+  "class": "Spiritmaster",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "jointstrike-destructive-attack"
+ },
+ "12240000": {
+  "name": "Judgment",
+  "class": "Templar",
+  "type": "active",
+  "max_level": 40,
+  "slug": "judgment"
+ },
+ "17040000": {
+  "name": "Judgment Thunder",
+  "class": "Cleric",
+  "type": "active",
+  "max_level": 40,
+  "slug": "judgment-thunder"
+ },
+ "16360000": {
+  "name": "Kaisinel's Power",
+  "class": "Spiritmaster",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "kaisinels-power"
+ },
+ "11020000": {
+  "name": "Keen Strike",
+  "class": "Gladiator",
+  "type": "active",
+  "max_level": 40,
+  "slug": "keen-strike"
+ },
+ "11190000": {
+  "name": "Leaping Slam",
+  "class": "Gladiator",
+  "type": "active",
+  "max_level": 40,
+  "slug": "leaping-slam"
+ },
+ "11340000": {
+  "name": "Lifestealing Blade",
+  "class": "Gladiator",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "lifestealing-blade"
+ },
+ "17410000": {
+  "name": "Light of Protection",
+  "class": "Cleric",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "light-of-protection"
+ },
+ "17090000": {
+  "name": "Light of Regeneration",
+  "class": "Cleric",
+  "type": "active",
+  "max_level": 40,
+  "slug": "light-of-regeneration"
+ },
+ "17370000": {
+  "name": "Lightning Strike Scattershot",
+  "class": "Cleric",
+  "type": "active",
+  "max_level": 40,
+  "slug": "lightning-strike-scattershot"
+ },
+ "15300000": {
+  "name": "Lumiel's Space",
+  "class": "Sorcerer",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "lumiels-space"
+ },
+ "11400000": {
+  "name": "Lunge Stance",
+  "class": "Gladiator",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "lunge-stance"
+ },
+ "16260000": {
+  "name": "Magic Block",
+  "class": "Spiritmaster",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "magic-block"
+ },
+ "18330000": {
+  "name": "Marchutan's Wrath",
+  "class": "Chanter",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "marchutans-wrath"
+ },
+ "14090000": {
+  "name": "Marking Shot",
+  "class": "Ranger",
+  "type": "active",
+  "max_level": 40,
+  "slug": "marking-shot"
+ },
+ "14780000": {
+  "name": "Melee Fire",
+  "class": "Ranger",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "melee-fire"
+ },
+ "16760000": {
+  "name": "Mental Focus",
+  "class": "Spiritmaster",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "mental-focus"
+ },
+ "11290000": {
+  "name": "Mocking Blade",
+  "class": "Gladiator",
+  "type": "active",
+  "max_level": 40,
+  "slug": "mocking-blade"
+ },
+ "14350000": {
+  "name": "Mother Nature's Breath",
+  "class": "Ranger",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "mother-natures-breath"
+ },
+ "11800000": {
+  "name": "Murderous Burst",
+  "class": "Gladiator",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "murderous-burst"
+ },
+ "12320000": {
+  "name": "Nezekan's Shield",
+  "class": "Templar",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "nezekans-shield"
+ },
+ "12230000": {
+  "name": "Noble Armor",
+  "class": "Templar",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "noble-armor"
+ },
+ "17440000": {
+  "name": "Noble Aura",
+  "class": "Cleric",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "noble-aura"
+ },
+ "18220000": {
+  "name": "Obliterate",
+  "class": "Chanter",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "obliterate"
+ },
+ "18010000": {
+  "name": "Onslaught",
+  "class": "Chanter",
+  "type": "active",
+  "max_level": 40,
+  "slug": "onslaught"
+ },
+ "11170000": {
+  "name": "Overhead Slam",
+  "class": "Gladiator",
+  "type": "active",
+  "max_level": 40,
+  "slug": "overhead-slam"
+ },
+ "12130000": {
+  "name": "Poach",
+  "class": "Templar",
+  "type": "active",
+  "max_level": 40,
+  "slug": "poach"
+ },
+ "17280000": {
+  "name": "Power Burst",
+  "class": "Cleric",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "power-burst"
+ },
+ "18250000": {
+  "name": "Power of the Storm",
+  "class": "Chanter",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "power-of-the-storm"
+ },
+ "17430000": {
+  "name": "Prayer of Amplification",
+  "class": "Cleric",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "prayer-of-amplification"
+ },
+ "17770000": {
+  "name": "Prayer of Concentration",
+  "class": "Cleric",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "prayer-of-concentration"
+ },
+ "11720000": {
+  "name": "Protection Armor",
+  "class": "Gladiator",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "protection-armor"
+ },
+ "18730000": {
+  "name": "Protection Circle",
+  "class": "Chanter",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "protection-circle"
+ },
+ "12040000": {
+  "name": "Pummel",
+  "class": "Templar",
+  "type": "active",
+  "max_level": 40,
+  "slug": "pummel"
+ },
+ "12730000": {
+  "name": "Punishing Benediction",
+  "class": "Templar",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "punishing-benediction"
+ },
+ "12090000": {
+  "name": "Punishment",
+  "class": "Templar",
+  "type": "active",
+  "max_level": 40,
+  "slug": "punishment"
+ },
+ "13010000": {
+  "name": "Quick Slice",
+  "class": "Assassin",
+  "type": "active",
+  "max_level": 40,
+  "slug": "quick-slice"
+ },
+ "17800000": {
+  "name": "Radiant Benediction",
+  "class": "Cleric",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "radiant-benediction"
+ },
+ "17120000": {
+  "name": "Radiant Recovery",
+  "class": "Cleric",
+  "type": "active",
+  "max_level": 40,
+  "slug": "radiant-recovery"
+ },
+ "11390000": {
+  "name": "Rage Burst",
+  "class": "Gladiator",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "rage-burst"
+ },
+ "18770000": {
+  "name": "Raging Spell",
+  "class": "Chanter",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "raging-spell"
+ },
+ "16340000": {
+  "name": "Rapid Scattershot",
+  "class": "Spiritmaster",
+  "type": "active",
+  "max_level": 40,
+  "slug": "rapid-scattershot"
+ },
+ "13740000": {
+  "name": "Rear Smite",
+  "class": "Assassin",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "rear-smite"
+ },
+ "18120000": {
+  "name": "Recuperation",
+  "class": "Chanter",
+  "type": "active",
+  "max_level": 40,
+  "slug": "recuperation"
+ },
+ "11010000": {
+  "name": "Rending Blow",
+  "class": "Gladiator",
+  "type": "active",
+  "max_level": 40,
+  "slug": "rending-blow"
+ },
+ "13790000": {
+  "name": "Revitalization Contract",
+  "class": "Assassin",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "revitalization-contract"
+ },
+ "14790000": {
+  "name": "Revitalization Contract",
+  "class": "Ranger",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "revitalization-contract-ranger"
+ },
+ "15790000": {
+  "name": "Revitalization Contract",
+  "class": "Sorcerer",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "revitalization-contract-sorcerer"
+ },
+ "16790000": {
+  "name": "Revitalization Contract",
+  "class": "Spiritmaster",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "revitalization-contract-spiritmaster"
+ },
+ "15750000": {
+  "name": "Robe of Cold",
+  "class": "Sorcerer",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "robe-of-cold"
+ },
+ "15720000": {
+  "name": "Robe of Earth",
+  "class": "Sorcerer",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "robe-of-earth"
+ },
+ "15740000": {
+  "name": "Robe of Flame",
+  "class": "Sorcerer",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "robe-of-flame"
+ },
+ "17190000": {
+  "name": "Root",
+  "class": "Cleric",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "root"
+ },
+ "14770000": {
+  "name": "Rooting Eye",
+  "class": "Ranger",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "rooting-eye"
+ },
+ "11100000": {
+  "name": "Ruinous Blow",
+  "class": "Gladiator",
+  "type": "active",
+  "max_level": 40,
+  "slug": "ruinous-blow"
+ },
+ "11360000": {
+  "name": "Rush Strike",
+  "class": "Gladiator",
+  "type": "active",
+  "max_level": 40,
+  "slug": "rush-strike"
+ },
+ "18090000": {
+  "name": "Rushing Smash",
+  "class": "Chanter",
+  "type": "active",
+  "max_level": 40,
+  "slug": "rushing-smash"
+ },
+ "17270000": {
+  "name": "Salvation",
+  "class": "Cleric",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "salvation"
+ },
+ "13270000": {
+  "name": "Savage Fang",
+  "class": "Assassin",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "savage-fang"
+ },
+ "13100000": {
+  "name": "Savage Roar",
+  "class": "Assassin",
+  "type": "active",
+  "max_level": 40,
+  "slug": "savage-roar"
+ },
+ "14160000": {
+  "name": "Sealing Arrow",
+  "class": "Ranger",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "sealing-arrow"
+ },
+ "12190000": {
+  "name": "Second Skin",
+  "class": "Templar",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "second-skin"
+ },
+ "16230000": {
+  "name": "Seize Magic",
+  "class": "Spiritmaster",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "seize-magic"
+ },
+ "13220000": {
+  "name": "Shadow Fall",
+  "class": "Assassin",
+  "type": "active",
+  "max_level": 40,
+  "slug": "shadow-fall"
+ },
+ "13180000": {
+  "name": "Shadow Walk",
+  "class": "Assassin",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "shadow-walk"
+ },
+ "13140000": {
+  "name": "Shadowstep",
+  "class": "Assassin",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "shadowstep"
+ },
+ "13070000": {
+  "name": "Shadowstrike",
+  "class": "Assassin",
+  "type": "active",
+  "max_level": 40,
+  "slug": "shadowstrike"
+ },
+ "12110000": {
+  "name": "Shield of Protection",
+  "class": "Templar",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "shield-of-protection"
+ },
+ "12430000": {
+  "name": "Shield Rush",
+  "class": "Templar",
+  "type": "active",
+  "max_level": 40,
+  "slug": "shield-rush"
+ },
+ "12100000": {
+  "name": "Shield Smite",
+  "class": "Templar",
+  "type": "active",
+  "max_level": 40,
+  "slug": "shield-smite"
+ },
+ "16060000": {
+  "name": "Siphon",
+  "class": "Spiritmaster",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "siphon"
+ },
+ "13250000": {
+  "name": "Smoke Bomb",
+  "class": "Assassin",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "smoke-bomb"
+ },
+ "14130000": {
+  "name": "Snare Shot",
+  "class": "Ranger",
+  "type": "active",
+  "max_level": 40,
+  "slug": "snare-shot"
+ },
+ "14020000": {
+  "name": "Snipe",
+  "class": "Ranger",
+  "type": "active",
+  "max_level": 40,
+  "slug": "snipe"
+ },
+ "15130000": {
+  "name": "Soul Freeze",
+  "class": "Sorcerer",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "soul-freeze"
+ },
+ "16070000": {
+  "name": "Soul's Cry",
+  "class": "Spiritmaster",
+  "type": "active",
+  "max_level": 40,
+  "slug": "souls-cry"
+ },
+ "18290000": {
+  "name": "Spinning Strike",
+  "class": "Chanter",
+  "type": "active",
+  "max_level": 40,
+  "slug": "spinning-strike"
+ },
+ "13280000": {
+  "name": "Spiral Slice",
+  "class": "Assassin",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "spiral-slice"
+ },
+ "16770000": {
+  "name": "Spirit Communion",
+  "class": "Spiritmaster",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "spirit-communion"
+ },
+ "16720000": {
+  "name": "Spirit Protection",
+  "class": "Spiritmaster",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "spirit-protection"
+ },
+ "16750000": {
+  "name": "Spirit Revitalization",
+  "class": "Spiritmaster",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "spirit-revitalization"
+ },
+ "16710000": {
+  "name": "Spirit Strike",
+  "class": "Spiritmaster",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "spirit-strike"
+ },
+ "16730000": {
+  "name": "Spirit's Descent",
+  "class": "Spiritmaster",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "spirits-descent"
+ },
+ "18160000": {
+  "name": "Sprint Mantra",
+  "class": "Chanter",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "sprint-mantra"
+ },
+ "14190000": {
+  "name": "Stealth",
+  "class": "Ranger",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "stealth"
+ },
+ "15160000": {
+  "name": "Steel Barrier",
+  "class": "Sorcerer",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "steel-barrier"
+ },
+ "13340000": {
+  "name": "Storm Rampage",
+  "class": "Assassin",
+  "type": "active",
+  "max_level": 40,
+  "slug": "storm-rampage"
+ },
+ "16250000": {
+  "name": "Summon: Ancient Spirit",
+  "class": "Spiritmaster",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "summon-ancient-spirit"
+ },
+ "16130000": {
+  "name": "Summon: Earth Spirit",
+  "class": "Spiritmaster",
+  "type": "active",
+  "max_level": 40,
+  "slug": "summon-earth-spirit"
+ },
+ "16100000": {
+  "name": "Summon: Fire Spirit",
+  "class": "Spiritmaster",
+  "type": "active",
+  "max_level": 40,
+  "slug": "summon-fire-spirit"
+ },
+ "17390000": {
+  "name": "Summon Resurrection",
+  "class": "Cleric",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "summon-resurrection"
+ },
+ "16110000": {
+  "name": "Summon: Water Spirit",
+  "class": "Spiritmaster",
+  "type": "active",
+  "max_level": 40,
+  "slug": "summon-water-spirit"
+ },
+ "16120000": {
+  "name": "Summon: Wind Spirit",
+  "class": "Spiritmaster",
+  "type": "active",
+  "max_level": 40,
+  "slug": "summon-wind-spirit"
+ },
+ "14380000": {
+  "name": "Supporting Fire",
+  "class": "Ranger",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "supporting-fire"
+ },
+ "14070000": {
+  "name": "Suppressing Arrow",
+  "class": "Ranger",
+  "type": "active",
+  "max_level": 40,
+  "slug": "suppressing-arrow"
+ },
+ "11710000": {
+  "name": "Survival Stance",
+  "class": "Gladiator",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "survival-stance"
+ },
+ "11790000": {
+  "name": "Survival Willpower",
+  "class": "Gladiator",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "survival-willpower"
+ },
+ "17790000": {
+  "name": "Survival Willpower",
+  "class": "Cleric",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "survival-willpower-cleric"
+ },
+ "12790000": {
+  "name": "Survival Willpower",
+  "class": "Templar",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "survival-willpower-templar"
+ },
+ "13390000": {
+  "name": "Swift Contract",
+  "class": "Assassin",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "swift-contract"
+ },
+ "11280000": {
+  "name": "Sword Aura Rampage",
+  "class": "Gladiator",
+  "type": "active",
+  "max_level": 40,
+  "slug": "sword-aura-rampage"
+ },
+ "12120000": {
+  "name": "Taunt",
+  "class": "Templar",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "taunt"
+ },
+ "14340000": {
+  "name": "Tempest Shot",
+  "class": "Ranger",
+  "type": "active",
+  "max_level": 40,
+  "slug": "tempest-shot"
+ },
+ "11380000": {
+  "name": "Tenaciousness",
+  "class": "Gladiator",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "tenaciousness"
+ },
+ "13020000": {
+  "name": "Throw Shadowblade",
+  "class": "Assassin",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "throw-shadowblade"
+ },
+ "18210000": {
+  "name": "Tremor Crush",
+  "class": "Chanter",
+  "type": "active",
+  "max_level": 40,
+  "slug": "tremor-crush"
+ },
+ "13300000": {
+  "name": "Triniel's Dagger",
+  "class": "Assassin",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "triniels-dagger"
+ },
+ "18190000": {
+  "name": "Undefeated Mantra",
+  "class": "Chanter",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "undefeated-mantra"
+ },
+ "14760000": {
+  "name": "Unyielding Resolve",
+  "class": "Ranger",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "unyielding-resolve"
+ },
+ "14310000": {
+  "name": "Vaizel's Authority",
+  "class": "Ranger",
+  "type": "stigma",
+  "max_level": 40,
+  "slug": "vaizels-authority"
+ },
+ "12010000": {
+  "name": "Vicious Strike",
+  "class": "Templar",
+  "type": "active",
+  "max_level": 40,
+  "slug": "vicious-strike"
+ },
+ "14710000": {
+  "name": "Vigilant Eye",
+  "class": "Ranger",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "vigilant-eye"
+ },
+ "15800000": {
+  "name": "Vitality Evaporation",
+  "class": "Sorcerer",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "vitality-evaporation"
+ },
+ "17300000": {
+  "name": "Voice of Doom",
+  "class": "Cleric",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "voice-of-doom"
+ },
+ "12720000": {
+  "name": "Warding Shield",
+  "class": "Templar",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "warding-shield"
+ },
+ "12350000": {
+  "name": "Warding Strike",
+  "class": "Templar",
+  "type": "active",
+  "max_level": 40,
+  "slug": "warding-strike"
+ },
+ "17710000": {
+  "name": "Warm Benediction",
+  "class": "Cleric",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "warm-benediction"
+ },
+ "11410000": {
+  "name": "Wave Armor",
+  "class": "Gladiator",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "wave-armor"
+ },
+ "18080000": {
+  "name": "Wave Blow",
+  "class": "Chanter",
+  "type": "active",
+  "max_level": 40,
+  "slug": "wave-blow"
+ },
+ "13210000": {
+  "name": "Whirlwind Slice",
+  "class": "Assassin",
+  "type": "active",
+  "max_level": 40,
+  "slug": "whirlwind-slice"
+ },
+ "14730000": {
+  "name": "Wind Vigor",
+  "class": "Ranger",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "wind-vigor"
+ },
+ "18800000": {
+  "name": "Wind's Promise",
+  "class": "Chanter",
+  "type": "passive",
+  "max_level": 40,
+  "slug": "winds-promise"
+ },
+ "15110000": {
+  "name": "Winter's Shackles",
+  "class": "Sorcerer",
+  "type": "active",
+  "max_level": 40,
+  "slug": "winters-shackles"
+ },
+ "15310000": {
+  "name": "Wish of Concentration",
+  "class": "Sorcerer",
+  "type": "active",
+  "max_level": 40,
+  "slug": "wish-of-concentration"
+ },
+ "11240000": {
+  "name": "Wrath Wave",
+  "class": "Gladiator",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "wrath-wave"
+ },
+ "17420000": {
+  "name": "Yustiel's Power",
+  "class": "Cleric",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "yustiels-power"
+ },
+ "11250000": {
+  "name": "Zikel's Blessing",
+  "class": "Gladiator",
+  "type": "stigma",
+  "max_level": 25,
+  "slug": "zikels-blessing"
+ }
+}

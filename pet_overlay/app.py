@@ -16,6 +16,8 @@ from .combat import PLAYER_SPAWN_OPCODE, CombatTracker, parse_player
 from .damage import (DAMAGE_OPCODES, DEATH_OPCODE, READY as DAMAGE_READY, STATS_OPCODE, parse_damage, parse_hp,
                      summon_owner)
 from .roster import ROSTER_OPCODE, parse_roster
+from .skills import (CAST_OPCODE, PRESETS_OPCODE, REQUEST_OPCODE, SKILL_LIST_OPCODE, caster_of, parse_cast,
+                     parse_presets, parse_request, parse_skill_list)
 from .protocol import read_varint
 from .mapdata import MapData
 from .paths import ASSETS_DIR
@@ -29,6 +31,8 @@ from .modules.notifications import NotificationsModule
 from .modules.pets import PetsModule
 from .modules.settings import SettingsModule
 from .modules.dps import DpsModule
+from .modules.tuner import TunerModule
+from .afinador import STORE_DELAY, Afinador
 from .update_controller import UpdateController
 from .notifications import NotificationCenter
 from .ui.toasts import ToastManager
@@ -81,6 +85,8 @@ class Bridge(QObject):
     death = Signal(int)
     roster = Signal(object)          # [(name, server, job, level)] of your party / force
     hp = Signal(object)              # (eid, current hp)
+    own_skill = Signal(object)       # ("press", ts, skill, result) | ("cast", ts, skill, cooldown ms) |
+                                     # ("skills", {base: OwnSkill}) | ("bar", [QuickSlot])
     status = Signal(str)
 
     def __init__(self, tracker=None):
@@ -88,6 +94,7 @@ class Bridge(QObject):
         self.tracker = tracker
         self._pending_hits = []          # filled on the capture thread, drained by the UI every 200 ms
         self._hits_lock = threading.Lock()
+        self.self_eid = None             # your entity id, to keep only your own casts
 
     def take_hits(self):
         with self._hits_lock:
@@ -133,9 +140,27 @@ class Bridge(QObject):
             updates = parse_progress(body)
             if updates:
                 self.progress.emit(updates)
+        elif op == REQUEST_OPCODE:
+            press = parse_request(body)
+            if press:
+                self.own_skill.emit(("press", time.time(), *press))
+        elif op == CAST_OPCODE:
+            if self.self_eid is not None and caster_of(body) == self.self_eid:
+                cast = parse_cast(body)
+                if cast:
+                    self.own_skill.emit(("cast", time.time(), cast.skill, cast.cooldown_ms))
+        elif op == SKILL_LIST_OPCODE:
+            skills = parse_skill_list(body)
+            if skills:
+                self.own_skill.emit(("skills", skills))
+        elif op == PRESETS_OPCODE:
+            presets = parse_presets(body)
+            if presets and presets[1]:
+                self.own_skill.emit(("bar", presets[1]))
         elif op == CHARACTER_OPCODE:
             info = parse_character(body)
             if info:
+                self.self_eid = info.entity_id
                 self.character.emit(info)
 
     def on_status(self, text):
@@ -219,6 +244,7 @@ class Controller(QObject):
         self.bridge.death.connect(self.on_death)
         self.bridge.roster.connect(lambda members: self.combat.set_group([m[0] for m in members]))
         self.bridge.hp.connect(lambda update: self.combat.on_hp(*update))
+        self.bridge.own_skill.connect(self.on_own_skill)
 
         self.fonts = Fonts(self.settings["scale"])
         self.notifications = NotificationCenter(self.data_dir / "notifications.json" if self.persist else None)
@@ -234,7 +260,10 @@ class Controller(QObject):
         self.updates = UpdateController(self)
         self.updates.changed.connect(self._updates_changed)
         # Feature modules, switchable from the app menu. New features register here.
-        self.modules = [PetsModule(self), DpsModule(self), NotificationsModule(self), SettingsModule(self)]
+        self.tuner = Afinador(self)
+        self.tuner_window = None
+        self.modules = [PetsModule(self), DpsModule(self), TunerModule(self), NotificationsModule(self),
+                        SettingsModule(self)]
         for module in self.modules:
             self.window.add_panel(module.create_panel(self.fonts))
         self.active_module = next((m for m in self.modules if m.key == self.settings["module"]), self.modules[0])
@@ -296,6 +325,25 @@ class Controller(QObject):
             if finished:
                 self._encounter_notice(finished)
 
+    # --- Afinador ------------------------------------------------------------------------------------
+    def on_own_skill(self, event):
+        kind = event[0]
+        if kind == "press":
+            self.tuner.on_press(*event[1:])
+        elif kind == "cast":
+            self.tuner.on_cast(*event[1:])
+        elif kind in ("skills", "bar"):
+            (self.tuner.on_skill_list if kind == "skills" else self.tuner.on_bar)(event[1])
+            QTimer.singleShot(int(STORE_DELAY * 1000) + 200, self.tuner_changed)   # once it is attributed
+
+    def tuner_changed(self):
+        """Skill list or bar read from the game: show it in the Afinador."""
+        self.tuner.apply_pending()
+        if self.tuner_window and self.tuner_window.isVisible():
+            self.tuner_window.rebuild()
+        if self.active_module.key == "tuner":
+            self.refresh()
+
     def on_death(self, eid):
         finished = self.combat.on_death(eid)
         if finished:
@@ -327,6 +375,7 @@ class Controller(QObject):
             return
         self.character = info
         self.combat.set_self(info.entity_id, info.name)
+        self.tuner.on_character()
         chars = self.settings.setdefault("characters", {})
         entry = chars.setdefault(info.name, {})
         entry.update({"server": info.server, "job": info.job, "level": info.level})
@@ -597,6 +646,16 @@ class Controller(QObject):
                 self.map_window.refresh()
             self.refresh()
         self.notify("info" if ok else "warn", f"Base de datos {'actualizada' if ok else 'NO actualizada'}", summary)
+
+    def open_tuner(self):
+        from .ui.tunerwindow import TunerWindow
+        if self.tuner_window is None:
+            self.tuner_window = TunerWindow(self)
+        else:
+            self.tuner_window.rebuild()
+        self.tuner_window.show()
+        self.tuner_window.raise_()
+        self.tuner_window.activateWindow()
 
     def switch_module(self, key):
         module = next((m for m in self.modules if m.key == key), None)

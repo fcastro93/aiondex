@@ -38,6 +38,7 @@ def build_app():
         "--add-data", f"{ROOT / 'assets' / 'badge.png'};assets",
         "--add-data", f"{ROOT / 'data' / 'pets_db.json'};seed",
         "--add-data", f"{ROOT / 'data' / 'map_db.json'};seed",
+        "--add-data", f"{ROOT / 'data' / 'skills_db.json'};seed",
         "--collect-submodules", "scapy.layers",
         "--hidden-import", "scapy.arch.windows",
         "--exclude-module", "tkinter",

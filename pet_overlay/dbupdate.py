@@ -61,7 +61,25 @@ def run(data_dir, refresh=False, report=None):
     summary = build_map_db(data, pets, sources, monsters)
     if failed:
         summary += f"; {len(failed)} monstruos fallaron"
+    summary += "; " + update_skills(data, cached, report)
     return summary
+
+
+def update_skills(data, cached, report):
+    """skills_db.json: base skill id -> name, class, type (active/passive/stigma), max level."""
+    slugs = metabot.parse_skill_slugs(metabot.fetch("/en/aion-2/skills").decode("utf-8"))
+    skills = {}
+    for i, slug in enumerate(slugs, 1):
+        try:
+            info = cached("skills", slug, lambda: metabot.parse_skill_page(
+                metabot.fetch(f"/en/aion-2/skills/{slug}").decode("utf-8")))
+        except Exception:
+            info = None
+        if info:
+            skills[info["id"]] = {k: v for k, v in info.items() if k != "id"} | {"slug": slug}
+        report("Habilidades", i, len(slugs))
+    (Path(data) / "skills_db.json").write_text(json.dumps(skills, ensure_ascii=False, indent=1), encoding="utf-8")
+    return f"{len(skills)} habilidades"
 
 
 def download_icons(data_dir, pet_ids, report=None):

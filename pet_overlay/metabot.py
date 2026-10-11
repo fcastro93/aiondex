@@ -154,5 +154,41 @@ def parse_monster(page):
     }
 
 
+def parse_skill_list(page):
+    """/en/aion-2/skills: JSON-LD ItemList entries carry name, url and image .../skills/<base id>.webp.
+    -> {base skill id: {"name", "slug"}}"""
+    skills = {}
+    for name, slug, sid in re.findall(
+            r'"name":"([^"]+)","url":"https://metabot\.gg/en/aion-2/skills/([a-z0-9-]+)",'
+            r'"image":"https://metabot\.gg/web/aion2/skills/(\d+)\.webp"', page):
+        skills.setdefault(sid, {"name": html.unescape(name.encode().decode("unicode_escape", "ignore")
+                                                      if "\\u" in name else name), "slug": slug})
+    return skills
+
+
+def parse_skill_slugs(page):
+    """All skill page slugs linked from /en/aion-2/skills."""
+    return sorted(set(re.findall(r'href="/en/aion-2/skills/([a-z0-9-]+)"', page)))
+
+
+def parse_skill_page(page):
+    """/en/aion-2/skills/<slug> -> {"id", "name", "class", "type", "max_level"} or None.
+    The id is the base skill id used by the game (icon .../skills/<id>.webp)."""
+    ids = re.findall(r"aion2/skills/(\d+)\.webp", page)
+    title = re.search(r"<h1[^>]*>([^<]+)", page)
+    meta = re.search(r'<meta name="description" content="[^"]*? is an? ([A-Za-z]+) ([a-z]+) skill'
+                     r'(?:[^"]*?levels to (\d+))?', page)
+    if not ids or not title:
+        return None
+    main_id = max(set(ids), key=ids.count)
+    return {
+        "id": main_id,
+        "name": html.unescape(title.group(1)).strip(),
+        "class": meta.group(1) if meta else None,
+        "type": meta.group(2) if meta else None,          # active / passive / stigma
+        "max_level": int(meta.group(3)) if meta and meta.group(3) else None,
+    }
+
+
 def tile_url(map_id, z, x, y):
     return f"{BASE}/web/aion2/worldmap/{map_id}/{z}/{x}/{y}.webp"

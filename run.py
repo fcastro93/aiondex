@@ -22,6 +22,7 @@ def main():
     parser.add_argument("--after", type=float, default=3.0, help="(dev) seconds before --screenshot")
     parser.add_argument("--open-map", type=int, metavar="PET_ID", help="open the map window on a pet")
     parser.add_argument("--open-menu", action="store_true", help="(dev) open the app menu before --screenshot")
+    parser.add_argument("--open-tuner", action="store_true", help="(dev) open the Afinador window")
     args = parser.parse_args()
 
     if not args.preview and not _single_instance():
@@ -46,6 +47,9 @@ def main():
         sniffer = GameSniffer(ctl.bridge.on_message, ctl.bridge.on_status)
         sniffer.start()
 
+    if args.open_tuner:
+        QTimer.singleShot(300, ctl.open_tuner)
+
     if args.open_map:
         QTimer.singleShot(300, lambda: ctl.open_map(args.open_map))
 
@@ -65,6 +69,8 @@ def main():
             ctl.window.grab().save(args.screenshot)
             if ctl.toasts.toasts:
                 _composite([ctl.window] + ctl.toasts.toasts, args.screenshot.replace(".png", "_toasts.png"))
+            if getattr(ctl, "tuner_window", None) and ctl.tuner_window.isVisible():
+                ctl.tuner_window.grab().save(args.screenshot.replace(".png", "_tuner.png"))
             if ctl.map_window and ctl.map_window.isVisible():
                 ctl.map_window.grab().save(args.screenshot.replace(".png", "_map.png"))
             ctl.quit()

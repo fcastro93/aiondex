@@ -7,6 +7,7 @@ Overlay para **AION 2** que sigue tu colección de pets en tiempo real, te dice 
 - **Pets**: los pets que puedes farmear en la zona donde estás, ordenados por el más cercano al nivel máximo y con qué mob matar; si no hay ninguno, las estadísticas de tu colección (cuántos pets tienes en cada nivel y en qué %).
 - **Mapa de pets**: clic en un pet y ves dónde aparecen sus monstruos, con qué probabilidad de alma, y qué otros pets que te faltan se farmean en esas mismas zonas. Marca los pets exclusivos de **Elyos** o **Asmodian**.
 - **DPS**: medidor de daño en tiempo real para ti y tu grupo (daño, DPS, % del grupo, críticos, ataques por la espalda, perfect, DoT) y el historial de tus últimas peleas. En jefes compartidos muestra la **contribución** de tu party/force al jefe (los demás jugadores aparecen solo como un total anónimo) y la vida restante del jefe.
+- **Afinador de macros**: lee del juego tus habilidades (nivel y especialización), estigmas, pasivas y tu barra rápida con su orden de prioridad; tú indicas el retraso de cada paso de tu macro del juego y, si usas uno, tu macro externo (Synapse, iCUE, G HUB…). Durante una prueba compara lo que se lanzó con lo que la recarga de cada habilidad permitía, cuenta las pulsaciones que el juego rechazó y te dice qué cambiar (prioridades, retrasos, separación entre el clic y la tecla del macro…).
 - **Detección automática**: personaje, mapa y zona en la que estás.
 - **Notificaciones**: globos al costado del overlay (progreso, subidas de nivel, pets nuevos, zona) y un historial por si te perdiste alguno.
 - **Se actualiza solo** con actualizaciones firmadas.
@@ -30,7 +31,7 @@ Overlay para **AION 2** que sigue tu colección de pets en tiempo real, te dice 
 | `Alt+Shift+C` | Compacto / expandido |
 | `Alt+Shift+M` | Mapa de pets |
 
-- Clic en el **logo** de la cabecera: menú (**Pets**, **DPS**, **Notificaciones**, **Ajustes**, **Salir**).
+- Clic en el **logo** de la cabecera: menú (**Pets**, **DPS**, **Afinador**, **Notificaciones**, **Ajustes**, **Salir**).
 - Desbloqueado se puede arrastrar; clic en un pet abre el mapa; clic derecho lo fija como objetivo.
 - El icono en la bandeja del sistema tiene opacidad, tamaño, notificaciones y más.
 
@@ -44,7 +45,7 @@ Cada release incluye un manifiesto **firmado** (Ed25519). La app solo instala un
 
 - AionDex solo **lee** el tráfico de red de tu propio cliente (con Npcap). No modifica el juego, no lee su memoria y no envía nada a ningún servidor.
 - Se conecta únicamente a GitHub (actualizaciones) y a [metabot.gg](https://metabot.gg/en/aion-2) (iconos y mapas).
-- Tus datos (colección, ajustes, historial) se guardan en `%LOCALAPPDATA%\AionDex`.
+- Tus datos (colección, ajustes, historial, configuración de tus macros) se guardan en `%LOCALAPPDATA%\AionDex`.
 - El medidor de DPS solo muestra nombres de tu party/force; el resto de jugadores aparece como un total anónimo. Nada de eso se guarda ni se sube: el historial de peleas guarda únicamente tus propios números.
 - Proyecto de fans, **no afiliado a NCSoft**. Usar herramientas de terceros puede ir contra los términos del juego: úsalo bajo tu responsabilidad.
 
