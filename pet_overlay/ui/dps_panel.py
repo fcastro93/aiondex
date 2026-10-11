@@ -20,6 +20,12 @@ def short_number(n):
     return f"{n:.0f}"
 
 
+def pct(ratio):
+    """Percentage with a decimal for the small shares typical of world bosses."""
+    value = 100 * ratio
+    return f"{value:.1f}%" if value < 10 else f"{value:.0f}%"
+
+
 def mmss(seconds):
     seconds = int(seconds)
     return f"{seconds // 60}:{seconds % 60:02d}"
@@ -107,6 +113,12 @@ class DpsPanel(QWidget):
             toggle.on_click = lambda: self.ctl.toggle_setting("dps_only_me")
             toggle.setContentsMargins(f.px(4), f.px(2), 0, 0)
             self.content.addWidget(toggle)
+            details = label("Detalles del daño (por jugador, clase y habilidad)", f.small, theme.ACCENT)
+            details.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+            details.setCursor(Qt.PointingHandCursor)
+            details.on_click = self.ctl.open_dps_details
+            details.setContentsMargins(f.px(4), f.px(2), 0, 0)
+            self.content.addWidget(details)
         if not compact and history:
             self.content.addWidget(SectionTitle("Tus últimas peleas", f))
             for h in history[:5]:
@@ -118,25 +130,31 @@ class DpsPanel(QWidget):
         self.adjustSize()
 
     def _contribution(self, encounter, group, outsiders):
-        """For fights shared with other players: your group's share of the damage to the boss."""
+        """For fights shared with other players: your share, your party's or force's, of the boss's damage."""
         hp = encounter.boss_hp_ratio()
         if not outsiders and hp is None:
             return
-        share = encounter.contribution(group)
-        if not share:
+        c = encounter.contribution(group)
+        if not c:
             return
-        inside, best_out, n_out, _ = share
         self.content.addWidget(SectionTitle("Contribución al jefe", self.fonts))
-        who = "Tu grupo" if group else "Tú"
-        lines = [f"{who}: {100 * inside:.0f}% del daño al jefe"]
-        if n_out:
-            lines.append(f"Fuera de tu grupo: {n_out} jugadores; el más fuerte lleva {100 * best_out:.0f}%")
+        whole = f" · {pct(c.me / c.max_hp)} de toda su vida" if c.max_hp and c.hp_lost else ""
+        lines = [f"Tú: {pct(c.share(c.me))} del daño al jefe{whole}"]
+        if c.group_kind:
+            lines.append(f"Tu {c.group_kind}: {pct(c.share(c.group))}")
+        else:
+            lines.append("Party / force: no estás en ninguna (aparecerán al unirte).")
         if hp is not None:
             lines.append(f"Vida del jefe: {100 * hp:.0f}%")
-        if n_out:
-            if inside > 0.5:
+        if c.hp_lost and c.seen < 0.9:
+            lines.append(f"Solo ves los golpes de los jugadores cercanos ({pct(c.seen)} del daño): los porcentajes "
+                         f"salen de la vida que pierde el jefe mientras peleas.")
+        elif c.outsiders:
+            lines.append(f"Fuera de tu grupo: {c.outsiders} jugadores; el más fuerte lleva "
+                         f"{pct(c.share(c.best_outsider))}")
+            if c.share(c.group) > 0.5:
                 lines.append("Más de la mitad del daño: tu grupo va primero seguro.")
-            elif inside < best_out:
+            elif c.group < c.best_outsider:
                 lines.append("Un solo jugador de fuera lleva más que tu grupo: difícil ser primeros.")
         for line in lines:
             self._note(line)

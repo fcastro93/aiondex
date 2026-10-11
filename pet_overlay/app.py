@@ -278,6 +278,7 @@ class Controller(QObject):
         self.tuner = Afinador(self)
         self.tuner_window = None
         self.diag_window = None
+        self.dps_window = None
         self.modules = [PetsModule(self), DpsModule(self), TunerModule(self), NotificationsModule(self),
                         DiagnosticsModule(self), SettingsModule(self)]
         for module in self.modules:
@@ -390,16 +391,24 @@ class Controller(QObject):
         me = next((a for a in enc.actors.values() if a.is_self), None)
         if not me or enc.duration < 8 and not enc.killed:
             return
-        from .ui.dps_panel import mmss, short_number
+        from .ui.dps_panel import mmss, pct, short_number
         target = enc.main_target or "un enemigo"
         others = len(enc.actors) - 1
-        group = f" Hiciste el {100 * me.damage / max(1, enc.total):.0f}% del daño del grupo." if others else ""
+        c = enc.contribution(self.combat.group) if others else None
+        if c and c.hp_lost and c.seen < 0.9:          # world boss: most hits are not visible to us
+            group = f" Aportaste el {pct(c.share(c.me))} del daño al jefe."
+        else:
+            group = f" Hiciste el {100 * me.damage / max(1, enc.total):.0f}% del daño de la pelea." if others else ""
         self.notify("combat", f"Pelea terminada: {target}{' (derrotado)' if enc.killed else ''}",
                     f"Tu DPS fue {short_number(enc.dps(me))}/s durante {mmss(enc.duration)} "
                     f"({short_number(me.damage)} de daño).{group}")
 
     def on_character(self, info):
         if self.character and self.character.name == info.name:
+            if info.entity_id != self.character.entity_id:
+                # same character on a new connection (teleport, Abyss, instance server): new entity id
+                self.combat.set_self(info.entity_id, info.name)
+                log.info("character %s has a new entity id %s", info.name, info.entity_id)
             self.character = info
             return
         self.character = info
@@ -694,6 +703,16 @@ class Controller(QObject):
     def restart_capture(self):
         if self.sniffer:
             self.sniffer.restart()
+
+    def open_dps_details(self):
+        from .ui.dpswindow import DpsDetailsWindow
+        if self.dps_window is None:
+            self.dps_window = DpsDetailsWindow(self)
+        else:
+            self.dps_window.refresh()
+        self.dps_window.show()
+        self.dps_window.raise_()
+        self.dps_window.activateWindow()
 
     def open_diagnostics(self):
         from .ui.diagwindow import DiagnosticsWindow

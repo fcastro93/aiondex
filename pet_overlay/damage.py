@@ -64,7 +64,7 @@ def parse_damage(op, body):
         hit = parse_direct(body) if op == DIRECT_OPCODE else parse_tick(body)
     except (IndexError, struct.error):
         return []
-    return [hit] if hit and hit.amount > 0 else []
+    return [hit] if hit and hit.amount and hit.amount > 0 else []       # amount None: truncated varint
 
 
 STATS_OPCODE = bytes.fromhex("008d")
