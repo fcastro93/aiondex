@@ -20,6 +20,12 @@ log = logging.getLogger(__name__)
 FEE = 0.10                      # the market keeps 10% of every sale (the screen says it: "Current Tax Rate 10%")
 DEFAULT_PROFESSION = "Cooking"
 TIME_SLACK = 1.5                # hours: the market shows the time left rounded ("2d 17h")
+MIN_RATE_HOURS = 6              # a per-day rate needs samples spanning this long (1 offer in 1 h is not "24 a day")
+
+
+def span_text(hours):
+    """1.0 -> '1 h', 0.4 -> '24 min', 30 -> '30 h'."""
+    return f"{hours * 60:.0f} min" if hours < 1 else f"{hours:.0f} h"
 
 
 @dataclass
@@ -65,6 +71,7 @@ class MaterialCost:
 @dataclass
 class Sales:
     sold: int = 0               # units (or offers when only the list was scanned) gone between samples
+    added: int = 0              # units newly put on sale meanwhile (offers screens only)
     hours: float = 0.0          # time those samples cover
     observations: int = 0
     by_offers: bool = False     # counted from the offers screen (units) rather than the list (offers)
@@ -77,15 +84,18 @@ class Sales:
         """(short text, kind) with kind "good" | "bad" | "none"."""
         if self.observations < 2:
             return "sin datos", "none"
+        unit = "uds." if self.by_offers else "ofertas"
+        one = "ud." if self.by_offers else "oferta"
         if self.sold:
-            unit = "uds." if self.by_offers else "ofertas"
-            rate = self.per_day
-            if rate is not None and self.hours >= 1:
-                return f"se vende · ~{rate:.0f} {unit}/día" if rate >= 1 else f"se vende · {self.sold} {unit}", "good"
-            return f"se vende · {self.sold} {unit}", "good"
-        if self.hours >= 6:
+            if self.hours >= MIN_RATE_HOURS:
+                rate = self.per_day
+                if rate >= 1:
+                    return f"se vende · ~{rate:.0f} {unit}/día", "good"
+            return f"se vende · {self.sold} {one if self.sold == 1 else unit} en {span_text(self.hours)}", "good"
+        if self.hours >= MIN_RATE_HOURS:
             return "sin ventas vistas", "bad"
-        return "pocos datos", "none"
+        # from the list alone, new offers can hide sales: only the offers screen shows nothing was bought
+        return f"{'nada' if self.by_offers else 'sin bajas'} en {span_text(self.hours)}", "none"
 
 
 @dataclass
@@ -98,6 +108,7 @@ class RecipeRow:
     materials: list = field(default_factory=list)
     sales: Sales = field(default_factory=Sales)
     fee: float = FEE
+    supply: tuple = None        # (units on sale, units at the lowest price, more offers than were seen) or None
 
     @property
     def count(self):
@@ -282,12 +293,27 @@ class Crafting:
         for (t1, _, n1, o1), (t2, _, n2, o2) in zip(hist, hist[1:]):
             hours = (t2 - t1) / 3600
             if o1 and o2:
-                units.sold += _sold_between(o1, o2, hours)
+                gone, added = _sold_between(o1, o2, hours)
+                units.sold += gone
+                units.added += added
                 units.hours += hours
             if n1 is not None and n2 is not None:
                 offers.sold += max(0, n1 - n2)
                 offers.hours += hours
         return units if units.hours else offers
+
+    def supply(self, name):
+        """(units on sale, units at the lowest price, more offers than were seen) from the newest sample with this
+        item, if its offers screen was scanned then; else None."""
+        s = next((s for s in reversed(self.samples) if name in s["items"]), None)
+        item = s["items"][name] if s else {}
+        offers = item.get("offers")
+        if not offers:
+            return None
+        lowest = item.get("lowest") or min(o[0] for o in offers)
+        listings = item.get("listings")
+        return (sum(o[2] for o in offers), sum(o[2] for o in offers if o[0] == lowest),
+                listings is not None and listings > len(offers))
 
     # --- recipes -----------------------------------------------------------------------------------------
     def recipe_rows(self, faction=None, profession=None):
@@ -310,6 +336,7 @@ class Crafting:
                 row.listings = self._latest_field(product, "listings")
             row.materials = [self._material(m, prices, faction, 0) for m in recipe["materials"]]
             row.sales = self.sales(product)
+            row.supply = self.supply(product)
             rows.append(row)
         rows.sort(key=_row_order)
         return rows
@@ -395,15 +422,17 @@ def _union(a, b):
 
 
 def _sold_between(before, after, hours):
-    """Units of the earlier offers missing later (same price; same or fewer units; time left lowered by the time
-    passed): bought, or taken down. Offers that expired meanwhile, or are dearer than every offer the later shot
-    shows (they may just be scrolled out of view), do not count."""
+    """-> (units gone, units new) between two offers screens of one item.
+
+    Gone: earlier offers missing later (matched by price, same or fewer units, and time left lowered by the time
+    passed): bought, or taken down. New: later offers that were not there before. The screen shows the first offers
+    by total ("Sale Price" ascending): an offer beyond the last one shown, by total or by unit price, may just be
+    out of view, so it counts neither way. Offers that expired meanwhile do not count either."""
     pool = [list(o) for o in after]
-    shown_max = max(o[0] for o in after)
+    after_unit, after_total = max(o[0] for o in after), max(o[1] for o in after)
+    before_unit, before_total = max(o[0] for o in before), max(o[1] for o in before)
     gone = 0
-    for unit, _, qty, left in sorted(before, key=lambda o: o[0]):
-        if left is not None and left - hours <= 0.5:
-            continue
+    for unit, total, qty, left in sorted(before, key=lambda o: o[0]):
         expected = None if left is None else left - hours
         same = [o for o in pool if o[0] == unit and o[2] <= qty and
                 (expected is None or o[3] is None or abs(o[3] - expected) <= TIME_SLACK)]
@@ -411,9 +440,12 @@ def _sold_between(before, after, hours):
             match = max(same, key=lambda o: o[2])          # the whole offer, else what is left of it
             gone += qty - match[2]
             pool.remove(match)
-        elif unit <= shown_max:
+        elif expected is not None and expected <= 0.5:
+            continue                                       # expired
+        elif unit <= after_unit and total <= after_total:
             gone += qty
-    return gone
+    new = sum(o[2] for o in pool if o[0] <= before_unit and o[1] <= before_total)
+    return gone, new
 
 
 def _load(path, default):

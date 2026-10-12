@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxL
                                QPushButton, QScrollArea, QSizePolicy, QToolTip, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
+from ..crafting import span_text
 from . import theme
 from .mapwindow import STYLE, badge_label
 from .theme import Fonts
@@ -313,8 +314,14 @@ class CraftingWindow(QWidget):
         count = f" ×{row.count}" if row.count > 1 else ""
         names.addWidget(label(f"{arrow}  {row.product}{count}", f.name,
                               QColor(GRADE_COLOR.get(row.recipe.get("grade"), "#D6DAE3")), elide=True))
+        supply = ""
+        if row.supply:
+            units, at_lowest, partial = row.supply
+            supply = f"{units}{'+' if partial else ''} uds. a la venta"
+            if at_lowest:
+                supply += f" ({at_lowest} al más bajo)"
         sub = [f"Oficio {row.recipe['proficiency']}" if row.recipe.get("proficiency") else "",
-               f"{row.listings} ofertas" if row.listings is not None else "",
+               f"{row.listings} ofertas" if row.listings is not None else "", supply,
                f"precio de {_ago(row.sell_at)}" if row.sell_at else "sin precio de mercado"]
         names.addWidget(label(" · ".join(s for s in sub if s), f.small, theme.MUTED, elide=True))
         lay.addLayout(names, 1)
@@ -396,10 +403,14 @@ class CraftingWindow(QWidget):
         sales = row.sales
         if sales.observations >= 2:
             unit = "unidades" if sales.by_offers else "ofertas"
-            what = (f"Entre tus {sales.observations} muestreos ({sales.hours:.0f} h) desaparecieron {sales.sold} "
+            what = (f"Entre tus {sales.observations} muestreos ({span_text(sales.hours)}) desaparecieron {sales.sold} "
                     f"{unit} (vendidas o retiradas)")
-            if not sales.by_offers:
+            if sales.by_offers:
+                what += f" y salieron {sales.added} nuevas a la venta"
+            else:
                 what += "; escanea su pantalla de ofertas para contar unidades"
+            if sales.hours < 6:
+                what += ". Con más horas entre muestreos se calcula cuánto se vende al día"
             col.addWidget(label(what + ".", f.small, theme.MUTED))
         elif row.sell is not None:
             col.addWidget(label("Con otro muestreo más tarde se verá si se vende (lo que desaparece del mercado).",
