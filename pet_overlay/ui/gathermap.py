@@ -1,18 +1,18 @@
 """Gathering map: one material's nodes on the world map, its areas with the recommended one and a route through it,
 and "full of bots" marks on areas (button) and nodes (right click). The maps are picked by side (Elyos, Asmodian,
 Abyss); in the Abyss, only the maps open now unless you untick it."""
-import math
 import time
 import webbrowser
 
 from PySide6.QtCore import QPointF, Qt
-from PySide6.QtGui import QBrush, QColor, QPainterPath, QPen, QPolygonF
+from PySide6.QtGui import QBrush, QColor, QPainterPath, QPen, QPolygonF, QTransform
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFrame, QGraphicsItem, QGraphicsPathItem,
                                QGraphicsPolygonItem, QGraphicsSimpleTextItem, QHBoxLayout, QPushButton, QScrollArea,
                                QTabBar, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
-from ..gathering import ABYSS_OPEN, BOT_DAYS, GAME_MAPS, MAP_SIDE, SIDES, hull, zone_centers
+from ..gathering import (ABYSS_OPEN, BOT_DAYS, GAME_MAPS, MAP_SIDE, SIDES, hull, kills_for, map_open,
+                          zone_centers)
 from ..mapdata import MAP_NAMES
 from ..paths import DATA_DIR
 from . import theme
@@ -228,8 +228,9 @@ class GatherMapWindow(QWidget):
         self.title.setText(f"Dónde {'conseguir' if drop else 'recolectar'} {name}")
         if drop:
             mobs = info.get("monsters", [])
+            best = g.best_drop(name)
             self.subtitle.setText(f"Lo sueltan {len(mobs)} monstruos" +
-                                  (f" · el mejor: {mobs[0]['name']} ({mobs[0]['chance']:g}%)" if mobs else ""))
+                                  (f" · hasta {best[0]['chance']:g}% por kill en lo abierto" if best else ""))
         else:
             node = info.get("node", name)
             level = info.get("level")
@@ -237,10 +238,14 @@ class GatherMapWindow(QWidget):
         self._clear_scene()
         areas, loose = g.areas(name, map_id)
         focus = []
+        mobs = info.get("monsters", [])
         for area in areas:
             best = area is areas[0] and not area.bots
             color = BOTS if area.bots else BEST if best else OTHER
             self._area_shape(area, color, best)
+            if mobs and area.mobs and area.index <= AREAS_SHOWN:      # the area's best drop rate, on the map
+                rate = max(mobs[i]["chance"] for i in area.mobs if i < len(mobs))
+                self._rate_label(area, f"{rate:g}%", color)
             if best and len(area.route) > 1:
                 self._route(area.route)
             for p in area.nodes:
@@ -321,6 +326,29 @@ class GatherMapWindow(QWidget):
         self.view.scene().addItem(start)
         self._items.append(start)
 
+    def _rate_label(self, area, text, color):
+        """The area's best drop rate as a small tag above its top node (readable on any terrain)."""
+        top = min(hull(area.nodes) or area.nodes, key=lambda p: p[1])
+        tag = QGraphicsSimpleTextItem(text)
+        tag.setBrush(QBrush(color))
+        tag.setFont(self.fonts.name)
+        box = tag.boundingRect().adjusted(-6, -2, 6, 2)
+        shape = QPainterPath()
+        shape.addRoundedRect(box, 7, 7)
+        pill = QGraphicsPathItem(shape)
+        pill.setBrush(QBrush(QColor(11, 18, 34, 220)))
+        pen = QPen(color, 1)
+        pen.setCosmetic(True)
+        pill.setPen(pen)
+        tag.setParentItem(pill)
+        pill.setFlag(QGraphicsItem.ItemIgnoresTransformations)
+        pill.setTransform(QTransform.fromTranslate(-box.center().x(), -box.bottom() - 10))   # screen pixels
+        pill.setPos(top[0] * WORLD, top[1] * WORLD)
+        pill.setZValue(255)
+        pill.setToolTip(f"Zona {area.index}: el mejor drop rate de {self.material} aquí (por kill)")
+        self.view.scene().addItem(pill)
+        self._items.append(pill)
+
     def _zone_label(self, name, x, y, faded):
         text = QGraphicsSimpleTextItem(name)
         text.setBrush(QBrush(QColor(255, 255, 255, 120 if faded else 235)))
@@ -349,12 +377,15 @@ class GatherMapWindow(QWidget):
         faction = self.ctl.crafting_faction()
         mobs = g.info(self.material).get("monsters", [])
         if mobs:
-            self.panel.addWidget(SectionTitle("Quién lo suelta", f))
-            for m in mobs:
-                p = m["chance"] / 100
-                kills = math.ceil(math.log(0.1) / math.log(1 - p)) if 0 < p < 1 else 1
-                line = label(f"{m['name']} · Lv {m['level']} · {m['chance']:g}% · ~{kills} kills para un 90%"
-                             + (f"\n{m['zone']}" if m.get("zone") else ""), f.small, theme.TEXT)
+            self.panel.addWidget(SectionTitle("Quién lo suelta (drop rate por kill)", f))
+            for m, reachable, maps in g.drops(self.material):
+                kills = kills_for(m["chance"])
+                where = ", ".join(MAP_NAMES.get(x, x).split(" (")[0] + ("" if map_open(x) else " (cerrado)")
+                                  for x in maps) or m.get("zone") or "metabot no dice dónde está (jefe o mazmorra)"
+                line = label(f"{m['name']} · Lv {m['level']} · {m['chance']:g}%"
+                             + (f" · ~{kills} kills para un 90%" if kills and kills > 1 else "")
+                             + f"\n{where}" + (" · cerrado ahora" if reachable is False else ""),
+                             f.small, theme.MUTED if reachable is False else theme.TEXT)
                 line.setWordWrap(True)
                 self.panel.addWidget(line)
             if not g.maps(self.material):

@@ -32,6 +32,7 @@ MAP_SIDE = {"world_d_a": "asmodian", "world_d_b": "asmodian", "world_l_a": "elyo
 SIDES = ("elyos", "asmodian", "abyss")
 # the Abyss maps open on the global servers (2026-10-12: only Chaotic Lower Reshanta; Middle and Upper not yet)
 ABYSS_OPEN = {"abyss_reshanta_a"}
+CLOSED_REGIONS = {REGION_NAME[r] for r, m in REGION_MAP.items() if MAP_SIDE.get(m) == "abyss" and m not in ABYSS_OPEN}
 # the game's map id (2136) -> metabot's (20 is the Abyss; the only one open is Chaotic Lower Reshanta)
 GAME_MAPS = {1110: "world_d_a", 1010: "world_l_a", 20: "abyss_reshanta_a"}
 
@@ -86,6 +87,31 @@ class Gathering:
 
     def maps(self, name):
         return [m["map"] for m in self.info(name).get("maps", []) if m["points"]]
+
+    def drops(self, name):
+        """[(monster, open now?, [map ids where it spawns])] that drop this material, highest drop rate first. A
+        monster is open when it spawns in a map you can reach now (the Abyss maps not open yet are not); without
+        spawn points, by its zone (metabot names one zone per monster, so its spawns decide first); None when metabot
+        does not say where it is (bosses, dungeons)."""
+        info = self.info(name)
+        where = {}
+        for m in info.get("maps", []):
+            for p in m["points"]:
+                if len(p) > 2:
+                    where.setdefault(p[2], set()).add(m["map"])
+        out = []
+        for i, mob in enumerate(info.get("monsters", [])):
+            maps = sorted(where.get(i, ()), key=lambda m: not map_open(m))
+            reach = any(map_open(m) for m in maps) if maps else mob_open(mob) if mob.get("zone") else None
+            out.append((mob, reach, maps))
+        return sorted(out, key=lambda e: (-e[0]["chance"], e[1] is not True))
+
+    def best_drop(self, name):
+        """(monster, open now?) with the best drop rate among the ones you can farm now on the map (else the ones
+        with no known place, else any), or None for a material no monster drops."""
+        mobs = [e[:2] for e in self.drops(name)]
+        return next((e for e in mobs if e[1] is True), next((e for e in mobs if e[1] is None),
+                                                           mobs[0] if mobs else None))
 
     def info(self, name):
         return self.materials.get(name, {})
@@ -173,6 +199,21 @@ class Gathering:
                 continue
             out.append((REGION_NAME.get(region, region), map_id, row["nodes"], row["zones"]))
         return sorted(out, key=lambda r: -r[2])
+
+
+def map_open(map_id):
+    return MAP_SIDE.get(map_id) != "abyss" or map_id in ABYSS_OPEN
+
+
+def mob_open(monster):
+    """Can you reach this monster now, by its zone? Not when it is in an Abyss map that is not open yet."""
+    return monster.get("zone", "").rsplit(" · ", 1)[-1] not in CLOSED_REGIONS
+
+
+def kills_for(chance, odds=0.9):
+    """Kills to get at least one drop with these odds."""
+    p = chance / 100
+    return 1 if p >= 1 else math.ceil(math.log(1 - odds) / math.log(1 - p)) if p > 0 else None
 
 
 def zone_centers(mapdata, zone_names, map_id):

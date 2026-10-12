@@ -12,6 +12,8 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxL
 
 from .. import APP_NAME
 from ..crafting import SORT_KEYS, RecipeRow, span_text
+from ..gathering import kills_for, map_open
+from ..mapdata import MAP_NAMES
 from . import theme
 from .mapwindow import STYLE, badge_label
 from .theme import Fonts
@@ -711,13 +713,22 @@ class CraftingWindow(QWidget):
         return frame
 
     def _material_name(self, name, text, color=None):
-        """A material's name; one you can gather opens the map of where to gather it."""
-        if not self.ctl.gathering.has(name):
+        """A material's name; one you can gather opens the map of where to gather it, and one that monsters drop
+        shows the best drop rate you can farm now."""
+        g = self.ctl.gathering
+        if not g.has(name):
             return label(text, self.fonts.body, color or theme.TEXT)
-        link = label(f"{text}  ⌖", self.fonts.body, theme.ACCENT)
+        best = g.best_drop(name)
+        rate = ""
+        if best:
+            mob, reachable = best
+            rate = (f"  <span style='color:{theme.GOLD.name() if reachable is True else theme.MUTED.name()}'>"
+                    f"{mob['chance']:g}%</span>")
+        link = label(f"{text}  ⌖{rate}", self.fonts.body, theme.ACCENT)
         link.setAttribute(Qt.WA_TransparentForMouseEvents, False)
         link.setCursor(Qt.PointingHandCursor)
-        link.setToolTip(f"Ver en el mapa dónde recolectar {name}: sus puntos, la mejor zona y una ruta")
+        link.setToolTip(_drop_tip(g, name) if best else
+                        f"Ver en el mapa dónde recolectar {name}: sus puntos, la mejor zona y una ruta")
         link.mousePressEvent = lambda e, n=name: self.ctl.open_gather_map(n) if e.button() == Qt.LeftButton else None
         return link
 
@@ -1199,6 +1210,25 @@ def _fail_cell(row, locked):
     best = row.min_fail
     text = f"{1 - row.success:.0%}" + (f" · mín {best[0]:.0%}" if best and best[0] < 1 - row.success - 0.005 else "")
     return text, theme.MUTED if locked else theme.TEXT
+
+
+def _drop_tip(gathering, name):
+    """Who drops a material and how often (the closed Abyss maps apart), for the ⌖ link's tooltip."""
+    lines = [f"<b>{name}</b>: lo sueltan monstruos (drop rate por kill)"]
+    for mob, reachable, maps in gathering.drops(name)[:8]:
+        kills = kills_for(mob["chance"])
+        where = _spawn_text(maps) or mob.get("zone") or "metabot no dice dónde está (jefe o mazmorra)"
+        line = (f"{mob['name']} · Lv {mob['level']} · <b>{mob['chance']:g}%</b>"
+                + (f" · ~{kills} kills para un 90%" if kills and kills > 1 else "")
+                + (f"<br>&nbsp;&nbsp;<span style='color:#8a93a8'>{where}</span>" if where else ""))
+        lines.append(line if reachable is not False else f"<span style='color:#8a93a8'>{line} · cerrado ahora</span>")
+    lines.append("Clic: ver en el mapa dónde están, la mejor zona y una ruta")
+    return "<br>".join(lines)
+
+
+def _spawn_text(maps):
+    """'Chaotic Lower Reshanta, Chaotic Middle Reshanta (cerrado)': the maps a monster spawns in."""
+    return ", ".join(MAP_NAMES.get(m, m).split(" (")[0] + ("" if map_open(m) else " (cerrado)") for m in maps)
 
 
 def _fail_tip(row):
