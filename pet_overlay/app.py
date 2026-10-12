@@ -20,6 +20,7 @@ from .skills import (CAST_OPCODE, PRESETS_OPCODE, REQUEST_OPCODE, SKILL_LIST_OPC
                      parse_cast, parse_presets, parse_request, parse_skill_list)
 from .tracker import FIELD_LIST_OPCODE, Tracker, parse_field_list
 from .crafting import Crafting
+from .professions import CRAFT_OPCODE, EXP_OPCODE, parse_craft, parse_exp, parse_levels
 from .protocol import read_varint
 from .health import Health
 from .mapdata import MapData
@@ -105,6 +106,8 @@ class Bridge(QObject):
     field_list = Signal(object)      # (map id, [tracker.SlotState]) from the game's field boss list
     gear = Signal(object)            # (character name, job, level, faction, {pos: (item, +N, level)}, full list?)
     own_entity = Signal(int)         # your entity id, found from your own presses before the character info
+    profession = Signal(object)      # ("levels", name, {id: (level, exp)}) | ("exp", id, exp, gained) |
+                                     # ("craft", id, recipe id, success)
     own_skill = Signal(object)       # ("press", ts, skill, result) | ("cast", ts, skill, cooldown ms) |
                                      # ("skills", {base: OwnSkill}) | ("bar", [QuickSlot])
     status = Signal(str)
@@ -156,6 +159,14 @@ class Bridge(QObject):
             members = parse_roster(body)
             if members:
                 self.roster.emit(members)
+        elif op == EXP_OPCODE:
+            event = parse_exp(body)
+            if event:
+                self.profession.emit(("exp", *event))
+        elif op == CRAFT_OPCODE:
+            event = parse_craft(body)
+            if event:
+                self.profession.emit(("craft", *event))
         elif op == PARTY_INFO_OPCODE:
             members = parse_party_info(body)
             if members:
@@ -214,6 +225,9 @@ class Bridge(QObject):
                 self.self_eid = info.entity_id
                 self._self_stale = False
                 self.character.emit(info)
+                levels = parse_levels(body)
+                if levels:
+                    self.profession.emit(("levels", info.name, levels))
                 slots = self.gear_reader.feed_character(time.time(), body, info)
                 if slots:
                     self.gear.emit((info.name, info.job, info.level, own_faction(body, info.name), dict(slots),
@@ -349,6 +363,8 @@ class Controller(QObject):
         self.crafting_window = None
         self._ocr = OcrWorker(self.crafting)
         self._ocr.read.connect(self._shot_read)
+        self.crafting.character = self.settings.get("last_character")
+        self.bridge.profession.connect(self.on_profession)
 
         self.fonts = Fonts(self.settings["scale"])
         self.notifications = NotificationCenter(self.data_dir / "notifications.json" if self.persist else None)
@@ -602,6 +618,23 @@ class Controller(QObject):
                         f"Precios del {when}. Mira la pestaña Rentabilidad.")
         self._crafting_changed()
 
+    def on_profession(self, event):
+        """Your profession levels from the game: the list at login, then each craft's experience (and the
+        profession each id is, learnt from the recipe of a craft)."""
+        kind = event[0]
+        if kind == "levels":
+            self.crafting.set_game_levels(event[1], event[2])
+        elif kind == "craft":
+            self.crafting.learn_profession_id(event[1], event[2])
+        elif kind == "exp":
+            up = self.crafting.on_exp(*event[1:])
+            if up:
+                profession, level = up
+                name = self.crafting.professions.get(profession, {}).get("name", profession)
+                self.notify("info", f"¡{name} subió a nivel {level}!",
+                            "Crafting ya calcula tu probabilidad de éxito con el nivel nuevo.")
+        self._crafting_changed()
+
     def crafting_reread(self, shot):
         self.crafting.reread(shot)
         self._ocr.add(shot)
@@ -645,6 +678,7 @@ class Controller(QObject):
             self.character = info
             return
         self.character = info
+        self.crafting.character = info.name
         self.combat.set_self(info.entity_id, info.name)
         self.tracker.set_server(info.server)
         self.tuner.on_character()

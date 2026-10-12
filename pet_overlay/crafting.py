@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import market_ocr
+from .professions import KNOWN_IDS
 
 log = logging.getLogger(__name__)
 FEE = 0.10                      # the market keeps 10% of every sale (the screen says it: "Current Tax Rate 10%")
@@ -67,7 +68,10 @@ class MaterialCost:
     how: str = ""               # npc | gather | market | manual | craft | unknown
     at: float = None            # when the market price was seen
     buy: float = None           # Kinah per unit if you buy it
-    buy_how: str = ""           # npc | market | manual | craft | unknown
+    buy_how: str = ""           # npc | market | manual | raw (its raw materials bought, processed by you) | unknown
+    market: float = None        # a processed material: its price on the market (or yours)
+    raw: float = None           # ... and per unit if you buy its raw materials and process them yourself
+    raw_recipe: dict = None     # the recipe that does it cheapest at your level
 
     @property
     def total(self):
@@ -145,6 +149,20 @@ class RecipeRow:
         return chances[min(gap, len(chances) - 1)] / 100
 
     @property
+    def min_fail(self):
+        """The lowest chance of failing this recipe can have, and the proficiency where it is reached (the
+        proficiency cap keeps high recipes from getting as far above them: 9% at best in cooking up to level 60,
+        13% for a level 90 recipe)."""
+        chances = self.recipe.get("success") or []
+        return (1 - chances[-1] / 100, self.needs + len(chances) - 1) if chances else None
+
+    def fail_curve(self):
+        """[(proficiency, chance of failing)] at the recipe's level, +5, +10, +20, +30 and the best."""
+        chances = self.recipe.get("success") or []
+        gaps = sorted({g for g in (0, 5, 10, 20, 30) if g < len(chances)} | ({len(chances) - 1} if chances else set()))
+        return [(self.needs + g, 1 - chances[g] / 100) for g in gaps]
+
+    @property
     def net(self):
         """What the market pays you for one craft that works, after its tax."""
         return None if self.sell is None else self.sell * self.count * (1 - self.fee)
@@ -208,6 +226,7 @@ class Crafting:
         self.professions = db.get("professions", {})
         self.names = db.get("names", {})
         self.credit = db.get("credit")
+        self.character = None            # who you are playing: profession levels are per character
         self.samples = [_clean_sample(s) for s in _load(self.dir / "samples.json", [])]
         self.shots = self._load_shots()
         self._lock = threading.Lock()        # the OCR thread saves the shots too
@@ -227,9 +246,71 @@ class Crafting:
         self.settings.save()
 
     def level(self, profession=None):
-        """Your proficiency in a profession, or None when not set."""
+        """Your proficiency in a profession: the game's (read at login and kept up while you craft) for the character
+        you play, else the one you typed, else None."""
+        game = self.game_level(profession)
+        if game is not None:
+            return game
         value = self.config.get("levels", {}).get(profession or self.profession)
         return value or None
+
+    def level_source(self, profession=None):
+        """"game" | "manual" | None."""
+        if self.game_level(profession) is not None:
+            return "game"
+        return "manual" if self.config.get("levels", {}).get(profession or self.profession) else None
+
+    # --- levels from the game ---
+    def _ids(self):
+        """profession id -> profession: Cooking = 5, the others as learnt from a craft."""
+        learnt = {int(k): v for k, v in self.config.get("profession_ids", {}).items()}
+        return {**learnt, **KNOWN_IDS}
+
+    def _game_entry(self, character=None):
+        return self.config.get("game_levels", {}).get(character or self.character or "", {})
+
+    def game_level(self, profession=None, character=None):
+        profession = profession or self.profession
+        pid = next((i for i, p in self._ids().items() if p == profession), None)
+        entry = self._game_entry(character).get(str(pid)) if pid is not None else None
+        return entry[0] if entry else None
+
+    def game_exp(self, profession=None):
+        profession = profession or self.profession
+        pid = next((i for i, p in self._ids().items() if p == profession), None)
+        entry = self._game_entry().get(str(pid)) if pid is not None else None
+        return entry[1] if entry else None
+
+    def set_game_levels(self, character, levels):
+        """The 3336 list: {profession id: (level, experience)} for this character."""
+        stored = self.config.setdefault("game_levels", {}).setdefault(character, {})
+        stored.update({str(pid): [lvl, exp] for pid, (lvl, exp) in levels.items()})
+        self.settings.save()
+
+    def on_exp(self, pid, exp, gained, character=None):
+        """A craft's experience (7c8d): experience in the level after it, and what it gave. Less than before plus
+        the gain means a level up. -> (profession, new level) on a level up, else None."""
+        stored = self.config.setdefault("game_levels", {}).setdefault(character or self.character or "", {})
+        entry = stored.get(str(pid))
+        if entry is None:
+            return None                  # level unknown until the game sends the list (next login)
+        level, before = entry
+        if exp < before + gained:
+            level += 1
+        stored[str(pid)] = [level, exp]
+        self.settings.save()
+        profession = self._ids().get(pid)
+        return (profession, level) if level != entry[0] and profession else None
+
+    def learn_profession_id(self, pid, recipe_id):
+        """A craft (6f8d) names its profession id and recipe: that tells which profession the id is."""
+        recipe = next((r for r in self.recipes if r["id"] == recipe_id), None)
+        if recipe is None or pid in KNOWN_IDS:
+            return
+        ids = self.config.setdefault("profession_ids", {})
+        if ids.get(str(pid)) != recipe["profession"]:
+            ids[str(pid)] = recipe["profession"]
+            self.settings.save()
 
     def set_level(self, value, profession=None):
         levels = self.config.setdefault("levels", {})
@@ -418,6 +499,9 @@ class Crafting:
             if r["profession"] != profession or "(Bound)" in r["product"]:      # bound items cannot be sold
                 continue
             mine = faction is None or r.get("faction") in (None, faction)
+            if faction and not mine and not any(x["product"] == r["product"] and x.get("faction") in (None, faction)
+                                                for x in self.recipes):
+                continue                        # the other side's dish (White Dragon's for an Asmodian)
             old = best.get(r["product"])
             if old is None or (mine and old[0] is False):
                 best[r["product"]] = (mine, r)
@@ -468,13 +552,17 @@ class Crafting:
             cost.unit, cost.how = 0, "gather"
         elif m["source"] == "craft" and depth < 3:
             made = self._craft_cost(m["name"], prices, faction, depth + 1, buy=False)
-            if made is not None:
-                cost.unit, cost.how = made, "craft"
-            else:
+            if made is not None and (bought is None or made[0] <= bought):
+                cost.unit, cost.how = made[0], "craft"
+            else:                                      # buying it processed is cheaper (or it cannot be made)
                 cost.unit, cost.how = bought, bought_how
-            if bought is None:                         # not on the market: buy its materials and craft it
-                bought = self._craft_cost(m["name"], prices, faction, depth + 1, buy=True)
-                bought_how = "craft" if bought is not None else "unknown"
+            # buying: the processed material, or its raw materials processed by you, whichever is cheaper
+            raw = self._craft_cost(m["name"], prices, faction, depth + 1, buy=True)
+            cost.market = bought
+            if raw is not None:
+                cost.raw, cost.raw_recipe = raw
+                if bought is None or raw[0] < bought:
+                    bought, bought_how = raw[0], "raw"
         else:                                          # only from the market (or your price)
             cost.unit, cost.how = bought, bought_how
         cost.buy, cost.buy_how = bought, bought_how
@@ -483,20 +571,24 @@ class Crafting:
         return cost
 
     def _craft_cost(self, product, prices, faction, depth, buy):
-        """What one unit of an intermediate product costs you to craft (its materials, over its yield and its chance
-        of success at your level), gathering or buying its materials."""
-        recipe = next((r for r in self.recipes if r["product"] == product and r.get("faction") in (None, faction)),
-                      None) or next((r for r in self.recipes if r["product"] == product), None)
-        if recipe is None:
-            return None
-        mats = [self._material(m, prices, faction, depth) for m in recipe["materials"]]
-        totals = [m.buy_total if buy else m.total for m in mats]
-        if any(t is None for t in totals):
-            return None
-        row = RecipeRow(recipe, product, level=self.level(recipe["profession"]))
-        if row.can_craft is False:
-            return None
-        return sum(totals) / (row.count * (row.success or 1))
+        """(cost of one unit, recipe) of an intermediate product made by you, gathering or buying its materials: over
+        its yield and its chance of success at your level in that profession, with the cheapest of its recipes you
+        can make (1 gem -> 3 powders at level 20, 10 -> 30 at 45...). None if none can be priced or made."""
+        recipes = [r for r in self.recipes if r["product"] == product and r.get("faction") in (None, faction)] or \
+            [r for r in self.recipes if r["product"] == product]
+        best = None
+        for recipe in recipes:
+            row = RecipeRow(recipe, product, level=self.level(recipe["profession"]))
+            if row.can_craft is False:
+                continue
+            mats = [self._material(m, prices, faction, depth) for m in recipe["materials"]]
+            totals = [m.buy_total if buy else m.total for m in mats]
+            if any(t is None for t in totals):
+                continue
+            unit = sum(totals) / (row.count * (row.success or 1))
+            if best is None or unit < best[0]:
+                best = (unit, recipe)
+        return best
 
     # --- storage -------------------------------------------------------------------------------------------
     def _load_shots(self):

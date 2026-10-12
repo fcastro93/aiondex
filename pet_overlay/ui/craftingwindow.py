@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxL
                                QPushButton, QScrollArea, QSizePolicy, QSpinBox, QToolTip, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
-from ..crafting import span_text
+from ..crafting import RecipeRow, span_text
 from . import theme
 from .mapwindow import STYLE, badge_label
 from .theme import Fonts
@@ -25,9 +25,11 @@ SOURCE = {   # how a material is priced -> (chip text, colour)
     "npc": ("NPC", "#2ec0f2"), "gather": ("Recolectas", "#7bd88f"), "craft": ("Lo fabricas", "#c38bff"),
     "market": ("Mercado", "#f0c24e"), "manual": ("Tu precio", "#e0a050"), "unknown": ("Sin precio", "#ff7a59"),
 }
+PROFESSION_ES = {"Cooking": "Cocina", "Alchemy": "Alquimia", "Blacksmithing": "Herrería",
+                 "Armorsmithing": "Armería", "Handicrafting": "Artesanía"}
 VERDICT_COLOR = {"good": theme.GAIN, "bad": theme.COMBAT, "none": theme.MUTED}
-COLUMNS = (("Precio", 78), ("Recibes", 78), ("Éxito", 52), ("Recolectando", 112), ("Comprando", 112),
-           ("¿Se vende?", 150))
+COLUMNS = (("Precio", 74), ("Recibes", 74), ("Fallo", 96), ("Recolectando", 108), ("Comprando", 108),
+           ("¿Se vende?", 146))
 SORTABLE = {"Recolectando": "gather", "Comprando": "buy"}      # profit columns: click to sort by them
 DETAIL_W = 170
 THUMB_W = 340
@@ -166,6 +168,24 @@ class CraftingWindow(QWidget):
         self.refresh()
         self.ctl.refresh()
 
+    def _show_level(self):
+        """The level box: the game's level (read-only) when AionDex has read it for this character, else yours."""
+        crafting = self.crafting
+        game = crafting.level_source() == "game"
+        self.level.blockSignals(True)
+        self.level.setValue(crafting.level() or 0)
+        self.level.blockSignals(False)
+        self.level.setEnabled(not game)
+        if game:
+            exp = crafting.game_exp()
+            self.level.setToolTip(f"Leído del juego para {crafting.character}: nivel {crafting.level()}"
+                                  + (f", {exp} de experiencia en el nivel" if exp is not None else "")
+                                  + ". Se actualiza al entrar y cada vez que crafteas.")
+        else:
+            self.level.setToolTip("Tu nivel en esta profesión: decide tu probabilidad de éxito y qué recetas puedes "
+                                  "hacer. AionDex lo lee del juego al entrar con el personaje (y lo aprende de "
+                                  "cada profesión la primera vez que crafteas algo de ella).")
+
     def _level_changed(self):
         self.crafting.set_level(self.level.value())
         self.refresh()
@@ -228,6 +248,7 @@ class CraftingWindow(QWidget):
         hk = self.ctl.settings["hotkeys"].get("crafting_scan")
         self.scan_button.setToolTip("Captura la ventana del juego (con el mercado abierto)"
                                     + (f". En el juego: {hk}" if hk else ""))
+        self._show_level()
         _clear(self.body)
         {"profit": self._profit_tab, "shots": self._shots_tab, "samples": self._samples_tab}[self.tab]()
         self.body.addStretch(1)
@@ -273,13 +294,28 @@ class CraftingWindow(QWidget):
         picks = crafting.recommend(rows)
         if picks and not query:
             self.body.addWidget(self._picks(picks, level, prof))
+        elif level is not None and not query:
+            ahead = sorted((r for r in rows if r.can_craft is False and r.profit is not None and r.profit > 0),
+                           key=lambda r: (r.needs, -r.profit))
+            text = f"Con tu nivel de {prof} ({level}) ninguna receta deja ganancia con los precios de tus muestreos."
+            if ahead:
+                first = ahead[0]
+                text += (f" La primera que sí: {first.product} (nivel {first.needs}), "
+                         f"{_kinah(first.profit, sign=True)} por intento al llegar. Mientras subes, lo que cuenta es "
+                         f"la experiencia: haz lo que menos pierde.")
+            self._hint(text, theme.WARN)
         options = QHBoxLayout()
-        only = None
-        if level is not None:
-            only = QCheckBox(f"Solo lo que puedo hacer (nivel {level})")
-            only.setChecked(crafting.config.get("only_craftable", True))
-            only.toggled.connect(lambda on: (crafting.set_option("only_craftable", on), self.refresh()))
-            options.addWidget(only)
+        only = QCheckBox(f"Solo lo que puedo craftear con mi nivel ({level})" if level is not None else
+                         "Solo lo que puedo craftear con mi nivel")
+        only.setToolTip("Marcado: solo las recetas de tu nivel o menos. Desmarcado: todas; las de más nivel salen en "
+                        "gris con el nivel que piden.")
+        if level is None:
+            only.setEnabled(False)
+            only.setToolTip("Aún no se sabe tu nivel: entra con el personaje (AionDex lo lee del juego) o escríbelo "
+                            "arriba.")
+        only.setChecked(level is not None and crafting.config.get("only_craftable", True))
+        only.toggled.connect(lambda on: (crafting.set_option("only_craftable", on), self.refresh()))
+        options.addWidget(only)
         everything = QCheckBox("Mostrar también los que no tienen precio")
         everything.setChecked(bool(crafting.config.get("show_unpriced")))
         everything.toggled.connect(lambda on: (crafting.set_option("show_unpriced", on), self.refresh()))
@@ -287,7 +323,7 @@ class CraftingWindow(QWidget):
         options.addStretch(1)
         self.body.addLayout(options)
 
-        if only is not None and only.isChecked():
+        if only.isChecked():
             rows = [r for r in rows if r.can_craft]
         priced = [r for r in rows if r.sell is not None]
         shown = rows if everything.isChecked() else priced
@@ -317,7 +353,7 @@ class CraftingWindow(QWidget):
         for i, r in enumerate(picks, start=1):
             sold, kind = r.sales.verdict()
             parts = [f"{_kinah(r.profit, sign=True)} por intento",
-                     f"{r.success:.0%} de éxito" if r.success is not None else "",
+                     f"{1 - r.success:.0%} de fallo" if r.success is not None else "",
                      sold if kind == "good" else "aún sin ventas vistas"]
             line = label(f"{i}. {r.product}  —  " + " · ".join(x for x in parts if x), f.body,
                          theme.TEXT if kind == "good" else theme.MUTED)
@@ -395,12 +431,14 @@ class CraftingWindow(QWidget):
         names.addWidget(label(" · ".join(s for s in sub if s), f.small, theme.WARN if locked else theme.MUTED,
                               elide=True))
         lay.addLayout(names, 1)
-        cells = [(_kinah(row.sell), theme.TEXT), (_kinah(row.net), theme.TEXT),
-                 (f"{row.success:.0%}" if row.success is not None else "—", theme.MUTED if locked else theme.TEXT),
+        cells = [(_kinah(row.sell), theme.TEXT), (_kinah(row.net), theme.TEXT), _fail_cell(row, locked),
                  _profit_cell(row.profit, row.sell), _profit_cell(row.buy_profit, row.sell)]
         text, kind = row.sales.verdict()
         cells.append((text, VERDICT_COLOR[kind]))
         widgets = [_cell(text, f.name, color, width) for (text, color), (_, width) in zip(cells, COLUMNS)]
+        widgets[2].setToolTip(_fail_tip(row))
+        widgets[2].setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        widgets[2].mousePressEvent = frame.mousePressEvent
         widgets[3].setToolTip(_cost_tip("Recolectando", row.cost, row.known_cost, row.missing, row))
         widgets[4].setToolTip(_cost_tip("Comprando todo", row.buy_cost, row.known_buy_cost, row.missing_buy, row))
         for w in widgets[3:5]:
@@ -452,6 +490,8 @@ class CraftingWindow(QWidget):
             line.addWidget(self._price_cell(m.unit, m.total, m.how, m.at))
             line.addWidget(self._price_cell(m.buy, m.buy_total, m.buy_how, m.at))
             col.addLayout(line)
+            if m.source == "craft":
+                col.addWidget(self._raw_line(m))
         success = row.success
         rate = f" × {success:.0%} de éxito" if success is not None else ""
         for way, cost, known, missing, profit in (
@@ -462,28 +502,31 @@ class CraftingWindow(QWidget):
                 parts.append(f"recibes {_kinah(row.net)}{rate} = {_kinah(row.expected)} de media")
             parts.append(f"ganas {_kinah(profit, sign=True)} por intento" if profit is not None else
                          f"falta el precio de {', '.join(missing)}")
-            summary = QHBoxLayout()
-            summary.addStretch(1)
-            summary.addWidget(label(" · ".join(parts), f.name,
-                                    theme.TEXT if profit is not None else theme.WARN))
-            col.addLayout(summary)
+            line = label(" · ".join(parts), f.name, theme.TEXT if profit is not None else theme.WARN)
+            line.setWordWrap(True)                  # long lines must not widen the table past the window
+            line.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            col.addWidget(line)
         notes = []
         if success is not None:
-            chances = row.recipe.get("success") or []
             if row.can_craft is False:
-                notes.append(f"Pide nivel {row.needs} y tienes {row.level}: al llegar, {success:.0%} de éxito")
+                notes.append(f"Pide nivel {row.needs} y tienes {row.level}: al llegar, {1 - success:.0%} de fallo")
             elif row.level is None:
-                notes.append(f"{success:.0%} de éxito es el del nivel justo ({row.needs}); con más nivel sube hasta "
-                             f"{chances[-1]:.0f}%: pon tu nivel arriba")
+                notes.append(f"{1 - success:.0%} de fallo es el del nivel justo ({row.needs}): pon tu nivel arriba")
             else:
-                notes.append(f"{success:.0%} de éxito con tu nivel {row.level} (la receta pide {row.needs}; sube hasta "
-                             f"{chances[-1]:.0f}%)")
+                notes.append(f"{1 - success:.0%} de fallo con tu nivel {row.level} (la receta pide {row.needs})")
+            curve = row.fail_curve()
+            if curve:
+                points = " · ".join(f"nivel {lv} {fail:.0%}" + (" (máx.)" if i == len(curve) - 1 else "")
+                                    for i, (lv, fail) in enumerate(curve))
+                notes.append(f"fallo según tu nivel: {points}")
         combo = row.recipe.get("combo")
         if isinstance(combo, dict) and combo.get("chance"):
             what = f"otro {row.product}" if combo.get("same") else combo.get("name", "")
             notes.append(f"combo: {combo['chance']}% tras un éxito ({what}; no contado en la ganancia)")
         if notes:
-            col.addWidget(label(". ".join(n[0].upper() + n[1:] for n in notes) + ".", f.small, theme.MUTED))
+            note = label(". ".join(n[0].upper() + n[1:] for n in notes) + ".", f.small, theme.MUTED)
+            note.setWordWrap(True)
+            col.addWidget(note)
         sales = row.sales
         if sales.observations >= 2:
             unit = "unidades" if sales.by_offers else "ofertas"
@@ -495,11 +538,37 @@ class CraftingWindow(QWidget):
                 what += "; escanea su pantalla de ofertas para contar unidades"
             if sales.hours < 6:
                 what += ". Con más horas entre muestreos se calcula cuánto se vende al día"
-            col.addWidget(label(what + ".", f.small, theme.MUTED))
+            note = label(what + ".", f.small, theme.MUTED)
+            note.setWordWrap(True)
+            col.addWidget(note)
         elif row.sell is not None:
             col.addWidget(label("Con otro muestreo más tarde se verá si se vende (lo que desaparece del mercado).",
                                 f.small, theme.MUTED))
         return frame
+
+    def _raw_line(self, m):
+        """A processed material bought two ways: already processed, or its raw materials processed by you."""
+        f = self.fonts
+        recipe = m.raw_recipe
+        if recipe is not None:
+            row = RecipeRow(recipe, m.name, level=self.crafting.level(recipe["profession"]))
+            raws = " + ".join(f"{x['count']}× {x['name'].replace(' (Bound)', '')}" for x in recipe["materials"])
+            how = (f"{raws} → {row.count} con {PROFESSION_ES.get(recipe['profession'], recipe['profession'])} "
+                   f"{recipe['proficiency']}" + (f", {row.success:.0%} de éxito" if row.success is not None else ""))
+            raw = f"desde el raw ({how}): {m.raw:,.0f} c/u"
+        else:
+            raw = "desde el raw: sin precio de sus materiales o sin el nivel para hacerlo"
+        market = f"procesado en el mercado: {m.market:,.0f} c/u" if m.market is not None else \
+            "procesado: sin precio de mercado"
+        verdict, color = "", theme.MUTED
+        if m.market is not None and m.raw is not None:
+            if m.raw < m.market:
+                verdict, color = f" → conviene procesarlo tú (ahorras {m.market - m.raw:,.0f} c/u)", theme.GAIN
+            else:
+                verdict, color = " → conviene comprarlo procesado", theme.WARN
+        line = label(f"      {market} · {raw}{verdict}", f.small, color)
+        line.setWordWrap(True)
+        return line
 
     def _price_cell(self, unit, total, how, at):
         """'4,400 (880 c/u)' / 'gratis' / '?' for one material in one of the two ways."""
@@ -513,7 +582,8 @@ class CraftingWindow(QWidget):
         cell.setFixedWidth(DETAIL_W)
         cell.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         tip = {"npc": "precio del NPC", "market": "precio del mercado", "manual": "tu precio",
-               "craft": "lo que te cuesta fabricarlo", "gather": "lo recolectas"}.get(how, "sin precio")
+               "craft": "lo que te cuesta fabricarlo", "gather": "lo recolectas",
+               "raw": "comprando su material raw y procesándolo tú (más barato que procesado)"}.get(how, "sin precio")
         if how == "market" and at:
             tip += f" ({_ago(at)})"
         cell.setToolTip(tip)
@@ -856,6 +926,28 @@ class PriceChart(QWidget):
             QToolTip.showText(event.globalPosition().toPoint(), text, self)
         else:
             QToolTip.hideText()
+
+
+def _fail_cell(row, locked):
+    """'17% · mín 9%': your chance of failing and the lowest this recipe can get to."""
+    if row.success is None:
+        return "—", theme.MUTED
+    best = row.min_fail
+    text = f"{1 - row.success:.0%}" + (f" · mín {best[0]:.0%}" if best and best[0] < 1 - row.success - 0.005 else "")
+    return text, theme.MUTED if locked else theme.TEXT
+
+
+def _fail_tip(row):
+    if row.success is None:
+        return "Sin datos de éxito para esta receta"
+    lines = [f"Fallo {'al nivel justo' if row.level is None else 'con tu nivel'}: {1 - row.success:.0%} "
+             f"(si falla, pierdes los materiales)"]
+    for lv, fail in row.fail_curve():
+        lines.append(f"nivel {lv}: {fail:.0%}")
+    best = row.min_fail
+    if best:
+        lines.append(f"Lo mínimo para esta receta: {best[0]:.0%} (desde nivel {best[1]})")
+    return "<br>".join(lines)
 
 
 def _profit_cell(profit, sell):
