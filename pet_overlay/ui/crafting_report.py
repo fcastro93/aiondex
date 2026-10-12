@@ -30,10 +30,12 @@ def _kinah(value, sign=False):
     return f"{value:+,.0f}" if sign else f"{value:,.0f}"
 
 
-def render(rows, picks, title, subtitle, grade_color):
-    """-> QImage of the report. rows: RecipeRow on screen (the first MAX_ROWS); picks: the recommended ones."""
+def render(rows, picks, title, subtitle, grade_color, level_pick=None):
+    """-> QImage of the report. rows: RecipeRow on screen (the first MAX_ROWS); picks: the recommended ones;
+    level_pick: the recipe to level up with (marked EXP)."""
     rows = rows[:MAX_ROWS]
-    height = MARGIN + 92 + (50 + 30 * len(picks) if picks else 0) + 44 + ROW_H * max(1, len(rows)) + 120
+    lines = len(picks) + (1 if level_pick is not None else 0)
+    height = MARGIN + 92 + (50 + 30 * lines if lines else 0) + 44 + ROW_H * max(1, len(rows)) + 120
     image = QImage(WIDTH, height, QImage.Format_RGB32)
     image.fill(theme.WINDOW_BG)
     p = QPainter(image)
@@ -54,8 +56,8 @@ def render(rows, picks, title, subtitle, grade_color):
     y += 92
 
     # recommendation
-    if picks:
-        box = QRectF(MARGIN, y, inner, 40 + 30 * len(picks))
+    if lines:
+        box = QRectF(MARGIN, y, inner, 40 + 30 * lines)
         p.setPen(QColor("#1f2b47"))
         p.setBrush(theme.SURFACE)
         p.drawRoundedRect(box, 8, 8)
@@ -71,6 +73,12 @@ def render(rows, picks, title, subtitle, grade_color):
             p.setPen(theme.TEXT)
             p.drawText(QRectF(MARGIN + 16, y + 6 + 30 * i, inner - 32, 26), Qt.AlignLeft | Qt.AlignVCenter,
                        f"{i}.  {r.product}   —   " + " · ".join(x for x in parts if x))
+        if level_pick is not None:
+            cost = level_pick.profit if level_pick.profit is not None else -level_pick.cost
+            p.setPen(theme.GAIN)
+            p.drawText(QRectF(MARGIN + 16, y + 6 + 30 * lines, inner - 32, 26), Qt.AlignLeft | Qt.AlignVCenter,
+                       f"Para subir de nivel (EXP):  {level_pick.product} (nivel {level_pick.needs})   —   "
+                       f"{_kinah(cost, sign=True)} por intento")
         y += box.height() + 10
 
     # table
@@ -112,8 +120,18 @@ def render(rows, picks, title, subtitle, grade_color):
         for i, (text, color) in enumerate(cells):
             rect = col_rect(i, y)
             p.setPen(color)
-            p.drawText(rect, COLS[i][2] | Qt.AlignVCenter,
-                       p.fontMetrics().elidedText(text, Qt.ElideRight, int(rect.width())))
+            shown = p.fontMetrics().elidedText(text, Qt.ElideRight, int(rect.width()) - (48 if i == 0 else 0))
+            p.drawText(rect, COLS[i][2] | Qt.AlignVCenter, shown)
+            if i == 0 and r is level_pick:                    # the little EXP mark after the name
+                x = rect.left() + p.fontMetrics().horizontalAdvance(shown) + 8
+                badge = QRectF(x, y + ROW_H / 2 - 9, 38, 18)
+                p.setPen(Qt.NoPen)
+                p.setBrush(theme.GAIN)
+                p.drawRoundedRect(badge, 6, 6)
+                p.setPen(QColor("#06101f"))
+                p.setFont(_font(11, True))
+                p.drawText(badge, Qt.AlignCenter, "EXP")
+                p.setFont(_font(15))
         y += ROW_H
 
     # footer + watermark

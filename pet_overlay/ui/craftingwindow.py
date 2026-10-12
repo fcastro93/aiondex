@@ -251,7 +251,8 @@ class CraftingWindow(QWidget):
         bits = [who or "", f"nivel {level}" + (" (probando)" if crafting.level_source() == "try" else "")
                 if level else "sin nivel", f"precios de tus muestreos del {_clock(last)}" if last else "sin muestreos"]
         image = crafting_report.render(getattr(self, "_shown", []), getattr(self, "_shown_picks", []),
-                                       f"Crafting · {prof}", " · ".join(b for b in bits if b), GRADE_COLOR)
+                                       f"Crafting · {prof}", " · ".join(b for b in bits if b), GRADE_COLOR,
+                                       level_pick=getattr(self, "_level_pick", None))
         folder = Path.home() / "Pictures" / "AionDex"
         folder.mkdir(parents=True, exist_ok=True)
         path = folder / time.strftime(f"crafting-{crafting.profession.lower()}-%Y%m%d-%H%M%S.jpg")
@@ -372,6 +373,7 @@ class CraftingWindow(QWidget):
         if query:
             rows = [r for r in rows if query in r.product.lower() or any(query in m.name.lower() for m in r.materials)]
         picks = crafting.recommend(rows)
+        self._level_pick = crafting.leveling_pick(rows)
         if picks and not query:
             self.body.addWidget(self._picks(picks, level, prof))
         elif level is not None and not query:
@@ -381,8 +383,12 @@ class CraftingWindow(QWidget):
             if ahead:
                 first = ahead[0]
                 text += (f" La primera que sí: {first.product} (nivel {first.needs}), "
-                         f"{_kinah(first.profit, sign=True)} por intento al llegar. Mientras subes, lo que cuenta es "
-                         f"la experiencia: haz lo que menos pierde.")
+                         f"{_kinah(first.profit, sign=True)} por intento al llegar.")
+            pick = self._level_pick
+            if pick is not None:
+                cost = pick.profit if pick.profit is not None else -pick.cost
+                text += (f" Mientras subes, lo que cuenta es la experiencia: la marcada con EXP, {pick.product} "
+                         f"({_kinah(cost, sign=True)} por intento).")
             self._hint(text, theme.WARN)
         options = QHBoxLayout()
         only = QCheckBox(f"Solo lo que puedo craftear con mi nivel ({level})" if level is not None else
@@ -478,6 +484,11 @@ class CraftingWindow(QWidget):
             line = label(f"{i}. {r.product}  —  " + " · ".join(x for x in parts if x), f.body,
                          theme.TEXT if kind == "good" else theme.MUTED)
             col.addWidget(line)
+        pick = getattr(self, "_level_pick", None)
+        if pick is not None:
+            cost = pick.profit if pick.profit is not None else -pick.cost
+            col.addWidget(label(f"Para subir de nivel:  {pick.product} (nivel {pick.needs})  —  "
+                                f"{_kinah(cost, sign=True)} por intento", f.body, theme.GAIN))
         col.addWidget(label("Solo cuenta el precio más bajo de cada material: si necesitas muchos, mira cuántos hay a ese "
                             "precio en su pantalla de ofertas.", f.small, theme.MUTED))
         return card
@@ -537,9 +548,16 @@ class CraftingWindow(QWidget):
         arrow = "▾" if row.product in self._open else "▸"
         count = f" ×{row.count}" if row.count > 1 else ""
         locked = row.can_craft is False
-        names.addWidget(label(f"{arrow}  {row.product}{count}", f.name,
-                              theme.MUTED if locked else QColor(GRADE_COLOR.get(row.recipe.get("grade"), "#D6DAE3")),
-                              elide=True))
+        title = QHBoxLayout()
+        title.setSpacing(6)
+        color = theme.MUTED if locked else QColor(GRADE_COLOR.get(row.recipe.get("grade"), "#D6DAE3"))
+        if row is getattr(self, "_level_pick", None):
+            title.addWidget(label(f"{arrow}  {row.product}{count}", f.name, color))
+            title.addWidget(self._exp_badge(row), 0, Qt.AlignVCenter)
+            title.addStretch(1)
+        else:
+            title.addWidget(label(f"{arrow}  {row.product}{count}", f.name, color, elide=True), 1)
+        names.addLayout(title)
         supply = ""
         if row.supply:
             units, at_lowest, partial = row.supply
@@ -690,6 +708,31 @@ class CraftingWindow(QWidget):
                                        "Lo que desaparece del mercado entre dos muestreos se vendió (o lo retiraron)."))
         col.addLayout(notes)
         return frame
+
+    def _exp_badge(self, row):
+        """The little EXP mark of the recipe to level up with."""
+        badge = QLabel("EXP")
+        badge.setFont(self.fonts.badge)
+        badge.setStyleSheet("color: #06101f; background: #7bd88f; border-radius: 6px; padding: 0px 5px;")
+        badge.setFixedHeight(16)
+        prof = self.crafting.professions.get(self.crafting.profession, {}).get("name", self.crafting.profession)
+        exp = getattr(row, "exp", None)
+        cost = row.profit if row.profit is not None else -row.cost
+        lines = [f"<b>Para subir {prof}</b>: receta de nivel {row.needs}, cerca del tuyo ({row.level}); las muy por "
+                 f"debajo dan poca experiencia."]
+        if exp:
+            seen = self.crafting.exp_seen(row.recipe["id"])
+            lines.append(f"Te da unos {exp:.0f} de experiencia por intento (visto: "
+                         + ", ".join(f"{k} {v[-1]}" for k, v in (("éxito", seen.get("ok")), ("fallo", seen.get("fail")))
+                                     if v) + ").")
+            lines.append(f"{_kinah(cost, sign=True)} por intento: {_kinah(cost / exp, sign=True)} por punto de "
+                         f"experiencia, lo mejor de las que conoces.")
+        else:
+            lines.append(f"De las de tu nivel, la que menos te cuesta: {_kinah(cost, sign=True)} por intento. Cuando la "
+                         f"craftees, AionDex aprende cuánta experiencia da y elige por Kinah por punto de experiencia.")
+        badge.setToolTip("<br>".join(lines))
+        badge.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        return badge
 
     def _tile(self, title, value, sub="", color=None, tip=""):
         f = self.fonts

@@ -626,6 +626,7 @@ class Controller(QObject):
             self.crafting.set_game_levels(event[1], event[2])
         elif kind == "craft":
             self.crafting.learn_profession_id(event[1], event[2])
+            self.crafting.note_craft(event[1], event[2], event[3])
         elif kind == "exp":
             up = self.crafting.on_exp(*event[1:])
             if up:

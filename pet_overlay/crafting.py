@@ -26,6 +26,9 @@ TIME_SLACK = 1.5                # hours: the market shows the time left rounded 
 MIN_RATE_HOURS = 6              # a per-day rate needs samples spanning this long (1 offer in 1 h is not "24 a day")
 MERGE_MINUTES = 15              # shots taken this close to a sample (a page read again later) join it
 THIN_LISTINGS = 2               # this few offers and no sale seen: the lowest price may be anything (6,000,235...)
+NEAR_LEVELS = 10                # to level up, recipes this close below your level (far below give little experience)
+FAIL_EXP = 7 / 26               # a failed craft gave 7 experience where a success gave 26 (Curry Meat Stirfry, Lv 1)
+EXP_LINK = 30                   # seconds between a craft (6f8d) and its experience (7c8d)
 TOO_CHEAP = 0.5                 # an offer under half the list's lowest price is a misreading (0, 1 Kinah...)
 
 
@@ -234,6 +237,7 @@ class Crafting:
         self.names = db.get("names", {})
         self.credit = db.get("credit")
         self.character = None            # who you are playing: profession levels are per character
+        self._last_craft = None          # (when, profession id, recipe id, success) until its experience arrives
         self.samples = [_clean_sample(s) for s in _load(self.dir / "samples.json", [])]
         self.shots = self._load_shots()
         self._lock = threading.Lock()        # the OCR thread saves the shots too
@@ -308,9 +312,24 @@ class Crafting:
         stored.update({str(pid): [lvl, exp] for pid, (lvl, exp) in levels.items()})
         self.settings.save()
 
+    def note_craft(self, pid, recipe_id, success):
+        """A craft just finished (6f8d): its experience comes in the next 7c8d."""
+        self._last_craft = (time.time(), pid, recipe_id, success)
+
+    def exp_seen(self, recipe_id):
+        """{"ok": [...], "fail": [...]}: the experience each craft of this recipe gave you."""
+        return self.config.get("craft_exp", {}).get(str(recipe_id), {})
+
     def on_exp(self, pid, exp, gained, character=None):
         """A craft's experience (7c8d): experience in the level after it, and what it gave. Less than before plus
         the gain means a level up. -> (profession, new level) on a level up, else None."""
+        last = self._last_craft
+        if last and last[1] == pid and time.time() - last[0] <= EXP_LINK and gained > 0:
+            seen = self.config.setdefault("craft_exp", {}).setdefault(str(last[2]), {})
+            values = seen.setdefault("ok" if last[3] else "fail", [])
+            values.append(int(gained))
+            del values[:-5]
+            self._last_craft = None
         stored = self.config.setdefault("game_levels", {}).setdefault(character or self.character or "", {})
         entry = stored.get(str(pid))
         if entry is None:
@@ -578,6 +597,39 @@ class Crafting:
                 out.append((name, source, prices[name][0], prices[name][1], self._latest_field(name, "listings"),
                             self.sales(name), self.supply(name), sorted(products)))
         return out
+
+    def leveling_pick(self, rows):
+        """The recipe to level the profession up with: one you can make near your level (far below give little
+        experience), costing the least per point of experience when AionDex has seen what it gives, else per attempt.
+        None without your level."""
+        level = self.level()
+        if level is None:
+            return None
+        able = [r for r in rows if r.can_craft and r.cost is not None]
+        near = [r for r in able if r.needs >= level - NEAR_LEVELS]
+        if not near and able:
+            top = max(r.needs for r in able)
+            near = [r for r in able if r.needs == top]
+        if not near:
+            return None
+        for r in near:
+            r.exp = self.expected_exp(r)
+        value = lambda r: r.profit if r.profit is not None else -r.cost      # unsold: what it costs you
+        known = [r for r in near if r.exp]
+        if known:
+            return max(known, key=lambda r: (value(r) / r.exp, r.needs))     # least Kinah lost per experience
+        return max(near, key=lambda r: (value(r), r.needs))
+
+    def expected_exp(self, row):
+        """Experience per attempt from what the recipe gave you (a fail gives about 27% of a success), or None."""
+        seen = self.exp_seen(row.recipe["id"])
+        ok, fail = seen.get("ok"), seen.get("fail")
+        if not ok and not fail:
+            return None
+        ok_avg = sum(ok) / len(ok) if ok else sum(fail) / len(fail) / FAIL_EXP
+        fail_avg = sum(fail) / len(fail) if fail else ok_avg * FAIL_EXP
+        s = row.success if row.success is not None else 1
+        return s * ok_avg + (1 - s) * fail_avg
 
     def recommend(self, rows, n=3):
         """What to cook: recipes you can make that leave money gathering what you can, those seen selling first,
