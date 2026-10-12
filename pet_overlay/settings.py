@@ -15,6 +15,7 @@ DEFAULTS = {
     "toasts": True,         # notification bubbles beside the overlay
     "toast_progress": True, # a bubble for every +N of pet progress (merged while it is on screen)
     "dps_only_me": False,   # DPS meter shows only your own bar
+    "dps_boss_only": True,  # in boss fights, the DPS bars count only the damage to the boss (like LOXIN)
     "pinned": None,         # pet id to always show in the focus card
     "rows": 6,              # rows in "closest to next level" when expanded
     "map_faction": "auto",  # auto (character's) | elyos | asmodian | all

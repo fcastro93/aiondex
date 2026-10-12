@@ -87,20 +87,24 @@ class DpsPanel(QWidget):
             target = encounter.main_target or "Pelea"
             group = self.ctl.combat.group
             act = encounter.activity(group)
+            boss_view = act.boss and self.ctl.settings.get("dps_boss_only", True)
+            boss = encounter.main_target_eid
+            value = (lambda a: a.by_target[boss]) if boss_view else (lambda a: a.damage)  # noqa: E731
             self.content.addWidget(SectionTitle(f"{act.label} · {target} · {mmss(encounter.duration)} · {state}", f))
             if act.boss:
                 self._boss_hp(encounter)
             # Names only for you and your party/force; everyone else is anonymous.
-            named = [a for a in encounter.ranking() if a.is_self or (a.name in group and not only_me)]
+            dealers = [a for a in encounter.dealers() if value(a)]
+            named = sorted((a for a in dealers if a.is_self or (a.name in group and not only_me)), key=lambda a: -value(a))
             outsiders = [a for a in encounter.dealers() if not (a.is_self or a.name in group)]
             crowd = act.kind == "crowd"
             if crowd:                       # a mass fight: what matters is your share of the boss
                 self._contribution(encounter, group, outsiders)
-            rows = [(a.name, a.damage, a.is_self) for a in named[:ROWS[compact]]]
+            rows = [(a.name, value(a), a.is_self) for a in named[:ROWS[compact]]]
             if outsiders and not only_me and not crowd:
-                rows.append((f"Otros jugadores ({len(outsiders)})", sum(a.damage for a in outsiders), False))
-            top = max((d for _, d, _ in rows), default=1)
-            total = max(1, encounter.total)
+                rows.append((f"Otros jugadores ({len(outsiders)})", sum(value(a) for a in outsiders), False))
+            top = max((d for _, d, _ in rows), default=1) or 1
+            total = max(1, sum(value(a) for a in dealers))
             for name, damage, is_self in rows:
                 right = f"{short_number(damage)} · {short_number(damage / encounter.duration)}/s · {100 * damage / total:.0f}%"
                 color = theme.GOLD if is_self else (theme.MUTED if name.startswith("Otros jugadores") else theme.ACCENT)
@@ -124,6 +128,15 @@ class DpsPanel(QWidget):
                 self._note(f"Recibiste {short_number(me.taken)}" + (f" · los escudos absorbieron {short_number(me.absorbed)}"
                                                                     if me.absorbed else ""))
         if ready and encounter is not None:
+            if encounter.activity(self.ctl.combat.group).boss:
+                boss_only = self.ctl.settings.get("dps_boss_only", True)
+                which = label("Daño: solo al jefe  (clic para contar también los adds)" if boss_only else
+                              "Daño: a todos los enemigos  (clic para contar solo el jefe)", f.small, theme.ACCENT)
+                which.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+                which.setCursor(Qt.PointingHandCursor)
+                which.on_click = lambda: self.ctl.toggle_setting("dps_boss_only")
+                which.setContentsMargins(f.px(4), f.px(2), 0, 0)
+                self.content.addWidget(which)
             toggle = label("Ver: solo yo  (clic para ver a todos)" if only_me else "Ver: todos  (clic para ver solo tu barra)",
                            f.small, theme.ACCENT)
             toggle.setAttribute(Qt.WA_TransparentForMouseEvents, False)

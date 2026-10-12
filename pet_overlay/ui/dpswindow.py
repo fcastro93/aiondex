@@ -292,6 +292,7 @@ class DpsDetailsWindow(QWidget):
         self.group_filter = "all"
         self.selected = None             # actor eid whose breakdown is shown
         self.user_sorted = False         # the player clicked a column header (keep their order)
+        self._target_set_for = None      # encounter whose "solo al jefe" default was applied
         self._icons = {}
         self.setObjectName("MapWindow")
         self.setWindowTitle(f"{APP_NAME} — Detalles del combate")
@@ -484,6 +485,13 @@ class DpsDetailsWindow(QWidget):
             self.shown_metric = METRICS[0]
             self.metric_buttons[self.shown_metric.key].setChecked(True)
         metric = self.shown_metric
+        if enc is not None and self._target_set_for != id(enc):
+            # boss fights open on the damage to the boss (what LOXIN shows); the player can switch
+            self._target_set_for = id(enc)
+            boss_fight = enc.activity(self.ctl.combat.group).boss and self.ctl.settings.get("dps_boss_only", True)
+            self.target_box.blockSignals(True)
+            self.target_box.setCurrentIndex(1 if boss_fight else 0)
+            self.target_box.blockSignals(False)
         self.target_box.setVisible(metric.boss_filter)
         self.note.setText(" ".join(x for x in (metric.note, "Los jugadores de fuera de tu party/force aparecen sin "
                                    "nombre (Jugador 1, 2…), numerados por daño. Nada de esto se guarda: al cerrar "

@@ -25,6 +25,9 @@ class DpsModule(Module):
         summary, footer = "", ""
         if enc:
             me = next((a for a in enc.dealers() if a.is_self), None)
-            summary = f"{short_number(enc.dps(me))}/s" if me else ""
+            if me and self.ctl.settings.get("dps_boss_only", True) and enc.activity(combat.group).boss:
+                summary = f"{short_number(me.by_target[enc.main_target_eid] / enc.duration)}/s"
+            else:
+                summary = f"{short_number(enc.dps(me))}/s" if me else ""
             footer = f"{'Pelea terminada' if enc.ended else 'En combate'} · {mmss(enc.duration)}"
         return ModuleView(summary=summary, footer=footer)

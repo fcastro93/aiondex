@@ -22,7 +22,11 @@ a heal-over-time and MP/buff values, so healing is checked against the HP change
 05e0 stagger gauge of a boss: varint npc | 03 01 | u32 max | u32 value | 02, or varint npc | 00 03 02 when it breaks.
   No attacker field: each drop is split over the player hits on that boss in the same burst.
 4536 / 3336 player / own character: ... u32 job | u8 faction (1 / 2). Heals never cross factions; hits do (PvP).
+4136 summon spawn: the owner's entity id is a u32 after the bytes 07 02 06 or, in the other layouts (a spirit sent
+  again, spirits a skill calls), a u32 followed by 01-03 cd 00. Checked against the summons that carry their owner's
+  name: never a wrong owner.
 """
+import re
 import struct
 import time
 from collections import Counter, defaultdict
@@ -53,6 +57,22 @@ NON_HP_EFFECTS = {
     (2010301, 11), (2010302, 11), (1243, 11), (1814, 11), (1814, 12), (1606, 11), (1735, 12), (1732, 22),
     (1820, 14), (1326, 14), (1426, 13),
 }
+
+
+OWNER_TAIL = re.compile(rb"(?=(.{4})[\x01-\x03]\xcd\x00)", re.S)
+
+
+def spawn_owner(body, players):
+    """The player (entity id in `players`) a summon spawn belongs to, or None."""
+    from .damage import summon_owner
+    owner = summon_owner(body)
+    if owner in players:
+        return owner
+    for m in OWNER_TAIL.finditer(body):
+        owner = struct.unpack("<I", m.group(1))[0]
+        if owner in players:
+            return owner
+    return None
 
 
 def effect_key(skill, idx):
@@ -218,6 +238,7 @@ class CombatFeed:
         self.players = {}           # eid -> name
         self.faction = {}           # eid -> 1 / 2
         self.owners = {}            # summon eid -> owner eid
+        self.kinds = {}             # summon eid -> npc id it was spawned as (a re-sent spawn keeps its owner)
         self.self_eid = None
         self.group = set()          # names of your party / force
         self.hp = {}                # eid -> [hp, max hp] of players
@@ -283,19 +304,21 @@ class CombatFeed:
                 self.faction[info.entity_id] = body[at + 6]
 
     def _on_spawn(self, body, now):
-        from .damage import summon_owner
         spawn = parse_spawn_full(body)
         if not spawn:
             return
-        eid, owner = spawn[0], summon_owner(body)
-        if not spawn[2] and owner not in self.players:
-            owner = None                               # summons without their owner's name: only a known player's
+        eid, npc = spawn[0], spawn[1]
+        owner = spawn_owner(body, self.players)
+        if owner is None and self.kinds.get(eid) == npc:
+            owner = self.owners.get(eid)               # the same summon sent again without its owner
         self.pools.pop(eid, None)
         if owner is not None and owner != eid:
             self.owners[eid] = owner
+            self.kinds[eid] = npc
         elif eid != self.self_eid:
             self.players.pop(eid, None)            # the id now belongs to a monster
             self.owners.pop(eid, None)
+            self.kinds.pop(eid, None)
 
     def _on_despawn(self, body, now):
         eid, _ = read_varint(body, 0)
