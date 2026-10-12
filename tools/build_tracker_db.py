@@ -28,7 +28,7 @@ ABYSS_LOWER = {2600089, 2600084, 2600096, 2600097, 2600098}      # Global Season
 ABYSS_STAY_MIN = 30                                              # an Abyss boss leaves 30 min after it spawns
 CREDITS = [
     {"text": "Horarios, jefes y botín: metabot.gg (datos del cliente Global)", "url": "https://metabot.gg/en/aion-2/events"},
-    {"text": "Cofres de botín: aion2data.com", "url": "https://aion2data.com/"},
+    {"text": "Objetos y cofres: aion2data.com", "url": "https://aion2data.com/"},
 ]
 
 

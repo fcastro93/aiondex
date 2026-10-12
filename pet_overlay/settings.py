@@ -24,6 +24,7 @@ DEFAULTS = {
     "game_keys": {},        # the game's key bindings the Afinador needs: {"macro": [k1, k2], "click": [k1, k2]}
     "tracker": {},          # region, minutes of notice and the bosses/events marked in the Tracker
     "sounds": {},           # alert sound -> {"volume": 0-100, "muted": bool}
+    "gear": {},             # character name -> {"at", "job", "level", "faction", "slots": {pos: [item, +N, level]}}
     "hotkeys": {
         "toggle_visible": "Alt+Shift+P",
         "toggle_lock": "Alt+Shift+L",

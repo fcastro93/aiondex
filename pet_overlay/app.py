@@ -22,6 +22,7 @@ from .protocol import read_varint
 from .health import Health
 from .mapdata import MapData
 from .contribution import OPCODES as CONTRIBUTION_OPCODES, CombatFeed
+from .gear import HIDDEN_POSITIONS, INVENTORY_OPCODE, GearDB, GearReader, own_faction
 from .paths import ASSETS_DIR
 from .sounds import SoundPlayer
 from .pets import Collection, Pet, PROGRESS_OPCODE, SNAPSHOT_OPCODE, parse_progress, parse_snapshot
@@ -97,6 +98,7 @@ class Bridge(QObject):
     roster = Signal(object)          # [(name, server, job, level)] of your party / force
     hp = Signal(object)              # (eid, current hp)
     field_list = Signal(object)      # (map id, [tracker.SlotState]) from the game's field boss list
+    gear = Signal(object)            # (character name, job, level, faction, {pos: (item, +N, level)}, full list?)
     own_skill = Signal(object)       # ("press", ts, skill, result) | ("cast", ts, skill, cooldown ms) |
                                      # ("skills", {base: OwnSkill}) | ("bar", [QuickSlot])
     status = Signal(str)
@@ -109,6 +111,7 @@ class Bridge(QObject):
         self._hits_lock = threading.Lock()
         self.self_eid = None             # your entity id, to keep only your own casts
         self.feed = CombatFeed()         # combat messages -> damage / healing / shields / taken... (in order)
+        self.gear_reader = GearReader()  # your equipped gear (login list + the visible slots of each 3336)
 
     def take_hits(self):
         with self._hits_lock:
@@ -182,11 +185,17 @@ class Bridge(QObject):
             presets = parse_presets(body)
             if presets and any(presets[1].values()):
                 self.own_skill.emit(("bar", presets))
+        elif op == INVENTORY_OPCODE:
+            self.gear_reader.feed_inventory(time.time(), body)
         elif op == CHARACTER_OPCODE:
             info = parse_character(body)
             if info:
                 self.self_eid = info.entity_id
                 self.character.emit(info)
+                slots = self.gear_reader.feed_character(time.time(), body, info)
+                if slots:
+                    self.gear.emit((info.name, info.job, info.level, own_faction(body, info.name), dict(slots),
+                                    self.gear_reader.full))
 
     def on_status(self, text):
         self.status.emit(text)
@@ -276,6 +285,8 @@ class Controller(QObject):
         self.bridge.roster.connect(lambda members: self.combat.set_group([m[0] for m in members]))
         self.bridge.hp.connect(lambda update: self.combat.on_hp(*update))
         self.bridge.own_skill.connect(self.on_own_skill)
+        self.gear_db = GearDB(self.data_dir / "gear_items.json")
+        self.bridge.gear.connect(self.on_gear)
         self.sounds = SoundPlayer(self.settings, ASSETS_DIR / "sounds")
         self._last_own_death = 0.0
         self.tracker = Tracker(self.data_dir, self.settings, self._tracker_notice)
@@ -490,6 +501,21 @@ class Controller(QObject):
         self._save_settings()
         log.info("character %s (server %s, job %s, level %s)", info.name, info.server, info.job, info.level)
         self.refresh()
+
+    def on_gear(self, event):
+        """Save the character's equipped gear (for the Tracker's "is this drop an upgrade for me?")."""
+        name, job, level, faction, slots, full = event
+        saved = self.settings.setdefault("gear", {}).get(name, {})
+        new = {str(pos): list(v) for pos, v in slots.items()}
+        if not full:                     # no login list this session: keep the hidden slots from the last one
+            for pos, value in saved.get("slots", {}).items():
+                if int(pos) in HIDDEN_POSITIONS and pos not in new:
+                    new[pos] = value
+        self.settings["gear"][name] = {"at": time.time(), "job": job, "level": level,
+                                       "faction": faction or saved.get("faction"), "slots": new}
+        self._save_settings()
+        if self.tracker_window and self.tracker_window.isVisible():
+            self.tracker_window.refresh()
 
     def on_map_entered(self, event):
         seq, map_id, _ = event

@@ -13,6 +13,7 @@ data/*
 !data/map_db.json
 !data/skills_db.json
 !data/tracker_db.json
+!data/gear_items.json
 
 # Dev artifacts
 prototipos/

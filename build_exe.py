@@ -41,6 +41,7 @@ def build_app():
         "--add-data", f"{ROOT / 'data' / 'map_db.json'};seed",
         "--add-data", f"{ROOT / 'data' / 'skills_db.json'};seed",
         "--add-data", f"{ROOT / 'data' / 'tracker_db.json'};seed",
+        "--add-data", f"{ROOT / 'data' / 'gear_items.json'};seed",
         "--collect-submodules", "scapy.layers",
         "--hidden-import", "scapy.arch.windows",
         "--exclude-module", "tkinter",

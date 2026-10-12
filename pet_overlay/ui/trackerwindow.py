@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (QComboBox, QFrame, QGridLayout, QHBoxLayout, QLab
                                QVBoxLayout, QWidget)
 
 from .. import APP_NAME
+from ..gear import verdict
 from ..tracker import LEADS, REGIONS, countdown, image_file, occurrences
 from . import theme
 from .mapwindow import STYLE, badge_label
@@ -21,6 +22,12 @@ TABS = [("marked", "Marcados"), ("field", "Jefes de campo"), ("abyss", "Abismo")
 RANK_COLOR = {0: "#C3C3C3", 1: "#19E048", 2: "#379AFF", 3: "#FFD02B", 4: "#FF6C00", 6: "#00FFD8"}
 PORTRAIT = 64
 ITEM_ICON = 30
+GRADE_ES = {"Common": "Común", "Rare": "Raro", "Epic": "Épico", "Unique": "Único", "Special": "Especial"}
+VERDICT_MARK = {"upgrade": ("↑ mejora", "#7bd88f"), "base": ("≈ mejor base", "#e0a050"), "no": ("", "#8a93a8"),
+                "class": ("otra clase", "#8a93a8"), "level": ("más nivel", "#8a93a8"),
+                "faction": ("otra facción", "#8a93a8")}
+CHIP_STYLE = ("color: {c}; background: rgba({r},{g},{b},0.14); border: 1px solid rgba({r},{g},{b},0.55); "
+              "border-radius: 8px; padding: 0px 6px;")
 DROPS_SHOWN = 5
 CARD_STYLE = """
 QFrame#Card { background: #1D2029; border: 1px solid #2C3140; border-radius: 6px; }
@@ -76,6 +83,14 @@ class TrackerWindow(QWidget):
         self.lead.setCurrentIndex(max(0, self.lead.findData(self.tracker.lead)))
         self.lead.currentIndexChanged.connect(lambda _: self._set("lead", self.lead.currentData()))
         head.addWidget(self.lead)
+        self.gear_label = label("Comparar con", f.small, theme.MUTED)
+        head.addWidget(self.gear_label)
+        self.gear_box = QComboBox()
+        self.gear_box.currentIndexChanged.connect(lambda _: None if self._filling_gear else self.refresh())
+        head.addWidget(self.gear_box)
+        self._filling_gear = False
+        self._gear_state = None           # saved gear of the character the drops are compared with
+        self._verdicts = {}               # drop name -> [(piece, Item, Verdict)] for the current refresh
         root.addLayout(head)
 
         tabs = QHBoxLayout()
@@ -88,6 +103,12 @@ class TrackerWindow(QWidget):
             tabs.addWidget(button)
             self.tab_buttons[key] = button
         tabs.addStretch(1)
+        self.upgrades_only = QPushButton("Solo con mejoras")
+        self.upgrades_only.setProperty("tab", True)
+        self.upgrades_only.setCheckable(True)
+        self.upgrades_only.setToolTip("Solo los jefes que sueltan algo mejor que lo que lleva tu personaje")
+        self.upgrades_only.toggled.connect(lambda _: self.refresh())
+        tabs.addWidget(self.upgrades_only)
         self.search = QLineEdit()
         self.search.setPlaceholderText("Buscar jefe, zona u objeto…")
         self.search.setClearButtonEnabled(True)
@@ -143,8 +164,11 @@ class TrackerWindow(QWidget):
         self._status_labels = []
         self._wanted = set()
         f, tracker = self.fonts, self.tracker
+        self._fill_gear_box()
         query = self.search.text().strip().lower()
         entries = [e for e in tracker.entries if not query or query in _haystack(e)]
+        if self.upgrades_only.isChecked() and self._gear_state:
+            entries = [e for e in entries if self._entry_upgrades(e)]
         if query and not _in_tab(self.tab, entries, tracker):
             elsewhere = [f"{text} ({n})" for key, text in TABS if (n := len(_in_tab(key, entries, tracker)))]
             self.body.addWidget(label(f"Nada coincide con «{self.search.text().strip()}» en esta pestaña"
@@ -301,6 +325,12 @@ class TrackerWindow(QWidget):
         status.setWordWrap(True)
         inner.addWidget(status)
         self._status_labels.append((entry, status))
+        upgrades = self._entry_upgrades(entry)
+        if upgrades:
+            mine = label(f"↑ Para {self.gear_box.currentText()}: mejora tu {', '.join(upgrades).lower()}", f.small,
+                         theme.GAIN)
+            mine.setWordWrap(True)
+            inner.addWidget(mine)
 
         if entry.kind == "event":
             nexts = [s for s, _ in occurrences(entry.slots, "kst" if entry.clock == "kst" else self.tracker.region,
@@ -323,8 +353,16 @@ class TrackerWindow(QWidget):
                 lay.setSpacing(8)
                 lay.addWidget(self._tile(drop.get("icon"), ITEM_ICON, color))
                 lay.addWidget(label(_drop_text(drop), f.body, QColor(color), elide=True), 1)
+                verdicts = self._drop_verdicts(drop)
+                chip = self._chip(verdicts)
+                if chip is not None:
+                    lay.addWidget(chip)
                 if drop.get("items"):
-                    line.setToolTip(self._pieces_tip(drop))
+                    line.setToolTip(self._pieces_tip(drop, verdicts))
+                elif verdicts:
+                    _, item, v = verdicts[0]
+                    line.setToolTip(f"<b>{item.name}</b> · nivel de objeto {item.level} · "
+                                    f"{GRADE_ES.get(item.grade, item.grade)}<br>{v.text}")
                 inner.addWidget(line)
             if len(entry.drops) > DROPS_SHOWN:
                 rest = label(f"y {len(entry.drops) - DROPS_SHOWN} más", f.small, theme.MUTED)
@@ -333,14 +371,88 @@ class TrackerWindow(QWidget):
                 inner.addWidget(rest)
         return card
 
-    def _pieces_tip(self, drop):
-        """The pieces of a set with their icon and chance (one of them drops)."""
+    def _pieces_tip(self, drop, verdicts=()):
+        """The pieces of a set with their icon and chance (one of them drops), and what each would do for you."""
+        by_name = {piece: v for piece, _, v in verdicts}
         rows = []
         for piece in drop["items"]:
             file = image_file(self.ctl.data_dir, piece["icon"]) if piece.get("icon") else None
             icon = f'<img src="{file.as_uri()}" width="22" height="22">' if file and file.exists() else ""
-            rows.append(f"<tr><td>{icon}</td><td>{piece['name']}</td><td align='right'>&nbsp;{piece['chance']:g}%</td></tr>")
-        return f"<b>Sale una de estas piezas</b><table>{''.join(rows)}</table>"
+            v = by_name.get(piece["name"])
+            mark, color = VERDICT_MARK.get(v.kind, ("", "")) if v else ("", "")
+            detail = (f" ({v.mine.name} +{v.mine_enchant}: {v.mine_level})" if v and v.mine and v.kind == "upgrade"
+                      else "")
+            rows.append(f"<tr><td>{icon}</td><td>{piece['name']}</td><td align='right'>&nbsp;{piece['chance']:g}%</td>"
+                        f"<td style='color:{color}'>&nbsp;{mark}{detail}</td></tr>")
+        head = "<b>Sale una de estas piezas</b>"
+        if verdicts:
+            head += f" · comparado con el equipo de {self.gear_box.currentText()}"
+        return f"{head}<table>{''.join(rows)}</table>"
+
+    # --- your gear -------------------------------------------------------------------------------------
+    def _fill_gear_box(self):
+        """Characters whose equipped gear AionDex has read; the one you are playing first."""
+        saved = self.ctl.settings.get("gear", {})
+        names = sorted(saved, key=lambda n: -saved[n].get("at", 0))
+        current = self.gear_box.currentData() or self.ctl.character_name()
+        self._filling_gear = True
+        self.gear_box.clear()
+        for name in names:
+            self.gear_box.addItem(name, name)
+        self.gear_box.addItem("Nadie (no comparar)", None)
+        idx = self.gear_box.findData(current) if current in names else (0 if names else -1)
+        self.gear_box.setCurrentIndex(idx if idx >= 0 else self.gear_box.count() - 1)
+        self._filling_gear = False
+        has = bool(names)
+        self.gear_box.setVisible(has)
+        self.gear_label.setVisible(has)
+        self.upgrades_only.setVisible(has)
+        self._gear_state = saved.get(self.gear_box.currentData())
+        self._verdicts = {}
+        if self._gear_state:
+            when = time.strftime("%d/%m %H:%M", time.localtime(self._gear_state.get("at", 0)))
+            self.gear_box.setToolTip(f"Equipo de {self.gear_box.currentText()} leído el {when}. Se actualiza al "
+                                     f"entrar con el personaje (los anillos, el cinturón y demás piezas que no se ven "
+                                     f"solo al entrar; lo visible, cada minuto).")
+
+    def _drop_verdicts(self, drop):
+        """[(piece name, Item, Verdict)] of the equipment in a drop (each piece of a set), vs your gear."""
+        if not self._gear_state:
+            return []
+        if drop["name"] not in self._verdicts:
+            db, gear = self.ctl.gear_db, self._gear_state
+            out = []
+            for name in [i["name"] for i in drop.get("items", [])] or [drop["name"]]:
+                item = db.named(name, gear.get("faction"))
+                if item is not None:
+                    out.append((name, item, verdict(item, gear, db)))
+            self._verdicts[drop["name"]] = out
+        return self._verdicts[drop["name"]]
+
+    def _entry_upgrades(self, entry):
+        """The slots (Casco, Anillo...) that something this boss drops would upgrade for you."""
+        slots = []
+        for drop in entry.drops:
+            for _, _, v in self._drop_verdicts(drop):
+                if v.kind == "upgrade" and v.slot not in slots:
+                    slots.append(v.slot)
+        return slots
+
+    def _chip(self, verdicts):
+        ups = sum(1 for *_, v in verdicts if v.kind == "upgrade")
+        bases = sum(1 for *_, v in verdicts if v.kind == "base")
+        if not verdicts or not (ups or bases):
+            return None
+        if len(verdicts) == 1:
+            text = "↑ Mejora" if ups else "≈ Mejor base"
+        else:
+            text = f"↑ {ups} de {len(verdicts)}" if ups else f"≈ {bases} de {len(verdicts)}"
+        color = QColor(VERDICT_MARK["upgrade" if ups else "base"][1])
+        chip = QLabel(text)
+        chip.setFont(self.fonts.small)
+        chip.setStyleSheet(CHIP_STYLE.format(c=color.name(), r=color.red(), g=color.green(), b=color.blue()))
+        chip.setAttribute(Qt.WA_TransparentForMouseEvents)
+        return chip
 
     def _toggle(self, entry):
         self.tracker.toggle(entry.id)
