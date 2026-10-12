@@ -301,6 +301,8 @@ class CombatTracker:
         self.npc_names = {}      # eid -> monster name
         self.max_hp = {}         # eid -> max hp from the spawn
         self.group = set()       # names of your party / force members (from the group roster)
+        self.party = set()       # names of your own party (inside a force: only once the game says which it is)
+        self.in_force = False
         self.self_eid = None
         self.map_id = None       # the game map you are in (set on every map entry)
         self.current = None
@@ -329,8 +331,12 @@ class CombatTracker:
         if max_hp:
             self.max_hp[eid] = max_hp
 
-    def set_group(self, names):
+    def set_group(self, names, party=None):
+        """Your group roster. A roster of up to 5 is your party; a bigger one is a force (4 parties of 5), and then
+        `party` is your own party's names when the roster tells which one is yours (else unknown)."""
         self.group = set(names)
+        self.in_force = len(self.group) > PARTY_SIZE
+        self.party = set(party or ()) if self.in_force else set(self.group)
 
     def on_hp(self, eid, hp):
         enc = self.current

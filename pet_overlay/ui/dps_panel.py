@@ -16,7 +16,7 @@ CLASS_ICON = {"Gladiador": "gladiator", "Templario": "templar", "Cazador": "rang
               "Hechicero": "sorcerer", "Invocador": "spiritmaster", "Clérigo": "cleric", "Cantor": "chanter"}
 PLAYER_COLUMNS = ("8.88M", "88.8K", "100%")      # widest text of each column: damage, DPS, %
 ENEMY_COLUMNS = ("muerto", "8.88M")              # HP, damage it dealt
-VIEWS = (("me", "Yo"), ("group", None), ("all", "Todos"))   # None: "Party" or "Force", by the size of your group
+VIEWS = (("me", "Yo"), ("party", "Party"), ("force", "Force"), ("all", "Todos"))
 
 
 def short_number(n):
@@ -191,13 +191,24 @@ class DpsPanel(QWidget):
                 self.content.addWidget(DpsBar(name, (life, short_number(dealt) if dealt else "—"), hp or 0.0,
                                               theme.COMBAT, f, samples=ENEMY_COLUMNS, height=20, dim=dead))
 
-        dealers = [a for a in encounter.dealers() if value(a)]
-        mine = [a for a in dealers if a.is_self or a.name in group]
+        combat = self.ctl.combat
+        dealers = sorted((a for a in encounter.dealers() if value(a)), key=lambda a: -value(a))
+        view = view if self._available(view) else "all"
+        if view == "me":
+            shown = [a for a in dealers if a.is_self]
+        elif view == "party":
+            shown = [a for a in dealers if a.is_self or a.name in combat.party]
+        elif view == "force":
+            shown = [a for a in dealers if a.is_self or a.name in group]
+        else:
+            shown = dealers
+        # outside your party/force nobody is named: "Jugador N", numbered by damage (as in the details window)
         outsiders = [a for a in dealers if not (a.is_self or a.name in group)]
-        shown = [a for a in dealers if a.is_self] if view == "me" else sorted(mine, key=lambda a: -value(a))
-        rows = [(a, a.name, value(a), a.is_self) for a in shown[:ROWS[compact]]]
-        if view == "all" and outsiders:
-            rows.append((None, f"Otros jugadores ({len(outsiders)})", sum(value(a) for a in outsiders), False))
+        alias = {a.eid: f"Jugador {i}" for i, a in enumerate(outsiders, 1)}
+        rows = [(a, alias.get(a.eid, a.name), value(a), a.is_self) for a in shown[:ROWS[compact]]]
+        if len(shown) > ROWS[compact]:
+            rest = shown[ROWS[compact]:]
+            rows.append((None, f"y {len(rest)} más", sum(value(a) for a in rest), False))
         self._header(self._selector(view), ("Daño", "DPS", "%"), PLAYER_COLUMNS)
         top = max((row[2] for row in rows), default=1) or 1
         total = max(1, sum(value(a) for a in dealers))
@@ -219,20 +230,35 @@ class DpsPanel(QWidget):
     def _selector(self, view):
         """Yo / Party (or Force) / Todos."""
         f = self.fonts
-        group = self.ctl.combat.group
         holder = QWidget()
         lay = QHBoxLayout(holder)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(f.px(4))
         for key, text in VIEWS:
-            enabled, tip = True, ""
-            if key == "group":
-                text = "Force" if len(group) > 5 else "Party"
-                enabled = bool(group)
-                tip = "Tú y tu grupo" if group else "No estás en una party ni en una force"
-            lay.addWidget(Pill(text, f, lambda k=key: self.ctl.set_setting("dps_view", k),
-                               selected=key == view, enabled=enabled, tip=tip))
+            lay.addWidget(Pill(text, f, lambda k=key: self.ctl.set_setting("dps_view", k), selected=key == view,
+                               enabled=self._available(key), tip=self._view_tip(key)))
         return holder
+
+    def _available(self, view):
+        combat = self.ctl.combat
+        if view == "party":
+            return bool(combat.party)
+        if view == "force":
+            return combat.in_force
+        return True
+
+    def _view_tip(self, view):
+        combat = self.ctl.combat
+        if view == "me":
+            return "Solo tú"
+        if view == "party":
+            if combat.in_force and not combat.party:
+                return ("Estás en una force y AionDex aún no sabe cuál de las 4 parties es la tuya: mira Force o Todos "
+                        "mientras tanto")
+            return "Tu party (5 personas)" if combat.party else "No estás en una party"
+        if view == "force":
+            return "Las 4 parties de tu force" if combat.in_force else "No estás en una force"
+        return "Todos los jugadores que pelean cerca de ti (los de fuera de tu grupo, sin nombre)"
 
     def _header(self, left, titles, samples):
         row = QWidget()

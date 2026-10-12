@@ -22,6 +22,7 @@ class DpsModule(Module):
         enc = combat.current
         settings = self.ctl.settings
         view = settings.get("dps_view") or ("me" if settings.get("dps_only_me") else "all")
+        view = {"group": "party"}.get(view, view)          # 1.21.0 had one "Party / Force" button
         self.panel.render(enc, compact, view, self.ctl.dps_ready)
         summary = ""
         if enc:
