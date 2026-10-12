@@ -443,7 +443,8 @@ class CraftingWindow(QWidget):
         for c, text in enumerate(("Material", "", "Más bajo", "Ofertas", "A la venta", "¿Se vende?", "Lo usan", "")):
             grid.addWidget(label(text, f.small, theme.MUTED), 0, c, Qt.AlignRight if 1 < c < 6 else Qt.AlignLeft)
         for r, (name, source, lowest, at, listings, sales, supply, products) in enumerate(mats, start=1):
-            grid.addWidget(label(name, f.body, QColor(GRADE_COLOR.get(self._grade(name), "#D6DAE3"))), r, 0)
+            grid.addWidget(self._material_name(name, name, QColor(GRADE_COLOR.get(self._grade(name), "#D6DAE3"))),
+                           r, 0)
             text, color = SOURCE.get(source if source != "market" else "market", SOURCE["unknown"])
             grid.addWidget(_chip(text if source != "market" else "Del juego / mercado", color, f), r, 1)
             price = label(_kinah(lowest), f.name, theme.TEXT)
@@ -640,7 +641,7 @@ class CraftingWindow(QWidget):
             grid.addWidget(head, 0, c, Qt.AlignLeft if c == 0 else Qt.AlignRight)
         r = 1
         for m in row.materials:
-            grid.addWidget(label(f"{m.count}×  {m.name.replace(' (Bound)', '')}", f.body, theme.TEXT), r, 0)
+            grid.addWidget(self._material_name(m.name, f"{m.count}×  {m.name.replace(' (Bound)', '')}"), r, 0)
             text, color = SOURCE.get(m.how, SOURCE["unknown"])
             grid.addWidget(_chip(text, color, f), r, 1, Qt.AlignLeft | Qt.AlignVCenter)
             grid.addWidget(self._price_cell(m.unit, m.total, m.how, m.at), r, 2, Qt.AlignRight)
@@ -708,6 +709,17 @@ class CraftingWindow(QWidget):
                                        "Lo que desaparece del mercado entre dos muestreos se vendió (o lo retiraron)."))
         col.addLayout(notes)
         return frame
+
+    def _material_name(self, name, text, color=None):
+        """A material's name; one you can gather opens the map of where to gather it."""
+        if not self.ctl.gathering.has(name):
+            return label(text, self.fonts.body, color or theme.TEXT)
+        link = label(f"{text}  ⌖", self.fonts.body, theme.ACCENT)
+        link.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        link.setCursor(Qt.PointingHandCursor)
+        link.setToolTip(f"Ver en el mapa dónde recolectar {name}: sus puntos, la mejor zona y una ruta")
+        link.mousePressEvent = lambda e, n=name: self.ctl.open_gather_map(n) if e.button() == Qt.LeftButton else None
+        return link
 
     def _exp_badge(self, row):
         """The little EXP mark of the recipe to level up with."""

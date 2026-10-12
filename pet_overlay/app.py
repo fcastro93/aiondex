@@ -20,6 +20,7 @@ from .skills import (CAST_OPCODE, PRESETS_OPCODE, REQUEST_OPCODE, SKILL_LIST_OPC
                      parse_cast, parse_presets, parse_request, parse_skill_list)
 from .tracker import FIELD_LIST_OPCODE, Tracker, parse_field_list
 from .crafting import Crafting
+from .gathering import Gathering
 from .professions import CRAFT_OPCODE, EXP_OPCODE, parse_craft, parse_exp, parse_levels
 from .protocol import read_varint
 from .health import Health
@@ -361,6 +362,8 @@ class Controller(QObject):
         self.bridge.field_list.connect(lambda event: self._tracker_changed(self.tracker.on_field_list(*event)))
         self.crafting = Crafting(self.data_dir, self.settings)
         self.crafting_window = None
+        self.gathering = Gathering(self.data_dir, self.settings)
+        self.gather_window = None
         self._ocr = OcrWorker(self.crafting)
         self._ocr.read.connect(self._shot_read)
         self.crafting.character = self.settings.get("last_character")
@@ -539,6 +542,16 @@ class Controller(QObject):
         self.tracker_window.activateWindow()
 
     # --- crafting ------------------------------------------------------------------------------
+    def open_gather_map(self, material):
+        """Where to gather a material: its nodes, the best area with a route, your bot marks."""
+        from .ui.gathermap import GatherMapWindow
+        if self.gather_window is None:
+            self.gather_window = GatherMapWindow(self)
+        self.gather_window.show_material(material)
+        self.gather_window.show()
+        self.gather_window.raise_()
+        self.gather_window.activateWindow()
+
     def open_crafting(self, tab=None):
         from .ui.craftingwindow import CraftingWindow
         if self.crafting_window is None:
