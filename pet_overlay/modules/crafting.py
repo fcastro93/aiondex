@@ -58,6 +58,9 @@ class CraftingPanel(QWidget):
         elif not crafting.samples:
             self._line(f"Abre el mercado en «{prof.get('market', '…')}», pulsa Escanear en cada página y luego "
                        f"procesa las capturas: verás qué vale la pena craftear.", theme.MUTED)
+        today = self._sales_today()
+        if today:
+            self._line(today, theme.GAIN)
         rows = crafting.recommend(crafting.recipe_rows(self.ctl.crafting_faction()), n=ROWS[compact])
         if rows:
             level = crafting.level()
@@ -75,6 +78,19 @@ class CraftingPanel(QWidget):
         link.setContentsMargins(f.px(4), f.px(4), 0, 0)
         self.content.addWidget(link)
         self.adjustSize()
+
+    def _sales_today(self):
+        """'Ventas hoy: 4 · cobrado 261K · +14K' from the sales ledger, or ""."""
+        import time
+        ledger = self.ctl.crafting.ledger
+        local = time.localtime()
+        start = time.mktime((local.tm_year, local.tm_mon, local.tm_mday, 0, 0, 0, 0, 0, -1))
+        sales = [s for s in ledger.sales if s["at"] >= start]
+        if not sales:
+            return ""
+        t = ledger.totals(sales)
+        return (f"Ventas hoy: {t['count']} · cobrado {money(t['net'])}"
+                + (f" · {money(t['profit'], sign=True)}" if t["count"] > t["unknown"] else ""))
 
     def _link(self, text, action):
         link = label(text, self.fonts.name, theme.ACCENT)

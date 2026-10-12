@@ -5,6 +5,11 @@ market screens into rows.
 - List screen ("Main"): Item | Sales List | Lowest Sale Price  -> (name, listings, lowest price)
 - Listings of one item:  Item | Sale Price Per Item | Sale Price | Time Left -> (name, unit price, total, quantity,
   hours left). The quantity is total / unit price: the small number on the icon is often misread.
+- Your sales ("List" tab): Select | Item | Properties | Sale Price (total, "588 per item" under it) | Status (time
+  left) -> (name, quantity, total, unit price, hours left); footer "List 10/10" and "Total Sale Amount".
+- What sold ("Settlement" tab, until you collect it): Item | Sale Price | Settlement Amount (after the tax) | Sale
+  Time -> (name, quantity, price, unit price, settlement, sale time text); footer "Completed Sale N Listing(s)" and
+  "Total Settlement Amount".
 
 Columns are found from the header texts, so the parser works at any resolution. Prices drop separators and the coin
 icon the OCR sometimes reads as a leading 0 or letter; names snap to the known item names.
@@ -35,9 +40,10 @@ class Line:
 
 @dataclass
 class Screen:
-    kind: str                                   # "list" | "listings" | "unknown"
+    kind: str                                   # "list" | "listings" | "mylist" | "settlement" | "unknown"
     rows: list = field(default_factory=list)    # list: (name, listings, lowest); listings: (name, unit, total, qty, h)
     tax: float = None                           # "Current Tax Rate 10%" -> 0.10
+    info: dict = field(default_factory=dict)    # footers: listed / slots / total (mylist), sold / total (settlement)
 
 
 # --- capture ---------------------------------------------------------------------------------------------
@@ -126,6 +132,7 @@ def numbers(text):
     (separators and the coin icon dropped). A separator read as a space ('1 ooo' = 1,000) gives the joined number
     first and the longest part after it (a coin read as a digit, '8 475', is the other way round)."""
     fixed = text.replace("O", "0").replace("o", "0")
+    fixed = re.sub(r"(\d)\s+([.,])\s*(?=\d)", r"\1\2", fixed)      # '1 ,044' = 1,044
     out = []
     if not re.search(r"\d[.,]\d", fixed):
         joined = re.findall(r"\d+(?: \d{3}(?!\d))+", fixed)
@@ -172,7 +179,61 @@ def snap(name, known):
 
 
 def _header(lines, *words):
-    return next((ln for ln in lines if all(w.lower() in ln.text.lower() for w in words)), None)
+    found = [ln for ln in lines if all(w.lower() in ln.text.lower() for w in words)]
+    return min(found, key=lambda ln: ln.y) if found else None
+
+
+def _exact(lines, text):
+    """The topmost line that is exactly this text (a column header: "Item", not "Item Level 33")."""
+    found = [ln for ln in lines if ln.text.strip().lower() == text.lower()]
+    return min(found, key=lambda ln: ln.y) if found else None
+
+
+def _right_of(lines, label):
+    """The number written to the right of a footer label ("Total Sale Amount  689,932"): in the label's own line
+    when the OCR joined them ("Total Settlement Amount 260.863"), else the next line to its right."""
+    if label is None:
+        return None
+    tail = re.search(r"amount\s*([\d.,oO ]+)$", label.text, re.I)
+    if tail and number(tail.group(1)) is not None:
+        return number(tail.group(1))
+    cells = [ln for ln in lines if ln.x0 > label.x1 and abs(ln.y - label.y) < label.h * 1.2
+             and number(ln.text) is not None]
+    return number(min(cells, key=lambda ln: ln.x0).text) if cells else None
+
+
+def sale_time(text, now):
+    """When something sold, from the Settlement tab's Sale Time cell, or None: '2026.10.12 14:05', '10/12 14:05',
+    '14:05' (today, or yesterday if that is still to come), '2:05 PM', '35 minutes ago', '3h ago', '1d ago'."""
+    import time as _time
+    t = text.strip().lower().replace("o", "0").replace("l", "1")
+    rel = re.search(r"(\d+)\s*(m|min|minute|minutes|h|hour|hours|d|day|days)\b[^\d]*ag0", t)
+    if rel:
+        n, unit = int(rel.group(1)), rel.group(2)[0]
+        return now - n * {"m": 60, "h": 3600, "d": 86400}[unit]
+    clock = (re.search(r"(?<!\d)(\d{1,2})\s*:\s*(\d{2})(?:\s*([ap])\.?\s*m)?", t) or
+             re.search(r"(?<![\d.])(\d{1,2})\s*\.\s*(\d{2})(?:\s*([ap])\.?\s*m)?\s*$", t))     # ':' read as '.'
+    date = re.search(r"(?:(\d{4})\s*[./-]\s*)?(\d{1,2})\s*[./-]\s*(\d{1,2})(?!\s*[:.]\s*\d{2}\b)", t)
+    if not clock:
+        return None
+    hour, minute = int(clock.group(1)), int(clock.group(2))
+    if clock.group(3) == "p" and hour < 12:
+        hour += 12
+    elif clock.group(3) == "a" and hour == 12:
+        hour = 0
+    if hour > 23 or minute > 59:
+        return None
+    local = _time.localtime(now)
+    year, month, day = local.tm_year, local.tm_mon, local.tm_mday
+    if date and date.end() <= clock.start():
+        year = int(date.group(1)) if date.group(1) else year
+        month, day = int(date.group(2)), int(date.group(3))
+        if not (1 <= month <= 12 and 1 <= day <= 31):
+            return None
+    when = _time.mktime((year, month, day, hour, minute, 0, 0, 0, -1))
+    if when > now + 300:                         # no date: a time still to come was yesterday's (or last year's)
+        when = when - 86400 if not date else _time.mktime((year - 1, month, day, hour, minute, 0, 0, 0, -1))
+    return when
 
 
 def _in(ln, header, slack):
@@ -200,7 +261,7 @@ def parse(lines, width, known=()):
     """OCR lines of a market screenshot -> Screen. Each row is anchored on its number in the count column (list
     screen) or the price per item column (listings), so two-line names ("Fantasy Greatsword" / "Item Level 36") stay
     one row; a row whose price the OCR missed keeps price None (read_screen() reads that cell again)."""
-    item = _header(lines, "Item")
+    item = _exact(lines, "Item") or _header(lines, "Item")
     sales, lowest = _header(lines, "Sales List"), _header(lines, "Lowest Sale")
     per, time_left = _header(lines, "Sale Price Per"), _header(lines, "Time Left")
     if item is None:
@@ -208,6 +269,12 @@ def parse(lines, width, known=()):
     slack = width * 0.02
     left = width * 0.15                          # the category list on the left ends before this
     level = re.compile(r"^item level", re.I)
+    status, settled, sold_at = _exact(lines, "Status"), _header(lines, "Settlement Amount"), _header(lines, "Sale Time")
+    price = _exact(lines, "Sale Price")
+    if price and status and _header(lines, "Properties"):
+        return _my_list(lines, width, known, item, price, status, slack)
+    if price and settled and sold_at:
+        return _settlement(lines, width, known, item, price, settled, sold_at, slack)
     if sales and lowest:
         screen = Screen("list")
         anchors, spacing = _anchors(lines, sales, item.y, slack)
@@ -243,6 +310,108 @@ def parse(lines, width, known=()):
                                 hours_left(hours[0].text) if hours else None])
         return screen
     return Screen("unknown")
+
+
+def _row_name(lines, a, spacing, x0, x1):
+    """The item name of a row (two lines for gear: "Destruction Orb" / "Item Level 33", only the first kept)."""
+    level = re.compile(r"^item level", re.I)
+    names = _near(lines, a, spacing, lambda ln: x0 < ln.x0 and ln.x1 < x1 and len(ln.text.strip()) > 2
+                  and not level.match(ln.text) and number(ln.text) is None)
+    return " ".join(ln.text for ln in sorted(names, key=lambda ln: ln.y)).strip(), names
+
+
+def _icon_count(lines, a, spacing, x0, names):
+    """The small stack count on the item's icon (left of the name), or None."""
+    if not names:
+        return None
+    name_x0 = min(ln.x0 for ln in names)
+    icons = _near(lines, a, spacing, lambda ln: x0 < ln.x0 and ln.x1 <= name_x0 and
+                  re.fullmatch(r"\d{1,3}", ln.text.strip()) is not None)
+    return int(icons[0].text.strip()) if icons else None
+
+
+def _price_cells(lines, a, spacing, column, slack):
+    """(the total price, the unit price of its "588 per item" line or None) of one row."""
+    cells = _near(lines, a, spacing, lambda ln: _in(ln, column, slack * 2) and number(ln.text) is not None)
+    per = next((ln for ln in cells if "per" in ln.text.lower()), None)
+    totals = [ln for ln in cells if "per" not in ln.text.lower()]
+    return (numbers(totals[0].text) if totals else []), (number(per.text) if per else None)
+
+
+def _quantity(totals, unit, icon):
+    """(total, quantity) from the readings of the total, the per-item price and the icon count."""
+    if unit:
+        for whole in totals + [int(str(t)[1:]) for t in totals if t >= 10]:      # a coin read as a digit
+            q = round(whole / unit)
+            if q >= 1 and abs(whole - q * unit) <= max(1, unit * 0.02):
+                return whole, q
+    if totals:
+        return totals[0], icon or 1
+    return None, None
+
+
+def _my_list(lines, width, known, item, price, status, slack):
+    """The "List" tab: what you have on sale."""
+    screen = Screen("mylist")
+    right = status.x1 + slack * 4                # the Cube (your bag) is drawn to the right of the list
+    rows = [ln for ln in lines if ln.x1 < right and ln.y > item.y + item.h * 0.6]
+    anchors = sorted((ln for ln in rows if _in(ln, price, slack * 2) and number(ln.text) is not None
+                      and "per" not in ln.text.lower()), key=lambda ln: ln.y)
+    spacing = (sorted(b.y - a.y for a, b in zip(anchors, anchors[1:]))[(len(anchors) - 1) // 2]
+               if len(anchors) >= 2 else item.h * 8)
+    footer = min((ln.y for ln in rows if re.match(r"(list\s*\d|total sale amount)", ln.text.strip(), re.I)),
+                 default=None)
+    for a in anchors:
+        if footer is not None and a.y >= footer - item.h:
+            continue
+        name, names = _row_name(rows, a, spacing, width * 0.05, price.x0 - slack * 6)
+        if not name:
+            continue
+        totals, unit = _price_cells(rows, a, spacing, price, slack)
+        total, qty = _quantity(totals, unit, _icon_count(rows, a, spacing, width * 0.03, names))
+        left = _near(rows, a, spacing, lambda ln: _in(ln, status, slack * 3) and hours_left(ln.text) is not None)
+        if total:
+            screen.rows.append([snap(name, known) or name, qty, total, unit or round(total / qty),
+                                hours_left(left[0].text) if left else None])
+    for ln in lines:
+        m = re.match(r"list\s*(\d+)\s*/\s*(\d+)", ln.text.strip().replace("O", "0"), re.I)
+        if m:
+            screen.info["listed"], screen.info["slots"] = int(m.group(1)), int(m.group(2))
+    screen.info["total"] = _right_of(lines, _header(lines, "Total Sale Amount"))
+    return screen
+
+
+def _settlement(lines, width, known, item, price, settled, sold_at, slack):
+    """The "Settlement" tab: what sold and has not been collected yet."""
+    import time as _time
+    screen = Screen("settlement")
+    rows = [ln for ln in lines if ln.y > item.y + item.h * 0.6]
+    footer = min((ln.y for ln in rows if re.match(r"(completed sale|total (possible )?settlement)", ln.text.strip(),
+                                                   re.I)), default=None)
+    anchors = sorted((ln for ln in rows if _in(ln, settled, slack * 2) and number(ln.text) is not None
+                      and "per" not in ln.text.lower()            # "8996.375 per item" under each settlement
+                      and (footer is None or ln.y < footer - item.h)), key=lambda ln: ln.y)
+    spacing = (sorted(b.y - a.y for a, b in zip(anchors, anchors[1:]))[(len(anchors) - 1) // 2]
+               if len(anchors) >= 2 else item.h * 8)
+    now = _time.time()
+    for a in anchors:
+        name, names = _row_name(rows, a, spacing, width * 0.05, price.x0 - slack * 6)
+        if not name:
+            continue
+        totals, unit = _price_cells(rows, a, spacing, price, slack)
+        total, qty = _quantity(totals, unit, _icon_count(rows, a, spacing, width * 0.03, names))
+        when = " ".join(ln.text for ln in sorted(_near(rows, a, spacing, lambda ln: _in(ln, sold_at, slack * 3)),
+                                                 key=lambda ln: (ln.y, ln.x0)))
+        net = number(a.text)
+        if total and net and net <= total:
+            screen.rows.append([snap(name, known) or name, qty, total, unit or round(total / qty), net, when,
+                                sale_time(when, now)])
+    for ln in lines:
+        m = re.search(r"completed sale\s*([0-9oO]+)", ln.text, re.I)
+        if m:
+            screen.info["sold"] = int(m.group(1).replace("o", "0").replace("O", "0"))
+    screen.info["total"] = _right_of(lines, _header(lines, "Total Settlement Amount"))
+    return screen
 
 
 def _offer(units, whole, icon):
@@ -305,6 +474,6 @@ def read_screen(path, known=()):
                 row[2] = _read_cell(image, (lowest.x0 - width * 0.03, lowest.x0 + head * 0.14),
                                     min(width, lowest.x1 + width * 0.03), y - spacing * 0.35, y + spacing * 0.5)
         screen.rows = [tuple(r[:3]) for r in screen.rows if r[2]]
-    elif screen.kind == "listings":
+    else:
         screen.rows = [tuple(r) for r in screen.rows]
     return screen

@@ -4,6 +4,7 @@ item's price over time."""
 import os
 import time
 import webbrowser
+from pathlib import Path
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
 from PySide6.QtGui import QColor, QIntValidator, QPainter, QPainterPath, QPen, QPixmap, QValidator
@@ -21,7 +22,7 @@ from .theme import Fonts
 from .tunerwindow import EXTRA_STYLE
 from .widgets import SectionTitle, label
 
-TABS = [("profit", "Rentabilidad"), ("shots", "Capturas"), ("samples", "Muestreos")]
+TABS = [("profit", "Rentabilidad"), ("shots", "Capturas"), ("samples", "Muestreos"), ("sales", "Ventas")]
 # aion2data's grades in the game's colours (its "Epic" is the game's blue Legend tier)
 GRADE_COLOR = {"Common": "#C3C3C3", "Rare": "#19E048", "Epic": "#379AFF", "Unique": "#FFD02B", "Special": "#00FFD8"}
 SOURCE = {   # how a material is priced -> (chip text, colour)
@@ -82,6 +83,7 @@ class CraftingWindow(QWidget):
         self._editing = set()             # materials whose price box is open
         self._thumbs = {}                 # shot file -> QPixmap thumbnail
         self._sample = None               # the sample shown in Muestreos
+        self.sales_period = self.crafting.config.get("sales_period", "week")     # Ventas: hoy / 7 / 30 días / todo
         self.chart_window = None
         self.setObjectName("MapWindow")
         self.setWindowTitle(f"{APP_NAME} — Crafting")
@@ -318,7 +320,8 @@ class CraftingWindow(QWidget):
 
     # --- content -----------------------------------------------------------------------------------------
     def refresh(self):
-        counts = {"shots": len(self.crafting.shots), "samples": len(self.crafting.samples)}
+        counts = {"shots": len(self.crafting.shots), "samples": len(self.crafting.samples),
+                  "sales": len(self.crafting.ledger.sales)}
         for key, button in self.tab_buttons.items():
             text = dict(TABS)[key]
             button.setText(f"{text} ({counts[key]})" if counts.get(key) else text)
@@ -330,7 +333,8 @@ class CraftingWindow(QWidget):
         self._fill_who()
         self._show_level()
         _clear(self.body)
-        {"profit": self._profit_tab, "shots": self._shots_tab, "samples": self._samples_tab}[self.tab]()
+        {"profit": self._profit_tab, "shots": self._shots_tab, "samples": self._samples_tab,
+         "sales": self._sales_tab}[self.tab]()
         self.body.addStretch(1)
         if self.chart_window and self.chart_window.isVisible():
             self.chart_window.refresh()
@@ -347,7 +351,8 @@ class CraftingWindow(QWidget):
         return (f"En el juego, abre el mercado (Exchange) en «{prof.get('market', '…')}» y pulsa Escanear"
                 + (f" o {hk}" if hk else "") + " en cada página. Escanea también la pantalla de ofertas de los objetos "
                 "que te interesen (así se ve cuánto se vende entre muestreos) y la de los materiales que no da un "
-                "NPC. Luego, en Capturas, marca las buenas y pulsa Procesar.")
+                "NPC. Luego, en Capturas, marca las buenas y pulsa Procesar. Las de tus ventas (Settlement) y de lo "
+                "que tienes a la venta (List) van solas a Ventas.")
 
     # --- Rentabilidad ---
     def _profit_tab(self):
@@ -1010,6 +1015,55 @@ class CraftingWindow(QWidget):
         """A shot finished reading: its caption and checkbox change."""
         if self.isVisible():
             self.refresh()
+
+    # --- Ventas ---
+    def _sales_tab(self):
+        from .salesview import SalesView
+        bar = QHBoxLayout()
+        bar.addStretch(1)
+        load = QPushButton("Importar imagen…")
+        load.setProperty("flat", True)
+        load.setToolTip("Lee una captura de Settlement o de List que guardaste antes (con la tecla de captura del "
+                        "juego o de Windows)")
+        load.clicked.connect(self._import_images)
+        bar.addWidget(load)
+        self.body.addLayout(bar)
+        self.body.addWidget(SalesView(self))
+
+    def set_sales_period(self, key):
+        self.sales_period = key
+        self.crafting.set_option("sales_period", key)
+        self.refresh()
+
+    def crafting_fee(self):
+        return self.crafting.fee
+
+    def delete_sale(self, sale):
+        answer = QMessageBox.question(self, "Borrar venta",
+                                      f"¿Borrar la venta de {sale['item']} ×{sale['qty']} del {_clock(sale['at'])}? "
+                                      f"Deja de contar en las estadísticas (su captura se conserva).")
+        if answer == QMessageBox.Yes:
+            self.crafting.ledger.remove(sale["id"])
+            self.refresh()
+            self.ctl.refresh()
+
+    def _import_images(self):
+        """Screenshots saved earlier (Settlement, List or the market) read as if they had just been scanned."""
+        import shutil
+        from PySide6.QtWidgets import QFileDialog
+        files, _ = QFileDialog.getOpenFileNames(self, "Capturas del mercado", str(Path.home() / "Pictures"),
+                                                "Imágenes (*.png *.jpg *.jpeg *.bmp)")
+        for name in files:
+            target = self.crafting.new_shot_path()
+            try:
+                from PIL import Image
+                Image.open(name).convert("RGB").save(target)
+            except OSError:
+                try:
+                    shutil.copy(name, target)
+                except OSError:
+                    continue
+            self.ctl.crafting_import(target)
 
     # --- Muestreos ---
     def _samples_tab(self):

@@ -18,6 +18,7 @@ from pathlib import Path
 
 from . import market_ocr
 from .inventory import Inventory
+from .sales import Ledger
 from .professions import KNOWN_IDS
 
 log = logging.getLogger(__name__)
@@ -43,10 +44,11 @@ class Shot:
     file: str
     at: float
     checked: bool = True
-    kind: str = None            # None = not read yet; "list" | "listings" | "unknown"
+    kind: str = None            # None = not read yet; "list" | "listings" | "mylist" | "settlement" | "unknown"
     rows: list = field(default_factory=list)
     error: str = ""
     tax: float = None
+    info: dict = field(default_factory=dict)    # the List / Settlement footers (how many, their total)
 
     @property
     def read(self):
@@ -242,6 +244,7 @@ class Crafting:
         self._last_craft = None          # (when, profession id, recipe id, success) until its experience arrives
         self.samples = [_clean_sample(s) for s in _load(self.dir / "samples.json", [])]
         self.shots = self._load_shots()
+        self.ledger = Ledger(self.dir)        # your sales: Settlement scans (kept as proof) and List scans
         self._lock = threading.Lock()        # the OCR thread saves the shots too
 
     # --- settings --------------------------------------------------------------------------------------
@@ -415,7 +418,7 @@ class Crafting:
         try:
             screen = market_ocr.read_screen(self.path(shot), list(self.names))
             shot.kind, shot.rows, shot.error = screen.kind, [list(r) for r in screen.rows], ""
-            shot.tax = screen.tax
+            shot.tax, shot.info = screen.tax, dict(screen.info)
             if screen.kind == "unknown":
                 shot.checked = False
         except Exception as exc:          # noqa: BLE001 - shown on the shot; the app keeps running
@@ -423,6 +426,41 @@ class Crafting:
             shot.kind, shot.rows, shot.error, shot.checked = "unknown", [], str(exc) or type(exc).__name__, False
         self._save_shots()
         return shot
+
+    # --- sales ---
+    def take_sales_shot(self, shot, faction=None):
+        """A screenshot of your List or Settlement tab goes to the sales ledger (the Settlement one kept as the proof
+        of its sales) instead of waiting with the market shots. -> the new sales (Settlement) or None (List)."""
+        new = None
+        if shot.kind == "mylist":
+            self.ledger.on_listings(shot.at, shot.rows, shot.info)
+        elif shot.kind == "settlement":
+            proof = self.ledger.keep_proof(self.path(shot), shot.at) if shot.rows else None
+            new = self.ledger.on_settlement(shot.at, shot.rows, proof,
+                                            lambda n, when: self.unit_cost(n, faction, when), self.market_price)
+            if not new and proof:
+                (self.ledger.proofs_dir / proof).unlink(missing_ok=True)     # nothing new: no proof needed
+        self.remove_shot(shot)
+        return new
+
+    def unit_cost(self, product, faction=None, at=None):
+        """What one unit of a product costs you in materials (with the prices before `at`: a sale's own time),
+        failures included: {"crafted": False} for what no recipe makes, else {"crafted": True, "cost": gathering what
+        you can, "buy": buying everything} (None when a material has no price)."""
+        recipe = next((r for r in self.recipes if r["product"] == product), None)
+        if recipe is None:
+            return {"crafted": False}
+        row = next((r for r in self.recipe_rows(faction, recipe["profession"], at) if r.product == product), None)
+        if row is None:
+            return {"crafted": True, "cost": None, "buy": None}
+        per = (row.success or 1) * row.count
+        return {"crafted": True, "cost": None if row.cost is None else row.cost / per,
+                "buy": None if row.buy_cost is None else row.buy_cost / per}
+
+    def market_price(self, name, at=None):
+        """The lowest price of an item in your newest sample that has it (taken before `at`), or None."""
+        found = self.latest_prices(at).get(name)
+        return found[0] if found else None
 
     def set_checked(self, shot, on):
         shot.checked = on
@@ -496,10 +534,14 @@ class Crafting:
         """The market's tax as last read from its screen, else 10%."""
         return next((s["tax"] for s in reversed(self.samples) if s.get("tax") is not None), FEE)
 
-    def latest_prices(self):
-        """name -> (lowest price, when) from the newest sample that has it."""
+    def latest_prices(self, at=None):
+        """name -> (lowest price, when) from the newest sample that has it (with `at`: the newest one taken before
+        that moment, so a sale is costed with the prices of its time; the oldest samples when none is older)."""
         out = {}
-        for s in self.samples:
+        samples = self.samples
+        if at is not None:
+            samples = [s for s in self.samples if s["at"] <= at] or self.samples[:1]
+        for s in samples:
             for name, item in s["items"].items():
                 if item.get("lowest"):
                     out[name] = (item["lowest"], s["at"])
@@ -550,10 +592,11 @@ class Crafting:
                 listings is not None and listings > len(offers))
 
     # --- recipes -----------------------------------------------------------------------------------------
-    def recipe_rows(self, faction=None, profession=None):
-        """One row per product of the profession (the recipe of your side), priced from the samples."""
+    def recipe_rows(self, faction=None, profession=None, at=None):
+        """One row per product of the profession (the recipe of your side), priced from the samples (the ones before
+        `at` when given)."""
         profession = profession or self.profession
-        prices = self.latest_prices()
+        prices = self.latest_prices(at)
         best = {}
         for r in self.recipes:
             if r["profession"] != profession or "(Bound)" in r["product"]:      # bound items cannot be sold
@@ -719,14 +762,15 @@ class Crafting:
         for path in sorted(self.shots_dir.glob("*.png")) if self.shots_dir.exists() else []:
             info = saved.get(path.name, {})
             shots.append(Shot(path.name, info.get("at") or path.stat().st_mtime, info.get("checked", True),
-                              info.get("kind"), info.get("rows", []), info.get("error", ""), info.get("tax")))
+                              info.get("kind"), info.get("rows", []), info.get("error", ""), info.get("tax"),
+                              info.get("info", {})))
         return shots
 
     def _save_shots(self):
         with self._lock:
             self.dir.mkdir(parents=True, exist_ok=True)
             data = {s.file: {"at": s.at, "checked": s.checked, "kind": s.kind, "rows": s.rows, "error": s.error,
-                             "tax": s.tax} for s in list(self.shots)}
+                             "tax": s.tax, "info": s.info} for s in list(self.shots)}
             (self.dir / "shots.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
     def _save_samples(self):

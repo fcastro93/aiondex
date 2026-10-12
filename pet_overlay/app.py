@@ -674,10 +674,45 @@ class Controller(QObject):
         self._crafting_changed()
 
     def _shot_read(self, shot):
+        if shot.kind in ("mylist", "settlement"):
+            self._sales_shot(shot)
+            return
         if self.crafting_window and self.crafting_window.isVisible():
             self.crafting_window.shot_read(shot)
         if self.active_module.key == "crafting":
             self.refresh()
+
+    def _sales_shot(self, shot):
+        """A scan of your List (what you have on sale) or Settlement (what sold) tab: into Crafting's Ventas."""
+        from .modules.crafting import money
+        info, rows = shot.info, shot.rows
+        new = self.crafting.take_sales_shot(shot, self.crafting_faction())
+        if shot.kind == "mylist":
+            listed = info.get("listed")
+            hidden = f" Se ven {len(rows)} de {listed}: baja la lista y escanea otra vez para el resto." \
+                if listed and listed > len(rows) else ""
+            self.notify("info", f"Ventas: {len(rows)} {'cosa' if len(rows) == 1 else 'cosas'} a la venta",
+                        f"Por {money(sum(r[2] for r in rows))} en total.{hidden}")
+        elif new:
+            net = sum(s["net"] for s in new)
+            known = [s for s in new if self.crafting.ledger.profit(s) is not None]
+            profit = sum(self.crafting.ledger.profit(s) for s in known)
+            self.notify("info", f"Ventas: {len(new)} {'venta nueva' if len(new) == 1 else 'ventas nuevas'}",
+                        f"Cobras {money(net)} (ya sin el impuesto)" +
+                        (f"; te dejan {money(profit, sign=True)} tras los materiales." if known else ".") +
+                        " La captura queda guardada como prueba.")
+        elif rows:
+            self.notify("info", "Ventas: nada nuevo", "Esas ventas ya estaban guardadas.")
+        else:
+            self.notify("info", "Ventas: no hay nada por cobrar",
+                        "Settlement está vacío: cuando algo se venda, escanéalo ahí antes de cobrar.")
+        sold = info.get("sold")
+        if shot.kind == "settlement" and sold and sold > len(rows):
+            self.notify("warn", f"Ventas: se leyeron {len(rows)} de {sold}",
+                        "Baja la lista de Settlement y escanea otra vez: las que ya estén no se repiten.")
+        if self.crafting_window and self.crafting_window.isVisible():
+            self.crafting_window.show_tab("sales")
+        self._crafting_changed()
 
     def crafting_processed(self, sample):
         n = len(sample["items"])
@@ -707,6 +742,12 @@ class Controller(QObject):
                 self.notify("info", f"¡{name} subió a {level_text(level)}!",
                             "Crafting ya calcula tu probabilidad de éxito con el nivel nuevo.")
                 self.sounds.play("pet_level_up")        # the same level-up sound as the pets
+        self._crafting_changed()
+
+    def crafting_import(self, path):
+        """An image from disk read like a scan (the shot is the copy in crafting/shots)."""
+        shot = self.crafting.add_shot(path)
+        self._ocr.add(shot)
         self._crafting_changed()
 
     def crafting_reread(self, shot):
