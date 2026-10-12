@@ -11,7 +11,7 @@ from .widgets import label, pet_pixmap
 
 KIND_LABEL = {"progress": "Progreso de pet", "levelup": "Subida de nivel", "unlock": "Pet nuevo",
               "zone": "Zona", "sync": "Colección", "info": "Aviso", "warn": "Atención",
-              "combat": "Combate"}
+              "combat": "Combate", "tracker": "Tracker"}
 
 
 def ago(ts, now=None):

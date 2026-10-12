@@ -18,6 +18,7 @@ from .damage import (DAMAGE_OPCODES, DEATH_OPCODE, READY as DAMAGE_READY, STATS_
 from .roster import ROSTER_OPCODE, parse_roster
 from .skills import (CAST_OPCODE, PRESETS_OPCODE, REQUEST_OPCODE, SKILL_LIST_OPCODE, caster_of, parse_cast,
                      parse_presets, parse_request, parse_skill_list)
+from .tracker import FIELD_LIST_OPCODE, Tracker, parse_field_list
 from .protocol import read_varint
 from .health import Health
 from .mapdata import MapData
@@ -34,6 +35,7 @@ from .modules.settings import SettingsModule
 from .modules.dps import DpsModule
 from .modules.tuner import TunerModule
 from .modules.diagnostics import DiagnosticsModule, open_problems
+from .modules.tracker import TrackerModule
 from .afinador import STORE_DELAY, Afinador
 from .update_controller import UpdateController
 from .notifications import NotificationCenter
@@ -93,6 +95,7 @@ class Bridge(QObject):
     death = Signal(int)
     roster = Signal(object)          # [(name, server, job, level)] of your party / force
     hp = Signal(object)              # (eid, current hp)
+    field_list = Signal(object)      # (map id, [tracker.SlotState]) from the game's field boss list
     own_skill = Signal(object)       # ("press", ts, skill, result) | ("cast", ts, skill, cooldown ms) |
                                      # ("skills", {base: OwnSkill}) | ("bar", [QuickSlot])
     status = Signal(str)
@@ -163,6 +166,10 @@ class Bridge(QObject):
                 cast = parse_cast(body)
                 if cast:
                     self.own_skill.emit(("cast", time.time(), cast.skill, cast.cooldown_ms))
+        elif op == FIELD_LIST_OPCODE:
+            bosses = parse_field_list(body)
+            if bosses:
+                self.field_list.emit(bosses)
         elif op == SKILL_LIST_OPCODE:
             skills = parse_skill_list(body)
             if skills:
@@ -263,6 +270,11 @@ class Controller(QObject):
         self.bridge.roster.connect(lambda members: self.combat.set_group([m[0] for m in members]))
         self.bridge.hp.connect(lambda update: self.combat.on_hp(*update))
         self.bridge.own_skill.connect(self.on_own_skill)
+        self.tracker = Tracker(self.data_dir, self.settings,
+                               lambda title, body: self.notify("tracker", title, body))
+        self._tracked_eids = {}         # entity id -> npc id of field bosses in view
+        self.tracker_window = None
+        self.bridge.field_list.connect(lambda event: self._tracker_changed(self.tracker.on_field_list(*event)))
 
         self.fonts = Fonts(self.settings["scale"])
         self.notifications = NotificationCenter(self.data_dir / "notifications.json" if self.persist else None)
@@ -282,8 +294,8 @@ class Controller(QObject):
         self.tuner_window = None
         self.diag_window = None
         self.dps_window = None
-        self.modules = [PetsModule(self), DpsModule(self), TunerModule(self), NotificationsModule(self),
-                        DiagnosticsModule(self), SettingsModule(self)]
+        self.modules = [PetsModule(self), DpsModule(self), TunerModule(self), TrackerModule(self),
+                        NotificationsModule(self), DiagnosticsModule(self), SettingsModule(self)]
         for module in self.modules:
             self.window.add_panel(module.create_panel(self.fonts))
         self.active_module = next((m for m in self.modules if m.key == self.settings["module"]), self.modules[0])
@@ -300,6 +312,8 @@ class Controller(QObject):
         self._tick.start()
         self._combat_tick = QTimer(self, interval=1000, timeout=self._on_combat_tick)
         self._combat_tick.start()
+        self._tracker_tick = QTimer(self, interval=15_000, timeout=self._on_tracker_tick)
+        self._tracker_tick.start()
         self._problems_seen = {}        # problem title -> first time seen (a notice once it lasts)
         self._problems_notified = set()
         self._health_tick = QTimer(self, interval=15_000, timeout=self._watch_health)
@@ -341,6 +355,10 @@ class Controller(QObject):
     # --- combat (DPS module) -------------------------------------------------------------------
     def on_npc(self, spawn):
         eid, npc_id, owner, max_hp = spawn
+        if npc_id in self.tracker.by_npc:
+            self._tracked_eids[eid] = npc_id
+            self.tracker.on_boss_seen(npc_id, True)
+            self._tracker_changed()
         if owner is not None:
             self.combat.add_summon(eid, owner)
             return
@@ -384,10 +402,36 @@ class Controller(QObject):
             self.refresh()
 
     def on_death(self, eid):
+        if eid in self._tracked_eids:
+            self.tracker.on_boss_seen(self._tracked_eids.pop(eid), False)
+            self._tracker_changed()
         finished = self.combat.on_death(eid)
         if finished:
             self._encounter_notice(finished)
             self.refresh()
+
+    def _tracker_changed(self, _=None):
+        if self.tracker_window and self.tracker_window.isVisible():
+            self.tracker_window.refresh()
+        if self.active_module.key == "tracker" and not self._refreshing:
+            self.refresh()
+
+    def _on_tracker_tick(self):
+        self.tracker.tick()
+        if self.active_module.key == "tracker":
+            self.refresh()
+        if self.tracker_window and self.tracker_window.isVisible():
+            self.tracker_window.tick()
+
+    def open_tracker(self):
+        from .ui.trackerwindow import TrackerWindow
+        if self.tracker_window is None:
+            self.tracker_window = TrackerWindow(self)
+        else:
+            self.tracker_window.refresh()
+        self.tracker_window.show()
+        self.tracker_window.raise_()
+        self.tracker_window.activateWindow()
 
     def _on_combat_tick(self):
         finished = self.combat.tick()
@@ -422,6 +466,7 @@ class Controller(QObject):
             return
         self.character = info
         self.combat.set_self(info.entity_id, info.name)
+        self.tracker.set_server(info.server)
         self.tuner.on_character()
         self._sync_tracker_side()
         chars = self.settings.setdefault("characters", {})

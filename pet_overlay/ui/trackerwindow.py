@@ -1,0 +1,326 @@
+"""Tracker window: bosses and events as cards like the game's boss tooltip (name, time left, loot highlights), with a
+bell to be told before they come back."""
+import time
+import webbrowser
+
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QColor, QFont
+from PySide6.QtWidgets import (QComboBox, QFrame, QGridLayout, QHBoxLayout, QLineEdit, QPushButton, QScrollArea,
+                               QVBoxLayout, QWidget)
+
+from .. import APP_NAME
+from ..tracker import LEADS, REGIONS, countdown, occurrences
+from . import theme
+from .mapwindow import STYLE, badge_label
+from .theme import Fonts
+from .tunerwindow import EXTRA_STYLE
+from .widgets import SectionTitle, label
+
+TABS = [("marked", "Marcados"), ("field", "Jefes de campo"), ("abyss", "Abismo"), ("event", "Eventos")]
+# item rank -> name colour; 3 (gold) and 6 (teal) as in the game's boss tooltip, the rest by the usual ladder
+RANK_COLOR = {0: "#D6DAE3", 1: "#6CCB5F", 2: "#4FA3FF", 3: "#FFD02B", 4: "#FF8A3D", 6: "#00FFD8"}
+DROPS_SHOWN = 5
+CARD_STYLE = """
+QFrame#Card { background: #1D2029; border: 1px solid #2C3140; border-radius: 6px; }
+QFrame#CardHead { border-top-left-radius: 6px; border-top-right-radius: 6px;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #3A4150, stop:1 #2C3140); }
+QPushButton[bell="true"] { background: transparent; border: 1px solid #4A5468; border-radius: 6px; padding: 4px 10px;
+    color: #C9D1E0; font-weight: 600; }
+QPushButton[bell="true"]:checked { background: #3B2F12; border-color: #FFD02B; color: #FFD02B; }
+"""
+GLYPH_SKULL = ""          # warning-ish emblem for bosses (Segoe MDL2)
+GLYPH_EVENT = ""
+
+
+class TrackerWindow(QWidget):
+    def __init__(self, ctl):
+        super().__init__(None, Qt.Window)
+        self.ctl = ctl
+        self.tracker = ctl.tracker
+        self.fonts = Fonts(1.0)
+        self.tab = "marked" if self.tracker.config.get("marked") else "field"
+        self._status_labels = []          # (entry, QLabel) refreshed by tick()
+        self.setObjectName("MapWindow")
+        self.setWindowTitle(f"{APP_NAME} — Tracker de jefes y eventos")
+        self.setWindowIcon(ctl.app_icon)
+        self.setStyleSheet(STYLE + EXTRA_STYLE + CARD_STYLE)
+        self.resize(1180, 860)
+        f = self.fonts
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(16, 12, 16, 12)
+        root.setSpacing(10)
+        head = QHBoxLayout()
+        head.addWidget(badge_label(30, self.devicePixelRatioF()))
+        titles = QVBoxLayout()
+        titles.setSpacing(0)
+        titles.addWidget(label("Tracker de jefes y eventos", f.name_big, theme.TEXT))
+        titles.addWidget(label("Marca con la campana lo que te interesa y AionDex te avisará antes de que salga.",
+                               f.small, theme.MUTED))
+        head.addLayout(titles, 1)
+        head.addWidget(label("Servidor:", f.small, theme.MUTED))
+        self.region = QComboBox()
+        for rid, (text, _, _) in REGIONS.items():
+            self.region.addItem(text, rid)
+        self.region.setCurrentIndex(max(0, self.region.findData(self.tracker.region)))
+        self.region.currentIndexChanged.connect(lambda _: self._set("region", self.region.currentData()))
+        head.addWidget(self.region)
+        head.addWidget(label("Avisarme", f.small, theme.MUTED))
+        self.lead = QComboBox()
+        for m in LEADS:
+            self.lead.addItem(f"{m} min antes", m)
+        self.lead.setCurrentIndex(max(0, self.lead.findData(self.tracker.lead)))
+        self.lead.currentIndexChanged.connect(lambda _: self._set("lead", self.lead.currentData()))
+        head.addWidget(self.lead)
+        root.addLayout(head)
+
+        tabs = QHBoxLayout()
+        self.tab_buttons = {}
+        for key, text in TABS:
+            button = QPushButton(text)
+            button.setProperty("tab", True)
+            button.setCheckable(True)
+            button.clicked.connect(lambda _=False, k=key: self._show_tab(k))
+            tabs.addWidget(button)
+            self.tab_buttons[key] = button
+        tabs.addStretch(1)
+        self.search = QLineEdit()
+        self.search.setPlaceholderText("Buscar jefe, zona u objeto…")
+        self.search.setClearButtonEnabled(True)
+        self.search.setMinimumWidth(260)
+        self._search_timer = QTimer(self, singleShot=True, interval=250, timeout=self.refresh)
+        self.search.textChanged.connect(lambda _: self._search_timer.start())
+        tabs.addWidget(self.search)
+        root.addLayout(tabs)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        holder = QWidget()
+        self.body = QVBoxLayout(holder)
+        self.body.setSpacing(10)
+        scroll.setWidget(holder)
+        root.addWidget(scroll, 1)
+
+        foot = QHBoxLayout()
+        for c in self.tracker.credits or [{"text": "Horarios, jefes y botín: metabot.gg",
+                                           "url": "https://metabot.gg/en/aion-2"}]:
+            credit = QPushButton(c["text"])
+            credit.setProperty("flat", True)
+            credit.clicked.connect(lambda _=False, url=c["url"]: webbrowser.open(url))
+            foot.addWidget(credit)
+        foot.addStretch(1)
+        root.addLayout(foot)
+
+        self._timer = QTimer(self, interval=1000, timeout=self.tick)
+        self.refresh()
+
+    def showEvent(self, event):
+        self._timer.start()
+        super().showEvent(event)
+
+    def hideEvent(self, event):
+        self._timer.stop()
+        super().hideEvent(event)
+
+    def _set(self, key, value):
+        self.tracker.set_option(key, value)
+        self.refresh()
+
+    def _show_tab(self, key):
+        self.tab = key
+        self.refresh()
+
+    # --- content ---------------------------------------------------------------------------------------
+    def refresh(self):
+        for key, button in self.tab_buttons.items():
+            button.setChecked(key == self.tab)
+        _clear(self.body)
+        self._status_labels = []
+        f, tracker = self.fonts, self.tracker
+        query = self.search.text().strip().lower()
+        entries = [e for e in tracker.entries if not query or query in _haystack(e)]
+        if query and not _in_tab(self.tab, entries, tracker):
+            elsewhere = [f"{text} ({n})" for key, text in TABS if (n := len(_in_tab(key, entries, tracker)))]
+            self.body.addWidget(label(f"Nada coincide con «{self.search.text().strip()}» en esta pestaña"
+                                      + (f"; sí en: {', '.join(elsewhere)}." if elsewhere else "."), f.body, theme.MUTED))
+        if self.tab == "marked":
+            rows = _in_tab("marked", entries, tracker)
+            if not rows and not query:
+                self.body.addWidget(label("Aún no marcaste nada. Busca en las otras pestañas y pulsa «Avisarme».",
+                                          f.body, theme.MUTED))
+            self._grid(rows)
+        elif self.tab == "field":
+            maps = {}
+            for e in _in_tab("field", entries, tracker):
+                maps.setdefault(e.map_id, []).append(e)
+            if not tracker.states:
+                self.body.addWidget(self._hint("Los tiempos de los jefes de campo los manda el propio juego: abre una "
+                                               "vez el mapa (M) → monstruos de campo y AionDex los recuerda; también "
+                                               "apunta las muertes que ve."))
+            side = self.ctl.location_faction() or self.ctl.character_faction()
+            order = sorted(maps, key=lambda m: (0 if {1010: "elyos", 1110: "asmodian"}.get(m) == side else 1, m))
+            for map_id in order:
+                name = {1010: "Verteron (Elyos)", 1110: "Altgard (Asmodian)"}.get(map_id, f"Mapa {map_id}")
+                self.body.addWidget(SectionTitle(name, f))
+                self._grid(sorted(maps[map_id], key=lambda e: self._sort_key(e)))
+        elif self.tab == "abyss":
+            self._grid(sorted(_in_tab("abyss", entries, tracker), key=self._sort_key))
+        else:
+            self._grid(sorted(_in_tab("event", entries, tracker), key=self._sort_key), events=True)
+        self.body.addStretch(1)
+        self.tick()
+
+    def _sort_key(self, entry):
+        st = self.tracker.status(entry)
+        if st.state in ("vivo", "en curso"):
+            return 0
+        return st.start or float("inf")
+
+    def _grid(self, entries, events=False):
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(12)
+        for i, entry in enumerate(entries):
+            grid.addWidget(self._card(entry), i // 2, i % 2)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 1)
+        self.body.addLayout(grid)
+
+    def _hint(self, text):
+        hint = label(text, self.fonts.small, theme.MUTED)
+        hint.setWordWrap(True)
+        return hint
+
+    def _card(self, entry):
+        """A card like the game's boss tooltip: header with emblem and name, time left, loot highlights."""
+        f = self.fonts
+        card = QFrame()
+        card.setObjectName("Card")
+        col = QVBoxLayout(card)
+        col.setContentsMargins(0, 0, 0, 10)
+        col.setSpacing(4)
+
+        head = QFrame()
+        head.setObjectName("CardHead")
+        row = QHBoxLayout(head)
+        row.setContentsMargins(12, 10, 12, 10)
+        emblem_font = QFont(f.icons_family)
+        emblem_font.setPixelSize(26)
+        row.addWidget(label(GLYPH_EVENT if entry.kind == "event" else GLYPH_SKULL, emblem_font, QColor("#C9D1E0")))
+        names = QVBoxLayout()
+        names.setSpacing(0)
+        title_font = QFont(f.name_big)
+        title_font.setPixelSize(19)
+        names.addWidget(label(entry.name, title_font, QColor("#FFFFFF"), elide=True))
+        sub = " · ".join(x for x in (f"Nv. {entry.level}" if entry.level else "", entry.sub) if x)
+        if sub:
+            names.addWidget(label(sub, f.small, QColor("#AEB6C6"), elide=True))
+        row.addLayout(names, 1)
+        bell = QPushButton("Avisarme")
+        bell.setProperty("bell", True)
+        bell.setCheckable(True)
+        bell.setChecked(self.tracker.marked(entry.id))
+        bell.setText("Te aviso" if bell.isChecked() else "Avisarme")
+        bell.clicked.connect(lambda _=False, e=entry: self._toggle(e))
+        row.addWidget(bell)
+        col.addWidget(head)
+
+        status = label("", f.name, theme.TEXT)
+        status.setContentsMargins(14, 4, 14, 0)
+        status.setWordWrap(True)
+        col.addWidget(status)
+        self._status_labels.append((entry, status))
+
+        if entry.kind == "event":
+            nexts = [s for s, _ in occurrences(entry.slots, "kst" if entry.clock == "kst" else self.tracker.region,
+                                                time.time()) if s > time.time()][:4]
+            if nexts:
+                times = " · ".join(time.strftime("%H:%M", time.localtime(s)) for s in nexts)
+                more = label(f"Próximas (tu hora): {times}", f.small, theme.MUTED)
+                more.setContentsMargins(14, 0, 14, 0)
+                col.addWidget(more)
+        if entry.respawn_min:
+            again = label(f"Reaparece {_duration(entry.respawn_min)} después de morir", f.small, theme.MUTED)
+            again.setContentsMargins(14, 0, 14, 0)
+            col.addWidget(again)
+        if entry.drops:
+            loot = label("Botín destacado", f.small, QColor("#89B7BF"))
+            loot.setContentsMargins(14, 4, 14, 0)
+            col.addWidget(loot)
+            for drop in entry.drops[:DROPS_SHOWN]:
+                item = label(_drop_text(drop), f.body, QColor(RANK_COLOR.get(drop.get("rank"), "#D6DAE3")), elide=True)
+                item.setContentsMargins(14, 0, 14, 0)
+                if drop.get("items"):
+                    item.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+                    item.setToolTip("<br>".join(f"{i['name']} — {i['chance']:g}%" for i in drop["items"]))
+                col.addWidget(item)
+            if len(entry.drops) > DROPS_SHOWN:
+                rest = label(f"y {len(entry.drops) - DROPS_SHOWN} más", f.small, theme.MUTED)
+                rest.setContentsMargins(14, 0, 14, 0)
+                rest.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+                rest.setToolTip("<br>".join(_drop_text(d) for d in entry.drops[DROPS_SHOWN:]))
+                col.addWidget(rest)
+        return card
+
+    def _toggle(self, entry):
+        self.tracker.toggle(entry.id)
+        self.refresh()
+        self.ctl.refresh()
+
+    def tick(self):
+        now = time.time()
+        for entry, status in self._status_labels:
+            st = self.tracker.status(entry, now)
+            if st.state == "vivo":
+                text, color = "Vivo" + (f" · desde hace {countdown(now - st.start)}" if st.start else ""), theme.GAIN
+            elif st.state == "en curso":
+                text, color = f"En curso · termina en {countdown(st.end - now)}", theme.GAIN
+            elif st.state == "debería estar":
+                text, color = "Ya debería haber salido (sin confirmar)", theme.WARN
+            elif st.start is not None:
+                text = f"Sale en {countdown(st.start - now)} · {st.detail}"
+                color = theme.TEXT
+            else:
+                text, color = st.detail, theme.MUTED
+            status.setText(text)
+            status.setStyleSheet(f"color: {color.name()}; background: transparent;")
+
+
+def _in_tab(tab, entries, tracker):
+    """The entries a tab shows (marked ones in the order they come)."""
+    if tab == "marked":
+        return [e for e, _ in tracker.upcoming() if e in entries]
+    if tab == "field":
+        return [e for e in entries if e.kind == "field" and e.map_id != 20]
+    if tab == "abyss":
+        return [e for e in entries if e.kind == "abyss" or (e.kind == "field" and e.map_id == 20)]
+    return [e for e in entries if e.kind == "event"]
+
+
+def _drop_text(drop):
+    chance = drop.get("chance")
+    return drop["name"] + (f"  ({chance:g}%)" if isinstance(chance, (int, float)) and chance < 100 else "")
+
+
+def _duration(minutes):
+    h, m = divmod(minutes, 60)
+    return f"{h} h" + (f" {m} min" if m else "") if h else f"{m} min"
+
+
+def _haystack(entry):
+    """What the search looks at: name, zone and every drop (and the pieces of each set)."""
+    parts = [entry.name, entry.sub]
+    for d in entry.drops:
+        parts.append(d["name"])
+        parts.extend(i["name"] for i in d.get("items", []))
+    return " ".join(parts).lower()
+
+
+def _clear(layout):
+    while layout.count():
+        item = layout.takeAt(0)
+        if item.widget():
+            item.widget().deleteLater()
+        elif item.layout():
+            _clear(item.layout())

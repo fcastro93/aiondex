@@ -8,6 +8,7 @@ Overlay para **AION 2** que sigue tu colección de pets en tiempo real, te dice 
 - **Mapa de pets**: clic en un pet y ves dónde aparecen sus monstruos, con qué probabilidad de alma, y qué otros pets que te faltan se farmean en esas mismas zonas. Marca los pets exclusivos de **Elyos** o **Asmodian**.
 - **DPS**: medidor de daño en tiempo real para ti y tu grupo, que reconoce la actividad (farmeo, jefe en solitario, mazmorra, jefe de campo o del Abismo) y ordena el panel según lo que importa en cada una (vida del jefe y tiempo estimado, contribución…) (daño, DPS, % del grupo, críticos, ataques por la espalda, perfect, DoT) y el historial de tus últimas peleas. En jefes compartidos muestra tu **contribución**, la de tu party y la de tu force, medida contra la vida que pierde el jefe (en jefes de mundo el juego solo envía los golpes de los jugadores cercanos), y la vida restante del jefe. **Detalles del daño**: tabla por jugador, clase y habilidad con filtros (todo / solo al jefe, tu grupo / el resto, clase) y búsqueda; los jugadores de fuera de tu grupo aparecen sin nombre.
 - **Afinador de macros**: lee del juego tus habilidades (nivel y especialización), estigmas, pasivas y tus **3 presets** de barra rápida con su orden de prioridad, y los muestra como en el juego (iconos, teclas y niveles); haces clic en las teclas de la barra en el orden de tu macro (el juego guarda el macro en tu PC y no lo envía, así que no se puede leer); tú indicas el retraso de cada paso de tu macro del juego y, si usas uno, tu macro externo (Synapse, iCUE, G HUB…) evento a evento, igual que en tu programa del ratón (pulsar, esperar, soltar); con tus teclas del juego (Macro y Quick Use 1) sabe solo qué hace cada tecla. Durante una prueba compara lo que se lanzó con lo que la recarga de cada habilidad permitía, cuenta las pulsaciones que el juego rechazó, mide tu ping real y te dice qué cambiar. **Calibrar retrasos** te guía por pruebas cortas con distintos valores y te dice cuántos ms poner: cuánto mantener la tecla del macro, la espera entre las teclas de tu macro externo y el retraso de los pasos del macro del juego (o todo en orden), sin confundir el azar con una mejora (y pausando la prueba si te quedas sin maná), luego revisa si tu macro gasta más maná del que recuperas, y **Antes y después** compara tus pruebas («Antes», «Prueba 1», «Prueba 2»…) para ver si el cambio mejoró.
+- **Tracker**: jefes de campo, jefes del Abismo y eventos (Shugo Festival, Arena of Tactics 10 vs 10, asedios, invasiones, grietas, reinicios) con su botín destacado y cuánto falta, en tu hora. Marca con la campana los que te interesan y AionDex te avisa unos minutos antes de que salgan. Eliges tu región (NA East, NA West, Europa…) y los horarios fijos se calculan con el reloj del servidor, cambio de horario incluido. Los jefes de campo reaparecen según cuándo los matan: abre una vez en el mapa del juego la lista de monstruos de campo y AionDex toma de ahí la hora exacta de cada uno.
 - **Diagnóstico**: el estado de cada parte de AionDex (lectura del juego, personaje, colección, zona, base de datos, actualizaciones, errores) y un botón por cada problema común. Al pulsarlo, AionDex revisa lo que está recibiendo, arregla lo que puede él solo y te dice qué hacer; si sigue igual, copia un informe (sin tu nombre de personaje ni tu usuario de Windows) para mandárselo al creador o abrir un reporte en GitHub.
 - **Detección automática**: personaje, mapa y zona en la que estás.
 - **Notificaciones**: globos al costado del overlay (progreso, subidas de nivel, pets nuevos, zona) y un historial por si te perdiste alguno.
@@ -32,7 +33,7 @@ Overlay para **AION 2** que sigue tu colección de pets en tiempo real, te dice 
 | `Alt+Shift+C` | Compacto / expandido |
 | `Alt+Shift+M` | Mapa de pets |
 
-- Clic en el **logo** de la cabecera: menú (**Pets**, **DPS**, **Afinador**, **Notificaciones**, **Diagnóstico**, **Ajustes**, **Salir**).
+- Clic en el **logo** de la cabecera: menú (**Pets**, **DPS**, **Afinador**, **Tracker**, **Notificaciones**, **Diagnóstico**, **Ajustes**, **Salir**).
 - Desbloqueado se puede arrastrar; clic en un pet abre el mapa; clic derecho lo fija como objetivo.
 - El icono en la bandeja del sistema tiene opacidad, tamaño, notificaciones y más.
 
@@ -50,7 +51,7 @@ Cada release incluye un manifiesto **firmado** (Ed25519). La app solo instala un
 - El medidor de DPS solo muestra nombres de tu party/force; el resto de jugadores aparece como un total anónimo. Nada de eso se guarda ni se sube: el historial de peleas guarda únicamente tus propios números.
 - Proyecto de fans, **no afiliado a NCSoft**. Usar herramientas de terceros puede ir contra los términos del juego: úsalo bajo tu responsabilidad.
 
-Datos de pets, monstruos y mapas: [metabot.gg](https://metabot.gg/en/aion-2).
+Datos de pets, monstruos y mapas, y horarios, jefes y botín del Tracker: [metabot.gg](https://metabot.gg/en/aion-2). Contenido de los cofres de botín: [aion2data.com](https://aion2data.com/).
 
 ## Desarrollo
 
@@ -61,6 +62,7 @@ pip install -r requirements.txt
 python run.py                 # overlay
 python run.py --preview       # datos de ejemplo y kills simulados, sin el juego
 python update_pet_db.py       # regenera data/pets_db.json y data/map_db.json desde metabot.gg
+python tools/build_tracker_db.py <event_items.json> [catalog.json]   # regenera data/tracker_db.json
 python build_exe.py --installer   # dist/AionDex/ y dist/installer/AionDex-Setup-<versión>.exe (Inno Setup 6)
 ```
 
@@ -72,7 +74,8 @@ Publicar una versión (solo el dueño del repo): subir `__version__` en `pet_ove
 | `pet_overlay/pets.py`, `character.py`, `world.py` | Colección (`0090`/`0d90`), personaje (`3336`), mapa y NPCs (`2136`/`4136`/`4236`) |
 | `pet_overlay/damage.py`, `combat.py` | Daño (`0438` directo, `0538` DoT), muertes (`048d`), jugadores (`4536`) y peleas |
 | `pet_overlay/metabot.py`, `dbupdate.py`, `mapdata.py` | Base de datos de pets, monstruos y zonas |
-| `pet_overlay/modules/` | Funciones del overlay (Pets, Notificaciones, Ajustes) |
+| `pet_overlay/tracker.py`, `ui/trackerwindow.py` | Horarios de jefes y eventos, lista de jefes de campo (`0191`) y avisos |
+| `pet_overlay/modules/` | Funciones del overlay (Pets, DPS, Afinador, Tracker, Notificaciones, Diagnóstico, Ajustes) |
 | `pet_overlay/notifications.py`, `ui/toasts.py` | Notificaciones e historial |
 | `pet_overlay/updater.py`, `update_controller.py`, `tools/sign_release.py` | Actualizaciones firmadas |
 | `pet_overlay/ui/` | Interfaz (Qt) |

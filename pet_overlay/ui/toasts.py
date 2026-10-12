@@ -16,7 +16,7 @@ TAIL = 7          # size of the bubble's pointer toward the overlay
 
 KIND_COLOR = {"progress": theme.GAIN, "levelup": theme.GOLD, "unlock": theme.GOLD, "zone": theme.ACCENT,
               "sync": theme.ACCENT, "info": theme.ACCENT, "warn": theme.WARN,
-              "combat": theme.COMBAT}
+              "combat": theme.COMBAT, "tracker": theme.GOLD}
 
 
 def kind_color(kind):

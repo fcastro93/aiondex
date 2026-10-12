@@ -40,8 +40,9 @@ class ElidedLabel(QLabel):
         p = QPainter(self)
         p.setPen(self.palette().color(self.foregroundRole()))
         p.setFont(self.font())
-        text = self.fontMetrics().elidedText(self.text(), Qt.ElideRight, self.width())
-        p.drawText(self.rect(), int(self.alignment()) | Qt.AlignVCenter, text)
+        r = self.contentsRect()
+        text = self.fontMetrics().elidedText(self.text(), Qt.ElideRight, r.width())
+        p.drawText(r, int(self.alignment()) | Qt.AlignVCenter, text)
 
 
 def label(text, font, color, parent=None, elide=False):

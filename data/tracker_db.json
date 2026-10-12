@@ -1,0 +1,4432 @@
+{
+ "generated_at": 1791770454,
+ "credits": [
+  {
+   "text": "Horarios, jefes y botín: metabot.gg (datos del cliente Global)",
+   "url": "https://metabot.gg/en/aion-2/events"
+  },
+  {
+   "text": "Cofres de botín: aion2data.com",
+   "url": "https://aion2data.com/"
+  }
+ ],
+ "events": [
+  {
+   "id": "reset-daily",
+   "name": "Reinicio diario",
+   "sub": "Misiones, entradas y llaves del Shugo Festival",
+   "clock": "kst",
+   "slots": [
+    {
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "timesMin": [
+      960
+     ]
+    }
+   ]
+  },
+  {
+   "id": "reset-weekly",
+   "name": "Reinicio semanal",
+   "sub": "Miércoles",
+   "clock": "kst",
+   "slots": [
+    {
+     "days": [
+      3
+     ],
+     "timesMin": [
+      960
+     ]
+    }
+   ]
+  },
+  {
+   "id": "festa",
+   "name": "Shugo Festival",
+   "sub": "Minijuegos · cada hora en punto",
+   "clock": "region",
+   "slots": [
+    {
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "timesMin": [
+      0,
+      60,
+      120,
+      180,
+      240,
+      300,
+      360,
+      420,
+      480,
+      540,
+      600,
+      660,
+      720,
+      780,
+      840,
+      900,
+      960,
+      1020,
+      1080,
+      1140,
+      1200,
+      1260,
+      1320,
+      1380
+     ]
+    }
+   ]
+  },
+  {
+   "id": "invasion",
+   "name": "Invasión dimensional",
+   "sub": "Verteron y Altgard · cada hora a y media",
+   "clock": "region",
+   "slots": [
+    {
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "timesMin": [
+      30,
+      90,
+      150,
+      210,
+      270,
+      330,
+      390,
+      450,
+      510,
+      570,
+      630,
+      690,
+      750,
+      810,
+      870,
+      930,
+      990,
+      1050,
+      1110,
+      1170,
+      1230,
+      1290,
+      1350,
+      1410
+     ]
+    }
+   ]
+  },
+  {
+   "id": "siege",
+   "name": "Asedio de artefactos",
+   "sub": "Chaotic Lower Reshanta · lunes, jueves y sábado",
+   "clock": "region",
+   "slots": [
+    {
+     "days": [
+      1,
+      4,
+      6
+     ],
+     "timesMin": [
+      1260
+     ]
+    }
+   ]
+  },
+  {
+   "id": "arena",
+   "name": "Arena of Tactics (10 vs 10)",
+   "sub": "Odyle Shard Cradle · dos ventanas al día",
+   "clock": "region",
+   "slots": [
+    {
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "timesMin": [
+      660
+     ],
+     "durationMin": 180
+    },
+    {
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "timesMin": [
+      1140
+     ],
+     "durationMin": 120
+    }
+   ]
+  },
+  {
+   "id": "rifts",
+   "name": "Spacetime Rift",
+   "sub": "Portales en Altgard, Verteron, Morheim y Eltnen · cada 3 h",
+   "clock": "region",
+   "slots": [
+    {
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "timesMin": [
+      120,
+      300,
+      480,
+      660,
+      840,
+      1020,
+      1200,
+      1380
+     ]
+    }
+   ]
+  }
+ ],
+ "abyss": [
+  {
+   "npc": 2600089,
+   "name": "Watcher Kaira",
+   "sub": "Chaotic Lower Reshanta",
+   "level": 65,
+   "slots": [
+    {
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "timesMin": [
+      60,
+      240,
+      420,
+      600,
+      780,
+      960,
+      1140,
+      1320
+     ],
+     "durationMin": 30
+    }
+   ],
+   "slot": 2002,
+   "spawn_points": [
+    2002
+   ],
+   "drops": [
+    {
+     "name": "Kaira armor & accessories (1 of 9)",
+     "rank": 3,
+     "chance": 100.0,
+     "items": [
+      {
+       "name": "Kaira Breastplate",
+       "chance": 6.44
+      },
+      {
+       "name": "Kaira Greaves",
+       "chance": 8.58
+      },
+      {
+       "name": "Kaira Helm",
+       "chance": 10.3
+      },
+      {
+       "name": "Kaira Pauldrons",
+       "chance": 10.3
+      },
+      {
+       "name": "Kaira Gloves",
+       "chance": 12.88
+      },
+      {
+       "name": "Kaira Boots",
+       "chance": 12.88
+      },
+      {
+       "name": "Kaira Cloak",
+       "chance": 12.88
+      },
+      {
+       "name": "Kaira Earrings",
+       "chance": 12.88
+      },
+      {
+       "name": "Kaira Ring",
+       "chance": 12.88
+      }
+     ]
+    },
+    {
+     "name": "Artwork: Watcher Kaira",
+     "rank": 3,
+     "chance": 25
+    },
+    {
+     "name": "Fallen Ancient God armor (1 of 7)",
+     "rank": 3,
+     "chance": 25.0,
+     "items": [
+      {
+       "name": "Fallen Ancient God Breastplate",
+       "chance": 2.17
+      },
+      {
+       "name": "Fallen Ancient God Greaves",
+       "chance": 2.89
+      },
+      {
+       "name": "Fallen Ancient God Helm",
+       "chance": 3.47
+      },
+      {
+       "name": "Fallen Ancient God Pauldrons",
+       "chance": 3.47
+      },
+      {
+       "name": "Fallen Ancient God Gloves",
+       "chance": 4.33
+      },
+      {
+       "name": "Fallen Ancient God Boots",
+       "chance": 4.33
+      },
+      {
+       "name": "Fallen Ancient God Cloak",
+       "chance": 4.33
+      }
+     ]
+    },
+    {
+     "name": "Fallen Ancient God weapon (1 of 9)",
+     "rank": 3,
+     "chance": 10.05,
+     "items": [
+      {
+       "name": "Fallen Ancient God Longsword",
+       "chance": 1.12
+      },
+      {
+       "name": "Fallen Ancient God Dagger",
+       "chance": 1.12
+      },
+      {
+       "name": "Fallen Ancient God Bow",
+       "chance": 1.12
+      },
+      {
+       "name": "Fallen Ancient God Spellbook",
+       "chance": 1.12
+      },
+      {
+       "name": "Fallen Ancient God Orb",
+       "chance": 1.12
+      },
+      {
+       "name": "Fallen Ancient God Mace",
+       "chance": 1.12
+      },
+      {
+       "name": "Fallen Ancient God Staff",
+       "chance": 1.12
+      },
+      {
+       "name": "Fallen Ancient God Guard",
+       "chance": 1.12
+      },
+      {
+       "name": "Fallen Ancient God Greatsword",
+       "chance": 1.12
+      }
+     ]
+    },
+    {
+     "name": "Bloodthirsty armor (1 of 7)",
+     "rank": 2,
+     "chance": 81.27,
+     "items": [
+      {
+       "name": "Bloodthirsty Breastplate",
+       "chance": 7.05
+      },
+      {
+       "name": "Bloodthirsty Greaves",
+       "chance": 9.39
+      },
+      {
+       "name": "Bloodthirsty Pauldrons",
+       "chance": 11.27
+      },
+      {
+       "name": "Bloodthirsty Helm",
+       "chance": 11.27
+      },
+      {
+       "name": "Bloodthirsty Gloves",
+       "chance": 14.09
+      },
+      {
+       "name": "Bloodthirsty Boots",
+       "chance": 14.09
+      },
+      {
+       "name": "Bloodthirsty Cloak",
+       "chance": 14.09
+      }
+     ]
+    },
+    {
+     "name": "Balaur's Essence",
+     "rank": 2,
+     "chance": 43.4
+    },
+    {
+     "name": "Vowed weapon (1 of 9)",
+     "rank": 2,
+     "chance": 32.65,
+     "items": [
+      {
+       "name": "Vowed Longsword",
+       "chance": 3.63
+      },
+      {
+       "name": "Vowed Dagger",
+       "chance": 3.63
+      },
+      {
+       "name": "Vowed Bow",
+       "chance": 3.63
+      },
+      {
+       "name": "Vowed Spellbook",
+       "chance": 3.63
+      },
+      {
+       "name": "Vowed Orb",
+       "chance": 3.63
+      },
+      {
+       "name": "Vowed Mace",
+       "chance": 3.63
+      },
+      {
+       "name": "Vowed Staff",
+       "chance": 3.63
+      },
+      {
+       "name": "Vowed Guard",
+       "chance": 3.63
+      },
+      {
+       "name": "Vowed Greatsword",
+       "chance": 3.63
+      }
+     ]
+    }
+   ],
+   "image": "https://metabot.gg/web/aion2/npcs/f/mob_beritrad_01.webp"
+  },
+  {
+   "npc": 2600084,
+   "name": "Guardian Lord Nahma",
+   "sub": "Chaotic Lower Reshanta",
+   "level": 65,
+   "slots": [
+    {
+     "days": [
+      0,
+      5
+     ],
+     "timesMin": [
+      1260
+     ],
+     "durationMin": 30
+    }
+   ],
+   "slot": 2003,
+   "spawn_points": [
+    2003,
+    2004,
+    2005
+   ],
+   "drops": [
+    {
+     "name": "Artwork: Guardian Lord Nahma",
+     "rank": 4,
+     "chance": 25
+    },
+    {
+     "name": "Colossus: Guardian Lord Nahma",
+     "rank": 4,
+     "chance": 25
+    },
+    {
+     "name": "Guardian Lord Nahma armor & accessories (1 of 10)",
+     "rank": 3,
+     "chance": 100.0,
+     "items": [
+      {
+       "name": "Guardian Lord Nahma Breastplate",
+       "chance": 5.2
+      },
+      {
+       "name": "Guardian Lord Nahma Necklace",
+       "chance": 6.1
+      },
+      {
+       "name": "Guardian Lord Nahma Greaves",
+       "chance": 8.14
+      },
+      {
+       "name": "Guardian Lord Nahma Helm",
+       "chance": 9.77
+      },
+      {
+       "name": "Guardian Lord Nahma Pauldrons",
+       "chance": 9.77
+      },
+      {
+       "name": "Guardian Lord Nahma Gloves",
+       "chance": 12.21
+      },
+      {
+       "name": "Guardian Lord Nahma Boots",
+       "chance": 12.21
+      },
+      {
+       "name": "Guardian Lord Nahma Cloak",
+       "chance": 12.21
+      },
+      {
+       "name": "Guardian Lord Nahma Earrings",
+       "chance": 12.21
+      },
+      {
+       "name": "Guardian Lord Nahma Ring",
+       "chance": 12.21
+      }
+     ]
+    },
+    {
+     "name": "Fallen Ancient God armor (1 of 7)",
+     "rank": 3,
+     "chance": 100.0,
+     "items": [
+      {
+       "name": "Fallen Ancient God Breastplate",
+       "chance": 12.95
+      },
+      {
+       "name": "Fallen Ancient God Greaves",
+       "chance": 17.26
+      },
+      {
+       "name": "Fallen Ancient God Pauldrons",
+       "chance": 20.71
+      },
+      {
+       "name": "Fallen Ancient God Helm",
+       "chance": 20.71
+      },
+      {
+       "name": "Fallen Ancient God Gloves",
+       "chance": 25.89
+      },
+      {
+       "name": "Fallen Ancient God Boots",
+       "chance": 25.89
+      },
+      {
+       "name": "Fallen Ancient God Cloak",
+       "chance": 25.89
+      }
+     ]
+    },
+    {
+     "name": "Fallen Ancient God weapon (1 of 9)",
+     "rank": 3,
+     "chance": 100.0,
+     "items": [
+      {
+       "name": "Fallen Ancient God Longsword",
+       "chance": 16.59
+      },
+      {
+       "name": "Fallen Ancient God Dagger",
+       "chance": 16.59
+      },
+      {
+       "name": "Fallen Ancient God Bow",
+       "chance": 16.59
+      },
+      {
+       "name": "Fallen Ancient God Spellbook",
+       "chance": 16.59
+      },
+      {
+       "name": "Fallen Ancient God Orb",
+       "chance": 16.59
+      },
+      {
+       "name": "Fallen Ancient God Mace",
+       "chance": 16.59
+      },
+      {
+       "name": "Fallen Ancient God Staff",
+       "chance": 16.59
+      },
+      {
+       "name": "Fallen Ancient God Guard",
+       "chance": 16.59
+      },
+      {
+       "name": "Fallen Ancient God Greatsword",
+       "chance": 16.59
+      }
+     ]
+    },
+    {
+     "name": "Bloodthirsty armor (1 of 7)",
+     "rank": 2,
+     "chance": 100.0,
+     "items": [
+      {
+       "name": "Bloodthirsty Breastplate",
+       "chance": 12.95
+      },
+      {
+       "name": "Bloodthirsty Greaves",
+       "chance": 17.26
+      },
+      {
+       "name": "Bloodthirsty Pauldrons",
+       "chance": 20.71
+      },
+      {
+       "name": "Bloodthirsty Helm",
+       "chance": 20.71
+      },
+      {
+       "name": "Bloodthirsty Gloves",
+       "chance": 25.89
+      },
+      {
+       "name": "Bloodthirsty Boots",
+       "chance": 25.89
+      },
+      {
+       "name": "Bloodthirsty Cloak",
+       "chance": 25.89
+      }
+     ]
+    },
+    {
+     "name": "Vowed weapon (1 of 9)",
+     "rank": 2,
+     "chance": 100.0,
+     "items": [
+      {
+       "name": "Vowed Longsword",
+       "chance": 16.59
+      },
+      {
+       "name": "Vowed Dagger",
+       "chance": 16.59
+      },
+      {
+       "name": "Vowed Bow",
+       "chance": 16.59
+      },
+      {
+       "name": "Vowed Spellbook",
+       "chance": 16.59
+      },
+      {
+       "name": "Vowed Orb",
+       "chance": 16.59
+      },
+      {
+       "name": "Vowed Mace",
+       "chance": 16.59
+      },
+      {
+       "name": "Vowed Staff",
+       "chance": 16.59
+      },
+      {
+       "name": "Vowed Guard",
+       "chance": 16.59
+      },
+      {
+       "name": "Vowed Greatsword",
+       "chance": 16.59
+      }
+     ]
+    }
+   ],
+   "image": "https://metabot.gg/web/aion2/npcs/f/mob_abboss_01.webp"
+  },
+  {
+   "npc": 2600097,
+   "name": "Executor Argo",
+   "sub": "Chaotic Lower Reshanta",
+   "level": 65,
+   "slots": [
+    {
+     "days": [
+      1,
+      4,
+      6
+     ],
+     "timesMin": [
+      1290
+     ],
+     "durationMin": 30
+    }
+   ],
+   "slot": 2007,
+   "spawn_points": [
+    2007
+   ],
+   "drops": [
+    {
+     "name": "Argo armor & accessories (1 of 9)",
+     "rank": 3,
+     "chance": 100.0,
+     "items": [
+      {
+       "name": "Argo Breastplate",
+       "chance": 6.44
+      },
+      {
+       "name": "Argo Greaves",
+       "chance": 8.58
+      },
+      {
+       "name": "Argo Helm",
+       "chance": 10.3
+      },
+      {
+       "name": "Argo Pauldrons",
+       "chance": 10.3
+      },
+      {
+       "name": "Argo Gloves",
+       "chance": 12.88
+      },
+      {
+       "name": "Argo Boots",
+       "chance": 12.88
+      },
+      {
+       "name": "Argo Cloak",
+       "chance": 12.88
+      },
+      {
+       "name": "Argo Earrings",
+       "chance": 12.88
+      },
+      {
+       "name": "Argo Ring",
+       "chance": 12.88
+      }
+     ]
+    },
+    {
+     "name": "Artwork: Argo, the Spirit King",
+     "rank": 3,
+     "chance": 25
+    },
+    {
+     "name": "Fallen Ancient God armor (1 of 7)",
+     "rank": 3,
+     "chance": 60.0,
+     "items": [
+      {
+       "name": "Fallen Ancient God Breastplate",
+       "chance": 5.2
+      },
+      {
+       "name": "Fallen Ancient God Greaves",
+       "chance": 6.94
+      },
+      {
+       "name": "Fallen Ancient God Pauldrons",
+       "chance": 8.32
+      },
+      {
+       "name": "Fallen Ancient God Helm",
+       "chance": 8.32
+      },
+      {
+       "name": "Fallen Ancient God Gloves",
+       "chance": 10.4
+      },
+      {
+       "name": "Fallen Ancient God Boots",
+       "chance": 10.4
+      },
+      {
+       "name": "Fallen Ancient God Cloak",
+       "chance": 10.4
+      }
+     ]
+    },
+    {
+     "name": "Fallen Ancient God weapon (1 of 9)",
+     "rank": 3,
+     "chance": 24.25,
+     "items": [
+      {
+       "name": "Fallen Ancient God Greatsword",
+       "chance": 2.69
+      },
+      {
+       "name": "Fallen Ancient God Longsword",
+       "chance": 2.69
+      },
+      {
+       "name": "Fallen Ancient God Dagger",
+       "chance": 2.69
+      },
+      {
+       "name": "Fallen Ancient God Bow",
+       "chance": 2.69
+      },
+      {
+       "name": "Fallen Ancient God Spellbook",
+       "chance": 2.69
+      },
+      {
+       "name": "Fallen Ancient God Orb",
+       "chance": 2.69
+      },
+      {
+       "name": "Fallen Ancient God Mace",
+       "chance": 2.69
+      },
+      {
+       "name": "Fallen Ancient God Staff",
+       "chance": 2.69
+      },
+      {
+       "name": "Fallen Ancient God Guard",
+       "chance": 2.69
+      }
+     ]
+    },
+    {
+     "name": "Bloodthirsty armor (1 of 7)",
+     "rank": 2,
+     "chance": 100.0,
+     "items": [
+      {
+       "name": "Bloodthirsty Breastplate",
+       "chance": 10.79
+      },
+      {
+       "name": "Bloodthirsty Greaves",
+       "chance": 14.38
+      },
+      {
+       "name": "Bloodthirsty Pauldrons",
+       "chance": 17.26
+      },
+      {
+       "name": "Bloodthirsty Helm",
+       "chance": 17.26
+      },
+      {
+       "name": "Bloodthirsty Gloves",
+       "chance": 21.57
+      },
+      {
+       "name": "Bloodthirsty Boots",
+       "chance": 21.57
+      },
+      {
+       "name": "Bloodthirsty Cloak",
+       "chance": 21.57
+      }
+     ]
+    },
+    {
+     "name": "Vowed weapon (1 of 9)",
+     "rank": 2,
+     "chance": 78.92,
+     "items": [
+      {
+       "name": "Vowed Longsword",
+       "chance": 8.77
+      },
+      {
+       "name": "Vowed Dagger",
+       "chance": 8.77
+      },
+      {
+       "name": "Vowed Bow",
+       "chance": 8.77
+      },
+      {
+       "name": "Vowed Spellbook",
+       "chance": 8.77
+      },
+      {
+       "name": "Vowed Orb",
+       "chance": 8.77
+      },
+      {
+       "name": "Vowed Mace",
+       "chance": 8.77
+      },
+      {
+       "name": "Vowed Staff",
+       "chance": 8.77
+      },
+      {
+       "name": "Vowed Guard",
+       "chance": 8.77
+      },
+      {
+       "name": "Vowed Greatsword",
+       "chance": 8.77
+      }
+     ]
+    }
+   ],
+   "image": "https://metabot.gg/web/aion2/npcs/f/mob_eleking_01_v02.webp"
+  },
+  {
+   "npc": 2600098,
+   "name": "Executor Kaira",
+   "sub": "Chaotic Lower Reshanta",
+   "level": 65,
+   "slots": [
+    {
+     "days": [
+      1,
+      4,
+      6
+     ],
+     "timesMin": [
+      1290
+     ],
+     "durationMin": 30
+    }
+   ],
+   "slot": 2008,
+   "spawn_points": [
+    2008
+   ],
+   "drops": [
+    {
+     "name": "Kaira armor & accessories (1 of 9)",
+     "rank": 3,
+     "chance": 100.0,
+     "items": [
+      {
+       "name": "Kaira Breastplate",
+       "chance": 6.44
+      },
+      {
+       "name": "Kaira Greaves",
+       "chance": 8.58
+      },
+      {
+       "name": "Kaira Helm",
+       "chance": 10.3
+      },
+      {
+       "name": "Kaira Pauldrons",
+       "chance": 10.3
+      },
+      {
+       "name": "Kaira Gloves",
+       "chance": 12.88
+      },
+      {
+       "name": "Kaira Boots",
+       "chance": 12.88
+      },
+      {
+       "name": "Kaira Cloak",
+       "chance": 12.88
+      },
+      {
+       "name": "Kaira Earrings",
+       "chance": 12.88
+      },
+      {
+       "name": "Kaira Ring",
+       "chance": 12.88
+      }
+     ]
+    },
+    {
+     "name": "Artwork: Watcher Kaira",
+     "rank": 3,
+     "chance": 25
+    },
+    {
+     "name": "Fallen Ancient God armor (1 of 7)",
+     "rank": 3,
+     "chance": 25.0,
+     "items": [
+      {
+       "name": "Fallen Ancient God Breastplate",
+       "chance": 2.17
+      },
+      {
+       "name": "Fallen Ancient God Greaves",
+       "chance": 2.89
+      },
+      {
+       "name": "Fallen Ancient God Helm",
+       "chance": 3.47
+      },
+      {
+       "name": "Fallen Ancient God Pauldrons",
+       "chance": 3.47
+      },
+      {
+       "name": "Fallen Ancient God Gloves",
+       "chance": 4.33
+      },
+      {
+       "name": "Fallen Ancient God Boots",
+       "chance": 4.33
+      },
+      {
+       "name": "Fallen Ancient God Cloak",
+       "chance": 4.33
+      }
+     ]
+    },
+    {
+     "name": "Fallen Ancient God weapon (1 of 9)",
+     "rank": 3,
+     "chance": 10.05,
+     "items": [
+      {
+       "name": "Fallen Ancient God Longsword",
+       "chance": 1.12
+      },
+      {
+       "name": "Fallen Ancient God Dagger",
+       "chance": 1.12
+      },
+      {
+       "name": "Fallen Ancient God Bow",
+       "chance": 1.12
+      },
+      {
+       "name": "Fallen Ancient God Spellbook",
+       "chance": 1.12
+      },
+      {
+       "name": "Fallen Ancient God Orb",
+       "chance": 1.12
+      },
+      {
+       "name": "Fallen Ancient God Mace",
+       "chance": 1.12
+      },
+      {
+       "name": "Fallen Ancient God Staff",
+       "chance": 1.12
+      },
+      {
+       "name": "Fallen Ancient God Guard",
+       "chance": 1.12
+      },
+      {
+       "name": "Fallen Ancient God Greatsword",
+       "chance": 1.12
+      }
+     ]
+    },
+    {
+     "name": "Bloodthirsty armor (1 of 7)",
+     "rank": 2,
+     "chance": 81.27,
+     "items": [
+      {
+       "name": "Bloodthirsty Breastplate",
+       "chance": 7.05
+      },
+      {
+       "name": "Bloodthirsty Greaves",
+       "chance": 9.39
+      },
+      {
+       "name": "Bloodthirsty Pauldrons",
+       "chance": 11.27
+      },
+      {
+       "name": "Bloodthirsty Helm",
+       "chance": 11.27
+      },
+      {
+       "name": "Bloodthirsty Gloves",
+       "chance": 14.09
+      },
+      {
+       "name": "Bloodthirsty Boots",
+       "chance": 14.09
+      },
+      {
+       "name": "Bloodthirsty Cloak",
+       "chance": 14.09
+      }
+     ]
+    },
+    {
+     "name": "Balaur's Essence",
+     "rank": 2,
+     "chance": 43.4
+    },
+    {
+     "name": "Vowed weapon (1 of 9)",
+     "rank": 2,
+     "chance": 32.65,
+     "items": [
+      {
+       "name": "Vowed Longsword",
+       "chance": 3.63
+      },
+      {
+       "name": "Vowed Dagger",
+       "chance": 3.63
+      },
+      {
+       "name": "Vowed Bow",
+       "chance": 3.63
+      },
+      {
+       "name": "Vowed Spellbook",
+       "chance": 3.63
+      },
+      {
+       "name": "Vowed Orb",
+       "chance": 3.63
+      },
+      {
+       "name": "Vowed Mace",
+       "chance": 3.63
+      },
+      {
+       "name": "Vowed Staff",
+       "chance": 3.63
+      },
+      {
+       "name": "Vowed Guard",
+       "chance": 3.63
+      },
+      {
+       "name": "Vowed Greatsword",
+       "chance": 3.63
+      }
+     ]
+    }
+   ],
+   "image": "https://metabot.gg/web/aion2/npcs/f/mob_beritrad_01.webp"
+  },
+  {
+   "npc": 2600096,
+   "name": "Executor Tamasa",
+   "sub": "Chaotic Lower Reshanta",
+   "level": 65,
+   "slots": [
+    {
+     "days": [
+      1,
+      4,
+      6
+     ],
+     "timesMin": [
+      1290
+     ],
+     "durationMin": 30
+    }
+   ],
+   "slot": 2006,
+   "spawn_points": [
+    2006
+   ],
+   "drops": [
+    {
+     "name": "Artwork: Executor Tamasa",
+     "rank": 3,
+     "chance": 25
+    },
+    {
+     "name": "Fallen Ancient God armor (1 of 7)",
+     "rank": 3,
+     "chance": 60.0,
+     "items": [
+      {
+       "name": "Fallen Ancient God Breastplate",
+       "chance": 5.2
+      },
+      {
+       "name": "Fallen Ancient God Greaves",
+       "chance": 6.94
+      },
+      {
+       "name": "Fallen Ancient God Pauldrons",
+       "chance": 8.32
+      },
+      {
+       "name": "Fallen Ancient God Helm",
+       "chance": 8.32
+      },
+      {
+       "name": "Fallen Ancient God Gloves",
+       "chance": 10.4
+      },
+      {
+       "name": "Fallen Ancient God Boots",
+       "chance": 10.4
+      },
+      {
+       "name": "Fallen Ancient God Cloak",
+       "chance": 10.4
+      }
+     ]
+    },
+    {
+     "name": "Fallen Ancient God weapon (1 of 9)",
+     "rank": 3,
+     "chance": 24.25,
+     "items": [
+      {
+       "name": "Fallen Ancient God Greatsword",
+       "chance": 2.69
+      },
+      {
+       "name": "Fallen Ancient God Longsword",
+       "chance": 2.69
+      },
+      {
+       "name": "Fallen Ancient God Dagger",
+       "chance": 2.69
+      },
+      {
+       "name": "Fallen Ancient God Bow",
+       "chance": 2.69
+      },
+      {
+       "name": "Fallen Ancient God Spellbook",
+       "chance": 2.69
+      },
+      {
+       "name": "Fallen Ancient God Orb",
+       "chance": 2.69
+      },
+      {
+       "name": "Fallen Ancient God Mace",
+       "chance": 2.69
+      },
+      {
+       "name": "Fallen Ancient God Staff",
+       "chance": 2.69
+      },
+      {
+       "name": "Fallen Ancient God Guard",
+       "chance": 2.69
+      }
+     ]
+    },
+    {
+     "name": "Bloodthirsty armor (1 of 7)",
+     "rank": 2,
+     "chance": 100.0,
+     "items": [
+      {
+       "name": "Bloodthirsty Breastplate",
+       "chance": 10.79
+      },
+      {
+       "name": "Bloodthirsty Greaves",
+       "chance": 14.38
+      },
+      {
+       "name": "Bloodthirsty Pauldrons",
+       "chance": 17.26
+      },
+      {
+       "name": "Bloodthirsty Helm",
+       "chance": 17.26
+      },
+      {
+       "name": "Bloodthirsty Gloves",
+       "chance": 21.57
+      },
+      {
+       "name": "Bloodthirsty Boots",
+       "chance": 21.57
+      },
+      {
+       "name": "Bloodthirsty Cloak",
+       "chance": 21.57
+      }
+     ]
+    },
+    {
+     "name": "Vowed weapon (1 of 9)",
+     "rank": 2,
+     "chance": 78.92,
+     "items": [
+      {
+       "name": "Vowed Longsword",
+       "chance": 8.77
+      },
+      {
+       "name": "Vowed Dagger",
+       "chance": 8.77
+      },
+      {
+       "name": "Vowed Bow",
+       "chance": 8.77
+      },
+      {
+       "name": "Vowed Spellbook",
+       "chance": 8.77
+      },
+      {
+       "name": "Vowed Orb",
+       "chance": 8.77
+      },
+      {
+       "name": "Vowed Mace",
+       "chance": 8.77
+      },
+      {
+       "name": "Vowed Staff",
+       "chance": 8.77
+      },
+      {
+       "name": "Vowed Guard",
+       "chance": 8.77
+      },
+      {
+       "name": "Vowed Greatsword",
+       "chance": 8.77
+      }
+     ]
+    }
+   ],
+   "image": "https://metabot.gg/web/aion2/npcs/f/mob_radvima_01.webp"
+  }
+ ],
+ "field": {
+  "1010": {
+   "name": "Verteron",
+   "bosses": [
+    {
+     "slot": 101001,
+     "npc": 2100003,
+     "name": "Neikel of the East",
+     "level": 45,
+     "zone": "Eastern Cantas Valley",
+     "respawn_min": 30,
+     "drops": [
+      {
+       "name": "Neikel armor (1 of 7)",
+       "rank": 1,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Neikel Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Neikel Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Neikel Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Neikel Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Neikel Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Neikel Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Neikel Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Neikel of the East",
+       "rank": 1,
+       "chance": 25
+      },
+      {
+       "name": "Neikel's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2100003.webp"
+    },
+    {
+     "slot": 101002,
+     "npc": 2100040,
+     "name": "Rotten Kutar",
+     "level": 45,
+     "zone": "Ellun River Marsh",
+     "respawn_min": 30,
+     "drops": [
+      {
+       "name": "Kutar armor (1 of 7)",
+       "rank": 1,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Kutar Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Kutar Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Kutar Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Kutar Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Kutar Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Kutar Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Kutar Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Rotten Kutar",
+       "rank": 1,
+       "chance": 25
+      },
+      {
+       "name": "Kutar's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2100040.webp"
+    },
+    {
+     "slot": 101003,
+     "npc": 2100050,
+     "name": "Kernon of the West",
+     "level": 45,
+     "zone": "Western Cantas Valley",
+     "respawn_min": 30,
+     "drops": [
+      {
+       "name": "Kernon armor (1 of 7)",
+       "rank": 1,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Kernon Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Kernon Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Kernon Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Kernon Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Kernon Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Kernon Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Kernon Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Kernon of the West",
+       "rank": 1,
+       "chance": 25
+      },
+      {
+       "name": "Kernon's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2100050.webp"
+    },
+    {
+     "slot": 101004,
+     "npc": 2100076,
+     "name": "Kusan the Mad Gladiator",
+     "level": 45,
+     "zone": "Verteron Fortress Ruins",
+     "respawn_min": 120,
+     "drops": [
+      {
+       "name": "Kusan armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Kusan Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Kusan Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Kusan Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Kusan Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Kusan Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Kusan Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Kusan Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Kusan the Mad Gladiator",
+       "rank": 2,
+       "chance": 25
+      },
+      {
+       "name": "Kusan's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/f/mob_krallelite_01.webp"
+    },
+    {
+     "slot": 101005,
+     "npc": 2100077,
+     "name": "Ritualist Garshim",
+     "level": 45,
+     "zone": "Verteron Fortress Ruins",
+     "respawn_min": 120,
+     "drops": [
+      {
+       "name": "Garshim armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Garshim Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Garshim Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Garshim Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Garshim Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Garshim Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Garshim Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Garshim Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Ritualist Garshim",
+       "rank": 2,
+       "chance": 25
+      },
+      {
+       "name": "Garshim's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/f/mob_krallelite_02.webp"
+    },
+    {
+     "slot": 101006,
+     "npc": 2100079,
+     "name": "Bodyguard Teegant",
+     "level": 45,
+     "zone": "Destroyed Abyss Gate",
+     "respawn_min": 90,
+     "drops": [
+      {
+       "name": "Teegant armor (1 of 7)",
+       "rank": 1,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Teegant Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Teegant Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Teegant Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Teegant Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Teegant Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Teegant Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Teegant Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Bodyguard Teegant",
+       "rank": 1,
+       "chance": 25
+      },
+      {
+       "name": "Soul: Elite Klaw (Bound)",
+       "rank": 0,
+       "chance": 100
+      },
+      {
+       "name": "Teegant's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/r/mob_neuth_03.webp"
+    },
+    {
+     "slot": 101007,
+     "npc": 2100141,
+     "name": "Blooming Korin",
+     "level": 45,
+     "zone": "Ellun River Midstream",
+     "respawn_min": 60,
+     "drops": [
+      {
+       "name": "Korin armor (1 of 7)",
+       "rank": 1,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Korin Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Korin Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Korin Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Korin Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Korin Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Korin Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Korin Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Blooming Korin",
+       "rank": 1,
+       "chance": 25
+      },
+      {
+       "name": "Korin's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/f/mob_coradon_01.webp"
+    },
+    {
+     "slot": 101008,
+     "npc": 2100177,
+     "name": "Furious Saursus",
+     "level": 45,
+     "zone": "Night Dew Cave",
+     "respawn_min": 180,
+     "drops": [
+      {
+       "name": "Saursus armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Saursus Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Saursus Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Saursus Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Saursus Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Saursus Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Saursus Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Saursus Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Furious Saursus",
+       "rank": 2,
+       "chance": 25
+      },
+      {
+       "name": "Saursus's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2100177.webp"
+    },
+    {
+     "slot": 101009,
+     "npc": 2100178,
+     "name": "Bloodfang Pnyn",
+     "level": 45,
+     "zone": "Northern Tolbas Forest",
+     "respawn_min": 180,
+     "drops": [
+      {
+       "name": "Pnyn armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Pnyn Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Pnyn Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Pnyn Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Pnyn Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Pnyn Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Pnyn Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Pnyn Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Bloodfang Pnyn",
+       "rank": 2,
+       "chance": 25
+      },
+      {
+       "name": "Pnyn's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2100178.webp"
+    },
+    {
+     "slot": 101010,
+     "npc": 2100582,
+     "name": "Heretic Layla",
+     "level": 45,
+     "zone": "Rock Tomb Hill",
+     "respawn_min": 180,
+     "drops": [
+      {
+       "name": "Layla armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Layla Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Layla Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Layla Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Layla Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Layla Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Layla Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Layla Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Heretic Layla",
+       "rank": 2,
+       "chance": 25
+      },
+      {
+       "name": "Layla's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2100582.webp"
+    },
+    {
+     "slot": 101011,
+     "npc": 2100617,
+     "name": "Black Tentacle Lawa",
+     "level": 45,
+     "zone": "Altamia Canyon",
+     "respawn_min": 240,
+     "drops": [
+      {
+       "name": "Artwork: Black Tentacle Lawa",
+       "rank": 3,
+       "chance": 25
+      },
+      {
+       "name": "Lawa armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Lawa Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Lawa Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Lawa Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Lawa Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Lawa Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Lawa Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Lawa Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Balaur's Essence",
+       "rank": 2,
+       "chance": 60.67
+      },
+      {
+       "name": "Lawa's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2100617.webp"
+    },
+    {
+     "slot": 101012,
+     "npc": 2100661,
+     "name": "Phantasm Kasia",
+     "level": 45,
+     "zone": "Garden of the Illusion God",
+     "respawn_min": 360,
+     "drops": [
+      {
+       "name": "Artwork: Phantasm Kasia",
+       "rank": 3,
+       "chance": 25
+      },
+      {
+       "name": "Kasia armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Kasia Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Kasia Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Kasia Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Kasia Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Kasia Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Kasia Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Kasia Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Balaur's Essence",
+       "rank": 2,
+       "chance": 60.67
+      },
+      {
+       "name": "Kasia's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/r/mob_kasia_01.webp"
+    },
+    {
+     "slot": 101013,
+     "npc": 2100708,
+     "name": "Centurion Demiros",
+     "level": 45,
+     "zone": "Destroyed Temple Site",
+     "respawn_min": 240,
+     "drops": [
+      {
+       "name": "Artwork: Centurion Demiros",
+       "rank": 3,
+       "chance": 25
+      },
+      {
+       "name": "Demiros armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Demiros Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Demiros Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Demiros Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Demiros Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Demiros Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Demiros Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Demiros Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Balaur's Essence",
+       "rank": 2,
+       "chance": 60.67
+      },
+      {
+       "name": "Demiros's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2100708.webp"
+    },
+    {
+     "slot": 101014,
+     "npc": 2100718,
+     "name": "Divine Ansas",
+     "level": 45,
+     "zone": "Contaminated Sanctum",
+     "respawn_min": 360,
+     "drops": [
+      {
+       "name": "Artwork: Divine Ansas",
+       "rank": 3,
+       "chance": 25
+      },
+      {
+       "name": "Ansas armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Ansas Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Ansas Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Ansas Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Ansas Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Ansas Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Ansas Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Ansas Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Balaur's Essence",
+       "rank": 2,
+       "chance": 60.67
+      },
+      {
+       "name": "Soul: Elite Guardite (Bound)",
+       "rank": 0,
+       "chance": 100
+      },
+      {
+       "name": "Ansas's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2100718.webp"
+    },
+    {
+     "slot": 101015,
+     "npc": 2100876,
+     "name": "Harvest Manager Moshav",
+     "level": 45,
+     "zone": "Drana Processing Area",
+     "respawn_min": 180,
+     "drops": [
+      {
+       "name": "Moshav armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Moshav Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Moshav Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Moshav Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Moshav Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Moshav Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Moshav Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Moshav Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Harvest Manager Moshav",
+       "rank": 2,
+       "chance": 25
+      },
+      {
+       "name": "Moshav's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2100876.webp"
+    },
+    {
+     "slot": 101016,
+     "npc": 2100877,
+     "name": "Sentinel K'nash",
+     "level": 45,
+     "zone": "Drana Processing Area",
+     "respawn_min": 240,
+     "drops": [
+      {
+       "name": "Artwork: Sentinel K'nash",
+       "rank": 3,
+       "chance": 25
+      },
+      {
+       "name": "K'nash armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "K'nash Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "K'nash Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "K'nash Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "K'nash Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "K'nash Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "K'nash Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "K'nash Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Balaur's Essence",
+       "rank": 2,
+       "chance": 60.67
+      },
+      {
+       "name": "K'nash's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2100877.webp"
+    },
+    {
+     "slot": 101017,
+     "npc": 2100988,
+     "name": "Scholar Aulla",
+     "level": 45,
+     "zone": "Aullaeu Village",
+     "respawn_min": 120,
+     "drops": [
+      {
+       "name": "Aulla armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Aulla Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Aulla Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Aulla Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Aulla Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Aulla Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Aulla Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Aulla Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Scholar Aulla",
+       "rank": 2,
+       "chance": 25
+      },
+      {
+       "name": "Aulla's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2100988.webp"
+    },
+    {
+     "slot": 101018,
+     "npc": 2100989,
+     "name": "Forest Warrior Aullamu",
+     "level": 45,
+     "zone": "Aullaeu Village",
+     "respawn_min": 240,
+     "drops": [
+      {
+       "name": "Artwork: Forest Warrior Aullamu",
+       "rank": 3,
+       "chance": 25
+      },
+      {
+       "name": "Aullamu armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Aullamu Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Aullamu Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Aullamu Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Aullamu Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Aullamu Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Aullamu Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Aullamu Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Balaur's Essence",
+       "rank": 2,
+       "chance": 60.67
+      },
+      {
+       "name": "Aullamu's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2100989.webp"
+    },
+    {
+     "slot": 101019,
+     "npc": 2100991,
+     "name": "Chaser Taulo",
+     "level": 45,
+     "zone": "Forest of Exiles",
+     "respawn_min": 120,
+     "drops": [
+      {
+       "name": "Taulo armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Taulo Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Taulo Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Taulo Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Taulo Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Taulo Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Taulo Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Taulo Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Chaser Taulo",
+       "rank": 2,
+       "chance": 25
+      },
+      {
+       "name": "Taulo's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/r/mob_owlelite_01_cv01.webp"
+    },
+    {
+     "slot": 101020,
+     "npc": 2101016,
+     "name": "Researcher Setram",
+     "level": 45,
+     "zone": "Nahid Brigade Fortress",
+     "respawn_min": 360,
+     "drops": [
+      {
+       "name": "Artwork: Researcher Setram",
+       "rank": 3,
+       "chance": 25
+      },
+      {
+       "name": "Setram armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Setram Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Setram Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Setram Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Setram Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Setram Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Setram Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Setram Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Balaur's Essence",
+       "rank": 2,
+       "chance": 60.67
+      },
+      {
+       "name": "Setram's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/f/mob_beritrad_03.webp"
+    },
+    {
+     "slot": 101021,
+     "npc": 2101074,
+     "name": "Eternal Gartua",
+     "level": 51,
+     "zone": "Eternal Isle",
+     "respawn_min": 720,
+     "drops": [
+      {
+       "name": "Artwork: Eternal Gartua",
+       "rank": 4,
+       "chance": 25
+      },
+      {
+       "name": "Gartua armor & accessories (1 of 9)",
+       "rank": 3,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Gartua Breastplate",
+         "chance": 6.44
+        },
+        {
+         "name": "Gartua Greaves",
+         "chance": 8.58
+        },
+        {
+         "name": "Gartua Helm",
+         "chance": 10.3
+        },
+        {
+         "name": "Gartua Pauldrons",
+         "chance": 10.3
+        },
+        {
+         "name": "Gartua Gloves",
+         "chance": 12.88
+        },
+        {
+         "name": "Gartua Boots",
+         "chance": 12.88
+        },
+        {
+         "name": "Gartua Cloak",
+         "chance": 12.88
+        },
+        {
+         "name": "Gartua Earrings",
+         "chance": 12.88
+        },
+        {
+         "name": "Gartua Ring",
+         "chance": 12.88
+        }
+       ]
+      },
+      {
+       "name": "Gartua's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2101074.webp"
+    },
+    {
+     "slot": 101022,
+     "npc": 2101120,
+     "name": "Silent Dartan",
+     "level": 48,
+     "zone": "Southern Altamia Highland",
+     "respawn_min": 360,
+     "drops": [
+      {
+       "name": "Dartan armor & accessories (1 of 9)",
+       "rank": 3,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Dartan Breastplate",
+         "chance": 6.44
+        },
+        {
+         "name": "Dartan Greaves",
+         "chance": 8.58
+        },
+        {
+         "name": "Dartan Helm",
+         "chance": 10.3
+        },
+        {
+         "name": "Dartan Pauldrons",
+         "chance": 10.3
+        },
+        {
+         "name": "Dartan Gloves",
+         "chance": 12.88
+        },
+        {
+         "name": "Dartan Boots",
+         "chance": 12.88
+        },
+        {
+         "name": "Dartan Cloak",
+         "chance": 12.88
+        },
+        {
+         "name": "Dartan Earrings",
+         "chance": 12.88
+        },
+        {
+         "name": "Dartan Ring",
+         "chance": 12.88
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Silent Dartan",
+       "rank": 3,
+       "chance": 25
+      },
+      {
+       "name": "Dartan's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/f/mob_beritrad_01.webp"
+    },
+    {
+     "slot": 101023,
+     "npc": 2101122,
+     "name": "Soul Ruler Kashapa",
+     "level": 48,
+     "zone": "Eastern Altamia Highland",
+     "respawn_min": 360,
+     "drops": [
+      {
+       "name": "Kashapa armor & accessories (1 of 9)",
+       "rank": 3,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Kashapa Breastplate",
+         "chance": 6.44
+        },
+        {
+         "name": "Kashapa Greaves",
+         "chance": 8.58
+        },
+        {
+         "name": "Kashapa Helm",
+         "chance": 10.3
+        },
+        {
+         "name": "Kashapa Pauldrons",
+         "chance": 10.3
+        },
+        {
+         "name": "Kashapa Gloves",
+         "chance": 12.88
+        },
+        {
+         "name": "Kashapa Boots",
+         "chance": 12.88
+        },
+        {
+         "name": "Kashapa Cloak",
+         "chance": 12.88
+        },
+        {
+         "name": "Kashapa Earrings",
+         "chance": 12.88
+        },
+        {
+         "name": "Kashapa Ring",
+         "chance": 12.88
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Soul Ruler Kashapa",
+       "rank": 3,
+       "chance": 25
+      },
+      {
+       "name": "Kashapa's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2101122.webp"
+    },
+    {
+     "slot": 101024,
+     "npc": 2101131,
+     "name": "High Commander Lagta",
+     "level": 48,
+     "zone": "Drana Plantation",
+     "respawn_min": 720,
+     "drops": [
+      {
+       "name": "High Commander Lagta armor & accessories (1 of 9)",
+       "rank": 3,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "High Commander Lagta Breastplate",
+         "chance": 6.44
+        },
+        {
+         "name": "High Commander Lagta Greaves",
+         "chance": 8.58
+        },
+        {
+         "name": "High Commander Lagta Helm",
+         "chance": 10.3
+        },
+        {
+         "name": "High Commander Lagta Pauldrons",
+         "chance": 10.3
+        },
+        {
+         "name": "High Commander Lagta Gloves",
+         "chance": 12.88
+        },
+        {
+         "name": "High Commander Lagta Boots",
+         "chance": 12.88
+        },
+        {
+         "name": "High Commander Lagta Cloak",
+         "chance": 12.88
+        },
+        {
+         "name": "High Commander Lagta Earrings",
+         "chance": 12.88
+        },
+        {
+         "name": "High Commander Lagta Ring",
+         "chance": 12.88
+        }
+       ]
+      },
+      {
+       "name": "Artwork: High Commander Lagta",
+       "rank": 3,
+       "chance": 25
+      },
+      {
+       "name": "Lagta's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2101131.webp"
+    }
+   ]
+  },
+  "1110": {
+   "name": "Altgard",
+   "bosses": [
+    {
+     "slot": 111001,
+     "npc": 2400017,
+     "name": "Melted Danar",
+     "level": 45,
+     "zone": "Dredgion Crash Site",
+     "respawn_min": 30,
+     "drops": [
+      {
+       "name": "Danar armor (1 of 7)",
+       "rank": 1,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Danar Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Danar Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Danar Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Danar Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Danar Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Danar Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Danar Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Melted Danar",
+       "rank": 1,
+       "chance": 25
+      },
+      {
+       "name": "Danar's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2400017.webp"
+    },
+    {
+     "slot": 111002,
+     "npc": 2400074,
+     "name": "Black Warrior Aed",
+     "level": 45,
+     "zone": "Nameless Cemetery",
+     "respawn_min": 30,
+     "drops": [
+      {
+       "name": "Aed armor (1 of 7)",
+       "rank": 1,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Aed Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Aed Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Aed Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Aed Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Aed Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Aed Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Aed Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Black Warrior Aed",
+       "rank": 1,
+       "chance": 25
+      },
+      {
+       "name": "Aed's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2400074.webp"
+    },
+    {
+     "slot": 111003,
+     "npc": 2400140,
+     "name": "Faithful Rajit",
+     "level": 45,
+     "zone": "Sanctum Outpost",
+     "respawn_min": 30,
+     "drops": [
+      {
+       "name": "Rajit armor (1 of 7)",
+       "rank": 1,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Rajit Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Rajit Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Rajit Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Rajit Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Rajit Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Rajit Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Rajit Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Faithful Rajit",
+       "rank": 1,
+       "chance": 25
+      },
+      {
+       "name": "Rajit's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2400140.webp"
+    },
+    {
+     "slot": 111004,
+     "npc": 2400141,
+     "name": "Berserker Vargor",
+     "level": 45,
+     "zone": "Sanctum Outpost",
+     "respawn_min": 60,
+     "drops": [
+      {
+       "name": "Vargor armor (1 of 7)",
+       "rank": 1,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Vargor Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Vargor Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Vargor Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Vargor Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Vargor Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Vargor Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Vargor Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Berserker Vargor",
+       "rank": 1,
+       "chance": 25
+      },
+      {
+       "name": "Vargor's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2400141.webp"
+    },
+    {
+     "slot": 111005,
+     "npc": 2400212,
+     "name": "Predator Garsan",
+     "level": 45,
+     "zone": "Moslan Forest",
+     "respawn_min": 120,
+     "drops": [
+      {
+       "name": "Garsan armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Garsan Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Garsan Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Garsan Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Garsan Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Garsan Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Garsan Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Garsan Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Predator Garsan",
+       "rank": 2,
+       "chance": 25
+      },
+      {
+       "name": "Garsan's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2400212.webp"
+    },
+    {
+     "slot": 111006,
+     "npc": 2400223,
+     "name": "Blood Warrior Lannar",
+     "level": 45,
+     "zone": "Moslan Forest",
+     "respawn_min": 90,
+     "drops": [
+      {
+       "name": "Lannar armor (1 of 7)",
+       "rank": 1,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Lannar Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Lannar Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Lannar Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Lannar Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Lannar Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Lannar Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Lannar Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Blood Warrior Lannar",
+       "rank": 1,
+       "chance": 25
+      },
+      {
+       "name": "Lannar's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2400223.webp"
+    },
+    {
+     "slot": 111007,
+     "npc": 2400274,
+     "name": "Deceiver Trid",
+     "level": 45,
+     "zone": "Uruthumheim",
+     "respawn_min": 120,
+     "drops": [
+      {
+       "name": "Trid armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Trid Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Trid Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Trid Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Trid Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Trid Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Trid Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Trid Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Deceiver Trid",
+       "rank": 2,
+       "chance": 25
+      },
+      {
+       "name": "Trid's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2400274.webp"
+    },
+    {
+     "slot": 111008,
+     "npc": 2400335,
+     "name": "Blue Wave Kelpina",
+     "level": 45,
+     "zone": "Purifying Forest",
+     "respawn_min": 120,
+     "drops": [
+      {
+       "name": "Kelpina armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Kelpina Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Kelpina Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Kelpina Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Kelpina Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Kelpina Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Kelpina Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Kelpina Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Blue Wave Kelpina",
+       "rank": 2,
+       "chance": 25
+      },
+      {
+       "name": "Kelpina's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2400335.webp"
+    },
+    {
+     "slot": 111009,
+     "npc": 2400353,
+     "name": "High Overseer Nutah",
+     "level": 45,
+     "zone": "Dranactus",
+     "respawn_min": 120,
+     "drops": [
+      {
+       "name": "Nutah armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Nutah Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Nutah Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Nutah Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Nutah Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Nutah Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Nutah Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Nutah Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: High Overseer Nutah",
+       "rank": 2,
+       "chance": 25
+      },
+      {
+       "name": "Resana's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2400353.webp"
+    },
+    {
+     "slot": 111010,
+     "npc": 2400358,
+     "name": "Advisor Resana",
+     "level": 45,
+     "zone": "Dranactus",
+     "respawn_min": 180,
+     "drops": [
+      {
+       "name": "Resana armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Resana Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Resana Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Resana Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Resana Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Resana Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Resana Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Resana Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Advisor Resana",
+       "rank": 2,
+       "chance": 25
+      },
+      {
+       "name": "Nutah's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2400358.webp"
+    },
+    {
+     "slot": 111011,
+     "npc": 2400419,
+     "name": "Special Operations Leader Linx",
+     "level": 45,
+     "zone": "Basfelt Ruins",
+     "respawn_min": 180,
+     "drops": [
+      {
+       "name": "Linx armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Linx Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Linx Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Linx Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Linx Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Linx Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Linx Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Linx Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Special Operations Leader Linx",
+       "rank": 2,
+       "chance": 25
+      },
+      {
+       "name": "Linx's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2400419.webp"
+    },
+    {
+     "slot": 111012,
+     "npc": 2400424,
+     "name": "Desecrator Newbold",
+     "level": 45,
+     "zone": "Legion Base Ruins",
+     "respawn_min": 240,
+     "drops": [
+      {
+       "name": "Artwork: Desecrator Newbold",
+       "rank": 3,
+       "chance": 25
+      },
+      {
+       "name": "Newbold armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Newbold Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Newbold Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Newbold Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Newbold Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Newbold Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Newbold Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Newbold Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Balaur's Essence",
+       "rank": 2,
+       "chance": 60.67
+      },
+      {
+       "name": "Newbold's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2400424.webp"
+    },
+    {
+     "slot": 111013,
+     "npc": 2400425,
+     "name": "Specter Archon Axios",
+     "level": 45,
+     "zone": "Basfelt Ruins",
+     "respawn_min": 240,
+     "drops": [
+      {
+       "name": "Artwork: Specter Archon Axios",
+       "rank": 3,
+       "chance": 25
+      },
+      {
+       "name": "Axios armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Axios Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Axios Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Axios Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Axios Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Axios Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Axios Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Axios Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Balaur's Essence",
+       "rank": 2,
+       "chance": 60.67
+      },
+      {
+       "name": "Axios's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2400425.webp"
+    },
+    {
+     "slot": 111014,
+     "npc": 2400474,
+     "name": "Addicted Hardirun",
+     "level": 45,
+     "zone": "Fafnite Deposit",
+     "respawn_min": 180,
+     "drops": [
+      {
+       "name": "Hardirun armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Hardirun Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Hardirun Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Hardirun Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Hardirun Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Hardirun Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Hardirun Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Hardirun Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Addicted Hardirun",
+       "rank": 2,
+       "chance": 25
+      },
+      {
+       "name": "Hardirun's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2400474.webp"
+    },
+    {
+     "slot": 111015,
+     "npc": 2400504,
+     "name": "Executioner Barthien",
+     "level": 45,
+     "zone": "Western Gribade Highland",
+     "respawn_min": 240,
+     "drops": [
+      {
+       "name": "Artwork: Executioner Barthien",
+       "rank": 3,
+       "chance": 25
+      },
+      {
+       "name": "Barthien armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Barthien Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Barthien Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Barthien Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Barthien Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Barthien Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Barthien Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Barthien Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Balaur's Essence",
+       "rank": 2,
+       "chance": 60.67
+      },
+      {
+       "name": "Barthien's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2400504.webp"
+    },
+    {
+     "slot": 111016,
+     "npc": 2400593,
+     "name": "Drakan Battalion Weapon Guruta",
+     "level": 45,
+     "zone": "Eastern Gribade Highland",
+     "respawn_min": 360,
+     "drops": [
+      {
+       "name": "Artwork: Drakan Battalion Weapon Guruta",
+       "rank": 3,
+       "chance": 25
+      },
+      {
+       "name": "Guruta armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Guruta Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Guruta Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Guruta Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Guruta Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Guruta Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Guruta Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Guruta Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Balaur's Essence",
+       "rank": 2,
+       "chance": 60.67
+      },
+      {
+       "name": "Guruta's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2400593.webp"
+    },
+    {
+     "slot": 111017,
+     "npc": 2400607,
+     "name": "Veteran Shujakan",
+     "level": 45,
+     "zone": "Black Claw Village",
+     "respawn_min": 180,
+     "drops": [
+      {
+       "name": "Shujakan armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Shujakan Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Shujakan Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Shujakan Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Shujakan Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Shujakan Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Shujakan Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Shujakan Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Veteran Shujakan",
+       "rank": 2,
+       "chance": 25
+      },
+      {
+       "name": "Shujakan's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2400607.webp"
+    },
+    {
+     "slot": 111018,
+     "npc": 2400608,
+     "name": "Visionary Karuka",
+     "level": 45,
+     "zone": "Black Claw Village",
+     "respawn_min": 240,
+     "drops": [
+      {
+       "name": "Artwork: Visionary Karuka",
+       "rank": 3,
+       "chance": 25
+      },
+      {
+       "name": "Karuka armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Karuka Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Karuka Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Karuka Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Karuka Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Karuka Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Karuka Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Karuka Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Balaur's Essence",
+       "rank": 2,
+       "chance": 60.67
+      },
+      {
+       "name": "Karuka's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2400608.webp"
+    },
+    {
+     "slot": 111019,
+     "npc": 2400659,
+     "name": "Dark Shadow Vishwada",
+     "level": 45,
+     "zone": "Lagta Fortress",
+     "respawn_min": 360,
+     "drops": [
+      {
+       "name": "Artwork: Dark Shadow Vishwada",
+       "rank": 3,
+       "chance": 25
+      },
+      {
+       "name": "Vishwada armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Vishwada Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Vishwada Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Vishwada Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Vishwada Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Vishwada Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Vishwada Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Vishwada Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Balaur's Essence",
+       "rank": 2,
+       "chance": 60.67
+      },
+      {
+       "name": "Vishwada's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2400659.webp"
+    },
+    {
+     "slot": 111020,
+     "npc": 2400709,
+     "name": "Sharp Shylak",
+     "level": 45,
+     "zone": "Impetusium Square",
+     "respawn_min": 360,
+     "drops": [
+      {
+       "name": "Artwork: Sharp Shylak",
+       "rank": 3,
+       "chance": 25
+      },
+      {
+       "name": "Shylak armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Shylak Breastplate",
+         "chance": 8.67
+        },
+        {
+         "name": "Shylak Greaves",
+         "chance": 11.56
+        },
+        {
+         "name": "Shylak Pauldrons",
+         "chance": 13.87
+        },
+        {
+         "name": "Shylak Helm",
+         "chance": 13.87
+        },
+        {
+         "name": "Shylak Gloves",
+         "chance": 17.34
+        },
+        {
+         "name": "Shylak Boots",
+         "chance": 17.34
+        },
+        {
+         "name": "Shylak Cloak",
+         "chance": 17.34
+        }
+       ]
+      },
+      {
+       "name": "Balaur's Essence",
+       "rank": 2,
+       "chance": 60.67
+      },
+      {
+       "name": "Shylak's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2400709.webp"
+    },
+    {
+     "slot": 111021,
+     "npc": 2400800,
+     "name": "Immortal Gartua",
+     "level": 51,
+     "zone": "Immortal Isle",
+     "respawn_min": 720,
+     "drops": [
+      {
+       "name": "Artwork: Immortal Gartua",
+       "rank": 4,
+       "chance": 25
+      },
+      {
+       "name": "Gartua armor & accessories (1 of 9)",
+       "rank": 3,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Gartua Breastplate",
+         "chance": 6.44
+        },
+        {
+         "name": "Gartua Greaves",
+         "chance": 8.58
+        },
+        {
+         "name": "Gartua Helm",
+         "chance": 10.3
+        },
+        {
+         "name": "Gartua Pauldrons",
+         "chance": 10.3
+        },
+        {
+         "name": "Gartua Gloves",
+         "chance": 12.88
+        },
+        {
+         "name": "Gartua Boots",
+         "chance": 12.88
+        },
+        {
+         "name": "Gartua Cloak",
+         "chance": 12.88
+        },
+        {
+         "name": "Gartua Earrings",
+         "chance": 12.88
+        },
+        {
+         "name": "Gartua Ring",
+         "chance": 12.88
+        }
+       ]
+      },
+      {
+       "name": "Gartua's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2400800.webp"
+    },
+    {
+     "slot": 111022,
+     "npc": 2400853,
+     "name": "High Commander Lagta",
+     "level": 48,
+     "zone": "Lagta Fortress",
+     "respawn_min": 720,
+     "drops": [
+      {
+       "name": "High Commander Lagta armor & accessories (1 of 9)",
+       "rank": 3,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "High Commander Lagta Breastplate",
+         "chance": 6.44
+        },
+        {
+         "name": "High Commander Lagta Greaves",
+         "chance": 8.58
+        },
+        {
+         "name": "High Commander Lagta Helm",
+         "chance": 10.3
+        },
+        {
+         "name": "High Commander Lagta Pauldrons",
+         "chance": 10.3
+        },
+        {
+         "name": "High Commander Lagta Gloves",
+         "chance": 12.88
+        },
+        {
+         "name": "High Commander Lagta Boots",
+         "chance": 12.88
+        },
+        {
+         "name": "High Commander Lagta Cloak",
+         "chance": 12.88
+        },
+        {
+         "name": "High Commander Lagta Earrings",
+         "chance": 12.88
+        },
+        {
+         "name": "High Commander Lagta Ring",
+         "chance": 12.88
+        }
+       ]
+      },
+      {
+       "name": "Artwork: High Commander Lagta",
+       "rank": 3,
+       "chance": 25
+      },
+      {
+       "name": "Lagta's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2101131.webp"
+    },
+    {
+     "slot": 111023,
+     "npc": 2400854,
+     "name": "Soul Ruler Kashapa",
+     "level": 48,
+     "zone": "Fafnite Deposit",
+     "respawn_min": 360,
+     "drops": [
+      {
+       "name": "Kashapa armor & accessories (1 of 9)",
+       "rank": 3,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Kashapa Breastplate",
+         "chance": 6.44
+        },
+        {
+         "name": "Kashapa Greaves",
+         "chance": 8.58
+        },
+        {
+         "name": "Kashapa Helm",
+         "chance": 10.3
+        },
+        {
+         "name": "Kashapa Pauldrons",
+         "chance": 10.3
+        },
+        {
+         "name": "Kashapa Gloves",
+         "chance": 12.88
+        },
+        {
+         "name": "Kashapa Boots",
+         "chance": 12.88
+        },
+        {
+         "name": "Kashapa Cloak",
+         "chance": 12.88
+        },
+        {
+         "name": "Kashapa Earrings",
+         "chance": 12.88
+        },
+        {
+         "name": "Kashapa Ring",
+         "chance": 12.88
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Soul Ruler Kashapa",
+       "rank": 3,
+       "chance": 25
+      },
+      {
+       "name": "Kashapa's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/2101122.webp"
+    },
+    {
+     "slot": 111024,
+     "npc": 2400855,
+     "name": "Silent Dartan",
+     "level": 48,
+     "zone": "Basfelt Ruins",
+     "respawn_min": 360,
+     "drops": [
+      {
+       "name": "Dartan armor & accessories (1 of 9)",
+       "rank": 3,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Dartan Breastplate",
+         "chance": 6.44
+        },
+        {
+         "name": "Dartan Greaves",
+         "chance": 8.58
+        },
+        {
+         "name": "Dartan Helm",
+         "chance": 10.3
+        },
+        {
+         "name": "Dartan Pauldrons",
+         "chance": 10.3
+        },
+        {
+         "name": "Dartan Gloves",
+         "chance": 12.88
+        },
+        {
+         "name": "Dartan Boots",
+         "chance": 12.88
+        },
+        {
+         "name": "Dartan Cloak",
+         "chance": 12.88
+        },
+        {
+         "name": "Dartan Earrings",
+         "chance": 12.88
+        },
+        {
+         "name": "Dartan Ring",
+         "chance": 12.88
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Silent Dartan",
+       "rank": 3,
+       "chance": 25
+      },
+      {
+       "name": "Dartan's Loot Chest (Bound)",
+       "rank": 6,
+       "chance": 100
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/f/mob_beritrad_01.webp"
+    }
+   ]
+  },
+  "20": {
+   "name": "Chaotic Lower Reshanta",
+   "bosses": [
+    {
+     "slot": 2001,
+     "npc": 2600068,
+     "name": "Argo, the Spirit King",
+     "level": 65,
+     "zone": "Archipelago of Siel's Wings - Siel's Right Wing",
+     "respawn_min": null,
+     "drops": [
+      {
+       "name": "Argo armor & accessories (1 of 9)",
+       "rank": 3,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Argo Breastplate",
+         "chance": 6.44
+        },
+        {
+         "name": "Argo Greaves",
+         "chance": 8.58
+        },
+        {
+         "name": "Argo Helm",
+         "chance": 10.3
+        },
+        {
+         "name": "Argo Pauldrons",
+         "chance": 10.3
+        },
+        {
+         "name": "Argo Gloves",
+         "chance": 12.88
+        },
+        {
+         "name": "Argo Boots",
+         "chance": 12.88
+        },
+        {
+         "name": "Argo Cloak",
+         "chance": 12.88
+        },
+        {
+         "name": "Argo Earrings",
+         "chance": 12.88
+        },
+        {
+         "name": "Argo Ring",
+         "chance": 12.88
+        }
+       ]
+      },
+      {
+       "name": "Artwork: Argo, the Spirit King",
+       "rank": 3,
+       "chance": 25
+      },
+      {
+       "name": "Fallen Ancient God armor (1 of 7)",
+       "rank": 3,
+       "chance": 60.0,
+       "items": [
+        {
+         "name": "Fallen Ancient God Breastplate",
+         "chance": 5.2
+        },
+        {
+         "name": "Fallen Ancient God Greaves",
+         "chance": 6.94
+        },
+        {
+         "name": "Fallen Ancient God Pauldrons",
+         "chance": 8.32
+        },
+        {
+         "name": "Fallen Ancient God Helm",
+         "chance": 8.32
+        },
+        {
+         "name": "Fallen Ancient God Gloves",
+         "chance": 10.4
+        },
+        {
+         "name": "Fallen Ancient God Boots",
+         "chance": 10.4
+        },
+        {
+         "name": "Fallen Ancient God Cloak",
+         "chance": 10.4
+        }
+       ]
+      },
+      {
+       "name": "Fallen Ancient God weapon (1 of 9)",
+       "rank": 3,
+       "chance": 24.25,
+       "items": [
+        {
+         "name": "Fallen Ancient God Greatsword",
+         "chance": 2.69
+        },
+        {
+         "name": "Fallen Ancient God Longsword",
+         "chance": 2.69
+        },
+        {
+         "name": "Fallen Ancient God Dagger",
+         "chance": 2.69
+        },
+        {
+         "name": "Fallen Ancient God Bow",
+         "chance": 2.69
+        },
+        {
+         "name": "Fallen Ancient God Spellbook",
+         "chance": 2.69
+        },
+        {
+         "name": "Fallen Ancient God Orb",
+         "chance": 2.69
+        },
+        {
+         "name": "Fallen Ancient God Mace",
+         "chance": 2.69
+        },
+        {
+         "name": "Fallen Ancient God Staff",
+         "chance": 2.69
+        },
+        {
+         "name": "Fallen Ancient God Guard",
+         "chance": 2.69
+        }
+       ]
+      },
+      {
+       "name": "Bloodthirsty armor (1 of 7)",
+       "rank": 2,
+       "chance": 100.0,
+       "items": [
+        {
+         "name": "Bloodthirsty Breastplate",
+         "chance": 10.79
+        },
+        {
+         "name": "Bloodthirsty Greaves",
+         "chance": 14.38
+        },
+        {
+         "name": "Bloodthirsty Pauldrons",
+         "chance": 17.26
+        },
+        {
+         "name": "Bloodthirsty Helm",
+         "chance": 17.26
+        },
+        {
+         "name": "Bloodthirsty Gloves",
+         "chance": 21.57
+        },
+        {
+         "name": "Bloodthirsty Boots",
+         "chance": 21.57
+        },
+        {
+         "name": "Bloodthirsty Cloak",
+         "chance": 21.57
+        }
+       ]
+      },
+      {
+       "name": "Vowed weapon (1 of 9)",
+       "rank": 2,
+       "chance": 78.92,
+       "items": [
+        {
+         "name": "Vowed Longsword",
+         "chance": 8.77
+        },
+        {
+         "name": "Vowed Dagger",
+         "chance": 8.77
+        },
+        {
+         "name": "Vowed Bow",
+         "chance": 8.77
+        },
+        {
+         "name": "Vowed Spellbook",
+         "chance": 8.77
+        },
+        {
+         "name": "Vowed Orb",
+         "chance": 8.77
+        },
+        {
+         "name": "Vowed Mace",
+         "chance": 8.77
+        },
+        {
+         "name": "Vowed Staff",
+         "chance": 8.77
+        },
+        {
+         "name": "Vowed Guard",
+         "chance": 8.77
+        },
+        {
+         "name": "Vowed Greatsword",
+         "chance": 8.77
+        }
+       ]
+      }
+     ],
+     "image": "https://metabot.gg/web/aion2/npcs/f/mob_eleking_01_v02.webp"
+    }
+   ]
+  }
+ }
+}
