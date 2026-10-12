@@ -1,7 +1,9 @@
 """Combat details: the whole contribution of every player in an encounter (damage, healing, shields, damage taken,
-avoided hits, stagger) with filters, search and sortable columns, plus the breakdown of the selected player.
-Names only for you and your party/force; everyone else is "Jugador N" (nothing is stored)."""
+avoided hits, stagger) with filters, search and sortable columns, plus the breakdown of the selected player; the
+enemies one by one (who hit each); the fights of the last 48 hours (★ keeps one) and a report image with its MVP.
+Names only for you and your party/force; everyone else is "Jugador N" (also in the saved fights)."""
 import time
+import webbrowser
 from dataclasses import dataclass, field
 
 from PySide6.QtCore import QRect, QRectF, QSize, Qt, QTimer
@@ -39,6 +41,8 @@ QFrame#Card {{ background: #0f1830; border: 1px solid #1c2944; border-radius: 10
 QSplitter::handle {{ background: transparent; width: 10px; }}
 """
 GROUPS = [("all", "Todos"), ("group", "Tú y tu grupo"), ("others", "Fuera de tu grupo")]
+ENEMY_NOTE = ("«Enemigo» a secas: un monstruo que ya estaba a la vista cuando AionDex empezó a escuchar (el juego solo "
+              "dice qué es cuando aparece). «Enemigo (40K HP)»: una variante que la base de datos no tiene con nombre.")
 
 
 def _empty(layout):
@@ -203,7 +207,7 @@ class MeterTable(QTableWidget):
             self.setHorizontalHeaderItem(col, item)
             header.setSectionResizeMode(col, QHeaderView.Stretch if col == 0 else QHeaderView.ResizeToContents)
         header.setHighlightSections(False)
-        header.setMinimumSectionSize(52)
+        header.setMinimumSectionSize(64)
 
     def mouseMoveEvent(self, event):
         row = self.rowAt(event.position().toPoint().y())
@@ -315,8 +319,19 @@ class DpsDetailsWindow(QWidget):
         head.addLayout(titles, 1)
         self.encounter_box = QComboBox()
         self.encounter_box.setMinimumContentsLength(30)
+        self.encounter_box.setMaxVisibleItems(20)
         self.encounter_box.currentIndexChanged.connect(lambda _: self._fill())
         head.addWidget(self.encounter_box)
+        self.pin_button = QPushButton("☆ Conservar")
+        self.pin_button.setCheckable(True)
+        self.pin_button.setToolTip("Las peleas se guardan 48 horas; las marcadas con ★ se quedan hasta que las quites")
+        self.pin_button.clicked.connect(self._toggle_pin)
+        head.addWidget(self.pin_button)
+        report = QPushButton("Informe")
+        report.setProperty("primary", True)
+        report.setToolTip("Una imagen con la pelea, los números de tu grupo y su MVP, para guardar o pegar")
+        report.clicked.connect(self._report)
+        head.addWidget(report)
         root.addLayout(head)
 
         self.cards = QHBoxLayout()
@@ -333,6 +348,15 @@ class DpsDetailsWindow(QWidget):
             button.clicked.connect(lambda _=False, k=m.key: self._set_metric(k))
             tabs.addWidget(button)
             self.metric_buttons[m.key] = button
+        self.enemy_view = False          # the Enemigos tab: the enemies one by one
+        self.selected_enemy = None
+        self.enemy_button = QPushButton("Enemigos")
+        self.enemy_button.setProperty("tab", True)
+        self.enemy_button.setCheckable(True)
+        self.enemy_button.setToolTip("Cada enemigo por separado: su vida, si murió, el daño que recibió y quién se lo "
+                                     "hizo, y el daño que hizo")
+        self.enemy_button.clicked.connect(self._show_enemies)
+        tabs.addWidget(self.enemy_button)
         tabs.addStretch(1)
         root.addLayout(tabs)
 
@@ -394,11 +418,7 @@ class DpsDetailsWindow(QWidget):
         foot.addWidget(self.note, 1)
         foot.addWidget(label("En el overlay:", f.small, theme.MUTED))
         for key, text, tip in (("dps_boss_only", "En jefes, solo el daño al jefe",
-                                "Como LOXIN: en peleas contra jefes no cuenta el daño a los adds"),
-                               ("dps_party_view", "Vista de party en mazmorras",
-                                "En las mazmorras de 5 (Exploración, Conquista, Trascendencia...) y fuera de una force: "
-                                "el jefe arriba con su vida, su furia, tu energía y tus recompensas, y una fila por "
-                                "jugador con su CP, DPS y la parte de la vida del jefe que le quitó")):
+                                "Como LOXIN: en peleas contra jefes no cuenta el daño a los adds"),):
             box = QCheckBox(text)
             box.setToolTip(tip)
             box.setChecked(bool(self.ctl.settings.get(key, True)))
@@ -408,7 +428,7 @@ class DpsDetailsWindow(QWidget):
                                             "url": "https://aion2data.com/monsters"}
         link = QPushButton(credit["text"].split(" (")[0])
         link.setProperty("flat", True)
-        link.clicked.connect(lambda: __import__("webbrowser").open(credit["url"]))
+        link.clicked.connect(lambda: webbrowser.open(credit["url"]))
         foot.addWidget(link)
         root.addLayout(foot)
 
@@ -430,43 +450,64 @@ class DpsDetailsWindow(QWidget):
 
     # --- data -----------------------------------------------------------------------------------------
     def encounters(self):
-        combat = self.ctl.combat
-        recent = list(combat.recent)
-        if combat.current is not None and combat.current not in recent:
-            recent.insert(0, combat.current)
-        return recent
+        """Summaries of this session's fights and the saved ones (fightlog.py), newest first."""
+        return self.ctl.fight_list()
 
     def refresh(self):
         """Reload the encounter list (keeps the selection when it still exists)."""
         current = self.encounter_box.currentData()
         self.encounter_box.blockSignals(True)
         self.encounter_box.clear()
-        for enc in self.encounters():
-            state = "en curso" if not enc.ended else time.strftime("%H:%M", time.localtime(enc.last))
-            mark = " ✓" if enc.killed else ""
-            self.encounter_box.addItem(f"{enc.main_target or 'Pelea'}{mark} · {mmss(enc.duration)} · {state}",
-                                       id(enc))
+        today = time.strftime("%d/%m")
+        for item in self.encounters():
+            day = time.strftime("%d/%m", time.localtime(item["last"]))
+            when = "en curso" if item["live"] else time.strftime("%H:%M" if day == today else "%d/%m %H:%M",
+                                                                 time.localtime(item["last"]))
+            self.encounter_box.addItem(f"{'★ ' if item['pinned'] else ''}{item['target']}"
+                                       f"{' ✓' if item['killed'] else ''} · {mmss(item['duration'])} · {when}",
+                                       item["id"])
         idx = self.encounter_box.findData(current)
         self.encounter_box.setCurrentIndex(max(0, idx))
         self.encounter_box.blockSignals(False)
         self._fill()
 
     def show_encounter(self, enc):
-        idx = self.encounter_box.findData(id(enc))
+        idx = self.encounter_box.findData(enc if isinstance(enc, str) else enc.id)
         if idx >= 0:
             self.encounter_box.setCurrentIndex(idx)
 
     def encounter(self):
         key = self.encounter_box.currentData()
-        return next((e for e in self.encounters() if id(e) == key), None)
+        return self.ctl.fight(key) if key else None
+
+    def _group(self, enc):
+        return enc.group_names(self.ctl.combat.group)
 
     def _live(self):
         enc = self.encounter()
-        known = {self.encounter_box.itemData(i) for i in range(self.encounter_box.count())}
-        if {id(e) for e in self.encounters()} != known:
+        items = self.encounters()
+        known = [self.encounter_box.itemData(i) for i in range(self.encounter_box.count())]
+        if [i["id"] for i in items] != known or \
+                any(i["pinned"] != self.encounter_box.itemText(n).startswith("★") for n, i in enumerate(items)):
             self.refresh()
         elif enc is not None and not enc.ended:
             self._fill()
+
+    def _toggle_pin(self):
+        enc = self.encounter()
+        if enc is not None:
+            self.ctl.pin_fight(enc.id, self.pin_button.isChecked())
+
+    def _report(self):
+        enc = self.encounter()
+        if enc is None:
+            return
+        from .dps_report import ReportDialog
+        ReportDialog(self.ctl, enc, self).exec()
+
+    def _show_enemies(self):
+        self.enemy_view = True
+        self._fill()
 
     def _set_group(self, key):
         self.group_filter = key
@@ -475,6 +516,7 @@ class DpsDetailsWindow(QWidget):
         self._fill()
 
     def _set_metric(self, key):
+        self.enemy_view = False
         self.shown_metric = METRIC_BY_KEY[key]
         self.user_sorted = False
         self.side_view = 0
@@ -482,7 +524,7 @@ class DpsDetailsWindow(QWidget):
 
     def _names(self, enc):
         """eid -> (display name, in your group); outsiders are numbered by damage, the same in every tab."""
-        group = self.ctl.combat.group
+        group = self._group(enc)
         inside = lambda a: a.is_self or a.name in group  # noqa: E731
         outsiders = sorted((a for a in enc.actors.values() if not inside(a)), key=lambda a: -a.damage)
         alias = {a.eid: f"Jugador {i}" for i, a in enumerate(outsiders, 1)}
@@ -510,23 +552,34 @@ class DpsDetailsWindow(QWidget):
             button = self.metric_buttons[m.key]
             button.setEnabled(has or m is METRICS[0])
             button.setToolTip("" if has else "No hay datos de esto en esta pelea")
-            button.setChecked(m is self.shown_metric)
+            button.setChecked(m is self.shown_metric and not self.enemy_view)
+        self.enemy_button.setChecked(self.enemy_view)
+        self.enemy_button.setEnabled(enc is not None and bool(enc.targets or enc.enemy_damage))
+        self.pin_button.setEnabled(enc is not None)
+        self.pin_button.setChecked(bool(enc is not None and enc.pinned))
+        self.pin_button.setText("★ Conservada" if enc is not None and enc.pinned else "☆ Conservar")
         if enc is not None and not self.metric_buttons[self.shown_metric.key].isEnabled():
             self.shown_metric = METRICS[0]
             self.metric_buttons[self.shown_metric.key].setChecked(True)
         metric = self.shown_metric
-        if enc is not None and self._target_set_for != id(enc):
+        if enc is not None and self._target_set_for != enc.id:
             # boss fights open on the damage to the boss (what LOXIN shows); the player can switch
-            self._target_set_for = id(enc)
-            boss_fight = enc.activity(self.ctl.combat.group).boss and self.ctl.settings.get("dps_boss_only", True)
+            self._target_set_for = enc.id
+            boss_fight = enc.activity(self._group(enc)).boss and self.ctl.settings.get("dps_boss_only", True)
             self.target_box.blockSignals(True)
             self.target_box.setCurrentIndex(1 if boss_fight else 0)
             self.target_box.blockSignals(False)
-        self.target_box.setVisible(metric.boss_filter)
-        self.note.setText(" ".join(x for x in (metric.note, "Los jugadores de fuera de tu party/force aparecen sin "
-                                   "nombre (Jugador 1, 2…), numerados por daño. Nada de esto se guarda: al cerrar "
-                                   "AionDex se olvida. En jefes de mundo solo ves lo que pasa cerca de ti.") if x))
+        self.target_box.setVisible(metric.boss_filter and not self.enemy_view)
+        self.class_box.setVisible(not self.enemy_view)
+        self.note.setText(" ".join(x for x in (ENEMY_NOTE if self.enemy_view else metric.note,
+                                   "Los jugadores de fuera de tu party/force aparecen sin nombre (Jugador 1, 2…), "
+                                   "numerados por daño. Las peleas se guardan 48 horas en tu PC (las marcadas con ★, "
+                                   "hasta que las quites), y los de fuera de tu grupo, ya sin nombre. En jefes de mundo "
+                                   "solo ves lo que pasa cerca de ti.") if x))
         self._fill_cards(enc)
+        if self.enemy_view and enc is not None:
+            self._fill_enemies(enc)
+            return
         table = self.table
         table.setSortingEnabled(False)
         table.setRowCount(0)
@@ -547,9 +600,9 @@ class DpsDetailsWindow(QWidget):
         shown = [r for r in rows if (not chosen or r.actor.class_name == chosen)
                  and (not query or query in r.name.lower() or query in r.actor.class_name.lower())]
         total = sum(r.value for r in rows) or 1
-        summary = (f"{enc.activity(self.ctl.combat.group).label} · {enc.main_target or 'Pelea'} · "
+        summary = (f"{enc.activity(self._group(enc)).label} · {enc.main_target or 'Pelea'} · "
                    f"{mmss(enc.duration)} · {len(enc.actors)} jugadores")
-        contribution = enc.contribution(self.ctl.combat.group)
+        contribution = enc.contribution(self._group(enc))
         if metric.key == "damage" and self.target_box.currentData() == "boss" and contribution:
             total = contribution.total          # % of what the boss lost, not of the few hits we see
             if contribution.hp_lost and contribution.seen < 0.9:
@@ -618,18 +671,121 @@ class DpsDetailsWindow(QWidget):
             if m.rate:
                 sub = f"{short_number(total / enc.duration)} {m.rate}" + (f" · {sub}" if sub else "")
             self.cards.addWidget(StatCard(m.card, short_number(total), sub, f))
-        contribution = enc.contribution(self.ctl.combat.group)
-        if contribution and enc.activity(self.ctl.combat.group).boss:
+        contribution = enc.contribution(self._group(enc))
+        if contribution and enc.activity(self._group(enc)).boss:
             sub = (f"tu {'party' if contribution.group_kind == 'party' else 'force'}: "
                    f"{_pct(contribution.share(contribution.group))}" if contribution.group_kind else "")
             self.cards.addWidget(StatCard("Tu contribución al jefe", _pct(contribution.share(contribution.me)), sub,
                                           f, theme.GOLD))
         state = "derrotado ✓" if enc.killed else ("en curso" if not enc.ended else "terminó")
         self.cards.addWidget(StatCard("Duración", mmss(enc.duration), state, f))
+        from ..mvp import FORMULA, scores
+        ranked = scores(enc, self._group(enc), self.ctl.settings.get("dps_boss_only", True))
+        if len(ranked) > 1:
+            best = ranked[0]
+            card = StatCard("MVP", best.actor.name, f"{best.points:.1f} pts · el porqué, en Informe", f, theme.GOLD)
+            card.setToolTip(FORMULA)
+            self.cards.addWidget(card)
+
+    # --- the enemies one by one --------------------------------------------------------------------------
+    def _fill_enemies(self, enc):
+        """One row per enemy (the main one first): its HP, whether it died, the damage it took (and how much of it
+        was your group's) and the damage it dealt; the side shows who hit the selected one."""
+        table = self.table
+        table.setSortingEnabled(False)
+        table.setRowCount(0)
+        table.set_columns(["Enemigo", "Vida", "Estado", "Daño recibido", "%", "De tu grupo", "Daño que hizo"])
+        group = self._group(enc)
+        query = self.search.text().strip().lower()
+        rows, merged = [], {}
+        for eid, name, ratio, is_dead, dealt, took in enc.enemies():
+            if query and query not in name.lower():
+                continue
+            if took:
+                rows.append((eid, name, ratio, is_dead, dealt, took))
+                continue
+            # monsters nobody hit (areas and totems a boss leaves, adds that only hit you): one row per kind
+            row = merged.get(name)
+            merged[name] = (row[0], row[1], None, False, row[4] + dealt, 0, row[6] + 1) if row else \
+                (eid, name, ratio, is_dead, dealt, 0, 1)
+        rows += [r[:6] for r in merged.values()]
+        counts = {r[0]: r[6] for r in merged.values()}
+        total = sum(enc.targets.values()) or 1
+        dead = sum(1 for e in rows if e[3])
+        self.summary.setText(f"{len(rows)} enemigos · {dead} derrotados · daño total {short_number(total)} · "
+                             f"{mmss(enc.duration)}")
+        top = max((r[5] for r in rows), default=1) or 1
+        table.setRowCount(len(rows))
+        for i, (eid, name, ratio, is_dead, dealt, took) in enumerate(rows):
+            max_hp = (enc.hp.get(eid) or [0, None])[1] or enc.target_max_hp.get(eid)
+            mine = sum(a.by_target[eid] for a in enc.actors.values() if a.is_self or a.name in group)
+            shown = f"{name} ×{counts[eid]}" if counts.get(eid, 1) > 1 else name
+            first = SortItem(shown, shown.lower(), Qt.AlignLeft | Qt.AlignVCenter)
+            first.setData(KEY_ROLE, eid)
+            first.setData(BAR_ROLE, took / top)
+            first.setData(COLOR_ROLE, theme.COMBAT)
+            first.setFont(self.fonts.name)
+            if enc.target_npc.get(eid):
+                first.setToolTip(f"Tipo de monstruo (id del juego): {enc.target_npc[eid]}")
+            life = SortItem("—" if max_hp is None else short_number(max_hp), max_hp or 0)
+            state = SortItem("derrotado" if is_dead else ("—" if ratio is None else f"{100 * ratio:.0f}% de vida"),
+                             -1 if is_dead else (ratio if ratio is not None else 2), Qt.AlignLeft | Qt.AlignVCenter)
+            state.setForeground(theme.GAIN if is_dead else theme.TEXT)
+            items = [first, life, state, SortItem(short_number(took) if took else "—", took),
+                     SortItem(_pct(took / total) if took else "—", took / total),
+                     SortItem(short_number(mine) if mine else "—", mine),
+                     SortItem(short_number(dealt) if dealt else "—", dealt)]
+            for col, item in enumerate(items):
+                table.setItem(i, col, item)
+        table.setSortingEnabled(True)
+        table.sortItems(3, Qt.DescendingOrder)
+        target = self.selected_enemy if any(r[0] == self.selected_enemy for r in rows) else \
+            (rows[0][0] if rows else None)
+        self.selected_enemy = target
+        for i in range(table.rowCount()):
+            if table.item(i, 0).data(KEY_ROLE) == target:
+                table.blockSignals(True)
+                table.selectRow(i)
+                table.blockSignals(False)
+                break
+        self._fill_enemy_breakdown(enc, target)
+
+    def _fill_enemy_breakdown(self, enc, eid):
+        table = self.breakdown
+        table.setSortingEnabled(False)
+        table.setRowCount(0)
+        _empty(self.side_buttons)
+        if enc is None or eid is None:
+            self.side_title.setText("Elige un enemigo en la tabla")
+            return
+        names = self._names(enc)
+        self.side_title.setText(f"Quién le pegó a {enc.target_names.get(eid) or 'Enemigo'}")
+        rows = [(names[a.eid][0], a.by_target[eid], a) for a in enc.actors.values() if a.by_target[eid]]
+        total = sum(r[1] for r in rows) or 1
+        top = max((r[1] for r in rows), default=1) or 1
+        table.set_columns(["Jugador", "Daño", "%", "DPS"])
+        table.setRowCount(len(rows))
+        for i, (name, amount, a) in enumerate(rows):
+            first = SortItem(name, name.lower(), Qt.AlignLeft | Qt.AlignVCenter)
+            first.setData(BAR_ROLE, amount / top)
+            first.setData(COLOR_ROLE, QColor(CLASS_COLOR.get(a.class_name, theme.ACCENT.name())))
+            first.setForeground(theme.GOLD if a.is_self else theme.TEXT)
+            for col, item in enumerate([first, SortItem(short_number(amount), amount),
+                                        SortItem(_pct(amount / total), amount / total),
+                                        SortItem(short_number(amount / enc.duration), amount / enc.duration)]):
+                table.setItem(i, col, item)
+        table.setSortingEnabled(True)
+        table.sortItems(1, Qt.DescendingOrder)
 
     def _on_select(self):
         items = self.table.selectedItems()
         if not items:
+            return
+        if self.enemy_view:
+            eid = self.table.item(items[0].row(), 0).data(KEY_ROLE)
+            if eid != self.selected_enemy:
+                self.selected_enemy = eid
+                self._fill_enemy_breakdown(self.encounter(), eid)
             return
         eid = self.table.item(items[0].row(), 0).data(KEY_ROLE)
         if eid != self.selected:

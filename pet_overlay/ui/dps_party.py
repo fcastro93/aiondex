@@ -1,7 +1,7 @@
-"""The DPS meter's party view, for the 5-player dungeons (Exploration, Conquest, Transcendence...): a card with the
-fight time, your Odyle Energy and this dungeon's rewards left (as the game writes them, 75(+15)), the boss's rage
-countdown, its name and its HP; then one row per player with the class colour, their combat power, DPS and the share
-of the boss's HP they took."""
+"""The DPS meter's look: a card with the fight time, your Odyle Energy and the dungeon's rewards left (in dungeons, as
+the game writes them, 75(+15)), the boss's rage countdown, its name and its HP (or "Enemigos (N)" and the damage
+dealt when the fight is against several monsters); then one row per player with the class colour, their combat
+power, DPS and share. Texts carry a thin dark shadow so they stay sharp over the game and the coloured bars."""
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QFontMetrics, QLinearGradient, QPainter, QPainterPath, QPen, QPolygonF
 from PySide6.QtWidgets import QSizePolicy, QWidget
@@ -14,6 +14,17 @@ OTHER_COLOR = "#56637f"
 TEAL = QColor("#5ed6c6")          # fight time, combat power, the game's blue "(+15)"
 HP_COLOR = QColor("#52c98a")
 RAGE_SOON = 30                    # seconds: the rage countdown turns red
+
+
+SHADOW = QColor(0, 0, 0, 150)
+
+
+def shadow_text(p, rect, flags, text, color):
+    """Text with a 1 px dark shadow below it: sharp over any background."""
+    p.setPen(SHADOW)
+    p.drawText(QRectF(rect).translated(0, 1), flags, text)
+    p.setPen(color)
+    p.drawText(rect, flags, text)
 
 
 def thousands(n):
@@ -94,22 +105,24 @@ class BossCard(QWidget):
     """The fight's card. `boss` = None while waiting for the fight, else a dict with name, hp, max_hp, dead,
     rage (seconds left, negative once raged, None if it never rages) and ttk (seconds to kill at this pace)."""
 
-    def __init__(self, fonts, elapsed, energy, rewards, boss, place=""):
+    def __init__(self, fonts, elapsed, energy, rewards, boss, idle_title="Mazmorra"):
         super().__init__()
-        self.fonts, self.elapsed, self.energy, self.rewards, self.boss, self.place = (fonts, elapsed, energy, rewards,
-                                                                                      boss, place)
+        self.fonts, self.elapsed, self.energy, self.rewards, self.boss = fonts, elapsed, energy, rewards, boss
+        self.idle_title = idle_title
         self.setFixedHeight(fonts.px(50))
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.setToolTip(self._tip())
 
     def _tip(self):
         lines = []
+        if self.boss and self.boss.get("count"):
+            lines.append("Pelea contra varios enemigos: cuántos hay, cuántos murieron y el daño total que les hicisteis.")
         if self.energy:
             lines.append("Rayo: tu Energía de Odyle (en azul, la extra). Paga el cubo de recompensa al final de "
                          "Exploración y Trascendencia.")
         if self.rewards:
             lines.append("Cofre: recompensas que te quedan de esta mazmorra.")
-        else:
+        elif self.energy:
             lines.append("Las recompensas que te quedan de esta mazmorra aparecen después de la primera vez que "
                          "cobres una aquí (el juego no dice cuál es hasta entonces).")
         if self.boss and self.boss.get("rage") is not None:
@@ -128,7 +141,7 @@ class BossCard(QWidget):
         pad = f.px(8)
         icon = f.px(28)
         _boss_icon(p, QRectF(r.left() + pad, r.top() + (r.height() - icon) / 2 - f.px(2), icon, icon),
-                   bool(boss and boss["dead"]))
+                   bool(boss and boss["dead"] and not boss.get("count")))
         left = r.left() + pad + icon + f.px(8)
         right = r.right() - pad
         top = QRectF(left, r.top() + f.px(4), right - left, f.px(16))
@@ -137,16 +150,17 @@ class BossCard(QWidget):
         if boss is None:
             p.setFont(f.body)
             p.setPen(theme.MUTED)
-            p.drawText(line2, Qt.AlignVCenter | Qt.AlignLeft,
-                       f"{self.place} · golpea para empezar" if self.place else "Golpea a un enemigo para empezar")
+            p.drawText(line2, Qt.AlignVCenter | Qt.AlignLeft, "Golpea a un enemigo para empezar")
+            return
+        if boss.get("count"):
+            self._several(p, line2, boss)
             return
         p.setFont(f.name)
         fm_name = p.fontMetrics()
         pct_text = "derrotado" if boss["dead"] else (f"{100 * boss['hp'] / boss['max_hp']:.1f}%"
                                                      if boss.get("max_hp") else "")
         pct_w = fm_name.horizontalAdvance(pct_text)
-        p.setPen(theme.GAIN if boss["dead"] else theme.TEXT)
-        p.drawText(line2, Qt.AlignVCenter | Qt.AlignRight, pct_text)
+        shadow_text(p, line2, Qt.AlignVCenter | Qt.AlignRight, pct_text, theme.GAIN if boss["dead"] else theme.TEXT)
         hp_right = line2.right() - pct_w - f.px(8)
         hp_w = 0
         if boss.get("max_hp") and not boss["dead"]:
@@ -160,9 +174,9 @@ class BossCard(QWidget):
             p.drawText(QRectF(line2.left(), line2.top(), hp_right - line2.left(), line2.height()),
                        Qt.AlignVCenter | Qt.AlignRight, hp_text)
         p.setFont(f.name)
-        p.setPen(theme.TEXT)
         room = int(hp_right - hp_w - f.px(8) - line2.left())
-        p.drawText(line2, Qt.AlignVCenter | Qt.AlignLeft, fm_name.elidedText(boss["name"], Qt.ElideRight, room))
+        shadow_text(p, line2, Qt.AlignVCenter | Qt.AlignLeft, fm_name.elidedText(boss["name"], Qt.ElideRight, room),
+                    theme.TEXT)
         bar = QRectF(left, r.bottom() - f.px(9), right - left, f.px(4))
         p.setPen(Qt.NoPen)
         p.setBrush(QColor(255, 255, 255, 26))
@@ -173,13 +187,37 @@ class BossCard(QWidget):
             p.drawRoundedRect(QRectF(bar.left(), bar.top(), max(bar.height(), bar.width() * ratio), bar.height()),
                               bar.height() / 2, bar.height() / 2)
 
+    def _several(self, p, line, info):
+        """Several monsters: "Enemigos (4)", how many died and the damage dealt to all of them."""
+        f = self.fonts
+        p.setFont(f.name)
+        total = compact_number(info["damage"])
+        fm = p.fontMetrics()
+        shadow_text(p, line, Qt.AlignVCenter | Qt.AlignRight, total, theme.TEXT)
+        right = line.right() - fm.horizontalAdvance(total) - f.px(8)
+        p.setFont(f.small)
+        dead = f"{info['dead']} derrotados · daño" if info["dead"] else "daño"
+        p.setPen(theme.MUTED)
+        p.drawText(QRectF(line.left(), line.top(), right - line.left(), line.height()),
+                   Qt.AlignVCenter | Qt.AlignRight, dead)
+        p.setFont(f.name)
+        shadow_text(p, line, Qt.AlignVCenter | Qt.AlignLeft, f"Enemigos ({info['count']})", theme.TEXT)
+        bar = QRectF(line.left(), self.rect().bottom() - f.px(9.5), line.width(), f.px(4))
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(255, 255, 255, 26))
+        p.drawRoundedRect(bar, bar.height() / 2, bar.height() / 2)
+        if info["dead"]:                 # how many of them are down
+            p.setBrush(QColor("#e05a5a"))
+            p.drawRoundedRect(QRectF(bar.left(), bar.top(), bar.width() * info["dead"] / info["count"], bar.height()),
+                              bar.height() / 2, bar.height() / 2)
+
     def _top_line(self, p, rect, boss):
         f = self.fonts
         x = rect.left()
         mid = rect.center().y()
         p.setFont(f.badge)
         p.setPen(TEAL)
-        text = f"Combate {clock(self.elapsed)}" if boss is not None else "Mazmorra"
+        text = f"Combate {clock(self.elapsed)}" if boss is not None else self.idle_title
         p.drawText(QRectF(x, rect.top(), rect.width(), rect.height()), Qt.AlignVCenter | Qt.AlignLeft, text)
         x += p.fontMetrics().horizontalAdvance(text) + f.px(7)
         s = f.px(11)
@@ -203,6 +241,11 @@ class BossCard(QWidget):
             x += f.px(7)
         rage = boss.get("rage") if boss and not boss["dead"] else None
         if rage is None:
+            if boss and boss.get("label"):                  # what kind of fight: Farmeo, Jefe de campo...
+                p.setFont(f.badge)
+                p.setPen(theme.MUTED)
+                p.drawText(QRectF(x, rect.top(), rect.right() - x, rect.height()), Qt.AlignVCenter | Qt.AlignRight,
+                           boss["label"])
             return
         ttk = boss.get("ttk")
         if rage <= 0:
@@ -270,11 +313,11 @@ class PartyRow(QWidget):
         share_w = fm.horizontalAdvance("100.0%")
         dps_w = fm.horizontalAdvance("888,888/s")
         right = r.right() - pad
-        p.setPen(theme.GOLD)
-        p.drawText(QRectF(right - share_w, r.top(), share_w, r.height()), Qt.AlignVCenter | Qt.AlignRight, self.share)
+        shadow_text(p, QRectF(right - share_w, r.top(), share_w, r.height()), Qt.AlignVCenter | Qt.AlignRight,
+                    self.share, theme.GOLD)
         right -= share_w + f.px(8)
-        p.setPen(theme.TEXT)
-        p.drawText(QRectF(right - dps_w, r.top(), dps_w, r.height()), Qt.AlignVCenter | Qt.AlignRight, self.dps)
+        shadow_text(p, QRectF(right - dps_w, r.top(), dps_w, r.height()), Qt.AlignVCenter | Qt.AlignRight, self.dps,
+                    theme.TEXT)
         right = right - fm.horizontalAdvance(self.dps) - f.px(8)
         # name and combat power
         left = disc.right() + f.px(7)
@@ -282,8 +325,8 @@ class PartyRow(QWidget):
         small = QFontMetrics(f.badge)
         cp_w = (f.px(11) + f.px(3) + small.horizontalAdvance(cp_text) + f.px(6)) if cp_text else 0
         name = fm.elidedText(self.name, Qt.ElideRight, int(max(10, right - left - cp_w)))
-        p.setPen(theme.TEXT)
-        p.drawText(QRectF(left, r.top(), right - left, r.height()), Qt.AlignVCenter | Qt.AlignLeft, name)
+        shadow_text(p, QRectF(left, r.top(), right - left, r.height()), Qt.AlignVCenter | Qt.AlignLeft, name,
+                    theme.TEXT)
         if cp_text:
             x = left + fm.horizontalAdvance(name) + f.px(6)
             s = f.px(10)

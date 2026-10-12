@@ -41,6 +41,7 @@ class Ledger:
         data = _load(self.dir / "sales.json", {})
         self.sales = data.get("sales", [])
         self.listings = data.get("listings")     # the last List scan: {"at", "rows", "listed", "slots", "total"}
+        self.cost_fn = None      # sale -> what its materials cost you with your marks (bought / farmed), or None
 
     def save(self):
         self.dir.mkdir(parents=True, exist_ok=True)
@@ -131,12 +132,20 @@ class Ledger:
         self.save()
 
     # --- numbers ---
-    @staticmethod
-    def profit(sale, buying=False):
+    def cost(self, sale):
+        """What the sale's materials cost you: with your marks of what you bought and what you farmed (cost_fn), else
+        gathering what you can as the sale recorded it; 0 for what you did not craft; None when a price is missing."""
+        if not sale.get("crafted"):
+            return 0
+        if self.cost_fn is not None:
+            return self.cost_fn(sale)
+        return sale.get("cost")
+
+    def profit(self, sale, buying=False):
         """What the sale left after the tax and the materials: None when the materials' price is not known."""
         if not sale.get("crafted"):
             return sale["net"]                    # dropped / bought items: no materials to pay
-        cost = sale.get("buy_cost" if buying else "cost")
+        cost = sale.get("buy_cost") if buying else self.cost(sale)
         return None if cost is None else sale["net"] - cost
 
     @staticmethod
@@ -152,7 +161,7 @@ class Ledger:
         buy_known = [s for s in sales if self.profit(s, True) is not None]
         return {"count": len(sales), "units": sum(s["qty"] for s in sales), "gross": sum(s["price"] for s in sales),
                 "tax": sum(s["tax"] for s in sales), "net": net, "profit": profit,
-                "cost": sum(s["cost"] for s in known if s.get("crafted") and s.get("cost") is not None),
+                "cost": sum(self.cost(s) for s in known if s.get("crafted")),
                 "buy_profit": sum(self.profit(s, True) for s in buy_known),
                 "unknown": len(sales) - len(known),
                 "margin": profit / sum(s["net"] for s in known) if known and sum(s["net"] for s in known) else None}

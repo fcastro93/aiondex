@@ -15,6 +15,7 @@ from .world import MAP_ENTER_OPCODE, SPAWN_OPCODE, WorldTracker, game_map_factio
 from .combat import PLAYER_SPAWN_OPCODE, CombatTracker, in_instance, parse_player
 from .damage import (DAMAGE_OPCODES, DEATH_OPCODE, READY as DAMAGE_READY, STATS_OPCODE, parse_hp,
                      parse_mp, summon_owner)
+from .fightlog import FightLog, summary as fight_summary
 from .npcs import NpcDb
 from .roster import (FORCE_INFO_OPCODE, MEMBER_OPCODES, PARTY_INFO_OPCODE, ROSTER_OPCODE, parse_member_ids,
                      parse_member_stats, parse_party_info, parse_roster)
@@ -413,6 +414,8 @@ class Controller(QObject):
         self.bridge.roster.connect(self.on_roster)
         self.bridge.member_stats.connect(lambda stats: self.member_stats.update(stats))
         self.own_cp = None              # your combat power (5636)
+        self.fights = FightLog(self.data_dir, enabled=self.persist)      # the last 48 hours of fights, and the pinned
+        self._pin_when_done = set()     # fights pinned while they were going on
         self.bridge.own_cp.connect(lambda cp: setattr(self, "own_cp", cp))
         self._armory_relay = _Relay()
         self.armory = Armory(self.data_dir, on_ready=self._armory_relay.ready.emit)
@@ -539,7 +542,8 @@ class Controller(QObject):
             return
         slug = self.mapdata.db.get("npcs", {}).get(str(npc_id))
         name = (self.mapdata.monsters.get(slug, {}).get("name") if slug else None) or self.npc_db.name(npc_id)
-        self.combat.add_npc(eid, name or self.boss_names.get(npc_id), max_hp, rage=self.npc_db.rage(npc_id))
+        self.combat.add_npc(eid, name or self.boss_names.get(npc_id), max_hp, rage=self.npc_db.rage(npc_id),
+                            npc_id=npc_id)
 
     def on_hits(self, hits):
         me = self.combat.self_eid
@@ -833,7 +837,66 @@ class Controller(QObject):
         if self.active_module.key == "dps" and (finished or (self.combat.current and not self.combat.current.ended)):
             self.refresh()
 
+    # --- saved fights (fightlog.py) -------------------------------------------------------------------
+    def cp_of(self, name):
+        """Combat power of you or a member of your group, if the game sent it."""
+        if self.character and name == self.character.name and self.own_cp:
+            return self.own_cp
+        stats = self.member_stats.get(name)
+        return stats[2] if stats else None
+
+    def _save_fight(self, enc):
+        if not enc.total:
+            return
+        group = enc.group_names(self.combat.group)
+        names = set(group) | {a.name for a in enc.actors.values() if a.is_self}
+        enc.cp = {n: self.cp_of(n) for n in names if self.cp_of(n)}
+        pin = enc.id in self._pin_when_done
+        self._pin_when_done.discard(enc.id)
+        enc.pinned = enc.pinned or pin
+        self.fights.save(enc, group, force=enc.pinned)
+
+    def fight_list(self):
+        """The fights to list, newest first: this session's (the one going on included) and the saved ones, as
+        summaries {id, target, label, duration, killed, damage, dps, share, last, pinned, live}."""
+        session = list(self.combat.recent)
+        current = self.combat.current
+        if current is not None and current not in session and current.total:
+            session.insert(0, current)
+        out, seen = [], set()
+        for enc in session:
+            item = fight_summary(enc, enc.group_names(self.combat.group))
+            entry = self.fights.entry(enc.id)
+            item["pinned"] = bool(entry and entry.get("pinned")) or enc.id in self._pin_when_done
+            item["live"] = not enc.ended
+            out.append(item)
+            seen.add(enc.id)
+        out += [dict(e, live=False) for e in self.fights.entries() if e["id"] not in seen]
+        return sorted(out, key=lambda i: -i["last"])
+
+    def fight(self, fid):
+        """A fight by id: from this session, else from the saved ones."""
+        for enc in (self.combat.current, *self.combat.recent):
+            if enc is not None and enc.id == fid:
+                return enc
+        return self.fights.load(fid)
+
+    def pin_fight(self, fid, on):
+        """★: keep a fight past the 48 hours (saving it if it was too short to be saved)."""
+        enc = next((e for e in (self.combat.current, *self.combat.recent) if e is not None and e.id == fid), None)
+        if enc is not None:
+            enc.pinned = on
+            if not enc.ended:
+                (self._pin_when_done.add if on else self._pin_when_done.discard)(fid)
+            elif on and self.fights.entry(fid) is None:
+                self._save_fight(enc)
+        self.fights.set_pinned(fid, on)
+        self.refresh()
+        if self.dps_window is not None and self.dps_window.isVisible():
+            self.dps_window.refresh()
+
     def _encounter_notice(self, enc):
+        self._save_fight(enc)
         me = next((a for a in enc.dealers() if a.is_self), None)
         if not me or enc.duration < 8 and not enc.killed:
             return
@@ -1250,7 +1313,7 @@ class Controller(QObject):
             self.sniffer.restart()
 
     def open_dps_details(self, encounter=None):
-        """The combat details window, on `encounter` (from the history) or on the latest fight."""
+        """The combat details window, on `encounter` (a fight or its id, from the history) or on the latest one."""
         from .ui.dpswindow import DpsDetailsWindow
         if self.dps_window is None:
             self.dps_window = DpsDetailsWindow(self)

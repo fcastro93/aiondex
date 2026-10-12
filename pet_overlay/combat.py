@@ -159,9 +159,21 @@ class Encounter:
     hp_start: dict = field(default_factory=dict)      # target eid -> first hp seen during the encounter
     hp_at: dict = field(default_factory=dict)         # target eid -> time of that first hp
     target_max_hp: dict = field(default_factory=dict)  # target eid -> max hp from its spawn
+    target_npc: dict = field(default_factory=dict)    # enemy eid -> its npc id (its kind)
     map_id: int | None = None                         # game map where the fight happened
     killed: bool = False
     ended: bool = False
+    group: set | None = None     # your party / force when it ended (None while it goes on: the current one counts)
+    cp: dict = field(default_factory=dict)            # name -> combat power of you and your group (saved fights)
+    pinned: bool = False         # saved fight kept past the 48 hours
+
+    @property
+    def id(self):
+        return str(int(self.start * 1000))
+
+    def group_names(self, current):
+        """Your group for this fight: the one it had when it ended, else `current` (the group now)."""
+        return self.group if self.group is not None else current
 
     def contribution(self, group_names):
         """Contribution to the main target, or None when nobody hit it."""
@@ -305,6 +317,7 @@ class CombatTracker:
         self.owners = {}         # summon eid -> owner eid
         self.npc_names = {}      # eid -> monster name
         self.max_hp = {}         # eid -> max hp from the spawn
+        self.npc_ids = {}        # eid -> npc id (the kind of monster)
         self.rage = {}           # eid -> seconds from the start of the fight until that boss rages
         self.engaged = {}        # eid -> first hit between that monster and your side (kept across encounters)
         self.group = set()       # names of your party / force members (from the group roster)
@@ -331,9 +344,16 @@ class CombatTracker:
     def add_summon(self, eid, owner):
         self.owners[eid] = owner
 
-    def add_npc(self, eid, name, max_hp=None, rage=None):
-        if not name:
-            name = f"Jefe ({max_hp // 1000}K HP)" if max_hp and max_hp >= 300_000 else "Enemigo"
+    def add_npc(self, eid, name, max_hp=None, rage=None, npc_id=None):
+        """A monster came into view. Without a name (a variant no database lists) it is called by its HP, which
+        tells the kinds apart; monsters that were around before AionDex listened have no spawn at all: "Enemigo"."""
+        if not name and npc_id is not None and 2920000 <= npc_id < 2930000:
+            name = "Efecto enemigo"      # objects a monster leaves (they copy its HP): areas, totems, clones
+        elif not name:
+            name = (f"Jefe ({max_hp // 1000}K HP)" if max_hp and max_hp >= 300_000 else
+                    f"Enemigo ({max_hp // 1000}K HP)" if max_hp and max_hp >= 1000 else "Enemigo")
+        if npc_id is not None:
+            self.npc_ids[eid] = npc_id
         self.npc_names[eid] = name
         if max_hp:
             self.max_hp[eid] = max_hp
@@ -410,6 +430,8 @@ class CombatTracker:
             enc.target_names[hit.target] = self.npc_names[hit.target]
         if hit.target in self.max_hp:
             enc.target_max_hp[hit.target] = self.max_hp[hit.target]
+        if hit.target in self.npc_ids:
+            enc.target_npc[hit.target] = self.npc_ids[hit.target]
         return finished
 
     def _on_support(self, hit):
@@ -437,6 +459,8 @@ class CombatTracker:
                 enc.target_names.setdefault(enemy, self.npc_names[enemy])
             if enemy in self.max_hp:
                 enc.target_max_hp.setdefault(enemy, self.max_hp[enemy])
+            if enemy in self.npc_ids:
+                enc.target_npc.setdefault(enemy, self.npc_ids[enemy])
             actor.taken_max = max(actor.taken_max, hit.amount)
             actor.taken_from[self.owners.get(hit.attacker, hit.attacker)] += hit.amount
             actor.taken_skills[hit.skill] += hit.amount
@@ -500,6 +524,7 @@ class CombatTracker:
         enc = self.current
         enc.ended = True
         enc.killed = enc.main_target_eid in enc.dead
+        enc.group = set(self.group)
         if not enc.total:
             return enc                   # nobody dealt damage (a monster hit you while passing by): not a fight
         self.recent.appendleft(enc)

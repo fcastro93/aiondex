@@ -1,5 +1,7 @@
 """Crafting's Ventas tab: your sales one by one (price, tax, what you collected, the materials, the profit, the proof),
-what you have on sale, the totals of a period, each product's numbers and a chart of the last two weeks."""
+what you have on sale, the totals of a period, each product's numbers and a chart of the last two weeks. The real
+profit counts what you marked: the materials you bought (at the market's price of the sale's time) and the ones you
+farmed, gathered or made (free, or their own materials)."""
 import os
 import time
 
@@ -13,6 +15,8 @@ from .widgets import SectionTitle, label
 
 PERIODS = [("day", "Hoy"), ("week", "7 días"), ("month", "30 días"), ("all", "Todo")]
 SALES_SHOWN = 40
+SOURCE_TEXT = {"gather": "se recolecta", "market": "botín de monstruos / mercado", "craft": "se fabrica",
+               "npc": "NPC"}
 
 
 def _kinah(value, sign=False):
@@ -94,6 +98,9 @@ class SalesView(QWidget):
 
     def _build(self):
         f, ledger, now = self.fonts, self.ledger, time.time()
+        crafting = self.window.crafting
+        crafting.faction = self.ctl.crafting_faction()
+        crafting._real_cache.clear()                 # prices, levels or marks may have changed
         hk = self.ctl.settings["hotkeys"].get("crafting_scan", "")
         how = label("Cuando vendas algo: en el mercado abre Settlement (antes de cobrar) y pulsa Escanear"
                     + (f" ({hk})" if hk else "") + ". AionDex guarda cada venta con su captura como prueba y calcula "
@@ -125,18 +132,23 @@ class SalesView(QWidget):
         tiles.addWidget(tile("Impuesto del mercado", _kinah(t["tax"]),
                              f"{t['tax'] / t['gross']:.0%} de lo vendido" if t["gross"] else ""))
         tiles.addWidget(tile("Cobrado", _kinah(t["net"]), "lo que te llega"))
-        tiles.addWidget(tile("Materiales", _kinah(t["cost"]), "recolectando lo que puedes",
-                             tip="Lo que costaban los materiales cuando se vendió, contando los intentos que fallan "
-                                 "(como en Rentabilidad). Lo que no fabricas (botín, compras) no tiene coste."))
+        tiles.addWidget(tile("Materiales", _kinah(t["cost"]), "según lo que marcaste",
+                             tip="Lo que te costaron los materiales según marcaste abajo: los comprados al precio del "
+                                 "mercado de cuando se vendió (los del NPC, a su precio), los farmeados o recolectados "
+                                 "gratis, contando los intentos que fallan. Lo que no fabricas (botín, compras) no "
+                                 "tiene coste."))
         unknown = f" · {t['unknown']} sin precio de materiales" if t["unknown"] else ""
-        tiles.addWidget(tile("Ganancia", _kinah(t["profit"], sign=True),
+        tiles.addWidget(tile("Ganancia real", _kinah(t["profit"], sign=True),
                              (f"margen {t['margin']:.0%}" if t["margin"] is not None else "") + unknown,
-                             theme.GAIN if t["profit"] > 0 else theme.COMBAT if t["profit"] < 0 else theme.TEXT))
+                             theme.GAIN if t["profit"] > 0 else theme.COMBAT if t["profit"] < 0 else theme.TEXT,
+                             tip="Lo cobrado (ya sin el impuesto del mercado) menos lo que te costaron los "
+                                 "materiales según lo que marcaste, con los intentos que fallan"))
         tiles.addWidget(tile("Comprando todo", _kinah(t["buy_profit"], sign=True), "si compraras los materiales",
                              theme.GAIN if t["buy_profit"] > 0 else theme.COMBAT if t["buy_profit"] < 0 else theme.TEXT))
         self.col.addLayout(tiles)
         if sales:
             self._highlights(sales)
+        self._marks()
 
         # what is on sale
         self._on_sale(now)
@@ -246,6 +258,66 @@ class SalesView(QWidget):
         grid.setColumnStretch(0, 1)
         self.col.addLayout(grid)
 
+    def _marks(self):
+        """Which materials you bought and which you farmed: each sale's real cost comes from these marks."""
+        f = self.fonts
+        crafting = self.window.crafting
+        mats = crafting.sold_materials()
+        if not mats:
+            return
+        self.col.addWidget(SectionTitle("Materiales: ¿comprados o farmeados?", f))
+        note = label("Marca de dónde sacaste cada material de lo que vendes: los comprados cuentan al precio del "
+                     "mercado de cuando vendiste, los farmeados o recolectados no cuestan nada, y lo que fabricas "
+                     "tú cuenta sus propios materiales. La ganancia real de cada venta se recalcula al momento.",
+                     f.small, theme.MUTED)
+        note.setWordWrap(True)
+        self.col.addWidget(note)
+        prices = crafting.latest_prices()
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(14)
+        grid.setVerticalSpacing(3)
+        for c, text in enumerate(("Material", "De dónde sale", "Para", "Precio ahora", "")):
+            grid.addWidget(label(text, f.small, theme.MUTED), 0, c, Qt.AlignRight if c == 3 else Qt.AlignLeft)
+        npc = []
+        r = 1
+        for name, source, products, depth in mats:
+            if source == "npc":
+                npc.append(name)
+                continue
+            grid.addWidget(label(("    " * depth) + name, f.body, theme.TEXT), r, 0)
+            grid.addWidget(label(SOURCE_TEXT.get(source, source), f.small, theme.MUTED), r, 1)
+            used = label(", ".join(products), f.small, theme.MUTED, elide=True)
+            grid.addWidget(used, r, 2)
+            price = prices.get(name)
+            grid.addWidget(label(_kinah(price[0]) if price else "sin precio", f.body,
+                                 theme.TEXT if price else theme.WARN), r, 3, Qt.AlignRight)
+            choice = crafting.mat_choice(name, source)
+            buttons = QHBoxLayout()
+            buttons.setSpacing(4)
+            for key, text in (("buy", "Comprado"), ("farm", "Hecho por mí" if source == "craft" else
+                                                     "Recolectado" if source == "gather" else "Farmeado")):
+                button = QPushButton(text)
+                button.setProperty("tab", True)
+                button.setCheckable(True)
+                button.setChecked(choice == key)
+                button.clicked.connect(lambda _=False, n=name, k=key: self._set_mark(n, k))
+                buttons.addWidget(button)
+            holder = QWidget()
+            holder.setLayout(buttons)
+            buttons.setContentsMargins(0, 0, 0, 0)
+            grid.addWidget(holder, r, 4)
+            r += 1
+        grid.setColumnStretch(2, 1)
+        self.col.addLayout(grid)
+        if npc:
+            self.col.addWidget(label("Siempre comprados al NPC (a su precio): " + ", ".join(npc), f.small,
+                                     theme.MUTED))
+
+    def _set_mark(self, name, key):
+        self.window.crafting.set_mat_choice(name, key)
+        self.window.refresh()
+        self.ctl.refresh()
+
     def _sales(self, sales):
         f, ledger = self.fonts, self.ledger
         grid = QGridLayout()
@@ -266,8 +338,8 @@ class SalesView(QWidget):
             grid.addWidget(label(_kinah(s["price"]), f.body, theme.TEXT), r, 3, Qt.AlignRight)
             grid.addWidget(label(_kinah(s["tax"]), f.body, theme.MUTED), r, 4, Qt.AlignRight)
             grid.addWidget(label(_kinah(s["net"]), f.name, theme.TEXT), r, 5, Qt.AlignRight)
-            cost = "no fabricado" if not s.get("crafted") else _kinah(s.get("cost")) if s.get("cost") is not None \
-                else "?"
+            paid = ledger.cost(s)
+            cost = "no fabricado" if not s.get("crafted") else _kinah(paid) if paid is not None else "?"
             cost_label = label(cost, f.body, theme.MUTED)
             if s.get("crafted") and s.get("buy_cost") is not None:
                 cost_label.setToolTip(f"Comprando todos los materiales: {_kinah(s['buy_cost'])}")
