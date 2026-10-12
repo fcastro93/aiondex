@@ -6,8 +6,9 @@ from collections import Counter, deque
 from pathlib import Path
 
 from .skills import SLOT_KEYS, OwnSkill, QuickSlot, base_skill, chain_parents, is_basic_attack
-from .tuner import (CALIBRATION_KINDS, CALIBRATION_SECONDS, DEFAULT_BINDINGS, Finding, MacroSetup, TunerSession,
-                    analyze, calibration_run, calibration_values, recommend, test_noise, test_summary)
+from .tuner import (CALIBRATION_KINDS, CALIBRATION_SECONDS, DEFAULT_BINDINGS, LOW_MP_SHARE, Finding, MacroSetup,
+                    TunerSession, analyze, calibration_run, calibration_values, fight_windows, mp_low_intervals,
+                    recommend, test_noise, test_summary)
 
 CAST_MATCH_SECONDS = 0.2     # the cast (0238) and the reply to its press (0138) arrive in the same packet
 FRESH_LOADOUT = 15.0         # a skill list this recent belongs to the character that logs in right after it
@@ -15,7 +16,7 @@ STORE_DELAY = 3.0            # wait for the login's character info before saving
 PRESET_MARGIN = 0.15         # how much better another preset must match your presses to be the one you used
 RTT_WINDOW = 0.6             # a press is answered within this many seconds of being sent
 TEST_HISTORY = 6             # tests kept per character and preset ("Antes" + the latest ones)
-SHARED_KEYS = ("events", "roles", "external_repeat", "skill_queue")
+SHARED_KEYS = ("events", "roles", "external_repeat", "skill_queue", "uses_external")
 PRESET_KEYS = ("ingame", "suggested")
 
 
@@ -38,6 +39,7 @@ class Afinador:
         self._loadout_for = None     # character the skill list and bars belong to (None: not known yet)
         self._store_pending = False
         self.rtts = deque(maxlen=60)         # ms between sending a press and the server's answer
+        self.mp = self.max_mp = None
         self.calibration = None              # {"kind", "values", "runs"} while calibrating delays
         self._rtt_send = 0.0
         self._presses = deque(maxlen=8)      # (ts, skill id, folded) accepted presses not matched to a cast yet
@@ -309,9 +311,32 @@ class Afinador:
             if self.recording:
                 self.session.rtts.append(rtt)
 
-    def on_damage(self, amount):
+    def on_damage(self, skill, amount):
         if self.recording:
             self.session.damage += amount
+            self.session.damage_by_skill[self.fold(skill)] += amount
+
+    def on_mp(self, ts, mp, max_mp):
+        self.mp = mp
+        if max_mp:
+            self.max_mp, self._max_known = max_mp, True
+        elif not getattr(self, "_max_known", False):
+            self.max_mp = max(self.max_mp or 0, mp)      # the max comes once at login; mana refills between fights
+        if self.recording:
+            self.session.mp.append((ts, mp))
+            self.session.max_mp = self.max_mp
+
+    def out_of_mana(self):
+        return bool(self.mp is not None and self.max_mp and self.mp < self.max_mp * LOW_MP_SHARE)
+
+    def fight_seconds(self):
+        """Fighting time of the running test, leaving out the time without mana."""
+        s = self.session
+        if not s:
+            return 0.0
+        low = mp_low_intervals(s)
+        times = [ts for ts, _, r in s.presses if r == 0 and not any(a <= ts < b for a, b in low)]
+        return sum(b - a for a, b in fight_windows(times))
 
     def _pressed_cast(self, ts, sid, cooldown_ms):
         self.last_cast[sid] = (ts, cooldown_ms)
@@ -319,7 +344,9 @@ class Afinador:
             self.session.casts.append((ts, sid, cooldown_ms))
 
     def start(self):
-        self.session = TunerSession(prior=dict(self.last_cast))
+        self.session = TunerSession(prior=dict(self.last_cast), max_mp=self.max_mp)
+        if self.mp is not None:
+            self.session.mp.append((time.time(), self.mp))
 
     def stop(self):
         if not self.session:
@@ -362,10 +389,13 @@ class Afinador:
         """What can be calibrated with this setup, in the recommended order."""
         setup = self.setup
         kinds = []
-        if setup.key_for("macro") and len(setup.ingame) >= 2:
-            kinds.append("hold")
-        if len(setup.keys()) >= 2:
-            kinds.append("gap")
+        if setup.uses_external:
+            if setup.key_for("macro") and len(setup.ingame) >= 2:
+                kinds.append("hold")
+            if setup.key_for("click"):
+                kinds.append("hold_attack")
+            if len(setup.keys()) >= 2:
+                kinds.append("gap")
         if setup.ingame:
             kinds.append("macro")
         return [k for k in CALIBRATION_KINDS if k in kinds]
@@ -399,6 +429,13 @@ class Afinador:
         c = self.calibration
         return c["values"][len(c["runs"])] if c and len(c["runs"]) < len(c["values"]) else None
 
+    def cancel(self):
+        """Throw away a test or calibration run in progress."""
+        if self.recording:
+            self.session = None
+        if self.calibration:
+            self.calibration["running"] = False
+
     def start_run(self):
         self.calibration["running"] = True
         self.start()
@@ -422,6 +459,8 @@ class Afinador:
                 line.delay_ms = value
         elif kind == "hold":
             setup.set_hold("macro", value)
+        elif kind == "hold_attack":
+            setup.set_hold("click", value)
         else:
             setup.set_main_gap(value)
         self.calibration["done"].append((kind, value))

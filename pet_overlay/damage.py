@@ -68,6 +68,24 @@ def parse_damage(op, body):
 
 
 STATS_OPCODE = bytes.fromhex("008d")
+MP_STAT, MAX_MP_STAT = 1, 8          # u32 stats: current and max MP (checked: casts lower it by their cost)
+
+
+def parse_mp(body):
+    """008d -> (entity, mp, max mp or None) when the update carries the MP, else None."""
+    try:
+        eid, p = read_varint(body, 0)
+        mask = body[p]
+        p += 1
+        if eid is None or not mask & 1:
+            return None
+        stats = {}
+        for _ in range(body[p]):
+            stats[body[p + 1]] = struct.unpack_from("<I", body, p + 2)[0]
+            p += 5
+    except (IndexError, struct.error, TypeError):
+        return None
+    return (eid, stats[MP_STAT], stats.get(MAX_MP_STAT)) if MP_STAT in stats else None
 
 
 def parse_hp(body):

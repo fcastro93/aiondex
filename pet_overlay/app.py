@@ -14,7 +14,7 @@ from .character import CHARACTER_OPCODE, parse_character
 from .world import MAP_ENTER_OPCODE, SPAWN_OPCODE, WorldTracker, game_map_faction, parse_spawn_full
 from .combat import PLAYER_SPAWN_OPCODE, CombatTracker, parse_player
 from .damage import (DAMAGE_OPCODES, DEATH_OPCODE, READY as DAMAGE_READY, STATS_OPCODE, parse_damage, parse_hp,
-                     summon_owner)
+                     parse_mp, summon_owner)
 from .roster import ROSTER_OPCODE, parse_roster
 from .skills import (CAST_OPCODE, PRESETS_OPCODE, REQUEST_OPCODE, SKILL_LIST_OPCODE, caster_of, parse_cast,
                      parse_presets, parse_request, parse_skill_list)
@@ -139,6 +139,9 @@ class Bridge(QObject):
             update = parse_hp(body)
             if update:
                 self.hp.emit(update)
+            mp = parse_mp(body) if self.self_eid is not None else None
+            if mp and mp[0] == self.self_eid:
+                self.own_skill.emit(("mp", time.time(), mp[1], mp[2]))
         elif op == DEATH_OPCODE:
             eid, _ = read_varint(body, 0)
             if eid is not None:
@@ -350,7 +353,7 @@ class Controller(QObject):
         for hit in hits:
             mine = me is not None and self.combat.owners.get(hit.attacker, hit.attacker) == me
             if mine and self.tuner.recording and hit.target not in self.combat.players:
-                self.tuner.on_damage(hit.amount)
+                self.tuner.on_damage(hit.skill, hit.amount)
             finished = self.combat.on_hit(hit)
             if finished:
                 self._encounter_notice(finished)
@@ -362,6 +365,8 @@ class Controller(QObject):
             self.tuner.on_press(*event[1:])
         elif kind == "cast":
             self.tuner.on_cast(*event[1:])
+        elif kind == "mp":
+            self.tuner.on_mp(*event[1:])
         elif kind in ("skills", "bar"):
             if kind == "skills":
                 self.tuner.on_skill_list(event[1])

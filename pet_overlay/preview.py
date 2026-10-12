@@ -96,6 +96,7 @@ def _simulate_skills(controller):
     setup.ingame = [MacroLine(list(q.priority), 10, q.slot) for q in tuner.bar if q.slot in (2, 3)]
     setup.events = key_events("F10") + [MacroEvent("wait", ms=40)] + key_events("F9")
     setup.roles = {"F10": "macro", "F9": "click"}
+    setup.uses_external = True
     cooldown = {14060000: 41950, 14130000: 13950, 14080000: 18650, 14110000: 18650, 14050000: 4650, 14340000: 0}
     rng = random.Random(5)
     now = time.time() - 70

@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxL
 
 from .. import APP_NAME
 from ..diagnostics import ago
-from ..tuner import (BINDINGS, CALIBRATION_SECONDS, ROLES, MacroEvent, MacroLine, fight_windows, is_mouse,
+from ..tuner import (BINDINGS, CALIBRATION_SECONDS, ROLES, MacroEvent, MacroLine, is_mouse,
                      key_events, test_noise)
 from . import theme
 from .appmenu import styled_menu
@@ -188,8 +188,10 @@ class TunerWindow(QWidget):
 
         self.left.addWidget(SectionTitle("Tus teclas del juego (Esc → Ajustes → Teclas)", f))
         self.left.addWidget(self._bindings_editor(setup))
-        self.left.addWidget(SectionTitle("Tu macro externo (Synapse, iCUE, G HUB…) — opcional", f))
-        self.left.addWidget(self._external_editor(setup))
+        self.left.addWidget(SectionTitle("Tu macro externo (Synapse, iCUE, G HUB…)", f))
+        self.left.addWidget(self._external_question(setup))
+        if setup.uses_external:
+            self.left.addWidget(self._external_editor(setup))
         repeat = QCheckBox("Se repite mientras mantengo el botón")
         repeat.setChecked(setup.external_repeat)
         repeat.toggled.connect(lambda on: self._edit(lambda s: setattr(s, "external_repeat", on), rebuild=False))
@@ -397,6 +399,27 @@ class TunerWindow(QWidget):
             col.addWidget(label(text + ".", f.small, theme.MUTED))
         return box
 
+    def _external_question(self, setup):
+        f = self.fonts
+        box = QWidget()
+        row = QHBoxLayout(box)
+        row.setContentsMargins(0, 0, 0, 0)
+        char = self.ctl.character_name() or "este personaje"
+        if setup.uses_external is None:
+            row.addWidget(label(f"¿Usas un macro externo con {char}?", f.name, theme.GOLD))
+        else:
+            row.addWidget(label(f"Con {char}: " + ("uso macro externo + el del juego" if setup.uses_external else
+                                                  "solo uso el macro del juego"), f.body, theme.TEXT))
+        for value, text in ((True, "Sí, uso macro externo"), (False, "No, solo el del juego")):
+            button = QPushButton(text)
+            button.setProperty("tab", True)
+            button.setCheckable(True)
+            button.setChecked(setup.uses_external is value)
+            button.clicked.connect(lambda _=False, v=value: self._edit(lambda s: setattr(s, "uses_external", v)))
+            row.addWidget(button)
+        row.addStretch(1)
+        return box
+
     def _bindings_editor(self, setup):
         """The two keys the game has for "Macro" and for "Quick Use 1" (the mouse slot), as in its settings."""
         f = self.fonts
@@ -547,10 +570,11 @@ class TunerWindow(QWidget):
         rejected = len(s.presses) - s.fired
         c = self.tuner.calibration
         if c and c.get("running"):
-            fought = sum(b - a for a, b in fight_windows(ts for ts, _, r in s.presses if r == 0))
+            fought = self.tuner.fight_seconds()
+            pause = " · SIN MANÁ: pausada, recupéralo y sigue" if self.tuner.out_of_mana() else ""
             self.test_status.setText(f"Prueba con {self.tuner.calibration_value()} ms: {fought:.0f} de "
                                      f"{CALIBRATION_SECONDS} s peleando · {s.fired} lanzamientos"
-                                     + (f" · {rejected} rechazados" if rejected else ""))
+                                     + (f" · {rejected} rechazados" if rejected else "") + pause)
             if fought >= CALIBRATION_SECONDS:
                 self._stop_run()
             return
@@ -641,6 +665,40 @@ class TunerWindow(QWidget):
         reset.clicked.connect(self._reset_tests)
         self.results.addWidget(reset, 0, Qt.AlignLeft)
 
+    def _mana_section(self, report):
+        f, m = self.fonts, report.mana
+        self.results.addWidget(SectionTitle("Maná", f))
+        if m.seconds_to_empty is None:
+            verdict, color = "Tu maná aguanta: recuperas al menos lo que gastas.", theme.GAIN
+        elif m.seconds_to_empty < 90 or m.low_share > 0.1:
+            verdict, color = f"Te quedas sin maná en unos {m.seconds_to_empty:.0f} s de pelea seguida.", theme.COMBAT
+        else:
+            verdict, color = (f"Pierdes maná poco a poco: aguantas unos {m.seconds_to_empty / 60:.0f} min de pelea "
+                              f"seguida.", theme.TEXT)
+        summary = label(f"{verdict} Gastas {m.spent_per_min:.0f} MP/min y recuperas {m.gained_per_min:.0f} "
+                        f"(máximo {m.max_mp})." + (f" Sin maná: {report.low_mp_s:.0f} s (no cuentan en la prueba)."
+                                                   if report.low_mp_s >= 1 else ""), f.small, color)
+        summary.setWordWrap(True)
+        self.results.addWidget(summary)
+        table = QWidget()
+        grid = QGridLayout(table)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(8)
+        grid.setVerticalSpacing(2)
+        for col, head in enumerate(("", "Habilidad", "MP", "Veces/min", "MP/min", "Daño/MP")):
+            grid.addWidget(label(head, f.small, theme.MUTED), 0, col, Qt.AlignLeft if col < 2 else Qt.AlignRight)
+        for r, (sid, cost, per_min, mp_min, dmg_mp) in enumerate(m.skills[:8], 1):
+            grid.addWidget(tile_for(self.tuner, sid, 22, border=False), r, 0)
+            grid.addWidget(label(self.tuner.skill_name(sid), f.body, theme.TEXT, elide=True), r, 1)
+            grid.addWidget(label(f"{-cost:+d}", f.body, theme.GAIN if cost < 0 else theme.TEXT), r, 2, Qt.AlignRight)
+            grid.addWidget(label(f"{per_min:.1f}", f.small, theme.MUTED), r, 3, Qt.AlignRight)
+            grid.addWidget(label(f"{-mp_min:+.0f}", f.small, theme.GAIN if mp_min < 0 else theme.MUTED), r, 4,
+                           Qt.AlignRight)
+            grid.addWidget(label(f"{dmg_mp:.0f}" if dmg_mp is not None else "—", f.small, theme.MUTED), r, 5,
+                           Qt.AlignRight)
+        grid.setColumnStretch(1, 1)
+        self.results.addWidget(table)
+
     def _reset_tests(self):
         self.tuner.reset_tests()
         self._update_test_button()
@@ -652,6 +710,10 @@ class TunerWindow(QWidget):
         self._show_calibration()
 
     def _close_calibration(self):
+        if self.tuner.recording:
+            self.tuner.cancel()
+            self._timer.stop()
+            self.test_status.setText("Prueba cancelada.")
         self.tuner.calibration = None
         self.test_button.setEnabled(True)
         self.calib_button.setVisible(True)
@@ -661,7 +723,9 @@ class TunerWindow(QWidget):
         setup = self.tuner.setup
         keys = setup.keys()
         if kind == "hold":
-            return f"Cuánto mantener {setup.key_for('macro') or 'la tecla del macro'} (macro externo)"
+            return f"Cuánto mantener {setup.key_name('macro')} (macro externo)"
+        if kind == "hold_attack":
+            return f"Cuánto mantener {setup.key_name('click')} (macro externo)"
         if kind == "gap":
             return f"Espera entre {keys[0]} y {keys[1]} (macro externo)" if len(keys) >= 2 else "Espera entre teclas"
         return "Retraso de los pasos del macro del juego"
@@ -669,8 +733,8 @@ class TunerWindow(QWidget):
     def _kind_where(self, kind):
         setup = self.tuner.setup
         keys = setup.keys()
-        if kind == "hold":
-            key = setup.key_for("macro") or "la tecla del macro"
+        if kind in ("hold", "hold_attack"):
+            key = setup.key_name("macro" if kind == "hold" else "click")
             return f"en la espera entre «{key} ↓ pulsar» y «{key} ↑ soltar» de tu macro externo"
         if kind == "gap":
             pair = f"{keys[0]} y {keys[1]}" if len(keys) >= 2 else "tus dos teclas"
@@ -738,9 +802,15 @@ class TunerWindow(QWidget):
         if runs:
             col.addWidget(self._runs_table(runs))
         if value is not None:
+            setup = tuner.setup
+            macro_key, attack_key = setup.key_name("macro"), setup.key_name("click")
+            how = (f"usa tu macro externo como siempre (pulsa {macro_key} y {attack_key})" if setup.uses_external else
+                   f"mantén {macro_key} y usa {attack_key} como en tus peleas")
             text(f"Prueba {len(runs) + 1} de {len(c['values'])}: pon {value} ms {self._kind_where(c['kind'])}. Luego "
-                 f"pulsa «Empezar» y pelea {CALIBRATION_SECONDS} s contra el mismo objetivo de siempre (un muñeco de "
-                 f"entrenamiento es lo ideal). AionDex para solo.")
+                 f"pulsa «Empezar», {how} y pelea {CALIBRATION_SECONDS} s contra el mismo objetivo (un muñeco de "
+                 f"entrenamiento es lo ideal). AionDex mide aparte lo que sale de cada tecla y para solo.")
+            text("Si te quedas sin maná, la prueba se pausa sola: espera a recuperarlo y sigue pegando; ese rato no "
+                 "cuenta.", color=theme.MUTED)
             start = QPushButton(f"Empezar prueba con {value} ms")
             start.setEnabled(not c.get("running"))
             start.clicked.connect(self._start_run)
@@ -775,14 +845,13 @@ class TunerWindow(QWidget):
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setHorizontalSpacing(8)
         grid.setVerticalSpacing(2)
-        for col, head in enumerate(("Valor", "Hab./s", "Daño/s", "Rech.", "Clic", "")):
+        for col, head in enumerate(("Valor", "Ataque/min", "Macro/min", "Hab./s", "Rech.", "")):
             grid.addWidget(label(head, f.small, theme.MUTED), 0, col, Qt.AlignRight if 0 < col < 5 else Qt.AlignLeft)
         for r, run in enumerate(runs, 1):
             problem = run_problem(run)
             color = theme.WARN if problem else theme.TEXT
-            share = f"{100 * run.click_share:.0f}%" if run.click_share is not None else "—"
-            cells = (f"{run.value} ms", f"{run.casts_per_s:.2f}", f"{run.dps / 1000:.1f}K",
-                     f"{100 * run.rejected:.0f}%", share, problem)
+            cells = (f"{run.value} ms", f"{run.attack_per_min:.0f}", f"{run.macro_per_min:.0f}",
+                     f"{run.casts_per_s:.2f}", f"{100 * run.rejected:.0f}%", problem)
             for col, value in enumerate(cells):
                 grid.addWidget(label(value, f.small if col == 5 else f.body, color), r, col,
                                Qt.AlignRight if 0 < col < 5 else Qt.AlignLeft)
@@ -817,8 +886,8 @@ class TunerWindow(QWidget):
         self.rebuild()
         if self.tuner.calibration and not self.tuner.calibration["queue"] and self.tuner.calibration_value() is None:
             self._close_calibration()
-            self.test_status.setText("Calibración guardada. Haz una prueba con los valores nuevos para compararla "
-                                     "con «Antes».")
+            self.test_status.setText("Calibración guardada. Ahora haz una prueba normal con los valores nuevos: "
+                                     "se compara con «Antes» y verás la revisión del maná.")
             return
         self._show_calibration()
 
@@ -852,6 +921,8 @@ class TunerWindow(QWidget):
                 advice.setWordWrap(True)
                 col.addWidget(advice)
             self.results.addWidget(box)
+        if report.mana:
+            self._mana_section(report)
         self.results.addWidget(SectionTitle("Lanzado frente a posible", f))
         table = QWidget()
         grid = QGridLayout(table)
