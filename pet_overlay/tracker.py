@@ -4,10 +4,15 @@ Two kinds of timers:
 - Fixed schedules (events, Abyss bosses): days + times in the server's clock (each Global region runs on its own
   local time; resets are at 16:00 Korean time on every server).
 - Field bosses (kill-based respawn): the game itself sends, while its map's field-monster list is open, every slot of
-  the map with "alive since" or "back at" (opcode 0191); kills AionDex sees fill in between.
+  the map with "alive since" or "back at" (opcode 0191); kills AionDex sees fill in between. The server announces
+  nothing else map-wide (85 spawns/kills out of view checked: no message carries the boss, its slot or its time), so
+  a boss far away is only known from the list.
+- A dead boss comes back exactly at its "back at" time (18 of 18 between two lists), so then it is alive since then.
+- An "alive" goes stale: in Altgard bosses lived 2.7 min (median, longest 14), in Verteron 46 min (longest 4 h);
+  each slot learns its own from the lists (alive since -> killed).
 
 0191: u16 0 | u32 map | u8 n | n x {u8 alive | varint slot (map*100 + place by npc code) | [alive: f32 x, y, z]
-      | [sometimes one extra byte] | u64 epoch ms} | ... (a second list follows, not used)
+      | [entry index % 8 == 0: u8 alive bits of the next 8 entries] | u64 epoch ms} | markers | events | 0
 """
 import json
 import struct
@@ -21,8 +26,10 @@ from .protocol import read_varint
 FIELD_LIST_OPCODE = bytes.fromhex("0191")
 MS_MIN, MS_MAX = 1_600_000_000_000, 2_200_000_000_000      # plausible epoch ms
 LEADS = (1, 3, 5, 10, 15, 30)
+STALE = {1110: 15 * 60, 1010: 60 * 60}      # seconds an "alive" holds by map (from one day of lists), else 30 min
+STALE_DEFAULT = 30 * 60
+SEEN_AT_RESPAWN = 10                        # a boss in view this close to its "back at" spawned then
 DEFAULT_LEAD = 5
-ALIVE_STALE = 30 * 60                                       # an "alive" older than this may have been killed since
 REGIONS = {                                                 # id -> (label, standard UTC offset, DST rule)
     "global-nae": ("NA East (Nueva York)", -5, "us"),
     "global-naw": ("NA West (Los Ángeles)", -8, "us"),
@@ -97,25 +104,27 @@ class SlotState:
 
 
 def parse_field_list(body):
-    """0191 -> (map id, [SlotState]) or None."""
+    """0191 -> (map id, [SlotState]) or None (checked strictly: 247 of 247 captured lists)."""
     try:
+        if struct.unpack_from("<H", body, 0)[0] != 0:
+            return None
         map_id = struct.unpack_from("<I", body, 2)[0]
         n, p = body[6], 7
         now = time.time()
-        out = []
-        for _ in range(n):
+        out, bits = [], []
+        for i in range(n):
             alive = body[p]
             slot, p = read_varint(body, p + 1)
-            if slot is None:
+            if slot is None or alive > 1:
                 return None
             if alive:
                 p += 12                                    # position
-            for skip in (0, 1, 2):                         # some slots carry an extra byte before the time
-                ms = struct.unpack_from("<Q", body, p + skip)[0]
-                if ms == 0 or MS_MIN < ms < MS_MAX:
-                    p += skip + 8
-                    break
-            else:
+            if i % 8 == 0:                                 # alive bits of this entry and the next 7
+                bits.append(body[p])
+                p += 1
+            ms = struct.unpack_from("<Q", body, p)[0]
+            p += 8
+            if not (ms == 0 or MS_MIN < ms < MS_MAX) or (bits[i // 8] >> (i % 8) & 1) != alive:
                 return None
             out.append(SlotState(map_id, slot, bool(alive), ms / 1000 if ms else None, now))
     except (IndexError, struct.error):
@@ -192,7 +201,10 @@ class Tracker:
         self.server = None
         self.states = {}                 # (map, slot) -> SlotState, for the current server
         self._all_states = self._load_states()
+        self.lifetimes = {tuple(map(int, k.split(":"))): v
+                          for k, v in self._all_states.get("lifetimes", {}).items()}   # slot -> [seconds alive]
         self._notified = set()
+        self._asked = {}                 # map -> when we last asked to open its field-monster list
 
     # --- settings ---
     @property
@@ -235,8 +247,26 @@ class Tracker:
 
     def on_field_list(self, map_id, slots):
         for s in slots:
-            self.states[(s.map_id, s.slot)] = s
+            key = (s.map_id, s.slot)
+            old = self.states.get(key)
+            entry = self._by_slot(key)
+            if old and old.alive and old.at and not s.alive and s.at and entry and entry.respawn_min:
+                life = s.at - 60 * entry.respawn_min - old.at        # killed at = back at - respawn
+                if 0 < life < 12 * 3600:
+                    self.lifetimes.setdefault(key, []).append(round(life))
+                    del self.lifetimes[key][:-8]
+            self.states[key] = s
         self._save_states()
+
+    def _by_slot(self, key):
+        return next((e for e in self.entries if (e.map_id, e.slot) == key), None)
+
+    def stale_after(self, key):
+        """How long an "alive" of this slot holds: twice the longest life seen (a day of lists), else by map."""
+        seen = self.lifetimes.get(key, [])
+        if len(seen) >= 2:
+            return max(5 * 60, min(4 * 3600, 2 * max(seen)))
+        return STALE.get(key[0], STALE_DEFAULT)
 
     def on_boss_seen(self, npc, alive, now=None):
         """A catalog field boss spawned in view (alive) or died: update its slot."""
@@ -244,30 +274,48 @@ class Tracker:
         if not entry:
             return
         now = now or time.time()
+        key = (entry.map_id, entry.slot)
         if alive:
-            self.states[(entry.map_id, entry.slot)] = SlotState(entry.map_id, entry.slot, True, now, now, "visto")
+            old = self.states.get(key)
+            if old and old.alive and old.at:
+                since = old.at                       # still the same life: walking past it does not restart it
+            elif old and not old.alive and old.at and now >= old.at - SEEN_AT_RESPAWN:
+                since = min(now, old.at)             # it spawned at its "back at" time
+            else:
+                since = None                         # alive, but since when is unknown
+            self.states[key] = SlotState(entry.map_id, entry.slot, True, since, now, "visto")
         else:
             back = now + 60 * entry.respawn_min if entry.respawn_min else None
             self.states[(entry.map_id, entry.slot)] = SlotState(entry.map_id, entry.slot, False, back, now, "muerte")
         self._save_states()
 
     # --- what to show ---
+    def _current(self, s, now):
+        """A slot's state as of now: a dead boss whose "back at" has passed is alive since then (the game respawns it
+        exactly on time), and its freshness counts from that moment."""
+        if s and not s.alive and s.at and s.at <= now:
+            return SlotState(s.map_id, s.slot, True, s.at, s.at, "regreso")
+        return s
+
+    def _fresh(self, s, now):
+        return s.alive and now - s.seen <= self.stale_after((s.map_id, s.slot))
+
     def _game_state(self, entry, now):
         """The game's list for this boss: its slot, or the best of its spawn points (one alive, else the soonest)."""
         if not entry.slot:
             return None
-        states = [s for s in (self.states.get((entry.map_id, p)) for p in entry.spawn_points or [entry.slot]) if s]
-        alive = [s for s in states if s.alive and now - s.seen <= ALIVE_STALE]
+        states = [self._current(s, now) for s in
+                  (self.states.get((entry.map_id, p)) for p in entry.spawn_points or [entry.slot]) if s]
+        alive = [s for s in states if self._fresh(s, now)]
         if alive:
             return alive[0]
         coming = sorted((s for s in states if not s.alive and s.at and s.at > now), key=lambda s: s.at)
-        return coming[0] if coming else self.states.get((entry.map_id, entry.slot))
+        return coming[0] if coming else self._current(self.states.get((entry.map_id, entry.slot)), now)
 
     def status(self, entry, now=None):
         now = now or time.time()
         game = self._game_state(entry, now)
-        if entry.kind == "abyss" and game and ((game.alive and now - game.seen <= ALIVE_STALE)
-                                               or (not game.alive and game.at and game.at > now)):
+        if entry.kind == "abyss" and game and (self._fresh(game, now) or (not game.alive and game.at and game.at > now)):
             entry_kind = "field"         # the game's own list beats the published schedule
         else:
             entry_kind = entry.kind
@@ -275,9 +323,10 @@ class Tracker:
             s = game
             if not s:
                 return Status(None, None, "desconocido", "Abre en el juego el mapa → monstruos de campo")
-            if s.alive and now - s.seen > ALIVE_STALE:
+            if s.alive and not self._fresh(s, now):
                 return Status(None, None, "desconocido",
-                              f"estaba vivo a las {_clock(s.seen)}; abre la lista del mapa para saber si sigue")
+                              f"vivo a las {_clock(s.seen)}; puede que ya lo hayan matado: abre la lista de monstruos "
+                              f"de campo (M) para saberlo")
             if s.alive:
                 return Status(s.at, None, "vivo", "vivo" + (f" desde las {_clock(s.at)}" if s.at else ""))
             if not s.at:
@@ -309,9 +358,21 @@ class Tracker:
         return [(e, st) for _, e, st in rows]
 
     # --- notices ---
-    def tick(self, now=None):
+    def stale_marked(self, map_id, now=None):
+        """Marked field bosses of this map whose state is unknown or old: opening the list would refresh them."""
+        now = now or time.time()
+        return [e for e in self.entries if e.kind == "field" and e.map_id == map_id and self.marked(e.id)
+                and self.status(e, now).state == "desconocido"]
+
+    def tick(self, now=None, map_id=None):
         now = now or time.time()
         lead = 60 * self.lead
+        stale = self.stale_marked(map_id, now) if map_id else []
+        if stale and now - self._asked.get(map_id, 0) > 3600:
+            self._asked[map_id] = now
+            names = ", ".join(e.name for e in stale[:3]) + ("…" if len(stale) > 3 else "")
+            self.notify("Abre la lista de monstruos de campo",
+                        f"Abre el mapa (M) → monstruos de campo para saber si siguen vivos: {names}.", "reminder")
         for e in self.entries:
             if not self.marked(e.id):
                 continue
@@ -324,7 +385,8 @@ class Tracker:
                 self.notify(f"{e.name}: sale en {max(1, round((st.start - now) / 60))} min",
                             f"{e.sub + ' · ' if e.sub else ''}a las {_clock(st.start)}.", e.kind)
             now_key = (e.id, round(st.start), "now")
-            if st.state in ("en curso", "debería estar") and now - st.start < 120 and now_key not in self._notified:
+            if st.state in ("en curso", "vivo", "debería estar") and 0 <= now - st.start < 120 and \
+                    now_key not in self._notified:
                 self._notified.add(now_key)
                 self.notify(f"{e.name}: ¡ya está!", f"{e.sub + ' · ' if e.sub else ''}desde las {_clock(st.start)}.",
                             e.kind)
@@ -344,6 +406,7 @@ class Tracker:
             return
         self._all_states[str(self.server)] = {
             f"{m}:{s}": [st.map_id, st.slot, st.alive, st.at, st.seen, st.source] for (m, s), st in self.states.items()}
+        self._all_states["lifetimes"] = {f"{m}:{s}": v for (m, s), v in self.lifetimes.items()}
         try:
             self._state_path().write_text(json.dumps(self._all_states), encoding="utf-8")
         except OSError:

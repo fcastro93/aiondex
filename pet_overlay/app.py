@@ -454,7 +454,8 @@ class Controller(QObject):
 
     def _tracker_notice(self, title, body, kind):
         self.notify("tracker", title, body)
-        self.sounds.play("event_alert" if kind == "event" else "boss_alert")
+        if kind != "reminder":
+            self.sounds.play("event_alert" if kind == "event" else "boss_alert")
 
     def _tracker_changed(self, _=None):
         if self.tracker_window and self.tracker_window.isVisible():
@@ -463,7 +464,7 @@ class Controller(QObject):
             self.refresh()
 
     def _on_tracker_tick(self):
-        self.tracker.tick()
+        self.tracker.tick(map_id=self.combat.map_id)
         if self.active_module.key == "tracker":
             self.refresh()
         if self.tracker_window and self.tracker_window.isVisible():
