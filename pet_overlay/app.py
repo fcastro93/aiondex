@@ -215,14 +215,16 @@ class IconThread(QThread):
     """Downloads the pet portraits or skill icons missing on disk (they are not shipped with the installer)."""
     done = Signal(int)
 
-    def __init__(self, data_dir, ids, skills=False):
+    def __init__(self, data_dir, ids, skills=False, kind=None):
         super().__init__()
-        self.data_dir, self.ids, self.skills = data_dir, ids, skills
+        self.data_dir, self.ids = data_dir, ids
+        self.kind = kind or ("skills" if skills else "pets")
 
     def run(self):
         from . import dbupdate
         try:
-            download = dbupdate.download_skill_icons if self.skills else dbupdate.download_icons
+            download = {"pets": dbupdate.download_icons, "skills": dbupdate.download_skill_icons,
+                        "tracker": dbupdate.download_tracker_images}[self.kind]
             self.done.emit(download(self.data_dir, self.ids))
         except Exception:
             log.exception("icon download failed")
@@ -822,6 +824,19 @@ class Controller(QObject):
         if on_done:
             self._detail_icon_thread.done.connect(on_done)
         self._detail_icon_thread.start()
+
+    def fetch_tracker_images(self, paths, on_done=None):
+        """Download the Tracker's boss portraits and item icons that are not on disk (each one is tried once)."""
+        tried = self.__dict__.setdefault("_tracker_images_tried", set())
+        paths = [p for p in paths if p not in tried]
+        running = getattr(self, "_tracker_image_thread", None)
+        if not self.persist or not paths or (running and running.isRunning()):
+            return
+        tried.update(paths)
+        self._tracker_image_thread = IconThread(self.data_dir, paths, kind="tracker")
+        if on_done:
+            self._tracker_image_thread.done.connect(on_done)
+        self._tracker_image_thread.start()
 
     def open_tuner(self):
         self._ensure_skill_icons()

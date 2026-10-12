@@ -3,13 +3,13 @@ bell to be told before they come back."""
 import time
 import webbrowser
 
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QColor, QFont
-from PySide6.QtWidgets import (QComboBox, QFrame, QGridLayout, QHBoxLayout, QLineEdit, QPushButton, QScrollArea,
+from PySide6.QtCore import QRectF, Qt, QTimer
+from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QPixmap
+from PySide6.QtWidgets import (QComboBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea,
                                QVBoxLayout, QWidget)
 
 from .. import APP_NAME
-from ..tracker import LEADS, REGIONS, countdown, occurrences
+from ..tracker import LEADS, REGIONS, countdown, image_file, occurrences
 from . import theme
 from .mapwindow import STYLE, badge_label
 from .theme import Fonts
@@ -17,8 +17,10 @@ from .tunerwindow import EXTRA_STYLE
 from .widgets import SectionTitle, label
 
 TABS = [("marked", "Marcados"), ("field", "Jefes de campo"), ("abyss", "Abismo"), ("event", "Eventos")]
-# item rank -> name colour; 3 (gold) and 6 (teal) as in the game's boss tooltip, the rest by the usual ladder
-RANK_COLOR = {0: "#D6DAE3", 1: "#6CCB5F", 2: "#4FA3FF", 3: "#FFD02B", 4: "#FF8A3D", 6: "#00FFD8"}
+# item rank -> rarity colour, the game's (metabot uses the same; gold and teal checked against the game's tooltip)
+RANK_COLOR = {0: "#C3C3C3", 1: "#19E048", 2: "#379AFF", 3: "#FFD02B", 4: "#FF6C00", 6: "#00FFD8"}
+PORTRAIT = 64
+ITEM_ICON = 30
 DROPS_SHOWN = 5
 CARD_STYLE = """
 QFrame#Card { background: #1D2029; border: 1px solid #2C3140; border-radius: 6px; }
@@ -40,6 +42,8 @@ class TrackerWindow(QWidget):
         self.fonts = Fonts(1.0)
         self.tab = "marked" if self.tracker.config.get("marked") else "field"
         self._status_labels = []          # (entry, QLabel) refreshed by tick()
+        self._images = {}                 # path -> QPixmap of the downloaded images
+        self._wanted = set()              # images the cards on screen use
         self.setObjectName("MapWindow")
         self.setWindowTitle(f"{APP_NAME} — Tracker de jefes y eventos")
         self.setWindowIcon(ctl.app_icon)
@@ -137,6 +141,7 @@ class TrackerWindow(QWidget):
             button.setChecked(key == self.tab)
         _clear(self.body)
         self._status_labels = []
+        self._wanted = set()
         f, tracker = self.fonts, self.tracker
         query = self.search.text().strip().lower()
         entries = [e for e in tracker.entries if not query or query in _haystack(e)]
@@ -170,6 +175,63 @@ class TrackerWindow(QWidget):
             self._grid(sorted(_in_tab("event", entries, tracker), key=self._sort_key), events=True)
         self.body.addStretch(1)
         self.tick()
+        missing = [p for p in self._wanted if self._image(p) is None]
+        if missing:
+            self.ctl.fetch_tracker_images(sorted(missing), self._images_arrived)
+
+    def _images_arrived(self, _=None):
+        if self.isVisible():
+            self.refresh()
+
+    def _image(self, path):
+        if not path:
+            return None
+        self._wanted.add(path)
+        if path not in self._images:
+            file = image_file(self.ctl.data_dir, path)
+            pix = QPixmap(str(file)) if file.exists() else None
+            if pix is None or pix.isNull():
+                return None
+            self._images[path] = pix
+        return self._images[path]
+
+    def _tile(self, path, size, color, radius=5, fill_alpha=55):
+        """An image on a rounded tile tinted with its rarity colour (like the game's icons), or the empty tile."""
+        dpr = self.devicePixelRatioF()
+        canvas = QPixmap(round(size * dpr), round(size * dpr))
+        canvas.setDevicePixelRatio(dpr)
+        canvas.fill(Qt.transparent)
+        p = QPainter(canvas)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setRenderHint(QPainter.SmoothPixmapTransform)
+        rect = QRectF(0.5, 0.5, size - 1, size - 1)
+        shape = QPainterPath()
+        shape.addRoundedRect(rect, radius, radius)
+        tint = QColor(color)
+        tint.setAlpha(fill_alpha)
+        p.fillPath(shape, tint)
+        img = self._image(path)
+        if img is not None:
+            p.setClipPath(shape)
+            scaled = img.scaled(round(size * dpr), round(size * dpr), Qt.KeepAspectRatioByExpanding,
+                                Qt.SmoothTransformation)
+            scaled.setDevicePixelRatio(dpr)
+            x = (size - scaled.width() / dpr) / 2
+            y = (size - scaled.height() / dpr) / 2
+            p.drawPixmap(QRectF(x, y, scaled.width() / dpr, scaled.height() / dpr), scaled,
+                         QRectF(0, 0, scaled.width(), scaled.height()))
+            p.setClipping(False)
+        border = QColor(color)
+        border.setAlpha(170)
+        p.setPen(QPen(border, 1))
+        p.drawPath(shape)
+        p.end()
+        tile = QLabel()
+        tile.setPixmap(canvas)
+        tile.setFixedSize(size, size)
+        tile.setAttribute(Qt.WA_TransparentForMouseEvents)
+        tile.setStyleSheet("background: transparent;")
+        return tile
 
     def _sort_key(self, entry):
         st = self.tracker.status(entry)
@@ -205,9 +267,13 @@ class TrackerWindow(QWidget):
         head.setObjectName("CardHead")
         row = QHBoxLayout(head)
         row.setContentsMargins(12, 10, 12, 10)
-        emblem_font = QFont(f.icons_family)
-        emblem_font.setPixelSize(26)
-        row.addWidget(label(GLYPH_EVENT if entry.kind == "event" else GLYPH_SKULL, emblem_font, QColor("#C9D1E0")))
+        if entry.image:
+            row.addWidget(self._tile(entry.image, PORTRAIT, "#4A5468", radius=8, fill_alpha=255))
+        else:
+            emblem_font = QFont(f.icons_family)
+            emblem_font.setPixelSize(26)
+            row.addWidget(label(GLYPH_EVENT if entry.kind == "event" else GLYPH_SKULL, emblem_font,
+                                QColor("#C9D1E0")))
         names = QVBoxLayout()
         names.setSpacing(0)
         title_font = QFont(f.name_big)
@@ -226,10 +292,14 @@ class TrackerWindow(QWidget):
         row.addWidget(bell)
         col.addWidget(head)
 
+        body = QWidget()                  # margins on a container: a label's own margins get reset when restyled
+        inner = QVBoxLayout(body)
+        inner.setContentsMargins(14, 4, 14, 0)
+        inner.setSpacing(4)
+        col.addWidget(body)
         status = label("", f.name, theme.TEXT)
-        status.setContentsMargins(14, 4, 14, 0)
         status.setWordWrap(True)
-        col.addWidget(status)
+        inner.addWidget(status)
         self._status_labels.append((entry, status))
 
         if entry.kind == "event":
@@ -238,30 +308,39 @@ class TrackerWindow(QWidget):
             if nexts:
                 times = " · ".join(time.strftime("%H:%M", time.localtime(s)) for s in nexts)
                 more = label(f"Próximas (tu hora): {times}", f.small, theme.MUTED)
-                more.setContentsMargins(14, 0, 14, 0)
-                col.addWidget(more)
+                inner.addWidget(more)
         if entry.respawn_min:
             again = label(f"Reaparece {_duration(entry.respawn_min)} después de morir", f.small, theme.MUTED)
-            again.setContentsMargins(14, 0, 14, 0)
-            col.addWidget(again)
+            inner.addWidget(again)
         if entry.drops:
-            loot = label("Botín destacado", f.small, QColor("#89B7BF"))
-            loot.setContentsMargins(14, 4, 14, 0)
-            col.addWidget(loot)
+            inner.addSpacing(4)
+            inner.addWidget(label("Botín destacado", f.small, QColor("#89B7BF")))
             for drop in entry.drops[:DROPS_SHOWN]:
-                item = label(_drop_text(drop), f.body, QColor(RANK_COLOR.get(drop.get("rank"), "#D6DAE3")), elide=True)
-                item.setContentsMargins(14, 0, 14, 0)
+                color = RANK_COLOR.get(drop.get("rank"), "#D6DAE3")
+                line = QWidget()
+                lay = QHBoxLayout(line)
+                lay.setContentsMargins(0, 1, 0, 1)
+                lay.setSpacing(8)
+                lay.addWidget(self._tile(drop.get("icon"), ITEM_ICON, color))
+                lay.addWidget(label(_drop_text(drop), f.body, QColor(color), elide=True), 1)
                 if drop.get("items"):
-                    item.setAttribute(Qt.WA_TransparentForMouseEvents, False)
-                    item.setToolTip("<br>".join(f"{i['name']} — {i['chance']:g}%" for i in drop["items"]))
-                col.addWidget(item)
+                    line.setToolTip(self._pieces_tip(drop))
+                inner.addWidget(line)
             if len(entry.drops) > DROPS_SHOWN:
                 rest = label(f"y {len(entry.drops) - DROPS_SHOWN} más", f.small, theme.MUTED)
-                rest.setContentsMargins(14, 0, 14, 0)
                 rest.setAttribute(Qt.WA_TransparentForMouseEvents, False)
                 rest.setToolTip("<br>".join(_drop_text(d) for d in entry.drops[DROPS_SHOWN:]))
-                col.addWidget(rest)
+                inner.addWidget(rest)
         return card
+
+    def _pieces_tip(self, drop):
+        """The pieces of a set with their icon and chance (one of them drops)."""
+        rows = []
+        for piece in drop["items"]:
+            file = image_file(self.ctl.data_dir, piece["icon"]) if piece.get("icon") else None
+            icon = f'<img src="{file.as_uri()}" width="22" height="22">' if file and file.exists() else ""
+            rows.append(f"<tr><td>{icon}</td><td>{piece['name']}</td><td align='right'>&nbsp;{piece['chance']:g}%</td></tr>")
+        return f"<b>Sale una de estas piezas</b><table>{''.join(rows)}</table>"
 
     def _toggle(self, entry):
         self.tracker.toggle(entry.id)

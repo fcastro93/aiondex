@@ -166,6 +166,11 @@ def load_catalog(path):
     return entries, [credits] if isinstance(credits, dict) else credits
 
 
+def image_file(data_dir, path):
+    """Where the PNG of a Tracker image (a path under metabot's /web/aion2/: npcs/..., items/...) is kept."""
+    return Path(data_dir) / "tracker_icons" / (path.replace("/", "_").rsplit(".", 1)[0] + ".png")
+
+
 # --- tracker ---------------------------------------------------------------------------------------------
 @dataclass
 class Status:

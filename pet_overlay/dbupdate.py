@@ -100,6 +100,23 @@ def download_icons(data_dir, pet_ids, report=None):
     return len(missing)
 
 
+def download_tracker_images(data_dir, paths):
+    """Boss portraits and item icons of the Tracker (paths under metabot's /web/aion2/), as small PNGs."""
+    from .tracker import image_file
+    missing = [p for p in paths if not image_file(data_dir, p).exists()]
+    for path in missing:
+        target = image_file(data_dir, path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            img = Image.open(io.BytesIO(metabot.fetch(f"/web/aion2/{path}"))).convert("RGBA")
+            side = 128 if path.startswith("npcs/") else 64
+            img.thumbnail((side, side), Image.LANCZOS)
+            img.save(target)
+        except Exception:  # one missing image should not abort the rest
+            pass
+    return len(missing)
+
+
 def download_skill_icons(data_dir, skill_ids):
     """Fetch the skill icons that are not on disk yet (only your own class's skills are asked for)."""
     icons = Path(data_dir) / "skill_icons"

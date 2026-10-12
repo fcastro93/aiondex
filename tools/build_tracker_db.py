@@ -1,12 +1,13 @@
 """Build data/tracker_db.json (shipped with the app) from metabot's event schedule items and the field boss catalog.
 
-    python tools/build_tracker_db.py <metabot_event_items.json> [tracker_catalog.json]
+    python tools/build_tracker_db.py <metabot_event_items.json> [tracker_catalog.json] [item_icons.json]
 
 metabot's events page (https://metabot.gg/en/aion-2/events) embeds the schedule items read from the Global client:
 days (0 = Sunday) and minutes after midnight in the server's clock. The catalog lists the field bosses of each map in
 the slot order of the game's field boss list (map 20 = Chaotic Lower Reshanta: the scheduled Abyss bosses and Argo, the
-Spirit King, whose respawn is kill-based), with level, zone, respawn and the drop tables. Sources are credited in the
-app.
+Spirit King, whose respawn is kill-based), with level, zone, respawn and the drop tables. item_icons.json maps item
+names to their icon on metabot (read from the same monster pages' drop tables). Images are paths under metabot's
+/web/aion2/ and are downloaded by the app when the Tracker opens. Sources are credited in the app.
 """
 import json
 import sys
@@ -31,25 +32,40 @@ CREDITS = [
 ]
 
 
+ICONS = {}                      # item name -> {"icon": "items/....webp", ...} (third argument)
+METABOT_WEB = "https://metabot.gg/web/aion2/"
+
+
+def image(url):
+    """A metabot image URL -> its path under /web/aion2/ (None if it is not one)."""
+    return url[len(METABOT_WEB):] if url and url.startswith(METABOT_WEB) else None
+
+
 def drops(items):
-    """Only what the card shows: name, rank (0 common .. 4, 6 special), chance per kill, and a group's pieces."""
+    """Only what the card shows: name, rank (0 common .. 4, 6 special), chance per kill, icon, a group's pieces."""
     out = []
     for d in items:
         x = {"name": d["name"], "rank": d.get("rank", 0)}
         if isinstance(d.get("chance"), (int, float)):
             x["chance"] = round(d["chance"], 2)
         if d.get("items"):
-            x["items"] = [{"name": i["name"], "chance": round(i["chance"], 2)} for i in d["items"]]
+            x["items"] = [{"name": i["name"], "chance": round(i["chance"], 2),
+                           "icon": ICONS.get(i["name"], {}).get("icon")} for i in d["items"]]
+        icon = ICONS.get(d["name"], {}).get("icon") or next((i["icon"] for i in x.get("items", []) if i["icon"]), None)
+        if icon:
+            x["icon"] = icon
         out.append(x)
     return out
 
 
 def field_boss(b):
     return {"slot": b["slot"], "npc": b.get("npc"), "name": b["name"], "level": b.get("level"), "zone": b.get("zone"),
-            "respawn_min": b.get("respawn_min"), "drops": drops(b.get("drops", [])), "image": b.get("image")}
+            "respawn_min": b.get("respawn_min"), "drops": drops(b.get("drops", [])), "image": image(b.get("image"))}
 
 
-def main(items_path, catalog_path=None):
+def main(items_path, catalog_path=None, icons_path=None):
+    if icons_path:
+        ICONS.update(json.loads(Path(icons_path).read_text(encoding="utf-8")))
     items = json.loads(Path(items_path).read_text(encoding="utf-8"))
     catalog = json.loads(Path(catalog_path).read_text(encoding="utf-8")) if catalog_path else {"maps": {}}
     maps = catalog.get("maps", {})
@@ -74,7 +90,7 @@ def main(items_path, catalog_path=None):
             spawn_points = sorted(b["slot"] for b in abyss_map if b.get("schedule") and b["name"] == it["label"])
             abyss.append({"npc": npc, "name": it["label"], "sub": "Chaotic Lower Reshanta", "level": known.get("level", 65),
                           "slots": slots, "slot": known.get("slot"), "spawn_points": spawn_points,
-                          "drops": drops(known.get("drops", [])), "image": known.get("image")})
+                          "drops": drops(known.get("drops", [])), "image": image(known.get("image"))})
     field = {}
     for map_id, info in maps.items():
         bosses = [field_boss(b) for b in info.get("bosses", []) if not b.get("schedule")]
@@ -94,4 +110,4 @@ def main(items_path, catalog_path=None):
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:3])
+    main(*sys.argv[1:4])

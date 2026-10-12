@@ -1,5 +1,5 @@
 {
- "generated_at": 1791770454,
+ "generated_at": 1791775528,
  "credits": [
   {
    "text": "Horarios, jefes y botín: metabot.gg (datos del cliente Global)",
@@ -267,46 +267,57 @@
      "items": [
       {
        "name": "Kaira Breastplate",
-       "chance": 6.44
+       "chance": 6.44,
+       "icon": "items/icon_gm_0012_t04_torso.webp"
       },
       {
        "name": "Kaira Greaves",
-       "chance": 8.58
+       "chance": 8.58,
+       "icon": "items/icon_gm_0012_t04_pants.webp"
       },
       {
        "name": "Kaira Helm",
-       "chance": 10.3
+       "chance": 10.3,
+       "icon": "items/icon_gm_0012_t04_helmet.webp"
       },
       {
        "name": "Kaira Pauldrons",
-       "chance": 10.3
+       "chance": 10.3,
+       "icon": "items/icon_gm_0012_t04_shoulder.webp"
       },
       {
        "name": "Kaira Gloves",
-       "chance": 12.88
+       "chance": 12.88,
+       "icon": "items/icon_gm_0012_t04_gloves.webp"
       },
       {
        "name": "Kaira Boots",
-       "chance": 12.88
+       "chance": 12.88,
+       "icon": "items/icon_gm_0012_t04_boots.webp"
       },
       {
        "name": "Kaira Cloak",
-       "chance": 12.88
+       "chance": 12.88,
+       "icon": "items/icon_gm_0012_t04_cape.webp"
       },
       {
        "name": "Kaira Earrings",
-       "chance": 12.88
+       "chance": 12.88,
+       "icon": "items/icon_acc_er_0032.webp"
       },
       {
        "name": "Kaira Ring",
-       "chance": 12.88
+       "chance": 12.88,
+       "icon": "items/icon_acc_ring_0032.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_gm_0012_t04_torso.webp"
     },
     {
      "name": "Artwork: Watcher Kaira",
      "rank": 3,
-     "chance": 25
+     "chance": 25,
+     "icon": "items/icon_ad_pic_a_mob_beritrad_01.webp"
     },
     {
      "name": "Fallen Ancient God armor (1 of 7)",
@@ -315,33 +326,41 @@
      "items": [
       {
        "name": "Fallen Ancient God Breastplate",
-       "chance": 2.17
+       "chance": 2.17,
+       "icon": "items/icon_gm_0008_t05_torso.webp"
       },
       {
        "name": "Fallen Ancient God Greaves",
-       "chance": 2.89
+       "chance": 2.89,
+       "icon": "items/icon_gm_0008_t05_pants.webp"
       },
       {
        "name": "Fallen Ancient God Helm",
-       "chance": 3.47
+       "chance": 3.47,
+       "icon": "items/icon_gm_0008_t05_helmet.webp"
       },
       {
        "name": "Fallen Ancient God Pauldrons",
-       "chance": 3.47
+       "chance": 3.47,
+       "icon": "items/icon_gm_0008_t05_shoulder.webp"
       },
       {
        "name": "Fallen Ancient God Gloves",
-       "chance": 4.33
+       "chance": 4.33,
+       "icon": "items/icon_gm_0008_t05_gloves.webp"
       },
       {
        "name": "Fallen Ancient God Boots",
-       "chance": 4.33
+       "chance": 4.33,
+       "icon": "items/icon_gm_0008_t05_boots.webp"
       },
       {
        "name": "Fallen Ancient God Cloak",
-       "chance": 4.33
+       "chance": 4.33,
+       "icon": "items/icon_gm_0008_t05_cape.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_gm_0008_t05_torso.webp"
     },
     {
      "name": "Fallen Ancient God weapon (1 of 9)",
@@ -350,41 +369,51 @@
      "items": [
       {
        "name": "Fallen Ancient God Longsword",
-       "chance": 1.12
+       "chance": 1.12,
+       "icon": "items/icon_wp_sw_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Dagger",
-       "chance": 1.12
+       "chance": 1.12,
+       "icon": "items/icon_wp_da_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Bow",
-       "chance": 1.12
+       "chance": 1.12,
+       "icon": "items/icon_wp_bw_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Spellbook",
-       "chance": 1.12
+       "chance": 1.12,
+       "icon": "items/icon_wp_mb_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Orb",
-       "chance": 1.12
+       "chance": 1.12,
+       "icon": "items/icon_wp_or_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Mace",
-       "chance": 1.12
+       "chance": 1.12,
+       "icon": "items/icon_wp_ma_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Staff",
-       "chance": 1.12
+       "chance": 1.12,
+       "icon": "items/icon_wp_st_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Guard",
-       "chance": 1.12
+       "chance": 1.12,
+       "icon": "items/icon_weapon_guarder_r_011.webp"
       },
       {
        "name": "Fallen Ancient God Greatsword",
-       "chance": 1.12
+       "chance": 1.12,
+       "icon": "items/icon_wp_gs_0078_t05.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_wp_sw_0078_t05.webp"
     },
     {
      "name": "Bloodthirsty armor (1 of 7)",
@@ -393,38 +422,47 @@
      "items": [
       {
        "name": "Bloodthirsty Breastplate",
-       "chance": 7.05
+       "chance": 7.05,
+       "icon": "items/icon_gm_0037_t04_torso.webp"
       },
       {
        "name": "Bloodthirsty Greaves",
-       "chance": 9.39
+       "chance": 9.39,
+       "icon": "items/icon_gm_0037_t04_pants.webp"
       },
       {
        "name": "Bloodthirsty Pauldrons",
-       "chance": 11.27
+       "chance": 11.27,
+       "icon": "items/icon_gm_0037_t04_shoulder.webp"
       },
       {
        "name": "Bloodthirsty Helm",
-       "chance": 11.27
+       "chance": 11.27,
+       "icon": "items/icon_gm_0037_t04_helmet.webp"
       },
       {
        "name": "Bloodthirsty Gloves",
-       "chance": 14.09
+       "chance": 14.09,
+       "icon": "items/icon_gm_0037_t04_gloves.webp"
       },
       {
        "name": "Bloodthirsty Boots",
-       "chance": 14.09
+       "chance": 14.09,
+       "icon": "items/icon_gm_0037_t04_boots.webp"
       },
       {
        "name": "Bloodthirsty Cloak",
-       "chance": 14.09
+       "chance": 14.09,
+       "icon": "items/icon_gm_0037_t04_cape.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_gm_0037_t04_torso.webp"
     },
     {
      "name": "Balaur's Essence",
      "rank": 2,
-     "chance": 43.4
+     "chance": 43.4,
+     "icon": "items/icon_item_craft_drop_draconic_soul_all_a_u_001a.webp"
     },
     {
      "name": "Vowed weapon (1 of 9)",
@@ -433,44 +471,54 @@
      "items": [
       {
        "name": "Vowed Longsword",
-       "chance": 3.63
+       "chance": 3.63,
+       "icon": "items/icon_wp_sw_0018_t04.webp"
       },
       {
        "name": "Vowed Dagger",
-       "chance": 3.63
+       "chance": 3.63,
+       "icon": "items/icon_wp_da_0018_t04.webp"
       },
       {
        "name": "Vowed Bow",
-       "chance": 3.63
+       "chance": 3.63,
+       "icon": "items/icon_wp_bw_0018_t04.webp"
       },
       {
        "name": "Vowed Spellbook",
-       "chance": 3.63
+       "chance": 3.63,
+       "icon": "items/icon_wp_mb_0018_t04.webp"
       },
       {
        "name": "Vowed Orb",
-       "chance": 3.63
+       "chance": 3.63,
+       "icon": "items/icon_wp_or_0018_t04.webp"
       },
       {
        "name": "Vowed Mace",
-       "chance": 3.63
+       "chance": 3.63,
+       "icon": "items/icon_wp_ma_0018_t04.webp"
       },
       {
        "name": "Vowed Staff",
-       "chance": 3.63
+       "chance": 3.63,
+       "icon": "items/icon_wp_st_0018_t04.webp"
       },
       {
        "name": "Vowed Guard",
-       "chance": 3.63
+       "chance": 3.63,
+       "icon": "items/icon_weapon_guarder_r_015.webp"
       },
       {
        "name": "Vowed Greatsword",
-       "chance": 3.63
+       "chance": 3.63,
+       "icon": "items/icon_wp_gs_0018_t04.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_wp_sw_0018_t04.webp"
     }
    ],
-   "image": "https://metabot.gg/web/aion2/npcs/f/mob_beritrad_01.webp"
+   "image": "npcs/f/mob_beritrad_01.webp"
   },
   {
    "npc": 2600084,
@@ -499,12 +547,14 @@
     {
      "name": "Artwork: Guardian Lord Nahma",
      "rank": 4,
-     "chance": 25
+     "chance": 25,
+     "icon": "items/icon_ad_pic_a_mob_abboss_01.webp"
     },
     {
      "name": "Colossus: Guardian Lord Nahma",
      "rank": 4,
-     "chance": 25
+     "chance": 25,
+     "icon": "items/icon_ad_statuel_a_u_mob_abboss_01.webp"
     },
     {
      "name": "Guardian Lord Nahma armor & accessories (1 of 10)",
@@ -513,45 +563,56 @@
      "items": [
       {
        "name": "Guardian Lord Nahma Breastplate",
-       "chance": 5.2
+       "chance": 5.2,
+       "icon": "items/icon_gm_0045_t05_torso.webp"
       },
       {
        "name": "Guardian Lord Nahma Necklace",
-       "chance": 6.1
+       "chance": 6.1,
+       "icon": "items/icon_acc_nl_0067.webp"
       },
       {
        "name": "Guardian Lord Nahma Greaves",
-       "chance": 8.14
+       "chance": 8.14,
+       "icon": "items/icon_gm_0045_t05_pants.webp"
       },
       {
        "name": "Guardian Lord Nahma Helm",
-       "chance": 9.77
+       "chance": 9.77,
+       "icon": "items/icon_gm_0045_t05_helmet.webp"
       },
       {
        "name": "Guardian Lord Nahma Pauldrons",
-       "chance": 9.77
+       "chance": 9.77,
+       "icon": "items/icon_gm_0045_t05_shoulder.webp"
       },
       {
        "name": "Guardian Lord Nahma Gloves",
-       "chance": 12.21
+       "chance": 12.21,
+       "icon": "items/icon_gm_0045_t05_gloves.webp"
       },
       {
        "name": "Guardian Lord Nahma Boots",
-       "chance": 12.21
+       "chance": 12.21,
+       "icon": "items/icon_gm_0045_t05_boots.webp"
       },
       {
        "name": "Guardian Lord Nahma Cloak",
-       "chance": 12.21
+       "chance": 12.21,
+       "icon": "items/icon_gm_0045_t05_cape.webp"
       },
       {
        "name": "Guardian Lord Nahma Earrings",
-       "chance": 12.21
+       "chance": 12.21,
+       "icon": "items/icon_acc_er_0067.webp"
       },
       {
        "name": "Guardian Lord Nahma Ring",
-       "chance": 12.21
+       "chance": 12.21,
+       "icon": "items/icon_acc_ring_ring.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_gm_0045_t05_torso.webp"
     },
     {
      "name": "Fallen Ancient God armor (1 of 7)",
@@ -560,33 +621,41 @@
      "items": [
       {
        "name": "Fallen Ancient God Breastplate",
-       "chance": 12.95
+       "chance": 12.95,
+       "icon": "items/icon_gm_0008_t05_torso.webp"
       },
       {
        "name": "Fallen Ancient God Greaves",
-       "chance": 17.26
+       "chance": 17.26,
+       "icon": "items/icon_gm_0008_t05_pants.webp"
       },
       {
        "name": "Fallen Ancient God Pauldrons",
-       "chance": 20.71
+       "chance": 20.71,
+       "icon": "items/icon_gm_0008_t05_shoulder.webp"
       },
       {
        "name": "Fallen Ancient God Helm",
-       "chance": 20.71
+       "chance": 20.71,
+       "icon": "items/icon_gm_0008_t05_helmet.webp"
       },
       {
        "name": "Fallen Ancient God Gloves",
-       "chance": 25.89
+       "chance": 25.89,
+       "icon": "items/icon_gm_0008_t05_gloves.webp"
       },
       {
        "name": "Fallen Ancient God Boots",
-       "chance": 25.89
+       "chance": 25.89,
+       "icon": "items/icon_gm_0008_t05_boots.webp"
       },
       {
        "name": "Fallen Ancient God Cloak",
-       "chance": 25.89
+       "chance": 25.89,
+       "icon": "items/icon_gm_0008_t05_cape.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_gm_0008_t05_torso.webp"
     },
     {
      "name": "Fallen Ancient God weapon (1 of 9)",
@@ -595,41 +664,51 @@
      "items": [
       {
        "name": "Fallen Ancient God Longsword",
-       "chance": 16.59
+       "chance": 16.59,
+       "icon": "items/icon_wp_sw_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Dagger",
-       "chance": 16.59
+       "chance": 16.59,
+       "icon": "items/icon_wp_da_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Bow",
-       "chance": 16.59
+       "chance": 16.59,
+       "icon": "items/icon_wp_bw_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Spellbook",
-       "chance": 16.59
+       "chance": 16.59,
+       "icon": "items/icon_wp_mb_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Orb",
-       "chance": 16.59
+       "chance": 16.59,
+       "icon": "items/icon_wp_or_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Mace",
-       "chance": 16.59
+       "chance": 16.59,
+       "icon": "items/icon_wp_ma_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Staff",
-       "chance": 16.59
+       "chance": 16.59,
+       "icon": "items/icon_wp_st_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Guard",
-       "chance": 16.59
+       "chance": 16.59,
+       "icon": "items/icon_weapon_guarder_r_011.webp"
       },
       {
        "name": "Fallen Ancient God Greatsword",
-       "chance": 16.59
+       "chance": 16.59,
+       "icon": "items/icon_wp_gs_0078_t05.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_wp_sw_0078_t05.webp"
     },
     {
      "name": "Bloodthirsty armor (1 of 7)",
@@ -638,33 +717,41 @@
      "items": [
       {
        "name": "Bloodthirsty Breastplate",
-       "chance": 12.95
+       "chance": 12.95,
+       "icon": "items/icon_gm_0037_t04_torso.webp"
       },
       {
        "name": "Bloodthirsty Greaves",
-       "chance": 17.26
+       "chance": 17.26,
+       "icon": "items/icon_gm_0037_t04_pants.webp"
       },
       {
        "name": "Bloodthirsty Pauldrons",
-       "chance": 20.71
+       "chance": 20.71,
+       "icon": "items/icon_gm_0037_t04_shoulder.webp"
       },
       {
        "name": "Bloodthirsty Helm",
-       "chance": 20.71
+       "chance": 20.71,
+       "icon": "items/icon_gm_0037_t04_helmet.webp"
       },
       {
        "name": "Bloodthirsty Gloves",
-       "chance": 25.89
+       "chance": 25.89,
+       "icon": "items/icon_gm_0037_t04_gloves.webp"
       },
       {
        "name": "Bloodthirsty Boots",
-       "chance": 25.89
+       "chance": 25.89,
+       "icon": "items/icon_gm_0037_t04_boots.webp"
       },
       {
        "name": "Bloodthirsty Cloak",
-       "chance": 25.89
+       "chance": 25.89,
+       "icon": "items/icon_gm_0037_t04_cape.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_gm_0037_t04_torso.webp"
     },
     {
      "name": "Vowed weapon (1 of 9)",
@@ -673,44 +760,54 @@
      "items": [
       {
        "name": "Vowed Longsword",
-       "chance": 16.59
+       "chance": 16.59,
+       "icon": "items/icon_wp_sw_0018_t04.webp"
       },
       {
        "name": "Vowed Dagger",
-       "chance": 16.59
+       "chance": 16.59,
+       "icon": "items/icon_wp_da_0018_t04.webp"
       },
       {
        "name": "Vowed Bow",
-       "chance": 16.59
+       "chance": 16.59,
+       "icon": "items/icon_wp_bw_0018_t04.webp"
       },
       {
        "name": "Vowed Spellbook",
-       "chance": 16.59
+       "chance": 16.59,
+       "icon": "items/icon_wp_mb_0018_t04.webp"
       },
       {
        "name": "Vowed Orb",
-       "chance": 16.59
+       "chance": 16.59,
+       "icon": "items/icon_wp_or_0018_t04.webp"
       },
       {
        "name": "Vowed Mace",
-       "chance": 16.59
+       "chance": 16.59,
+       "icon": "items/icon_wp_ma_0018_t04.webp"
       },
       {
        "name": "Vowed Staff",
-       "chance": 16.59
+       "chance": 16.59,
+       "icon": "items/icon_wp_st_0018_t04.webp"
       },
       {
        "name": "Vowed Guard",
-       "chance": 16.59
+       "chance": 16.59,
+       "icon": "items/icon_weapon_guarder_r_015.webp"
       },
       {
        "name": "Vowed Greatsword",
-       "chance": 16.59
+       "chance": 16.59,
+       "icon": "items/icon_wp_gs_0018_t04.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_wp_sw_0018_t04.webp"
     }
    ],
-   "image": "https://metabot.gg/web/aion2/npcs/f/mob_abboss_01.webp"
+   "image": "npcs/f/mob_abboss_01.webp"
   },
   {
    "npc": 2600097,
@@ -742,46 +839,57 @@
      "items": [
       {
        "name": "Argo Breastplate",
-       "chance": 6.44
+       "chance": 6.44,
+       "icon": "items/icon_gm_0044_t06_torso.webp"
       },
       {
        "name": "Argo Greaves",
-       "chance": 8.58
+       "chance": 8.58,
+       "icon": "items/icon_gm_0044_t06_pants.webp"
       },
       {
        "name": "Argo Helm",
-       "chance": 10.3
+       "chance": 10.3,
+       "icon": "items/icon_gm_0044_t06_helmet.webp"
       },
       {
        "name": "Argo Pauldrons",
-       "chance": 10.3
+       "chance": 10.3,
+       "icon": "items/icon_gm_0044_t06_shoulder.webp"
       },
       {
        "name": "Argo Gloves",
-       "chance": 12.88
+       "chance": 12.88,
+       "icon": "items/icon_gm_0044_t06_gloves.webp"
       },
       {
        "name": "Argo Boots",
-       "chance": 12.88
+       "chance": 12.88,
+       "icon": "items/icon_gm_0044_t06_boots.webp"
       },
       {
        "name": "Argo Cloak",
-       "chance": 12.88
+       "chance": 12.88,
+       "icon": "items/icon_gm_0044_t06_cape.webp"
       },
       {
        "name": "Argo Earrings",
-       "chance": 12.88
+       "chance": 12.88,
+       "icon": "items/icon_acc_er_0031.webp"
       },
       {
        "name": "Argo Ring",
-       "chance": 12.88
+       "chance": 12.88,
+       "icon": "items/icon_acc_ring_0031.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_gm_0044_t06_torso.webp"
     },
     {
      "name": "Artwork: Argo, the Spirit King",
      "rank": 3,
-     "chance": 25
+     "chance": 25,
+     "icon": "items/icon_ad_pic_a_mob_eleking_01_v02.webp"
     },
     {
      "name": "Fallen Ancient God armor (1 of 7)",
@@ -790,33 +898,41 @@
      "items": [
       {
        "name": "Fallen Ancient God Breastplate",
-       "chance": 5.2
+       "chance": 5.2,
+       "icon": "items/icon_gm_0008_t05_torso.webp"
       },
       {
        "name": "Fallen Ancient God Greaves",
-       "chance": 6.94
+       "chance": 6.94,
+       "icon": "items/icon_gm_0008_t05_pants.webp"
       },
       {
        "name": "Fallen Ancient God Pauldrons",
-       "chance": 8.32
+       "chance": 8.32,
+       "icon": "items/icon_gm_0008_t05_shoulder.webp"
       },
       {
        "name": "Fallen Ancient God Helm",
-       "chance": 8.32
+       "chance": 8.32,
+       "icon": "items/icon_gm_0008_t05_helmet.webp"
       },
       {
        "name": "Fallen Ancient God Gloves",
-       "chance": 10.4
+       "chance": 10.4,
+       "icon": "items/icon_gm_0008_t05_gloves.webp"
       },
       {
        "name": "Fallen Ancient God Boots",
-       "chance": 10.4
+       "chance": 10.4,
+       "icon": "items/icon_gm_0008_t05_boots.webp"
       },
       {
        "name": "Fallen Ancient God Cloak",
-       "chance": 10.4
+       "chance": 10.4,
+       "icon": "items/icon_gm_0008_t05_cape.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_gm_0008_t05_torso.webp"
     },
     {
      "name": "Fallen Ancient God weapon (1 of 9)",
@@ -825,41 +941,51 @@
      "items": [
       {
        "name": "Fallen Ancient God Greatsword",
-       "chance": 2.69
+       "chance": 2.69,
+       "icon": "items/icon_wp_gs_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Longsword",
-       "chance": 2.69
+       "chance": 2.69,
+       "icon": "items/icon_wp_sw_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Dagger",
-       "chance": 2.69
+       "chance": 2.69,
+       "icon": "items/icon_wp_da_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Bow",
-       "chance": 2.69
+       "chance": 2.69,
+       "icon": "items/icon_wp_bw_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Spellbook",
-       "chance": 2.69
+       "chance": 2.69,
+       "icon": "items/icon_wp_mb_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Orb",
-       "chance": 2.69
+       "chance": 2.69,
+       "icon": "items/icon_wp_or_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Mace",
-       "chance": 2.69
+       "chance": 2.69,
+       "icon": "items/icon_wp_ma_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Staff",
-       "chance": 2.69
+       "chance": 2.69,
+       "icon": "items/icon_wp_st_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Guard",
-       "chance": 2.69
+       "chance": 2.69,
+       "icon": "items/icon_weapon_guarder_r_011.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_wp_gs_0078_t05.webp"
     },
     {
      "name": "Bloodthirsty armor (1 of 7)",
@@ -868,33 +994,41 @@
      "items": [
       {
        "name": "Bloodthirsty Breastplate",
-       "chance": 10.79
+       "chance": 10.79,
+       "icon": "items/icon_gm_0037_t04_torso.webp"
       },
       {
        "name": "Bloodthirsty Greaves",
-       "chance": 14.38
+       "chance": 14.38,
+       "icon": "items/icon_gm_0037_t04_pants.webp"
       },
       {
        "name": "Bloodthirsty Pauldrons",
-       "chance": 17.26
+       "chance": 17.26,
+       "icon": "items/icon_gm_0037_t04_shoulder.webp"
       },
       {
        "name": "Bloodthirsty Helm",
-       "chance": 17.26
+       "chance": 17.26,
+       "icon": "items/icon_gm_0037_t04_helmet.webp"
       },
       {
        "name": "Bloodthirsty Gloves",
-       "chance": 21.57
+       "chance": 21.57,
+       "icon": "items/icon_gm_0037_t04_gloves.webp"
       },
       {
        "name": "Bloodthirsty Boots",
-       "chance": 21.57
+       "chance": 21.57,
+       "icon": "items/icon_gm_0037_t04_boots.webp"
       },
       {
        "name": "Bloodthirsty Cloak",
-       "chance": 21.57
+       "chance": 21.57,
+       "icon": "items/icon_gm_0037_t04_cape.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_gm_0037_t04_torso.webp"
     },
     {
      "name": "Vowed weapon (1 of 9)",
@@ -903,44 +1037,54 @@
      "items": [
       {
        "name": "Vowed Longsword",
-       "chance": 8.77
+       "chance": 8.77,
+       "icon": "items/icon_wp_sw_0018_t04.webp"
       },
       {
        "name": "Vowed Dagger",
-       "chance": 8.77
+       "chance": 8.77,
+       "icon": "items/icon_wp_da_0018_t04.webp"
       },
       {
        "name": "Vowed Bow",
-       "chance": 8.77
+       "chance": 8.77,
+       "icon": "items/icon_wp_bw_0018_t04.webp"
       },
       {
        "name": "Vowed Spellbook",
-       "chance": 8.77
+       "chance": 8.77,
+       "icon": "items/icon_wp_mb_0018_t04.webp"
       },
       {
        "name": "Vowed Orb",
-       "chance": 8.77
+       "chance": 8.77,
+       "icon": "items/icon_wp_or_0018_t04.webp"
       },
       {
        "name": "Vowed Mace",
-       "chance": 8.77
+       "chance": 8.77,
+       "icon": "items/icon_wp_ma_0018_t04.webp"
       },
       {
        "name": "Vowed Staff",
-       "chance": 8.77
+       "chance": 8.77,
+       "icon": "items/icon_wp_st_0018_t04.webp"
       },
       {
        "name": "Vowed Guard",
-       "chance": 8.77
+       "chance": 8.77,
+       "icon": "items/icon_weapon_guarder_r_015.webp"
       },
       {
        "name": "Vowed Greatsword",
-       "chance": 8.77
+       "chance": 8.77,
+       "icon": "items/icon_wp_gs_0018_t04.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_wp_sw_0018_t04.webp"
     }
    ],
-   "image": "https://metabot.gg/web/aion2/npcs/f/mob_eleking_01_v02.webp"
+   "image": "npcs/f/mob_eleking_01_v02.webp"
   },
   {
    "npc": 2600098,
@@ -972,46 +1116,57 @@
      "items": [
       {
        "name": "Kaira Breastplate",
-       "chance": 6.44
+       "chance": 6.44,
+       "icon": "items/icon_gm_0012_t04_torso.webp"
       },
       {
        "name": "Kaira Greaves",
-       "chance": 8.58
+       "chance": 8.58,
+       "icon": "items/icon_gm_0012_t04_pants.webp"
       },
       {
        "name": "Kaira Helm",
-       "chance": 10.3
+       "chance": 10.3,
+       "icon": "items/icon_gm_0012_t04_helmet.webp"
       },
       {
        "name": "Kaira Pauldrons",
-       "chance": 10.3
+       "chance": 10.3,
+       "icon": "items/icon_gm_0012_t04_shoulder.webp"
       },
       {
        "name": "Kaira Gloves",
-       "chance": 12.88
+       "chance": 12.88,
+       "icon": "items/icon_gm_0012_t04_gloves.webp"
       },
       {
        "name": "Kaira Boots",
-       "chance": 12.88
+       "chance": 12.88,
+       "icon": "items/icon_gm_0012_t04_boots.webp"
       },
       {
        "name": "Kaira Cloak",
-       "chance": 12.88
+       "chance": 12.88,
+       "icon": "items/icon_gm_0012_t04_cape.webp"
       },
       {
        "name": "Kaira Earrings",
-       "chance": 12.88
+       "chance": 12.88,
+       "icon": "items/icon_acc_er_0032.webp"
       },
       {
        "name": "Kaira Ring",
-       "chance": 12.88
+       "chance": 12.88,
+       "icon": "items/icon_acc_ring_0032.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_gm_0012_t04_torso.webp"
     },
     {
      "name": "Artwork: Watcher Kaira",
      "rank": 3,
-     "chance": 25
+     "chance": 25,
+     "icon": "items/icon_ad_pic_a_mob_beritrad_01.webp"
     },
     {
      "name": "Fallen Ancient God armor (1 of 7)",
@@ -1020,33 +1175,41 @@
      "items": [
       {
        "name": "Fallen Ancient God Breastplate",
-       "chance": 2.17
+       "chance": 2.17,
+       "icon": "items/icon_gm_0008_t05_torso.webp"
       },
       {
        "name": "Fallen Ancient God Greaves",
-       "chance": 2.89
+       "chance": 2.89,
+       "icon": "items/icon_gm_0008_t05_pants.webp"
       },
       {
        "name": "Fallen Ancient God Helm",
-       "chance": 3.47
+       "chance": 3.47,
+       "icon": "items/icon_gm_0008_t05_helmet.webp"
       },
       {
        "name": "Fallen Ancient God Pauldrons",
-       "chance": 3.47
+       "chance": 3.47,
+       "icon": "items/icon_gm_0008_t05_shoulder.webp"
       },
       {
        "name": "Fallen Ancient God Gloves",
-       "chance": 4.33
+       "chance": 4.33,
+       "icon": "items/icon_gm_0008_t05_gloves.webp"
       },
       {
        "name": "Fallen Ancient God Boots",
-       "chance": 4.33
+       "chance": 4.33,
+       "icon": "items/icon_gm_0008_t05_boots.webp"
       },
       {
        "name": "Fallen Ancient God Cloak",
-       "chance": 4.33
+       "chance": 4.33,
+       "icon": "items/icon_gm_0008_t05_cape.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_gm_0008_t05_torso.webp"
     },
     {
      "name": "Fallen Ancient God weapon (1 of 9)",
@@ -1055,41 +1218,51 @@
      "items": [
       {
        "name": "Fallen Ancient God Longsword",
-       "chance": 1.12
+       "chance": 1.12,
+       "icon": "items/icon_wp_sw_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Dagger",
-       "chance": 1.12
+       "chance": 1.12,
+       "icon": "items/icon_wp_da_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Bow",
-       "chance": 1.12
+       "chance": 1.12,
+       "icon": "items/icon_wp_bw_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Spellbook",
-       "chance": 1.12
+       "chance": 1.12,
+       "icon": "items/icon_wp_mb_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Orb",
-       "chance": 1.12
+       "chance": 1.12,
+       "icon": "items/icon_wp_or_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Mace",
-       "chance": 1.12
+       "chance": 1.12,
+       "icon": "items/icon_wp_ma_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Staff",
-       "chance": 1.12
+       "chance": 1.12,
+       "icon": "items/icon_wp_st_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Guard",
-       "chance": 1.12
+       "chance": 1.12,
+       "icon": "items/icon_weapon_guarder_r_011.webp"
       },
       {
        "name": "Fallen Ancient God Greatsword",
-       "chance": 1.12
+       "chance": 1.12,
+       "icon": "items/icon_wp_gs_0078_t05.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_wp_sw_0078_t05.webp"
     },
     {
      "name": "Bloodthirsty armor (1 of 7)",
@@ -1098,38 +1271,47 @@
      "items": [
       {
        "name": "Bloodthirsty Breastplate",
-       "chance": 7.05
+       "chance": 7.05,
+       "icon": "items/icon_gm_0037_t04_torso.webp"
       },
       {
        "name": "Bloodthirsty Greaves",
-       "chance": 9.39
+       "chance": 9.39,
+       "icon": "items/icon_gm_0037_t04_pants.webp"
       },
       {
        "name": "Bloodthirsty Pauldrons",
-       "chance": 11.27
+       "chance": 11.27,
+       "icon": "items/icon_gm_0037_t04_shoulder.webp"
       },
       {
        "name": "Bloodthirsty Helm",
-       "chance": 11.27
+       "chance": 11.27,
+       "icon": "items/icon_gm_0037_t04_helmet.webp"
       },
       {
        "name": "Bloodthirsty Gloves",
-       "chance": 14.09
+       "chance": 14.09,
+       "icon": "items/icon_gm_0037_t04_gloves.webp"
       },
       {
        "name": "Bloodthirsty Boots",
-       "chance": 14.09
+       "chance": 14.09,
+       "icon": "items/icon_gm_0037_t04_boots.webp"
       },
       {
        "name": "Bloodthirsty Cloak",
-       "chance": 14.09
+       "chance": 14.09,
+       "icon": "items/icon_gm_0037_t04_cape.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_gm_0037_t04_torso.webp"
     },
     {
      "name": "Balaur's Essence",
      "rank": 2,
-     "chance": 43.4
+     "chance": 43.4,
+     "icon": "items/icon_item_craft_drop_draconic_soul_all_a_u_001a.webp"
     },
     {
      "name": "Vowed weapon (1 of 9)",
@@ -1138,44 +1320,54 @@
      "items": [
       {
        "name": "Vowed Longsword",
-       "chance": 3.63
+       "chance": 3.63,
+       "icon": "items/icon_wp_sw_0018_t04.webp"
       },
       {
        "name": "Vowed Dagger",
-       "chance": 3.63
+       "chance": 3.63,
+       "icon": "items/icon_wp_da_0018_t04.webp"
       },
       {
        "name": "Vowed Bow",
-       "chance": 3.63
+       "chance": 3.63,
+       "icon": "items/icon_wp_bw_0018_t04.webp"
       },
       {
        "name": "Vowed Spellbook",
-       "chance": 3.63
+       "chance": 3.63,
+       "icon": "items/icon_wp_mb_0018_t04.webp"
       },
       {
        "name": "Vowed Orb",
-       "chance": 3.63
+       "chance": 3.63,
+       "icon": "items/icon_wp_or_0018_t04.webp"
       },
       {
        "name": "Vowed Mace",
-       "chance": 3.63
+       "chance": 3.63,
+       "icon": "items/icon_wp_ma_0018_t04.webp"
       },
       {
        "name": "Vowed Staff",
-       "chance": 3.63
+       "chance": 3.63,
+       "icon": "items/icon_wp_st_0018_t04.webp"
       },
       {
        "name": "Vowed Guard",
-       "chance": 3.63
+       "chance": 3.63,
+       "icon": "items/icon_weapon_guarder_r_015.webp"
       },
       {
        "name": "Vowed Greatsword",
-       "chance": 3.63
+       "chance": 3.63,
+       "icon": "items/icon_wp_gs_0018_t04.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_wp_sw_0018_t04.webp"
     }
    ],
-   "image": "https://metabot.gg/web/aion2/npcs/f/mob_beritrad_01.webp"
+   "image": "npcs/f/mob_beritrad_01.webp"
   },
   {
    "npc": 2600096,
@@ -1203,7 +1395,8 @@
     {
      "name": "Artwork: Executor Tamasa",
      "rank": 3,
-     "chance": 25
+     "chance": 25,
+     "icon": "items/icon_ad_pic_a_mob_radvima_01_cv02.webp"
     },
     {
      "name": "Fallen Ancient God armor (1 of 7)",
@@ -1212,33 +1405,41 @@
      "items": [
       {
        "name": "Fallen Ancient God Breastplate",
-       "chance": 5.2
+       "chance": 5.2,
+       "icon": "items/icon_gm_0008_t05_torso.webp"
       },
       {
        "name": "Fallen Ancient God Greaves",
-       "chance": 6.94
+       "chance": 6.94,
+       "icon": "items/icon_gm_0008_t05_pants.webp"
       },
       {
        "name": "Fallen Ancient God Pauldrons",
-       "chance": 8.32
+       "chance": 8.32,
+       "icon": "items/icon_gm_0008_t05_shoulder.webp"
       },
       {
        "name": "Fallen Ancient God Helm",
-       "chance": 8.32
+       "chance": 8.32,
+       "icon": "items/icon_gm_0008_t05_helmet.webp"
       },
       {
        "name": "Fallen Ancient God Gloves",
-       "chance": 10.4
+       "chance": 10.4,
+       "icon": "items/icon_gm_0008_t05_gloves.webp"
       },
       {
        "name": "Fallen Ancient God Boots",
-       "chance": 10.4
+       "chance": 10.4,
+       "icon": "items/icon_gm_0008_t05_boots.webp"
       },
       {
        "name": "Fallen Ancient God Cloak",
-       "chance": 10.4
+       "chance": 10.4,
+       "icon": "items/icon_gm_0008_t05_cape.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_gm_0008_t05_torso.webp"
     },
     {
      "name": "Fallen Ancient God weapon (1 of 9)",
@@ -1247,41 +1448,51 @@
      "items": [
       {
        "name": "Fallen Ancient God Greatsword",
-       "chance": 2.69
+       "chance": 2.69,
+       "icon": "items/icon_wp_gs_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Longsword",
-       "chance": 2.69
+       "chance": 2.69,
+       "icon": "items/icon_wp_sw_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Dagger",
-       "chance": 2.69
+       "chance": 2.69,
+       "icon": "items/icon_wp_da_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Bow",
-       "chance": 2.69
+       "chance": 2.69,
+       "icon": "items/icon_wp_bw_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Spellbook",
-       "chance": 2.69
+       "chance": 2.69,
+       "icon": "items/icon_wp_mb_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Orb",
-       "chance": 2.69
+       "chance": 2.69,
+       "icon": "items/icon_wp_or_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Mace",
-       "chance": 2.69
+       "chance": 2.69,
+       "icon": "items/icon_wp_ma_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Staff",
-       "chance": 2.69
+       "chance": 2.69,
+       "icon": "items/icon_wp_st_0078_t05.webp"
       },
       {
        "name": "Fallen Ancient God Guard",
-       "chance": 2.69
+       "chance": 2.69,
+       "icon": "items/icon_weapon_guarder_r_011.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_wp_gs_0078_t05.webp"
     },
     {
      "name": "Bloodthirsty armor (1 of 7)",
@@ -1290,33 +1501,41 @@
      "items": [
       {
        "name": "Bloodthirsty Breastplate",
-       "chance": 10.79
+       "chance": 10.79,
+       "icon": "items/icon_gm_0037_t04_torso.webp"
       },
       {
        "name": "Bloodthirsty Greaves",
-       "chance": 14.38
+       "chance": 14.38,
+       "icon": "items/icon_gm_0037_t04_pants.webp"
       },
       {
        "name": "Bloodthirsty Pauldrons",
-       "chance": 17.26
+       "chance": 17.26,
+       "icon": "items/icon_gm_0037_t04_shoulder.webp"
       },
       {
        "name": "Bloodthirsty Helm",
-       "chance": 17.26
+       "chance": 17.26,
+       "icon": "items/icon_gm_0037_t04_helmet.webp"
       },
       {
        "name": "Bloodthirsty Gloves",
-       "chance": 21.57
+       "chance": 21.57,
+       "icon": "items/icon_gm_0037_t04_gloves.webp"
       },
       {
        "name": "Bloodthirsty Boots",
-       "chance": 21.57
+       "chance": 21.57,
+       "icon": "items/icon_gm_0037_t04_boots.webp"
       },
       {
        "name": "Bloodthirsty Cloak",
-       "chance": 21.57
+       "chance": 21.57,
+       "icon": "items/icon_gm_0037_t04_cape.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_gm_0037_t04_torso.webp"
     },
     {
      "name": "Vowed weapon (1 of 9)",
@@ -1325,44 +1544,54 @@
      "items": [
       {
        "name": "Vowed Longsword",
-       "chance": 8.77
+       "chance": 8.77,
+       "icon": "items/icon_wp_sw_0018_t04.webp"
       },
       {
        "name": "Vowed Dagger",
-       "chance": 8.77
+       "chance": 8.77,
+       "icon": "items/icon_wp_da_0018_t04.webp"
       },
       {
        "name": "Vowed Bow",
-       "chance": 8.77
+       "chance": 8.77,
+       "icon": "items/icon_wp_bw_0018_t04.webp"
       },
       {
        "name": "Vowed Spellbook",
-       "chance": 8.77
+       "chance": 8.77,
+       "icon": "items/icon_wp_mb_0018_t04.webp"
       },
       {
        "name": "Vowed Orb",
-       "chance": 8.77
+       "chance": 8.77,
+       "icon": "items/icon_wp_or_0018_t04.webp"
       },
       {
        "name": "Vowed Mace",
-       "chance": 8.77
+       "chance": 8.77,
+       "icon": "items/icon_wp_ma_0018_t04.webp"
       },
       {
        "name": "Vowed Staff",
-       "chance": 8.77
+       "chance": 8.77,
+       "icon": "items/icon_wp_st_0018_t04.webp"
       },
       {
        "name": "Vowed Guard",
-       "chance": 8.77
+       "chance": 8.77,
+       "icon": "items/icon_weapon_guarder_r_015.webp"
       },
       {
        "name": "Vowed Greatsword",
-       "chance": 8.77
+       "chance": 8.77,
+       "icon": "items/icon_wp_gs_0018_t04.webp"
       }
-     ]
+     ],
+     "icon": "items/icon_wp_sw_0018_t04.webp"
     }
    ],
-   "image": "https://metabot.gg/web/aion2/npcs/f/mob_radvima_01.webp"
+   "image": "npcs/f/mob_radvima_01.webp"
   }
  ],
  "field": {
@@ -1384,46 +1613,56 @@
        "items": [
         {
          "name": "Neikel Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0107_t03_torso.webp"
         },
         {
          "name": "Neikel Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0107_t03_pants.webp"
         },
         {
          "name": "Neikel Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0107_t03_shoulder.webp"
         },
         {
          "name": "Neikel Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0107_t03_helmet.webp"
         },
         {
          "name": "Neikel Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0107_t03_gloves.webp"
         },
         {
          "name": "Neikel Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0107_t03_boots.webp"
         },
         {
          "name": "Neikel Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0107_t03_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0107_t03_torso.webp"
       },
       {
        "name": "Artwork: Neikel of the East",
        "rank": 1,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_keneir_01_v03.webp"
       },
       {
        "name": "Neikel's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2100003.webp"
+     "image": "npcs/2100003.webp"
     },
     {
      "slot": 101002,
@@ -1440,46 +1679,56 @@
        "items": [
         {
          "name": "Kutar Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0088_t03_torso.webp"
         },
         {
          "name": "Kutar Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0088_t03_pants.webp"
         },
         {
          "name": "Kutar Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0088_t03_shoulder.webp"
         },
         {
          "name": "Kutar Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0088_t03_helmet.webp"
         },
         {
          "name": "Kutar Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0088_t03_gloves.webp"
         },
         {
          "name": "Kutar Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0088_t03_boots.webp"
         },
         {
          "name": "Kutar Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0088_t03_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0088_t03_torso.webp"
       },
       {
        "name": "Artwork: Rotten Kutar",
        "rank": 1,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_bigman_01_v03.webp"
       },
       {
        "name": "Kutar's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2100040.webp"
+     "image": "npcs/2100040.webp"
     },
     {
      "slot": 101003,
@@ -1496,46 +1745,56 @@
        "items": [
         {
          "name": "Kernon Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0100_t02_torso.webp"
         },
         {
          "name": "Kernon Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0100_t02_pants.webp"
         },
         {
          "name": "Kernon Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0100_t02_shoulder.webp"
         },
         {
          "name": "Kernon Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0100_t02_helmet.webp"
         },
         {
          "name": "Kernon Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0100_t02_gloves.webp"
         },
         {
          "name": "Kernon Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0100_t02_boots.webp"
         },
         {
          "name": "Kernon Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0100_t02_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0100_t02_torso.webp"
       },
       {
        "name": "Artwork: Kernon of the West",
        "rank": 1,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_keneir_01_v02.webp"
       },
       {
        "name": "Kernon's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2100050.webp"
+     "image": "npcs/2100050.webp"
     },
     {
      "slot": 101004,
@@ -1552,46 +1811,56 @@
        "items": [
         {
          "name": "Kusan Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0122_t01_torso.webp"
         },
         {
          "name": "Kusan Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0122_t01_pants.webp"
         },
         {
          "name": "Kusan Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0122_t01_shoulder.webp"
         },
         {
          "name": "Kusan Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0122_t01_helmet.webp"
         },
         {
          "name": "Kusan Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0122_t01_gloves.webp"
         },
         {
          "name": "Kusan Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0122_t01_boots.webp"
         },
         {
          "name": "Kusan Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0122_t01_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0122_t01_torso.webp"
       },
       {
        "name": "Artwork: Kusan the Mad Gladiator",
        "rank": 2,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_krallelite_01_v01.webp"
       },
       {
        "name": "Kusan's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/f/mob_krallelite_01.webp"
+     "image": "npcs/f/mob_krallelite_01.webp"
     },
     {
      "slot": 101005,
@@ -1608,46 +1877,56 @@
        "items": [
         {
          "name": "Garshim Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_debguard_03_torso.webp"
         },
         {
          "name": "Garshim Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_debguard_03_pants.webp"
         },
         {
          "name": "Garshim Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_debguard_03_shoulder.webp"
         },
         {
          "name": "Garshim Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_debguard_03_helmet.webp"
         },
         {
          "name": "Garshim Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_debguard_03_gloves.webp"
         },
         {
          "name": "Garshim Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_debguard_03_boots.webp"
         },
         {
          "name": "Garshim Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_debguard_03_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_debguard_03_torso.webp"
       },
       {
        "name": "Artwork: Ritualist Garshim",
        "rank": 2,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_krallelite_02_v01.webp"
       },
       {
        "name": "Garshim's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/f/mob_krallelite_02.webp"
+     "image": "npcs/f/mob_krallelite_02.webp"
     },
     {
      "slot": 101006,
@@ -1664,51 +1943,62 @@
        "items": [
         {
          "name": "Teegant Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0089_t02_torso.webp"
         },
         {
          "name": "Teegant Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0089_t02_pants.webp"
         },
         {
          "name": "Teegant Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0089_t02_shoulder.webp"
         },
         {
          "name": "Teegant Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0089_t02_helmet.webp"
         },
         {
          "name": "Teegant Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0089_t02_gloves.webp"
         },
         {
          "name": "Teegant Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0089_t02_boots.webp"
         },
         {
          "name": "Teegant Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0089_t02_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0089_t02_torso.webp"
       },
       {
        "name": "Artwork: Bodyguard Teegant",
        "rank": 1,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_neuth_03.webp"
       },
       {
        "name": "Soul: Elite Klaw (Bound)",
        "rank": 0,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_vehicle_a_neuth_03.webp"
       },
       {
        "name": "Teegant's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/r/mob_neuth_03.webp"
+     "image": "npcs/r/mob_neuth_03.webp"
     },
     {
      "slot": 101007,
@@ -1725,46 +2015,56 @@
        "items": [
         {
          "name": "Korin Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0092_t01_torso.webp"
         },
         {
          "name": "Korin Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0092_t01_pants.webp"
         },
         {
          "name": "Korin Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0092_t01_shoulder.webp"
         },
         {
          "name": "Korin Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0092_t01_helmet.webp"
         },
         {
          "name": "Korin Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0092_t01_gloves.webp"
         },
         {
          "name": "Korin Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0092_t01_boots.webp"
         },
         {
          "name": "Korin Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0092_t01_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0092_t01_torso.webp"
       },
       {
        "name": "Artwork: Blooming Korin",
        "rank": 1,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_coradon_01_v03.webp"
       },
       {
        "name": "Korin's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/f/mob_coradon_01.webp"
+     "image": "npcs/f/mob_coradon_01.webp"
     },
     {
      "slot": 101008,
@@ -1781,46 +2081,56 @@
        "items": [
         {
          "name": "Saursus Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0098_t02_torso.webp"
         },
         {
          "name": "Saursus Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0098_t02_pants.webp"
         },
         {
          "name": "Saursus Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0098_t02_shoulder.webp"
         },
         {
          "name": "Saursus Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0098_t02_helmet.webp"
         },
         {
          "name": "Saursus Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0098_t02_gloves.webp"
         },
         {
          "name": "Saursus Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0098_t02_boots.webp"
         },
         {
          "name": "Saursus Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0098_t02_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0098_t02_torso.webp"
       },
       {
        "name": "Artwork: Furious Saursus",
        "rank": 2,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_ursusselite_01_v01.webp"
       },
       {
        "name": "Saursus's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2100177.webp"
+     "image": "npcs/2100177.webp"
     },
     {
      "slot": 101009,
@@ -1837,46 +2147,56 @@
        "items": [
         {
          "name": "Pnyn Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0094_t03_torso.webp"
         },
         {
          "name": "Pnyn Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0094_t03_pants.webp"
         },
         {
          "name": "Pnyn Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0094_t03_shoulder.webp"
         },
         {
          "name": "Pnyn Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0094_t03_helmet.webp"
         },
         {
          "name": "Pnyn Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0094_t03_gloves.webp"
         },
         {
          "name": "Pnyn Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0094_t03_boots.webp"
         },
         {
          "name": "Pnyn Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0094_t03_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0094_t03_torso.webp"
       },
       {
        "name": "Artwork: Bloodfang Pnyn",
        "rank": 2,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_kalnifelite_01_v01.webp"
       },
       {
        "name": "Pnyn's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2100178.webp"
+     "image": "npcs/2100178.webp"
     },
     {
      "slot": 101010,
@@ -1893,46 +2213,56 @@
        "items": [
         {
          "name": "Layla Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0054_t03_torso.webp"
         },
         {
          "name": "Layla Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0054_t03_pants.webp"
         },
         {
          "name": "Layla Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0054_t03_shoulder.webp"
         },
         {
          "name": "Layla Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0054_t03_helmet.webp"
         },
         {
          "name": "Layla Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0054_t03_gloves.webp"
         },
         {
          "name": "Layla Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0054_t03_boots.webp"
         },
         {
          "name": "Layla Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0054_t03_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0054_t03_torso.webp"
       },
       {
        "name": "Artwork: Heretic Layla",
        "rank": 2,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_surapriest_01_v04.webp"
       },
       {
        "name": "Layla's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2100582.webp"
+     "image": "npcs/2100582.webp"
     },
     {
      "slot": 101011,
@@ -1945,7 +2275,8 @@
       {
        "name": "Artwork: Black Tentacle Lawa",
        "rank": 3,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_nagaelite_05.webp"
       },
       {
        "name": "Lawa armor (1 of 7)",
@@ -1954,46 +2285,56 @@
        "items": [
         {
          "name": "Lawa Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0023_t04_torso.webp"
         },
         {
          "name": "Lawa Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0023_t04_pants.webp"
         },
         {
          "name": "Lawa Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0023_t04_shoulder.webp"
         },
         {
          "name": "Lawa Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0023_t04_helmet.webp"
         },
         {
          "name": "Lawa Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0023_t04_gloves.webp"
         },
         {
          "name": "Lawa Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0023_t04_boots.webp"
         },
         {
          "name": "Lawa Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0023_t04_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0023_t04_torso.webp"
       },
       {
        "name": "Balaur's Essence",
        "rank": 2,
-       "chance": 60.67
+       "chance": 60.67,
+       "icon": "items/icon_item_craft_drop_draconic_soul_all_a_u_001a.webp"
       },
       {
        "name": "Lawa's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2100617.webp"
+     "image": "npcs/2100617.webp"
     },
     {
      "slot": 101012,
@@ -2006,7 +2347,8 @@
       {
        "name": "Artwork: Phantasm Kasia",
        "rank": 3,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_kasia_01.webp"
       },
       {
        "name": "Kasia armor (1 of 7)",
@@ -2015,46 +2357,56 @@
        "items": [
         {
          "name": "Kasia Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0137_t03_torso.webp"
         },
         {
          "name": "Kasia Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0137_t03_pants.webp"
         },
         {
          "name": "Kasia Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0137_t03_shoulder.webp"
         },
         {
          "name": "Kasia Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0137_t03_helmet.webp"
         },
         {
          "name": "Kasia Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0137_t03_gloves.webp"
         },
         {
          "name": "Kasia Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0137_t03_boots.webp"
         },
         {
          "name": "Kasia Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0137_t03_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0137_t03_torso.webp"
       },
       {
        "name": "Balaur's Essence",
        "rank": 2,
-       "chance": 60.67
+       "chance": 60.67,
+       "icon": "items/icon_item_craft_drop_draconic_soul_all_a_u_001a.webp"
       },
       {
        "name": "Kasia's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/r/mob_kasia_01.webp"
+     "image": "npcs/r/mob_kasia_01.webp"
     },
     {
      "slot": 101013,
@@ -2067,7 +2419,8 @@
       {
        "name": "Artwork: Centurion Demiros",
        "rank": 3,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_undead_01.webp"
       },
       {
        "name": "Demiros armor (1 of 7)",
@@ -2076,46 +2429,56 @@
        "items": [
         {
          "name": "Demiros Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_ulgorn_01_torso.webp"
         },
         {
          "name": "Demiros Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_ulgorn_01_pants.webp"
         },
         {
          "name": "Demiros Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_ulgorn_01_shoulder.webp"
         },
         {
          "name": "Demiros Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_ulgorn_01_helmet.webp"
         },
         {
          "name": "Demiros Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_ulgorn_01_gloves.webp"
         },
         {
          "name": "Demiros Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_ulgorn_01_boots.webp"
         },
         {
          "name": "Demiros Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_ulgorn_01_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_ulgorn_01_torso.webp"
       },
       {
        "name": "Balaur's Essence",
        "rank": 2,
-       "chance": 60.67
+       "chance": 60.67,
+       "icon": "items/icon_item_craft_drop_draconic_soul_all_a_u_001a.webp"
       },
       {
        "name": "Demiros's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2100708.webp"
+     "image": "npcs/2100708.webp"
     },
     {
      "slot": 101014,
@@ -2128,7 +2491,8 @@
       {
        "name": "Artwork: Divine Ansas",
        "rank": 3,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_guardit_03.webp"
       },
       {
        "name": "Ansas armor (1 of 7)",
@@ -2137,51 +2501,62 @@
        "items": [
         {
          "name": "Ansas Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0021_t03_torso.webp"
         },
         {
          "name": "Ansas Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0021_t03_pants.webp"
         },
         {
          "name": "Ansas Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0021_t03_shoulder.webp"
         },
         {
          "name": "Ansas Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0021_t03_helmet.webp"
         },
         {
          "name": "Ansas Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0021_t03_gloves.webp"
         },
         {
          "name": "Ansas Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0021_t03_boots.webp"
         },
         {
          "name": "Ansas Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0021_t03_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0021_t03_torso.webp"
       },
       {
        "name": "Balaur's Essence",
        "rank": 2,
-       "chance": 60.67
+       "chance": 60.67,
+       "icon": "items/icon_item_craft_drop_draconic_soul_all_a_u_001a.webp"
       },
       {
        "name": "Soul: Elite Guardite (Bound)",
        "rank": 0,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_vehicle_a_guardit_03.webp"
       },
       {
        "name": "Ansas's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2100718.webp"
+     "image": "npcs/2100718.webp"
     },
     {
      "slot": 101015,
@@ -2198,46 +2573,56 @@
        "items": [
         {
          "name": "Moshav Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0093_t04_torso.webp"
         },
         {
          "name": "Moshav Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0093_t04_pants.webp"
         },
         {
          "name": "Moshav Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0093_t04_shoulder.webp"
         },
         {
          "name": "Moshav Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0093_t04_helmet.webp"
         },
         {
          "name": "Moshav Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0093_t04_gloves.webp"
         },
         {
          "name": "Moshav Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0093_t04_boots.webp"
         },
         {
          "name": "Moshav Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0093_t04_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0093_t04_torso.webp"
       },
       {
        "name": "Artwork: Harvest Manager Moshav",
        "rank": 2,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_drakanelite_03_v01.webp"
       },
       {
        "name": "Moshav's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2100876.webp"
+     "image": "npcs/2100876.webp"
     },
     {
      "slot": 101016,
@@ -2250,7 +2635,8 @@
       {
        "name": "Artwork: Sentinel K'nash",
        "rank": 3,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_beritrad_04_v01.webp"
       },
       {
        "name": "K'nash armor (1 of 7)",
@@ -2259,46 +2645,56 @@
        "items": [
         {
          "name": "K'nash Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0016_t05_torso.webp"
         },
         {
          "name": "K'nash Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0016_t05_pants.webp"
         },
         {
          "name": "K'nash Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0016_t05_shoulder.webp"
         },
         {
          "name": "K'nash Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0016_t05_helmet.webp"
         },
         {
          "name": "K'nash Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0016_t05_gloves.webp"
         },
         {
          "name": "K'nash Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0016_t05_boots.webp"
         },
         {
          "name": "K'nash Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0016_t05_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0016_t05_torso.webp"
       },
       {
        "name": "Balaur's Essence",
        "rank": 2,
-       "chance": 60.67
+       "chance": 60.67,
+       "icon": "items/icon_item_craft_drop_draconic_soul_all_a_u_001a.webp"
       },
       {
        "name": "K'nash's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2100877.webp"
+     "image": "npcs/2100877.webp"
     },
     {
      "slot": 101017,
@@ -2315,46 +2711,56 @@
        "items": [
         {
          "name": "Aulla Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0164_t03_torso.webp"
         },
         {
          "name": "Aulla Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0164_t03_pants.webp"
         },
         {
          "name": "Aulla Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0164_t03_shoulder.webp"
         },
         {
          "name": "Aulla Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0164_t03_helmet.webp"
         },
         {
          "name": "Aulla Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0164_t03_gloves.webp"
         },
         {
          "name": "Aulla Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0164_t03_boots.webp"
         },
         {
          "name": "Aulla Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0164_t03_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0164_t03_torso.webp"
       },
       {
        "name": "Artwork: Scholar Aulla",
        "rank": 2,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_owlmagic_01_v01.webp"
       },
       {
        "name": "Aulla's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2100988.webp"
+     "image": "npcs/2100988.webp"
     },
     {
      "slot": 101018,
@@ -2367,7 +2773,8 @@
       {
        "name": "Artwork: Forest Warrior Aullamu",
        "rank": 3,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_owlelite_01_v01.webp"
       },
       {
        "name": "Aullamu armor (1 of 7)",
@@ -2376,46 +2783,56 @@
        "items": [
         {
          "name": "Aullamu Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0014_t03_torso.webp"
         },
         {
          "name": "Aullamu Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0014_t03_pants.webp"
         },
         {
          "name": "Aullamu Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0014_t03_shoulder.webp"
         },
         {
          "name": "Aullamu Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0014_t03_helmet.webp"
         },
         {
          "name": "Aullamu Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0014_t03_gloves.webp"
         },
         {
          "name": "Aullamu Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0014_t03_boots.webp"
         },
         {
          "name": "Aullamu Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0014_t03_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0014_t03_torso.webp"
       },
       {
        "name": "Balaur's Essence",
        "rank": 2,
-       "chance": 60.67
+       "chance": 60.67,
+       "icon": "items/icon_item_craft_drop_draconic_soul_all_a_u_001a.webp"
       },
       {
        "name": "Aullamu's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2100989.webp"
+     "image": "npcs/2100989.webp"
     },
     {
      "slot": 101019,
@@ -2432,46 +2849,56 @@
        "items": [
         {
          "name": "Taulo Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0146_t03_torso.webp"
         },
         {
          "name": "Taulo Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0146_t03_pants.webp"
         },
         {
          "name": "Taulo Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0146_t03_shoulder.webp"
         },
         {
          "name": "Taulo Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0146_t03_helmet.webp"
         },
         {
          "name": "Taulo Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0146_t03_gloves.webp"
         },
         {
          "name": "Taulo Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0146_t03_boots.webp"
         },
         {
          "name": "Taulo Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0146_t03_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0146_t03_torso.webp"
       },
       {
        "name": "Artwork: Chaser Taulo",
        "rank": 2,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_owlelite_01_cv01.webp"
       },
       {
        "name": "Taulo's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/r/mob_owlelite_01_cv01.webp"
+     "image": "npcs/r/mob_owlelite_01_cv01.webp"
     },
     {
      "slot": 101020,
@@ -2484,7 +2911,8 @@
       {
        "name": "Artwork: Researcher Setram",
        "rank": 3,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_beritrad_03_v01.webp"
       },
       {
        "name": "Setram armor (1 of 7)",
@@ -2493,46 +2921,56 @@
        "items": [
         {
          "name": "Setram Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_debguard_01_torso.webp"
         },
         {
          "name": "Setram Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_debguard_01_pants.webp"
         },
         {
          "name": "Setram Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_debguard_01_shoulder.webp"
         },
         {
          "name": "Setram Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_debguard_01_helmet.webp"
         },
         {
          "name": "Setram Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_debguard_01_gloves.webp"
         },
         {
          "name": "Setram Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_debguard_01_boots.webp"
         },
         {
          "name": "Setram Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_debguard_01_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_debguard_01_torso.webp"
       },
       {
        "name": "Balaur's Essence",
        "rank": 2,
-       "chance": 60.67
+       "chance": 60.67,
+       "icon": "items/icon_item_craft_drop_draconic_soul_all_a_u_001a.webp"
       },
       {
        "name": "Setram's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/f/mob_beritrad_03.webp"
+     "image": "npcs/f/mob_beritrad_03.webp"
     },
     {
      "slot": 101021,
@@ -2545,7 +2983,8 @@
       {
        "name": "Artwork: Eternal Gartua",
        "rank": 4,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_gartua_01_v02.webp"
       },
       {
        "name": "Gartua armor & accessories (1 of 9)",
@@ -2554,49 +2993,60 @@
        "items": [
         {
          "name": "Gartua Breastplate",
-         "chance": 6.44
+         "chance": 6.44,
+         "icon": "items/icon_gm_0007_t05_torso.webp"
         },
         {
          "name": "Gartua Greaves",
-         "chance": 8.58
+         "chance": 8.58,
+         "icon": "items/icon_gm_0007_t05_pants.webp"
         },
         {
          "name": "Gartua Helm",
-         "chance": 10.3
+         "chance": 10.3,
+         "icon": "items/icon_gm_0007_t05_helmet.webp"
         },
         {
          "name": "Gartua Pauldrons",
-         "chance": 10.3
+         "chance": 10.3,
+         "icon": "items/icon_gm_0007_t05_shoulder.webp"
         },
         {
          "name": "Gartua Gloves",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0007_t05_gloves.webp"
         },
         {
          "name": "Gartua Boots",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0007_t05_boots.webp"
         },
         {
          "name": "Gartua Cloak",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0007_t05_cape.webp"
         },
         {
          "name": "Gartua Earrings",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_acc_er_0064.webp"
         },
         {
          "name": "Gartua Ring",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_acc_ring_0064.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0007_t05_torso.webp"
       },
       {
        "name": "Gartua's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2101074.webp"
+     "image": "npcs/2101074.webp"
     },
     {
      "slot": 101022,
@@ -2613,54 +3063,66 @@
        "items": [
         {
          "name": "Dartan Breastplate",
-         "chance": 6.44
+         "chance": 6.44,
+         "icon": "items/icon_gm_0041_t04_torso.webp"
         },
         {
          "name": "Dartan Greaves",
-         "chance": 8.58
+         "chance": 8.58,
+         "icon": "items/icon_gm_0041_t04_pants.webp"
         },
         {
          "name": "Dartan Helm",
-         "chance": 10.3
+         "chance": 10.3,
+         "icon": "items/icon_gm_0041_t04_helmet.webp"
         },
         {
          "name": "Dartan Pauldrons",
-         "chance": 10.3
+         "chance": 10.3,
+         "icon": "items/icon_gm_0041_t04_shoulder.webp"
         },
         {
          "name": "Dartan Gloves",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0041_t04_gloves.webp"
         },
         {
          "name": "Dartan Boots",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0041_t04_boots.webp"
         },
         {
          "name": "Dartan Cloak",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0041_t04_cape.webp"
         },
         {
          "name": "Dartan Earrings",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_acc_er_0058.webp"
         },
         {
          "name": "Dartan Ring",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_acc_ring_0058.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0041_t04_torso.webp"
       },
       {
        "name": "Artwork: Silent Dartan",
        "rank": 3,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_beritrad_01.webp"
       },
       {
        "name": "Dartan's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/f/mob_beritrad_01.webp"
+     "image": "npcs/f/mob_beritrad_01.webp"
     },
     {
      "slot": 101023,
@@ -2677,54 +3139,66 @@
        "items": [
         {
          "name": "Kashapa Breastplate",
-         "chance": 6.44
+         "chance": 6.44,
+         "icon": "items/icon_gm_0068_t05_torso.webp"
         },
         {
          "name": "Kashapa Greaves",
-         "chance": 8.58
+         "chance": 8.58,
+         "icon": "items/icon_gm_0068_t05_pants.webp"
         },
         {
          "name": "Kashapa Helm",
-         "chance": 10.3
+         "chance": 10.3,
+         "icon": "items/icon_gm_0068_t05_helmet.webp"
         },
         {
          "name": "Kashapa Pauldrons",
-         "chance": 10.3
+         "chance": 10.3,
+         "icon": "items/icon_gm_0068_t05_shoulder.webp"
         },
         {
          "name": "Kashapa Gloves",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0068_t05_gloves.webp"
         },
         {
          "name": "Kashapa Boots",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0068_t05_boots.webp"
         },
         {
          "name": "Kashapa Cloak",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0068_t05_cape.webp"
         },
         {
          "name": "Kashapa Earrings",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_acc_er_0081.webp"
         },
         {
          "name": "Kashapa Ring",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_acc_ring_0081.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0068_t05_torso.webp"
       },
       {
        "name": "Artwork: Soul Ruler Kashapa",
        "rank": 3,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_kashapa_01.webp"
       },
       {
        "name": "Kashapa's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2101122.webp"
+     "image": "npcs/2101122.webp"
     },
     {
      "slot": 101024,
@@ -2741,54 +3215,66 @@
        "items": [
         {
          "name": "High Commander Lagta Breastplate",
-         "chance": 6.44
+         "chance": 6.44,
+         "icon": "items/icon_gm_0062_t06_torso.webp"
         },
         {
          "name": "High Commander Lagta Greaves",
-         "chance": 8.58
+         "chance": 8.58,
+         "icon": "items/icon_gm_0062_t06_pants.webp"
         },
         {
          "name": "High Commander Lagta Helm",
-         "chance": 10.3
+         "chance": 10.3,
+         "icon": "items/icon_gm_0062_t06_helmet.webp"
         },
         {
          "name": "High Commander Lagta Pauldrons",
-         "chance": 10.3
+         "chance": 10.3,
+         "icon": "items/icon_gm_0062_t06_shoulder.webp"
         },
         {
          "name": "High Commander Lagta Gloves",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0062_t06_gloves.webp"
         },
         {
          "name": "High Commander Lagta Boots",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0062_t06_boots.webp"
         },
         {
          "name": "High Commander Lagta Cloak",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0062_t06_cape.webp"
         },
         {
          "name": "High Commander Lagta Earrings",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_acc_er_0077.webp"
         },
         {
          "name": "High Commander Lagta Ring",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_acc_ring_0077.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0062_t06_torso.webp"
       },
       {
        "name": "Artwork: High Commander Lagta",
        "rank": 3,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_lagta_01.webp"
       },
       {
        "name": "Lagta's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2101131.webp"
+     "image": "npcs/2101131.webp"
     }
    ]
   },
@@ -2810,46 +3296,56 @@
        "items": [
         {
          "name": "Danar Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0101_t01_torso.webp"
         },
         {
          "name": "Danar Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0101_t01_pants.webp"
         },
         {
          "name": "Danar Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0101_t01_shoulder.webp"
         },
         {
          "name": "Danar Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0101_t01_helmet.webp"
         },
         {
          "name": "Danar Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0101_t01_gloves.webp"
         },
         {
          "name": "Danar Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0101_t01_boots.webp"
         },
         {
          "name": "Danar Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0101_t01_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0101_t01_torso.webp"
       },
       {
        "name": "Artwork: Melted Danar",
        "rank": 1,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_dranavar_02_v01.webp"
       },
       {
        "name": "Danar's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2400017.webp"
+     "image": "npcs/2400017.webp"
     },
     {
      "slot": 111002,
@@ -2866,46 +3362,56 @@
        "items": [
         {
          "name": "Aed Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0110_t01_torso.webp"
         },
         {
          "name": "Aed Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0110_t01_pants.webp"
         },
         {
          "name": "Aed Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0110_t01_shoulder.webp"
         },
         {
          "name": "Aed Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0110_t01_helmet.webp"
         },
         {
          "name": "Aed Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0110_t01_gloves.webp"
         },
         {
          "name": "Aed Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0110_t01_boots.webp"
         },
         {
          "name": "Aed Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0110_t01_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0110_t01_torso.webp"
       },
       {
        "name": "Artwork: Black Warrior Aed",
        "rank": 1,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_surawar_05_v02.webp"
       },
       {
        "name": "Aed's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2400074.webp"
+     "image": "npcs/2400074.webp"
     },
     {
      "slot": 111003,
@@ -2922,46 +3428,56 @@
        "items": [
         {
          "name": "Rajit Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0105_t03_torso.webp"
         },
         {
          "name": "Rajit Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0105_t03_pants.webp"
         },
         {
          "name": "Rajit Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0105_t03_shoulder.webp"
         },
         {
          "name": "Rajit Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0105_t03_helmet.webp"
         },
         {
          "name": "Rajit Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0105_t03_gloves.webp"
         },
         {
          "name": "Rajit Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0105_t03_boots.webp"
         },
         {
          "name": "Rajit Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0105_t03_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0105_t03_torso.webp"
       },
       {
        "name": "Artwork: Faithful Rajit",
        "rank": 1,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_dracowar_01_v03.webp"
       },
       {
        "name": "Rajit's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2400140.webp"
+     "image": "npcs/2400140.webp"
     },
     {
      "slot": 111004,
@@ -2978,46 +3494,56 @@
        "items": [
         {
          "name": "Vargor Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0156_t02_torso.webp"
         },
         {
          "name": "Vargor Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0156_t02_pants.webp"
         },
         {
          "name": "Vargor Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0156_t02_shoulder.webp"
         },
         {
          "name": "Vargor Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0156_t02_helmet.webp"
         },
         {
          "name": "Vargor Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0156_t02_gloves.webp"
         },
         {
          "name": "Vargor Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0156_t02_boots.webp"
         },
         {
          "name": "Vargor Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0156_t02_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0156_t02_torso.webp"
       },
       {
        "name": "Artwork: Berserker Vargor",
        "rank": 1,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_varg_03_v01.webp"
       },
       {
        "name": "Vargor's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2400141.webp"
+     "image": "npcs/2400141.webp"
     },
     {
      "slot": 111005,
@@ -3034,46 +3560,56 @@
        "items": [
         {
          "name": "Garsan Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0106_t04_torso.webp"
         },
         {
          "name": "Garsan Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0106_t04_pants.webp"
         },
         {
          "name": "Garsan Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0106_t04_shoulder.webp"
         },
         {
          "name": "Garsan Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0106_t04_helmet.webp"
         },
         {
          "name": "Garsan Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0106_t04_gloves.webp"
         },
         {
          "name": "Garsan Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0106_t04_boots.webp"
         },
         {
          "name": "Garsan Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0106_t04_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0106_t04_torso.webp"
       },
       {
        "name": "Artwork: Predator Garsan",
        "rank": 2,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_ursusselite_01_cv01.webp"
       },
       {
        "name": "Garsan's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2400212.webp"
+     "image": "npcs/2400212.webp"
     },
     {
      "slot": 111006,
@@ -3090,46 +3626,56 @@
        "items": [
         {
          "name": "Lannar Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0065_t03_torso.webp"
         },
         {
          "name": "Lannar Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0065_t03_pants.webp"
         },
         {
          "name": "Lannar Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0065_t03_shoulder.webp"
         },
         {
          "name": "Lannar Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0065_t03_helmet.webp"
         },
         {
          "name": "Lannar Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0065_t03_gloves.webp"
         },
         {
          "name": "Lannar Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0065_t03_boots.webp"
         },
         {
          "name": "Lannar Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0065_t03_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0065_t03_torso.webp"
       },
       {
        "name": "Artwork: Blood Warrior Lannar",
        "rank": 1,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_altknife_04_v02.webp"
       },
       {
        "name": "Lannar's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2400223.webp"
+     "image": "npcs/2400223.webp"
     },
     {
      "slot": 111007,
@@ -3146,46 +3692,56 @@
        "items": [
         {
          "name": "Trid Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0095_t02_torso.webp"
         },
         {
          "name": "Trid Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0095_t02_pants.webp"
         },
         {
          "name": "Trid Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0095_t02_shoulder.webp"
         },
         {
          "name": "Trid Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0095_t02_helmet.webp"
         },
         {
          "name": "Trid Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0095_t02_gloves.webp"
         },
         {
          "name": "Trid Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0095_t02_boots.webp"
         },
         {
          "name": "Trid Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0095_t02_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0095_t02_torso.webp"
       },
       {
        "name": "Artwork: Deceiver Trid",
        "rank": 2,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_nornirvar_02_v02.webp"
       },
       {
        "name": "Trid's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2400274.webp"
+     "image": "npcs/2400274.webp"
     },
     {
      "slot": 111008,
@@ -3202,46 +3758,56 @@
        "items": [
         {
          "name": "Kelpina Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0097_t03_torso.webp"
         },
         {
          "name": "Kelpina Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0097_t03_pants.webp"
         },
         {
          "name": "Kelpina Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0097_t03_shoulder.webp"
         },
         {
          "name": "Kelpina Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0097_t03_helmet.webp"
         },
         {
          "name": "Kelpina Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0097_t03_gloves.webp"
         },
         {
          "name": "Kelpina Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0097_t03_boots.webp"
         },
         {
          "name": "Kelpina Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0097_t03_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0097_t03_torso.webp"
       },
       {
        "name": "Artwork: Blue Wave Kelpina",
        "rank": 2,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_waterele_04_v01.webp"
       },
       {
        "name": "Kelpina's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2400335.webp"
+     "image": "npcs/2400335.webp"
     },
     {
      "slot": 111009,
@@ -3258,46 +3824,56 @@
        "items": [
         {
          "name": "Nutah Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0036_t04_torso.webp"
         },
         {
          "name": "Nutah Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0036_t04_pants.webp"
         },
         {
          "name": "Nutah Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0036_t04_shoulder.webp"
         },
         {
          "name": "Nutah Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0036_t04_helmet.webp"
         },
         {
          "name": "Nutah Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0036_t04_gloves.webp"
         },
         {
          "name": "Nutah Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0036_t04_boots.webp"
         },
         {
          "name": "Nutah Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0036_t04_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0036_t04_torso.webp"
       },
       {
        "name": "Artwork: High Overseer Nutah",
        "rank": 2,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_skurvwar_04_v03.webp"
       },
       {
        "name": "Resana's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2400353.webp"
+     "image": "npcs/2400353.webp"
     },
     {
      "slot": 111010,
@@ -3314,46 +3890,56 @@
        "items": [
         {
          "name": "Resana Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0017_t02_torso.webp"
         },
         {
          "name": "Resana Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0017_t02_pants.webp"
         },
         {
          "name": "Resana Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0017_t02_shoulder.webp"
         },
         {
          "name": "Resana Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0017_t02_helmet.webp"
         },
         {
          "name": "Resana Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0017_t02_gloves.webp"
         },
         {
          "name": "Resana Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0017_t02_boots.webp"
         },
         {
          "name": "Resana Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0017_t02_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0017_t02_torso.webp"
       },
       {
        "name": "Artwork: Advisor Resana",
        "rank": 2,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_drakanelite_03_v01.webp"
       },
       {
        "name": "Nutah's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2400358.webp"
+     "image": "npcs/2400358.webp"
     },
     {
      "slot": 111011,
@@ -3370,46 +3956,56 @@
        "items": [
         {
          "name": "Linx Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_debguard_02_torso.webp"
         },
         {
          "name": "Linx Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_debguard_02_pants.webp"
         },
         {
          "name": "Linx Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_debguard_02_shoulder.webp"
         },
         {
          "name": "Linx Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_debguard_02_helmet.webp"
         },
         {
          "name": "Linx Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_debguard_02_gloves.webp"
         },
         {
          "name": "Linx Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_debguard_02_boots.webp"
         },
         {
          "name": "Linx Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_debguard_02_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_debguard_02_torso.webp"
       },
       {
        "name": "Artwork: Special Operations Leader Linx",
        "rank": 2,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_fighterm_01_v03.webp"
       },
       {
        "name": "Linx's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2400419.webp"
+     "image": "npcs/2400419.webp"
     },
     {
      "slot": 111012,
@@ -3422,7 +4018,8 @@
       {
        "name": "Artwork: Desecrator Newbold",
        "rank": 3,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_altknife_06.webp"
       },
       {
        "name": "Newbold armor (1 of 7)",
@@ -3431,46 +4028,56 @@
        "items": [
         {
          "name": "Newbold Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0013_t03_torso.webp"
         },
         {
          "name": "Newbold Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0013_t03_pants.webp"
         },
         {
          "name": "Newbold Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0013_t03_shoulder.webp"
         },
         {
          "name": "Newbold Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0013_t03_helmet.webp"
         },
         {
          "name": "Newbold Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0013_t03_gloves.webp"
         },
         {
          "name": "Newbold Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0013_t03_boots.webp"
         },
         {
          "name": "Newbold Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0013_t03_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0013_t03_torso.webp"
       },
       {
        "name": "Balaur's Essence",
        "rank": 2,
-       "chance": 60.67
+       "chance": 60.67,
+       "icon": "items/icon_item_craft_drop_draconic_soul_all_a_u_001a.webp"
       },
       {
        "name": "Newbold's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2400424.webp"
+     "image": "npcs/2400424.webp"
     },
     {
      "slot": 111013,
@@ -3483,7 +4090,8 @@
       {
        "name": "Artwork: Specter Archon Axios",
        "rank": 3,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_dstrarchone_01.webp"
       },
       {
        "name": "Axios armor (1 of 7)",
@@ -3492,46 +4100,56 @@
        "items": [
         {
          "name": "Axios Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0109_t04_torso.webp"
         },
         {
          "name": "Axios Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0109_t04_pants.webp"
         },
         {
          "name": "Axios Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0109_t04_shoulder.webp"
         },
         {
          "name": "Axios Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0109_t04_helmet.webp"
         },
         {
          "name": "Axios Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0109_t04_gloves.webp"
         },
         {
          "name": "Axios Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0109_t04_boots.webp"
         },
         {
          "name": "Axios Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0109_t04_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0109_t04_torso.webp"
       },
       {
        "name": "Balaur's Essence",
        "rank": 2,
-       "chance": 60.67
+       "chance": 60.67,
+       "icon": "items/icon_item_craft_drop_draconic_soul_all_a_u_001a.webp"
       },
       {
        "name": "Axios's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2400425.webp"
+     "image": "npcs/2400425.webp"
     },
     {
      "slot": 111014,
@@ -3548,46 +4166,56 @@
        "items": [
         {
          "name": "Hardirun Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0056_t03_torso.webp"
         },
         {
          "name": "Hardirun Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0056_t03_pants.webp"
         },
         {
          "name": "Hardirun Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0056_t03_shoulder.webp"
         },
         {
          "name": "Hardirun Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0056_t03_helmet.webp"
         },
         {
          "name": "Hardirun Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0056_t03_gloves.webp"
         },
         {
          "name": "Hardirun Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0056_t03_boots.webp"
         },
         {
          "name": "Hardirun Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0056_t03_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0056_t03_torso.webp"
       },
       {
        "name": "Artwork: Addicted Hardirun",
        "rank": 2,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_addshulack_05.webp"
       },
       {
        "name": "Hardirun's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2400474.webp"
+     "image": "npcs/2400474.webp"
     },
     {
      "slot": 111015,
@@ -3600,7 +4228,8 @@
       {
        "name": "Artwork: Executioner Barthien",
        "rank": 3,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_altknife_07.webp"
       },
       {
        "name": "Barthien armor (1 of 7)",
@@ -3609,46 +4238,56 @@
        "items": [
         {
          "name": "Barthien Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0002_t04_torso.webp"
         },
         {
          "name": "Barthien Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0002_t04_pants.webp"
         },
         {
          "name": "Barthien Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0002_t04_shoulder.webp"
         },
         {
          "name": "Barthien Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0002_t04_helmet.webp"
         },
         {
          "name": "Barthien Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0002_t04_gloves.webp"
         },
         {
          "name": "Barthien Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0002_t04_boots.webp"
         },
         {
          "name": "Barthien Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0002_t04_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0002_t04_torso.webp"
       },
       {
        "name": "Balaur's Essence",
        "rank": 2,
-       "chance": 60.67
+       "chance": 60.67,
+       "icon": "items/icon_item_craft_drop_draconic_soul_all_a_u_001a.webp"
       },
       {
        "name": "Barthien's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2400504.webp"
+     "image": "npcs/2400504.webp"
     },
     {
      "slot": 111016,
@@ -3661,7 +4300,8 @@
       {
        "name": "Artwork: Drakan Battalion Weapon Guruta",
        "rank": 3,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_beritrad_04_v01.webp"
       },
       {
        "name": "Guruta armor (1 of 7)",
@@ -3670,46 +4310,56 @@
        "items": [
         {
          "name": "Guruta Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0015_t03_torso.webp"
         },
         {
          "name": "Guruta Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0015_t03_pants.webp"
         },
         {
          "name": "Guruta Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0015_t03_shoulder.webp"
         },
         {
          "name": "Guruta Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0015_t03_helmet.webp"
         },
         {
          "name": "Guruta Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0015_t03_gloves.webp"
         },
         {
          "name": "Guruta Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0015_t03_boots.webp"
         },
         {
          "name": "Guruta Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0015_t03_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0015_t03_torso.webp"
       },
       {
        "name": "Balaur's Essence",
        "rank": 2,
-       "chance": 60.67
+       "chance": 60.67,
+       "icon": "items/icon_item_craft_drop_draconic_soul_all_a_u_001a.webp"
       },
       {
        "name": "Guruta's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2400593.webp"
+     "image": "npcs/2400593.webp"
     },
     {
      "slot": 111017,
@@ -3726,46 +4376,56 @@
        "items": [
         {
          "name": "Shujakan Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0031_t05_torso.webp"
         },
         {
          "name": "Shujakan Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0031_t05_pants.webp"
         },
         {
          "name": "Shujakan Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0031_t05_shoulder.webp"
         },
         {
          "name": "Shujakan Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0031_t05_helmet.webp"
         },
         {
          "name": "Shujakan Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0031_t05_gloves.webp"
         },
         {
          "name": "Shujakan Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0031_t05_boots.webp"
         },
         {
          "name": "Shujakan Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0031_t05_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0031_t05_torso.webp"
       },
       {
        "name": "Artwork: Veteran Shujakan",
        "rank": 2,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_lycan_05.webp"
       },
       {
        "name": "Shujakan's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2400607.webp"
+     "image": "npcs/2400607.webp"
     },
     {
      "slot": 111018,
@@ -3778,7 +4438,8 @@
       {
        "name": "Artwork: Visionary Karuka",
        "rank": 3,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_lycan_04.webp"
       },
       {
        "name": "Karuka armor (1 of 7)",
@@ -3787,46 +4448,56 @@
        "items": [
         {
          "name": "Karuka Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0035_t05_torso.webp"
         },
         {
          "name": "Karuka Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0035_t05_pants.webp"
         },
         {
          "name": "Karuka Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0035_t05_shoulder.webp"
         },
         {
          "name": "Karuka Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0035_t05_helmet.webp"
         },
         {
          "name": "Karuka Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0035_t05_gloves.webp"
         },
         {
          "name": "Karuka Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0035_t05_boots.webp"
         },
         {
          "name": "Karuka Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0035_t05_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0035_t05_torso.webp"
       },
       {
        "name": "Balaur's Essence",
        "rank": 2,
-       "chance": 60.67
+       "chance": 60.67,
+       "icon": "items/icon_item_craft_drop_draconic_soul_all_a_u_001a.webp"
       },
       {
        "name": "Karuka's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2400608.webp"
+     "image": "npcs/2400608.webp"
     },
     {
      "slot": 111019,
@@ -3839,7 +4510,8 @@
       {
        "name": "Artwork: Dark Shadow Vishwada",
        "rank": 3,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_beritrad_03_v01.webp"
       },
       {
        "name": "Vishwada armor (1 of 7)",
@@ -3848,46 +4520,56 @@
        "items": [
         {
          "name": "Vishwada Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0006_t05_torso.webp"
         },
         {
          "name": "Vishwada Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0006_t05_pants.webp"
         },
         {
          "name": "Vishwada Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0006_t05_shoulder.webp"
         },
         {
          "name": "Vishwada Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0006_t05_helmet.webp"
         },
         {
          "name": "Vishwada Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0006_t05_gloves.webp"
         },
         {
          "name": "Vishwada Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0006_t05_boots.webp"
         },
         {
          "name": "Vishwada Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0006_t05_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0006_t05_torso.webp"
       },
       {
        "name": "Balaur's Essence",
        "rank": 2,
-       "chance": 60.67
+       "chance": 60.67,
+       "icon": "items/icon_item_craft_drop_draconic_soul_all_a_u_001a.webp"
       },
       {
        "name": "Vishwada's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2400659.webp"
+     "image": "npcs/2400659.webp"
     },
     {
      "slot": 111020,
@@ -3900,7 +4582,8 @@
       {
        "name": "Artwork: Sharp Shylak",
        "rank": 3,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_dracoelite_01_v01.webp"
       },
       {
        "name": "Shylak armor (1 of 7)",
@@ -3909,46 +4592,56 @@
        "items": [
         {
          "name": "Shylak Breastplate",
-         "chance": 8.67
+         "chance": 8.67,
+         "icon": "items/icon_gm_0113_t04_torso.webp"
         },
         {
          "name": "Shylak Greaves",
-         "chance": 11.56
+         "chance": 11.56,
+         "icon": "items/icon_gm_0113_t04_pants.webp"
         },
         {
          "name": "Shylak Pauldrons",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0113_t04_shoulder.webp"
         },
         {
          "name": "Shylak Helm",
-         "chance": 13.87
+         "chance": 13.87,
+         "icon": "items/icon_gm_0113_t04_helmet.webp"
         },
         {
          "name": "Shylak Gloves",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0113_t04_gloves.webp"
         },
         {
          "name": "Shylak Boots",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0113_t04_boots.webp"
         },
         {
          "name": "Shylak Cloak",
-         "chance": 17.34
+         "chance": 17.34,
+         "icon": "items/icon_gm_0113_t04_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0113_t04_torso.webp"
       },
       {
        "name": "Balaur's Essence",
        "rank": 2,
-       "chance": 60.67
+       "chance": 60.67,
+       "icon": "items/icon_item_craft_drop_draconic_soul_all_a_u_001a.webp"
       },
       {
        "name": "Shylak's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2400709.webp"
+     "image": "npcs/2400709.webp"
     },
     {
      "slot": 111021,
@@ -3961,7 +4654,8 @@
       {
        "name": "Artwork: Immortal Gartua",
        "rank": 4,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_gartua_01_v02.webp"
       },
       {
        "name": "Gartua armor & accessories (1 of 9)",
@@ -3970,49 +4664,60 @@
        "items": [
         {
          "name": "Gartua Breastplate",
-         "chance": 6.44
+         "chance": 6.44,
+         "icon": "items/icon_gm_0007_t05_torso.webp"
         },
         {
          "name": "Gartua Greaves",
-         "chance": 8.58
+         "chance": 8.58,
+         "icon": "items/icon_gm_0007_t05_pants.webp"
         },
         {
          "name": "Gartua Helm",
-         "chance": 10.3
+         "chance": 10.3,
+         "icon": "items/icon_gm_0007_t05_helmet.webp"
         },
         {
          "name": "Gartua Pauldrons",
-         "chance": 10.3
+         "chance": 10.3,
+         "icon": "items/icon_gm_0007_t05_shoulder.webp"
         },
         {
          "name": "Gartua Gloves",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0007_t05_gloves.webp"
         },
         {
          "name": "Gartua Boots",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0007_t05_boots.webp"
         },
         {
          "name": "Gartua Cloak",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0007_t05_cape.webp"
         },
         {
          "name": "Gartua Earrings",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_acc_er_0064.webp"
         },
         {
          "name": "Gartua Ring",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_acc_ring_0064.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0007_t05_torso.webp"
       },
       {
        "name": "Gartua's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2400800.webp"
+     "image": "npcs/2400800.webp"
     },
     {
      "slot": 111022,
@@ -4029,54 +4734,66 @@
        "items": [
         {
          "name": "High Commander Lagta Breastplate",
-         "chance": 6.44
+         "chance": 6.44,
+         "icon": "items/icon_gm_0062_t06_torso.webp"
         },
         {
          "name": "High Commander Lagta Greaves",
-         "chance": 8.58
+         "chance": 8.58,
+         "icon": "items/icon_gm_0062_t06_pants.webp"
         },
         {
          "name": "High Commander Lagta Helm",
-         "chance": 10.3
+         "chance": 10.3,
+         "icon": "items/icon_gm_0062_t06_helmet.webp"
         },
         {
          "name": "High Commander Lagta Pauldrons",
-         "chance": 10.3
+         "chance": 10.3,
+         "icon": "items/icon_gm_0062_t06_shoulder.webp"
         },
         {
          "name": "High Commander Lagta Gloves",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0062_t06_gloves.webp"
         },
         {
          "name": "High Commander Lagta Boots",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0062_t06_boots.webp"
         },
         {
          "name": "High Commander Lagta Cloak",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0062_t06_cape.webp"
         },
         {
          "name": "High Commander Lagta Earrings",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_acc_er_0077.webp"
         },
         {
          "name": "High Commander Lagta Ring",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_acc_ring_0077.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0062_t06_torso.webp"
       },
       {
        "name": "Artwork: High Commander Lagta",
        "rank": 3,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_lagta_01.webp"
       },
       {
        "name": "Lagta's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2101131.webp"
+     "image": "npcs/2101131.webp"
     },
     {
      "slot": 111023,
@@ -4093,54 +4810,66 @@
        "items": [
         {
          "name": "Kashapa Breastplate",
-         "chance": 6.44
+         "chance": 6.44,
+         "icon": "items/icon_gm_0068_t05_torso.webp"
         },
         {
          "name": "Kashapa Greaves",
-         "chance": 8.58
+         "chance": 8.58,
+         "icon": "items/icon_gm_0068_t05_pants.webp"
         },
         {
          "name": "Kashapa Helm",
-         "chance": 10.3
+         "chance": 10.3,
+         "icon": "items/icon_gm_0068_t05_helmet.webp"
         },
         {
          "name": "Kashapa Pauldrons",
-         "chance": 10.3
+         "chance": 10.3,
+         "icon": "items/icon_gm_0068_t05_shoulder.webp"
         },
         {
          "name": "Kashapa Gloves",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0068_t05_gloves.webp"
         },
         {
          "name": "Kashapa Boots",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0068_t05_boots.webp"
         },
         {
          "name": "Kashapa Cloak",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0068_t05_cape.webp"
         },
         {
          "name": "Kashapa Earrings",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_acc_er_0081.webp"
         },
         {
          "name": "Kashapa Ring",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_acc_ring_0081.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0068_t05_torso.webp"
       },
       {
        "name": "Artwork: Soul Ruler Kashapa",
        "rank": 3,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_kashapa_01.webp"
       },
       {
        "name": "Kashapa's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/2101122.webp"
+     "image": "npcs/2101122.webp"
     },
     {
      "slot": 111024,
@@ -4157,54 +4886,66 @@
        "items": [
         {
          "name": "Dartan Breastplate",
-         "chance": 6.44
+         "chance": 6.44,
+         "icon": "items/icon_gm_0041_t04_torso.webp"
         },
         {
          "name": "Dartan Greaves",
-         "chance": 8.58
+         "chance": 8.58,
+         "icon": "items/icon_gm_0041_t04_pants.webp"
         },
         {
          "name": "Dartan Helm",
-         "chance": 10.3
+         "chance": 10.3,
+         "icon": "items/icon_gm_0041_t04_helmet.webp"
         },
         {
          "name": "Dartan Pauldrons",
-         "chance": 10.3
+         "chance": 10.3,
+         "icon": "items/icon_gm_0041_t04_shoulder.webp"
         },
         {
          "name": "Dartan Gloves",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0041_t04_gloves.webp"
         },
         {
          "name": "Dartan Boots",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0041_t04_boots.webp"
         },
         {
          "name": "Dartan Cloak",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0041_t04_cape.webp"
         },
         {
          "name": "Dartan Earrings",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_acc_er_0058.webp"
         },
         {
          "name": "Dartan Ring",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_acc_ring_0058.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0041_t04_torso.webp"
       },
       {
        "name": "Artwork: Silent Dartan",
        "rank": 3,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_beritrad_01.webp"
       },
       {
        "name": "Dartan's Loot Chest (Bound)",
        "rank": 6,
-       "chance": 100
+       "chance": 100,
+       "icon": "items/icon_item_currency_box_field_event_unc_equip_003.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/f/mob_beritrad_01.webp"
+     "image": "npcs/f/mob_beritrad_01.webp"
     }
    ]
   },
@@ -4226,46 +4967,57 @@
        "items": [
         {
          "name": "Argo Breastplate",
-         "chance": 6.44
+         "chance": 6.44,
+         "icon": "items/icon_gm_0044_t06_torso.webp"
         },
         {
          "name": "Argo Greaves",
-         "chance": 8.58
+         "chance": 8.58,
+         "icon": "items/icon_gm_0044_t06_pants.webp"
         },
         {
          "name": "Argo Helm",
-         "chance": 10.3
+         "chance": 10.3,
+         "icon": "items/icon_gm_0044_t06_helmet.webp"
         },
         {
          "name": "Argo Pauldrons",
-         "chance": 10.3
+         "chance": 10.3,
+         "icon": "items/icon_gm_0044_t06_shoulder.webp"
         },
         {
          "name": "Argo Gloves",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0044_t06_gloves.webp"
         },
         {
          "name": "Argo Boots",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0044_t06_boots.webp"
         },
         {
          "name": "Argo Cloak",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_gm_0044_t06_cape.webp"
         },
         {
          "name": "Argo Earrings",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_acc_er_0031.webp"
         },
         {
          "name": "Argo Ring",
-         "chance": 12.88
+         "chance": 12.88,
+         "icon": "items/icon_acc_ring_0031.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0044_t06_torso.webp"
       },
       {
        "name": "Artwork: Argo, the Spirit King",
        "rank": 3,
-       "chance": 25
+       "chance": 25,
+       "icon": "items/icon_ad_pic_a_mob_eleking_01_v02.webp"
       },
       {
        "name": "Fallen Ancient God armor (1 of 7)",
@@ -4274,33 +5026,41 @@
        "items": [
         {
          "name": "Fallen Ancient God Breastplate",
-         "chance": 5.2
+         "chance": 5.2,
+         "icon": "items/icon_gm_0008_t05_torso.webp"
         },
         {
          "name": "Fallen Ancient God Greaves",
-         "chance": 6.94
+         "chance": 6.94,
+         "icon": "items/icon_gm_0008_t05_pants.webp"
         },
         {
          "name": "Fallen Ancient God Pauldrons",
-         "chance": 8.32
+         "chance": 8.32,
+         "icon": "items/icon_gm_0008_t05_shoulder.webp"
         },
         {
          "name": "Fallen Ancient God Helm",
-         "chance": 8.32
+         "chance": 8.32,
+         "icon": "items/icon_gm_0008_t05_helmet.webp"
         },
         {
          "name": "Fallen Ancient God Gloves",
-         "chance": 10.4
+         "chance": 10.4,
+         "icon": "items/icon_gm_0008_t05_gloves.webp"
         },
         {
          "name": "Fallen Ancient God Boots",
-         "chance": 10.4
+         "chance": 10.4,
+         "icon": "items/icon_gm_0008_t05_boots.webp"
         },
         {
          "name": "Fallen Ancient God Cloak",
-         "chance": 10.4
+         "chance": 10.4,
+         "icon": "items/icon_gm_0008_t05_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0008_t05_torso.webp"
       },
       {
        "name": "Fallen Ancient God weapon (1 of 9)",
@@ -4309,41 +5069,51 @@
        "items": [
         {
          "name": "Fallen Ancient God Greatsword",
-         "chance": 2.69
+         "chance": 2.69,
+         "icon": "items/icon_wp_gs_0078_t05.webp"
         },
         {
          "name": "Fallen Ancient God Longsword",
-         "chance": 2.69
+         "chance": 2.69,
+         "icon": "items/icon_wp_sw_0078_t05.webp"
         },
         {
          "name": "Fallen Ancient God Dagger",
-         "chance": 2.69
+         "chance": 2.69,
+         "icon": "items/icon_wp_da_0078_t05.webp"
         },
         {
          "name": "Fallen Ancient God Bow",
-         "chance": 2.69
+         "chance": 2.69,
+         "icon": "items/icon_wp_bw_0078_t05.webp"
         },
         {
          "name": "Fallen Ancient God Spellbook",
-         "chance": 2.69
+         "chance": 2.69,
+         "icon": "items/icon_wp_mb_0078_t05.webp"
         },
         {
          "name": "Fallen Ancient God Orb",
-         "chance": 2.69
+         "chance": 2.69,
+         "icon": "items/icon_wp_or_0078_t05.webp"
         },
         {
          "name": "Fallen Ancient God Mace",
-         "chance": 2.69
+         "chance": 2.69,
+         "icon": "items/icon_wp_ma_0078_t05.webp"
         },
         {
          "name": "Fallen Ancient God Staff",
-         "chance": 2.69
+         "chance": 2.69,
+         "icon": "items/icon_wp_st_0078_t05.webp"
         },
         {
          "name": "Fallen Ancient God Guard",
-         "chance": 2.69
+         "chance": 2.69,
+         "icon": "items/icon_weapon_guarder_r_011.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_wp_gs_0078_t05.webp"
       },
       {
        "name": "Bloodthirsty armor (1 of 7)",
@@ -4352,33 +5122,41 @@
        "items": [
         {
          "name": "Bloodthirsty Breastplate",
-         "chance": 10.79
+         "chance": 10.79,
+         "icon": "items/icon_gm_0037_t04_torso.webp"
         },
         {
          "name": "Bloodthirsty Greaves",
-         "chance": 14.38
+         "chance": 14.38,
+         "icon": "items/icon_gm_0037_t04_pants.webp"
         },
         {
          "name": "Bloodthirsty Pauldrons",
-         "chance": 17.26
+         "chance": 17.26,
+         "icon": "items/icon_gm_0037_t04_shoulder.webp"
         },
         {
          "name": "Bloodthirsty Helm",
-         "chance": 17.26
+         "chance": 17.26,
+         "icon": "items/icon_gm_0037_t04_helmet.webp"
         },
         {
          "name": "Bloodthirsty Gloves",
-         "chance": 21.57
+         "chance": 21.57,
+         "icon": "items/icon_gm_0037_t04_gloves.webp"
         },
         {
          "name": "Bloodthirsty Boots",
-         "chance": 21.57
+         "chance": 21.57,
+         "icon": "items/icon_gm_0037_t04_boots.webp"
         },
         {
          "name": "Bloodthirsty Cloak",
-         "chance": 21.57
+         "chance": 21.57,
+         "icon": "items/icon_gm_0037_t04_cape.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_gm_0037_t04_torso.webp"
       },
       {
        "name": "Vowed weapon (1 of 9)",
@@ -4387,44 +5165,54 @@
        "items": [
         {
          "name": "Vowed Longsword",
-         "chance": 8.77
+         "chance": 8.77,
+         "icon": "items/icon_wp_sw_0018_t04.webp"
         },
         {
          "name": "Vowed Dagger",
-         "chance": 8.77
+         "chance": 8.77,
+         "icon": "items/icon_wp_da_0018_t04.webp"
         },
         {
          "name": "Vowed Bow",
-         "chance": 8.77
+         "chance": 8.77,
+         "icon": "items/icon_wp_bw_0018_t04.webp"
         },
         {
          "name": "Vowed Spellbook",
-         "chance": 8.77
+         "chance": 8.77,
+         "icon": "items/icon_wp_mb_0018_t04.webp"
         },
         {
          "name": "Vowed Orb",
-         "chance": 8.77
+         "chance": 8.77,
+         "icon": "items/icon_wp_or_0018_t04.webp"
         },
         {
          "name": "Vowed Mace",
-         "chance": 8.77
+         "chance": 8.77,
+         "icon": "items/icon_wp_ma_0018_t04.webp"
         },
         {
          "name": "Vowed Staff",
-         "chance": 8.77
+         "chance": 8.77,
+         "icon": "items/icon_wp_st_0018_t04.webp"
         },
         {
          "name": "Vowed Guard",
-         "chance": 8.77
+         "chance": 8.77,
+         "icon": "items/icon_weapon_guarder_r_015.webp"
         },
         {
          "name": "Vowed Greatsword",
-         "chance": 8.77
+         "chance": 8.77,
+         "icon": "items/icon_wp_gs_0018_t04.webp"
         }
-       ]
+       ],
+       "icon": "items/icon_wp_sw_0018_t04.webp"
       }
      ],
-     "image": "https://metabot.gg/web/aion2/npcs/f/mob_eleking_01_v02.webp"
+     "image": "npcs/f/mob_eleking_01_v02.webp"
     }
    ]
   }
