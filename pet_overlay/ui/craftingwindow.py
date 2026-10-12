@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxL
                                QPushButton, QScrollArea, QSizePolicy, QSpinBox, QToolTip, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
-from ..crafting import RecipeRow, span_text
+from ..crafting import SORT_KEYS, RecipeRow, span_text
 from . import theme
 from .mapwindow import STYLE, badge_label
 from .theme import Fonts
@@ -30,7 +30,8 @@ PROFESSION_ES = {"Cooking": "Cocina", "Alchemy": "Alquimia", "Blacksmithing": "H
 VERDICT_COLOR = {"good": theme.GAIN, "bad": theme.COMBAT, "none": theme.MUTED}
 COLUMNS = (("Precio", 74), ("Recibes", 74), ("Fallo", 96), ("Recolectando", 108), ("Comprando", 108),
            ("¿Se vende?", 146))
-SORTABLE = {"Recolectando": "gather", "Comprando": "buy"}      # profit columns: click to sort by them
+SORTABLE = {"Objeto": "name", "Precio": "price", "Recibes": "net", "Fallo": "fail", "Recolectando": "gather",
+            "Comprando": "buy", "¿Se vende?": "sales"}             # click a column title to sort by it
 DETAIL_W = 170
 THUMB_W = 340
 CARD_STYLE = """
@@ -113,6 +114,10 @@ class CraftingWindow(QWidget):
         self._level_timer = QTimer(self, singleShot=True, interval=500, timeout=self._level_changed)
         self.level.valueChanged.connect(lambda _: self._level_timer.start())
         head.addWidget(self.level)
+        self.level_back = QPushButton("")
+        self.level_back.setProperty("flat", True)
+        self.level_back.clicked.connect(self._level_back)
+        head.addWidget(self.level_back)
         self.scan_button = QPushButton("Escanear")
         self.scan_button.clicked.connect(self._scan)
         head.addWidget(self.scan_button)
@@ -173,23 +178,37 @@ class CraftingWindow(QWidget):
     def _show_level(self):
         """The level box: the game's level (read-only) when AionDex has read it for this character, else yours."""
         crafting = self.crafting
-        game = crafting.level_source() == "game"
+        source = crafting.level_source()
         self.level.blockSignals(True)
         self.level.setValue(crafting.level() or 0)
         self.level.blockSignals(False)
-        self.level.setEnabled(not game)
-        if game:
+        game = crafting.game_level()
+        self.level_back.setVisible(source == "try")
+        if source == "try":
+            self.level_back.setText(f"↺ usar el del juego ({game})")
+            self.level.setToolTip(f"Estás probando con nivel {crafting.level()}: los números son como si lo tuvieras. "
+                                  f"Tu nivel real (del juego) es {game}.")
+        elif source == "game":
             exp = crafting.game_exp()
-            self.level.setToolTip(f"Leído del juego para {crafting.character}: nivel {crafting.level()}"
+            self.level.setToolTip(f"Leído del juego para {crafting.character}: nivel {game}"
                                   + (f", {exp} de experiencia en el nivel" if exp is not None else "")
-                                  + ". Se actualiza al entrar y cada vez que crafteas.")
+                                  + ". Se actualiza al entrar y cada vez que crafteas. Cámbialo para ver los números "
+                                    "con otro nivel (por ejemplo, el que tendrás).")
         else:
             self.level.setToolTip("Tu nivel en esta profesión: decide tu probabilidad de éxito y qué recetas puedes "
                                   "hacer. AionDex lo lee del juego al entrar con el personaje (y lo aprende de "
                                   "cada profesión la primera vez que crafteas algo de ella).")
 
     def _level_changed(self):
-        self.crafting.set_level(self.level.value())
+        if self.crafting.game_level() is not None:
+            self.crafting.try_level(self.level.value())          # over the game's level: "what if I were N"
+        else:
+            self.crafting.set_level(self.level.value())
+        self.refresh()
+        self.ctl.refresh()
+
+    def _level_back(self):
+        self.crafting.try_level(None)
         self.refresh()
         self.ctl.refresh()
 
@@ -388,7 +407,10 @@ class CraftingWindow(QWidget):
         col = QVBoxLayout(card)
         col.setContentsMargins(14, 10, 14, 10)
         col.setSpacing(3)
-        who = f"Con tu nivel de {prof} ({level})" if level is not None else "Al nivel justo de cada receta"
+        if self.crafting.level_source() == "try":
+            who = f"Si tuvieras nivel {level} en {prof} (el tuyo es {self.crafting.game_level()})"
+        else:
+            who = f"Con tu nivel de {prof} ({level})" if level is not None else "Al nivel justo de cada receta"
         col.addWidget(label(f"{who}, lo que más deja recolectando:", f.name, theme.GOLD))
         for i, r in enumerate(picks, start=1):
             sold, kind = r.sales.verdict()
@@ -407,20 +429,22 @@ class CraftingWindow(QWidget):
         line = QWidget()
         lay = QHBoxLayout(line)
         lay.setContentsMargins(12, 0, 12, 0)
-        lay.addWidget(label("Objeto", f.small, theme.MUTED), 1)
-        by_buy = self.crafting.config.get("sort") == "buy"
-        for text, width in COLUMNS:
-            sort = SORTABLE.get(text)
-            if sort:
-                active = (sort == "buy") == by_buy
-                cell = _cell(text + (" ▾" if active else ""), f.small, theme.TEXT if active else theme.ACCENT, width)
-                cell.setAttribute(Qt.WA_TransparentForMouseEvents, False)
-                cell.setCursor(Qt.PointingHandCursor)
-                cell.setToolTip("Ordenar por esta ganancia")
-                cell.mousePressEvent = lambda e, s=sort: (self.crafting.set_option("sort", s), self.refresh())
-                lay.addWidget(cell)
-            else:
-                lay.addWidget(_cell(text, f.small, theme.MUTED, width))
+        current = self.crafting.config.get("sort") or "gather"
+        flip = self.crafting.config.get("sort_flip", False)
+        for text, width in (("Objeto", None),) + COLUMNS:
+            key = SORTABLE[text]
+            active = key == current
+            arrow = ""
+            if active:
+                descending = SORT_KEYS[key][1] != flip
+                arrow = " ▾" if descending else " ▴"
+            cell = (label(text + arrow, f.small, theme.TEXT if active else theme.ACCENT) if width is None else
+                    _cell(text + arrow, f.small, theme.TEXT if active else theme.ACCENT, width))
+            cell.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+            cell.setCursor(Qt.PointingHandCursor)
+            cell.setToolTip("Ordenar por esta columna (otro clic invierte el orden)")
+            cell.mousePressEvent = lambda e, k=key: (self.crafting.set_sort(k), self.refresh())
+            lay.addWidget(cell, 1 if width is None else 0)
         lay.addSpacing(8 + self._chart_width())
         return line
 

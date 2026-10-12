@@ -255,6 +255,9 @@ class Crafting:
     def level(self, profession=None):
         """Your proficiency in a profession: the game's (read at login and kept up while you craft) for the character
         you play, else the one you typed, else None."""
+        trying = self.config.get("level_try", {}).get(profession or self.profession)
+        if trying:
+            return trying
         game = self.game_level(profession)
         if game is not None:
             return game
@@ -262,7 +265,9 @@ class Crafting:
         return value or None
 
     def level_source(self, profession=None):
-        """"game" | "manual" | None."""
+        """"try" (a level you are trying out over the game's) | "game" | "manual" | None."""
+        if self.config.get("level_try", {}).get(profession or self.profession):
+            return "try"
         if self.game_level(profession) is not None:
             return "game"
         return "manual" if self.config.get("levels", {}).get(profession or self.profession) else None
@@ -318,6 +323,15 @@ class Crafting:
         if ids.get(str(pid)) != recipe["profession"]:
             ids[str(pid)] = recipe["profession"]
             self.settings.save()
+
+    def try_level(self, value, profession=None):
+        """See the numbers at another level than the game's (None = back to the game's)."""
+        trying = self.config.setdefault("level_try", {})
+        if value and value != self.game_level(profession):
+            trying[profession or self.profession] = int(value)
+        else:
+            trying.pop(profession or self.profession, None)
+        self.settings.save()
 
     def set_level(self, value, profession=None):
         levels = self.config.setdefault("levels", {})
@@ -523,9 +537,20 @@ class Crafting:
             row.sales = self.sales(product)
             row.supply = self.supply(product)
             rows.append(row)
-        by_buy = self.config.get("sort") == "buy"
-        rows.sort(key=lambda r: _row_order(r, by_buy))
+        sort = self.config.get("sort") or "gather"
+        if sort in ("gather", "buy") and not self.config.get("sort_flip"):
+            rows.sort(key=lambda r: _row_order(r, sort == "buy"))      # the default: what you can make first
+        else:
+            rows = _sorted_by(rows, sort, self.config.get("sort_flip", False))
         return rows
+
+    def set_sort(self, key):
+        """Click on a column: sort by it; a second click on the same one reverses the order."""
+        if (self.config.get("sort") or "gather") == key:
+            self.config["sort_flip"] = not self.config.get("sort_flip", False)
+        else:
+            self.config["sort"], self.config["sort_flip"] = key, False
+        self.settings.save()
 
     def material_rows(self, profession=None):
         """The materials the profession's recipes use that have a price in your samples (Lesser Manastone,
@@ -660,6 +685,26 @@ def _clean_item(item):
 def _clean_sample(sample):
     sample["items"] = {name: _clean_item(item) for name, item in sample.get("items", {}).items()}
     return sample
+
+
+SORT_KEYS = {          # column -> (value of a row, best first by default)
+    "name": (lambda r: r.product.lower(), False),
+    "price": (lambda r: r.sell, True),
+    "net": (lambda r: r.net, True),
+    "fail": (lambda r: None if r.success is None else 1 - r.success, False),
+    "gather": (lambda r: r.profit, True),
+    "buy": (lambda r: r.buy_profit, True),
+    "sales": (lambda r: (r.sales.sold / r.sales.hours) if r.sales.hours else None, True),
+}
+
+
+def _sorted_by(rows, key, flip):
+    """Rows by one column (unknown values always last); flip reverses the column's usual order."""
+    value, descending = SORT_KEYS.get(key, SORT_KEYS["gather"])
+    known = [r for r in rows if value(r) is not None]
+    unknown = [r for r in rows if value(r) is None]
+    known.sort(key=lambda r: (value(r), r.product), reverse=descending != flip)
+    return known + sorted(unknown, key=lambda r: r.product)
 
 
 def _row_order(row, by_buy=False):
