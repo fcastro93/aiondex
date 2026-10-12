@@ -22,6 +22,7 @@ DEFAULT_PROFESSION = "Cooking"
 TIME_SLACK = 1.5                # hours: the market shows the time left rounded ("2d 17h")
 MIN_RATE_HOURS = 6              # a per-day rate needs samples spanning this long (1 offer in 1 h is not "24 a day")
 MERGE_MINUTES = 15              # shots taken this close to a sample (a page read again later) join it
+TOO_CHEAP = 0.5                 # an offer under half the list's lowest price is a misreading (0, 1 Kinah...)
 
 
 def span_text(hours):
@@ -153,7 +154,7 @@ class Crafting:
         self.professions = db.get("professions", {})
         self.names = db.get("names", {})
         self.credit = db.get("credit")
-        self.samples = _load(self.dir / "samples.json", [])
+        self.samples = [_clean_sample(s) for s in _load(self.dir / "samples.json", [])]
         self.shots = self._load_shots()
         self._lock = threading.Lock()        # the OCR thread saves the shots too
 
@@ -258,7 +259,8 @@ class Crafting:
                 for name, offers in by_name.items():
                     item = items.setdefault(name, {})
                     item["offers"] = _union(item.get("offers", []), offers)
-        for item in items.values():
+        for name, item in items.items():
+            items[name] = item = _clean_item(item)
             if "lowest" not in item and item.get("offers"):
                 item["lowest"] = min(o[0] for o in item["offers"])
         tax = next((s.tax for s in shots if s.tax is not None), None)
@@ -415,6 +417,31 @@ class Crafting:
     def _save_samples(self):
         self.dir.mkdir(parents=True, exist_ok=True)
         (self.dir / "samples.json").write_text(json.dumps(self.samples, ensure_ascii=False), encoding="utf-8")
+
+
+def _clean_item(item):
+    """An item without the offers that cannot be right: a total that is not a whole number of units, or a unit price
+    far under the lowest the list showed (misreadings, some from versions before 1.23.3)."""
+    offers = item.get("offers")
+    if not offers:
+        return item
+    floor = item["lowest"] * TOO_CHEAP if item.get("listings") is not None and item.get("lowest") else 0
+    good = [o for o in offers if o[0] >= 1 and o[2] >= 1 and abs(o[1] - o[0] * o[2]) <= o[0] * 0.05
+            and o[0] >= floor]
+    if len(good) == len(offers):
+        return item
+    item = dict(item, offers=good)
+    if item.get("listings") is None:             # the lowest came from the offers themselves
+        if good:
+            item["lowest"] = min(o[0] for o in good)
+        else:
+            item.pop("lowest", None)
+    return item
+
+
+def _clean_sample(sample):
+    sample["items"] = {name: _clean_item(item) for name, item in sample.get("items", {}).items()}
+    return sample
 
 
 def _row_order(row):

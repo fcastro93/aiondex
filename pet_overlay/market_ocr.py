@@ -231,23 +231,37 @@ def parse(lines, width, known=()):
             hours = _near(lines, a, spacing, lambda ln: _in(ln, time_left, slack) and hours_left(ln.text) is not None)
             if not names:
                 continue
-            whole = number(totals[0].text) if totals else None
-            units = numbers(a.text)
-            # the reading of the unit price that divides the total into whole units (if the total was read)
-            unit = next((u for u in units if whole and abs(whole - max(1, round(whole / u)) * u) <= u * 0.05),
-                        units[0])
-            qty = 1
-            if whole:
-                qty = max(1, round(whole / unit))
-                if abs(whole - qty * unit) > unit * 0.05 and len(str(whole)) > 1:   # a coin read as a digit
-                    trimmed = int(str(whole)[1:])
-                    if trimmed and abs(trimmed - round(trimmed / unit) * unit) <= unit * 0.05:
-                        whole, qty = trimmed, max(1, round(trimmed / unit))
+            name_x0 = min(ln.x0 for ln in names)
+            icons = _near(lines, a, spacing, lambda ln: left < ln.x0 and ln.x1 <= name_x0
+                          and re.fullmatch(r"\d{1,3}", ln.text.strip()) is not None)
+            unit, qty = _offer(numbers(a.text), number(totals[0].text) if totals else None,
+                               int(icons[0].text.strip()) if icons else None)
+            if unit is None:
+                continue                         # unreadable: better no offer than a wrong one
             name = " ".join(ln.text for ln in sorted(names, key=lambda ln: ln.y)).strip()
-            screen.rows.append([snap(name, known) or name, unit, whole or unit * qty, qty,
+            screen.rows.append([snap(name, known) or name, unit, unit * qty, qty,
                                 hours_left(hours[0].text) if hours else None])
         return screen
     return Screen("unknown")
+
+
+def _offer(units, whole, icon):
+    """(unit price, quantity) of an offers row from what was read in its cells, or (None, None).
+
+    The game computes the total as unit x quantity, so the reading of the unit price that divides the total into
+    whole units wins (a coin read as a digit in front of the total is dropped). Without a total that fits, the small
+    number on the item's icon gives the quantity."""
+    wholes = [whole] if whole else []
+    if whole and whole >= 10:
+        wholes.append(int(str(whole)[1:]))       # a coin read as a digit
+    for w in wholes:
+        for u in units:
+            q = round(w / u)
+            if q >= 1 and abs(w - q * u) <= u * 0.05:
+                return u, q
+    if icon and units:
+        return units[0], icon
+    return None, None
 
 
 def _read_cell(image, x0, x1, y0, y1):
