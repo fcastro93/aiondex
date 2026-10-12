@@ -27,7 +27,7 @@ DEFAULTS = {
     "tracker": {},          # region, minutes of notice and the bosses/events marked in the Tracker
     "sounds": {},           # alert sound -> {"volume": 0-100, "muted": bool}
     "gear": {},             # character name -> {"at", "job", "level", "faction", "slots": {pos: [item, +N, level]}}
-    "crafting": {},         # profession, your prices for materials, value_gathered, show_unpriced
+    "crafting": {},         # profession, levels by profession, your prices for materials, sort, show_unpriced
     "hotkeys": {
         "toggle_visible": "Alt+Shift+P",
         "toggle_lock": "Alt+Shift+L",

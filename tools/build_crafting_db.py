@@ -1,6 +1,7 @@
 """Build data/crafting_db.json (shipped with the app): every crafting recipe of the five professions with where each
-material comes from (bought from an NPC, with its Kinah price; gathered; crafted; or found/bought elsewhere), and the
-item names the market OCR checks its readings against.
+material comes from (bought from an NPC, with its Kinah price; gathered; crafted; or found/bought elsewhere), its
+success chance by how many proficiency levels you are above it, its combo, and the item names the market OCR checks
+its readings against.
 
     python tools/build_crafting_db.py <recipes.json> <shops.json> <items.json>
 
@@ -26,6 +27,14 @@ def _faction(item):
     """"elyos" / "asmodian" for one side's items (Verteron Pepper, Pujery...), None for both."""
     side = (item.get("faction") or "").lower()
     return side if side in ("elyos", "asmodian") else None
+
+
+def _combo(recipe):
+    """After a success the craft can "combo": the same item again (food, potions) or its Splendent version (gear)."""
+    combo = recipe.get("combo")
+    if not combo:
+        return None
+    return {"chance": combo["chance"], "name": combo["name"], "same": combo["id"] == recipe["product"]["id"]}
 
 
 def main(recipes_path, shops_path, items_path):
@@ -66,7 +75,8 @@ def main(recipes_path, shops_path, items_path):
                     "category": product.get("category", ""), "grade": product.get("grade", ""), "count": r["count"],
                     "faction": _faction(product) or next((m["faction"] for m in mats if m["faction"]), None),
                     "proficiency": r["proficiency"], "materials": mats,
-                    "combo": (r.get("combo") or {}).get("name") if r.get("combo") else None})
+                    "success": [round(x, 1) for x in r.get("successByGap") or []],
+                    "combo": _combo(r)})
     db = {
         "generated_at": int(time.time()),
         "credit": {"text": "Recetas, tiendas y objetos: aion2data.com (datos del cliente Global)",

@@ -1,7 +1,9 @@
 """Crafting: is it worth crafting and selling? Market screenshots (the market's data travels encrypted, so the screen is
 the only source) are read into samples with their date and time; each recipe of the chosen profession is priced from
-them: what it costs (NPC materials at their Kinah price, gathered ones free, the rest at the market's price or yours),
-what it sells for after the market's 10%, and whether it sells at all (offers that disappear between samples).
+them, two ways: gathering and crafting what you can (gathered materials free) or buying every material (at the
+market's price or yours; NPC ones at their Kinah price). What it sells for after the market's 10%, times your chance of
+success at your proficiency (a failed craft loses its materials), and whether it sells at all (offers that disappear
+between samples).
 
 - Shots: data/crafting/shots/*.png, waiting to be processed (with what the OCR read, in shots.json).
 - Samples: data/crafting/samples.json, [{at, profession, shots, items: {name: {lowest, listings, offers}}}];
@@ -61,13 +63,19 @@ class MaterialCost:
     name: str
     count: int
     source: str                 # npc | gather | craft | market
-    unit: float = None          # Kinah per unit used in the cost (None = unknown)
+    unit: float = None          # Kinah per unit if you gather and craft what you can (None = unknown)
     how: str = ""               # npc | gather | market | manual | craft | unknown
     at: float = None            # when the market price was seen
+    buy: float = None           # Kinah per unit if you buy it
+    buy_how: str = ""           # npc | market | manual | craft | unknown
 
     @property
     def total(self):
         return None if self.unit is None else self.unit * self.count
+
+    @property
+    def buy_total(self):
+        return None if self.buy is None else self.buy * self.count
 
 
 @dataclass
@@ -111,19 +119,51 @@ class RecipeRow:
     sales: Sales = field(default_factory=Sales)
     fee: float = FEE
     supply: tuple = None        # (units on sale, units at the lowest price, more offers than were seen) or None
+    level: int = None           # your proficiency in the profession (None = not set)
 
     @property
     def count(self):
         return self.recipe.get("count") or 1
 
     @property
+    def needs(self):
+        return self.recipe.get("proficiency") or 0
+
+    @property
+    def can_craft(self):
+        """True / False with your level set, None without it."""
+        return None if self.level is None else self.level >= self.needs
+
+    @property
+    def success(self):
+        """Chance a craft works (0-1) at your level; at the recipe's own level when yours is not set or is below it
+        (what you would get on reaching it); None when the data has none (then it counts as 1)."""
+        chances = self.recipe.get("success") or []
+        if not chances:
+            return None
+        gap = 0 if self.level is None else max(0, self.level - self.needs)
+        return chances[min(gap, len(chances) - 1)] / 100
+
+    @property
     def net(self):
-        """What the market pays you for one craft, after its tax."""
+        """What the market pays you for one craft that works, after its tax."""
         return None if self.sell is None else self.sell * self.count * (1 - self.fee)
 
     @property
+    def expected(self):
+        """What one attempt brings on average (a failed craft brings nothing)."""
+        return None if self.net is None else self.net * (self.success if self.success is not None else 1)
+
+    @property
     def cost(self):
+        """Materials of one attempt if you gather and craft what you can."""
         totals = [m.total for m in self.materials]
+        return None if any(t is None for t in totals) else sum(totals)
+
+    @property
+    def buy_cost(self):
+        """Materials of one attempt if you buy them all."""
+        totals = [m.buy_total for m in self.materials]
         return None if any(t is None for t in totals) else sum(totals)
 
     @property
@@ -131,12 +171,26 @@ class RecipeRow:
         return sum(m.total or 0 for m in self.materials)
 
     @property
+    def known_buy_cost(self):
+        return sum(m.buy_total or 0 for m in self.materials)
+
+    @property
     def missing(self):
         return [m.name for m in self.materials if m.unit is None]
 
     @property
+    def missing_buy(self):
+        return [m.name for m in self.materials if m.buy is None]
+
+    @property
     def profit(self):
-        return None if self.net is None or self.cost is None else self.net - self.cost
+        """Average profit per attempt gathering and crafting what you can."""
+        return None if self.expected is None or self.cost is None else self.expected - self.cost
+
+    @property
+    def buy_profit(self):
+        """Average profit per attempt buying every material."""
+        return None if self.expected is None or self.buy_cost is None else self.expected - self.buy_cost
 
     @property
     def margin(self):
@@ -170,6 +224,19 @@ class Crafting:
 
     def set_option(self, key, value):
         self.config[key] = value
+        self.settings.save()
+
+    def level(self, profession=None):
+        """Your proficiency in a profession, or None when not set."""
+        value = self.config.get("levels", {}).get(profession or self.profession)
+        return value or None
+
+    def set_level(self, value, profession=None):
+        levels = self.config.setdefault("levels", {})
+        if value:
+            levels[profession or self.profession] = int(value)
+        else:
+            levels.pop(profession or self.profession, None)
         self.settings.save()
 
     def manual_price(self, name):
@@ -355,8 +422,9 @@ class Crafting:
             if old is None or (mine and old[0] is False):
                 best[r["product"]] = (mine, r)
         rows = []
+        level = self.level(profession)
         for product, (_, recipe) in best.items():
-            row = RecipeRow(recipe, product, fee=self.fee)
+            row = RecipeRow(recipe, product, fee=self.fee, level=level)
             if product in prices:
                 row.sell, row.sell_at = prices[product]
                 row.listings = self._latest_field(product, "listings")
@@ -364,8 +432,15 @@ class Crafting:
             row.sales = self.sales(product)
             row.supply = self.supply(product)
             rows.append(row)
-        rows.sort(key=_row_order)
+        by_buy = self.config.get("sort") == "buy"
+        rows.sort(key=lambda r: _row_order(r, by_buy))
         return rows
+
+    def recommend(self, rows, n=3):
+        """What to cook: recipes you can make that leave money gathering what you can, those seen selling first,
+        each by its average profit per attempt."""
+        ok = [r for r in rows if r.can_craft is not False and r.profit is not None and r.profit > 0]
+        return sorted(ok, key=lambda r: (r.sales.verdict()[1] != "good", -r.profit))[:n]
 
     def _latest_field(self, name, key):
         for s in reversed(self.samples):
@@ -374,36 +449,54 @@ class Crafting:
         return None
 
     def _material(self, m, prices, faction, depth):
+        """A material's price both ways: gathering and crafting what you can, or buying it (NPC, else the market's
+        price, else yours)."""
         cost = MaterialCost(m["name"], m["count"], m["source"])
         market = prices.get(m["name"])
         manual = self.manual_price(m["name"])
-        if m["source"] == "npc":
-            cost.unit, cost.how = m["npc_price"], "npc"
-        elif m["source"] == "gather":
-            if self.config.get("value_gathered") and (market or manual):
-                cost.unit, cost.how = (market[0], "market") if market else (manual, "manual")
-                cost.at = market[1] if market else None
-            else:
-                cost.unit, cost.how = 0, "gather"
-        elif market:
-            cost.unit, cost.how, cost.at = market[0], "market", market[1]
+        if market:
+            bought, bought_how, cost.at = market[0], "market", market[1]
         elif manual:
-            cost.unit, cost.how = manual, "manual"
+            bought, bought_how = manual, "manual"
+        else:
+            bought, bought_how = None, "unknown"
+        if m["source"] == "npc":
+            cost.unit = cost.buy = m["npc_price"]
+            cost.how = cost.buy_how = "npc"
+            return cost
+        if m["source"] == "gather":
+            cost.unit, cost.how = 0, "gather"
         elif m["source"] == "craft" and depth < 3:
-            sub = self._craft_cost(m["name"], prices, faction, depth + 1)
-            if sub is not None:
-                cost.unit, cost.how = sub, "craft"
+            made = self._craft_cost(m["name"], prices, faction, depth + 1, buy=False)
+            if made is not None:
+                cost.unit, cost.how = made, "craft"
+            else:
+                cost.unit, cost.how = bought, bought_how
+            if bought is None:                         # not on the market: buy its materials and craft it
+                bought = self._craft_cost(m["name"], prices, faction, depth + 1, buy=True)
+                bought_how = "craft" if bought is not None else "unknown"
+        else:                                          # only from the market (or your price)
+            cost.unit, cost.how = bought, bought_how
+        cost.buy, cost.buy_how = bought, bought_how
         if cost.unit is None:
             cost.how = "unknown"
         return cost
 
-    def _craft_cost(self, product, prices, faction, depth):
+    def _craft_cost(self, product, prices, faction, depth, buy):
+        """What one unit of an intermediate product costs you to craft (its materials, over its yield and its chance
+        of success at your level), gathering or buying its materials."""
         recipe = next((r for r in self.recipes if r["product"] == product and r.get("faction") in (None, faction)),
                       None) or next((r for r in self.recipes if r["product"] == product), None)
         if recipe is None:
             return None
-        totals = [self._material(m, prices, faction, depth).total for m in recipe["materials"]]
-        return None if any(t is None for t in totals) else sum(totals) / (recipe.get("count") or 1)
+        mats = [self._material(m, prices, faction, depth) for m in recipe["materials"]]
+        totals = [m.buy_total if buy else m.total for m in mats]
+        if any(t is None for t in totals):
+            return None
+        row = RecipeRow(recipe, product, level=self.level(recipe["profession"]))
+        if row.can_craft is False:
+            return None
+        return sum(totals) / (row.count * (row.success or 1))
 
     # --- storage -------------------------------------------------------------------------------------------
     def _load_shots(self):
@@ -452,13 +545,16 @@ def _clean_sample(sample):
     return sample
 
 
-def _row_order(row):
-    """Known profit first (highest first), then priced but missing a material's price, then the rest."""
-    if row.profit is not None:
-        return 0, -row.profit
+def _row_order(row, by_buy=False):
+    """What you can craft before what is above your level; within each, known profit first (highest first, gathering
+    or buying), then priced but missing a material's price, then the rest."""
+    above = row.can_craft is False
+    profit = row.buy_profit if by_buy else row.profit
+    if profit is not None:
+        return above, 0, -profit
     if row.sell is not None:
-        return 1, -(row.net or 0)
-    return 2, row.recipe.get("proficiency") or 0
+        return above, 1, -(row.net or 0)
+    return above, 2, row.needs
 
 
 def _union(a, b):
