@@ -246,8 +246,9 @@ class Crafting:
         self.shots = self._load_shots()
         self.ledger = Ledger(self.dir)        # your sales: Settlement scans (kept as proof) and List scans
         self.ledger.cost_fn = self.real_sale_cost
+        self.ledger.buy_fn = self.buy_sale_cost
         self.faction = None                   # your side's recipes for the sales of old scans (set by the app)
-        self._real_cache = {}
+        self._day_cache = {}                  # day -> its average prices, while the day is not over
         self._lock = threading.Lock()        # the OCR thread saves the shots too
 
     # --- settings --------------------------------------------------------------------------------------
@@ -470,7 +471,6 @@ class Crafting:
     def set_mat_choice(self, name, mark):
         self.config.setdefault("mat_marks", {})[name] = mark
         self.settings.save()
-        self._real_cache.clear()
 
     def sold_materials(self):
         """The materials of what you sold (and of the ones you make yourself, their own): [(name, source, [products],
@@ -497,44 +497,101 @@ class Crafting:
         return sorted(out, key=lambda r: r[1] == "npc")
 
     def real_sale_cost(self, sale):
-        """What a sale's materials cost you with your marks: bought ones at the market's price of the sale's time (NPC
-        ones at the NPC's), farmed and gathered ones free, the ones you make from their own materials; failed
-        attempts included, at the level the sale was crafted with (kept with the sale; for the first sales, read
-        from the cost they recorded). None when a bought material has no price."""
+        """What a sale's materials cost you with your marks: bought ones at that day's average market price (NPC ones
+        at the NPC's), farmed and gathered ones free, the ones you make from their own materials; failed attempts
+        included, at the level the sale was crafted with. None when a bought material has no price."""
+        return self._sale_cost(sale, buying=False)
+
+    def buy_sale_cost(self, sale):
+        """The same buying every material (at that day's average prices)."""
+        return self._sale_cost(sale, buying=True)
+
+    def _sale_cost(self, sale, buying):
         faction = sale.get("faction") or self.faction
-        attempts = self._attempt_costs(sale["item"], faction, sale["at"])
-        if attempts is None or attempts[0] is None:
+        recipe = self._recipe_for(sale["item"], faction)
+        if recipe is None:
             return None
-        real, gather, yield_now = attempts
-        qty = sale.get("qty") or 1
+        prices = self.day_prices(sale["at"])
+        if buying:
+            totals = [self._material(m, prices, faction, 0).buy_total for m in recipe["materials"]]
+            attempt = None if None in totals else sum(totals)
+        else:
+            attempt = self._attempt_real(recipe, prices, faction, 0)
+        units = self.sale_yield(sale, recipe, faction)
+        return None if attempt is None or not units else round(attempt * (sale.get("qty") or 1) / units)
+
+    def sale_yield(self, sale, recipe, faction):
+        """Units an attempt gave when the sale was crafted (its success chance at that level): kept with each sale;
+        for the first sales, read from the cost they recorded (keep_yields() then keeps it); else at your level."""
         if sale.get("yield"):
-            return round(real * qty / sale["yield"])
-        if sale.get("cost") and gather:
-            return round(sale["cost"] * real / gather)        # same units per attempt as when it was recorded
-        return round(real * qty / yield_now)
+            return sale["yield"]
+        if sale.get("cost"):
+            prices = self.latest_prices(sale["at"])          # the prices that recorded cost was worked out with
+            gathered = [self._material(m, prices, faction, 0).total for m in recipe["materials"]]
+            if None not in gathered and sum(gathered) > 0:
+                return sum(gathered) / (sale["cost"] / (sale.get("qty") or 1))
+        row = RecipeRow(recipe, sale["item"], level=self.level(recipe["profession"]))
+        return row.count * (row.success or 1)
 
-    def real_unit_cost(self, product, faction=None, at=None):
-        """One unit at your current level with your marks (None without a price)."""
-        attempts = self._attempt_costs(product, faction, at)
-        return None if attempts is None or attempts[0] is None else attempts[0] / attempts[2]
+    def keep_yields(self):
+        """Store the yield of the sales recorded before it was kept with them, so nothing about a sale moves later."""
+        changed = False
+        for sale in self.ledger.sales:
+            if sale.get("crafted") and not sale.get("yield") and sale.get("cost"):
+                faction = sale.get("faction") or self.faction
+                recipe = self._recipe_for(sale["item"], faction)
+                if recipe is not None:
+                    sale["yield"] = self.sale_yield(sale, recipe, faction)
+                    changed = True
+        if changed:
+            self.ledger.save()
 
-    def _attempt_costs(self, product, faction, at):
-        """(one attempt's materials with your marks, the same gathering what you can as Rentabilidad prices them,
-        units per attempt at your level) with the prices of `at`, or None for what no recipe makes."""
-        seen = sum(1 for s in self.samples if at is None or s["at"] <= at)
-        key = (product, faction, seen)
-        if key not in self._real_cache:
-            recipe = self._recipe_for(product, faction)
-            if recipe is None:
-                self._real_cache[key] = None
-            else:
-                prices = self.latest_prices(at)
-                real = self._attempt_real(recipe, prices, faction, 0)
-                gathered = [self._material(m, prices, faction, 0).total for m in recipe["materials"]]
-                row = RecipeRow(recipe, product, level=self.level(recipe["profession"]))
-                self._real_cache[key] = (real, None if None in gathered else sum(gathered),
-                                         row.count * (row.success or 1))
-        return self._real_cache[key]
+    def day_prices(self, at):
+        """{item: (average lowest price, day start)} of the local day of `at` (00:00 to 23:59): the average of that
+        day's samples; an item not seen that day keeps the last price seen before the day ended. Once the day is
+        over its prices are kept in the ledger, so later market moves never change that day's sales."""
+        local = time.localtime(at)
+        start = time.mktime((local.tm_year, local.tm_mon, local.tm_mday, 0, 0, 0, 0, 0, -1))
+        following = time.localtime(start + 36 * 3600)
+        end = time.mktime((following.tm_year, following.tm_mon, following.tm_mday, 0, 0, 0, 0, 0, -1))
+        key = time.strftime("%Y-%m-%d", local)
+        kept = self.ledger.day_prices.get(key)
+        if kept is not None:
+            return {name: (price, start) for name, price in kept.items()}
+        if key in self._day_cache:
+            return self._day_cache[key]
+        seen = {}
+        for s in self.samples:
+            if start <= s["at"] < end:
+                for name, item in s["items"].items():
+                    if item.get("lowest"):
+                        seen.setdefault(name, []).append(item["lowest"])
+        out = {name: (sum(v) / len(v), start) for name, v in seen.items()}
+        for name, found in self.latest_prices(end).items():
+            out.setdefault(name, found)
+        if time.time() >= end:
+            self.ledger.day_prices[key] = {name: round(price, 2) for name, (price, _) in out.items()}
+            self.ledger.save()
+        self._day_cache[key] = out
+        return out
+
+    def forget_costs(self):
+        """Prices of the day going on, levels or marks may have changed."""
+        self._day_cache.clear()
+
+    def sale_prices_text(self, sale):
+        """'Fresh Raw Meat 2,291' for the bought materials of a sale, at its day's average."""
+        faction = sale.get("faction") or self.faction
+        recipe = self._recipe_for(sale["item"], faction)
+        if recipe is None:
+            return ""
+        prices = self.day_prices(sale["at"])
+        parts = []
+        for m in recipe["materials"]:
+            if m["source"] != "npc" and self.mat_choice(m["name"], m["source"]) == "buy":
+                found = prices.get(m["name"])
+                parts.append(f"{m['name']} {found[0]:,.0f}" if found else f"{m['name']} sin precio")
+        return ", ".join(parts)
 
     def _recipe_for(self, product, faction):
         recipes = [r for r in self.recipes if r["product"] == product and r.get("faction") in (None, faction)] or \

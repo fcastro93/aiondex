@@ -41,12 +41,16 @@ class Ledger:
         data = _load(self.dir / "sales.json", {})
         self.sales = data.get("sales", [])
         self.listings = data.get("listings")     # the last List scan: {"at", "rows", "listed", "slots", "total"}
+        self.day_prices = data.get("day_prices", {})  # "2026-10-12" -> {item: that day's average lowest price},
+        # kept once the day is over so later market moves (or deleted samples) never change the sales of that day
         self.cost_fn = None      # sale -> what its materials cost you with your marks (bought / farmed), or None
+        self.buy_fn = None       # sale -> the same buying every material
 
     def save(self):
         self.dir.mkdir(parents=True, exist_ok=True)
-        (self.dir / "sales.json").write_text(json.dumps({"sales": self.sales, "listings": self.listings},
-                                                        ensure_ascii=False), encoding="utf-8")
+        (self.dir / "sales.json").write_text(json.dumps({"sales": self.sales, "listings": self.listings,
+                                                         "day_prices": self.day_prices}, ensure_ascii=False),
+                                             encoding="utf-8")
 
     # --- scans ---
     def on_listings(self, at, rows, info):
@@ -132,20 +136,22 @@ class Ledger:
         self.save()
 
     # --- numbers ---
-    def cost(self, sale):
-        """What the sale's materials cost you: with your marks of what you bought and what you farmed (cost_fn), else
-        gathering what you can as the sale recorded it; 0 for what you did not craft; None when a price is missing."""
+    def cost(self, sale, buying=False):
+        """What the sale's materials cost you: with your marks of what you bought and what you farmed (cost_fn; with
+        `buying`, every one bought), else as the sale recorded it; 0 for what you did not craft; None when a price
+        is missing."""
         if not sale.get("crafted"):
             return 0
-        if self.cost_fn is not None:
-            return self.cost_fn(sale)
-        return sale.get("cost")
+        fn = self.buy_fn if buying else self.cost_fn
+        if fn is not None:
+            return fn(sale)
+        return sale.get("buy_cost" if buying else "cost")
 
     def profit(self, sale, buying=False):
         """What the sale left after the tax and the materials: None when the materials' price is not known."""
         if not sale.get("crafted"):
             return sale["net"]                    # dropped / bought items: no materials to pay
-        cost = sale.get("buy_cost") if buying else self.cost(sale)
+        cost = self.cost(sale, buying)
         return None if cost is None else sale["net"] - cost
 
     @staticmethod
