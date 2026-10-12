@@ -277,6 +277,7 @@ class Controller(QObject):
         self.bridge.hp.connect(lambda update: self.combat.on_hp(*update))
         self.bridge.own_skill.connect(self.on_own_skill)
         self.sounds = SoundPlayer(self.settings, ASSETS_DIR / "sounds")
+        self._last_own_death = 0.0
         self.tracker = Tracker(self.data_dir, self.settings, self._tracker_notice)
         self._tracked_eids = {}         # entity id -> npc id of field bosses in view
         self.tracker_window = None
@@ -409,6 +410,9 @@ class Controller(QObject):
             self.refresh()
 
     def on_death(self, eid):
+        if eid is not None and eid == self.combat.self_eid and time.time() - self._last_own_death > 2:
+            self._last_own_death = time.time()      # 048d of your own character: always with your HP at 0
+            self.sounds.play("death")
         if eid in self._tracked_eids:
             self.tracker.on_boss_seen(self._tracked_eids.pop(eid), False)
             self._tracker_changed()

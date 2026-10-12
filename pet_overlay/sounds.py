@@ -12,6 +12,7 @@ SOUNDS = {      # key -> (what it is for, file)
     "pet_level_up": ("Pet sube de nivel", "pet_level_up.mp3"),
     "boss_alert": ("Aviso de jefe (Tracker)", "boss_alert.mp3"),
     "event_alert": ("Aviso de evento (Tracker)", "event_alert.mp3"),
+    "death": ("Tu personaje muere", "death.mp3"),
 }
 DEFAULT_VOLUME = 70     # percent
 VOLUME_STEPS = 10       # the overlay sets the volume in 10 % steps
