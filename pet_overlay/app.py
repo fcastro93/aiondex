@@ -346,7 +346,11 @@ class Controller(QObject):
         self.combat.add_npc(eid, name or self.boss_names.get(npc_id), max_hp)
 
     def on_hits(self, hits):
+        me = self.combat.self_eid
         for hit in hits:
+            mine = me is not None and self.combat.owners.get(hit.attacker, hit.attacker) == me
+            if mine and self.tuner.recording and hit.target not in self.combat.players:
+                self.tuner.on_damage(hit.amount)
             finished = self.combat.on_hit(hit)
             if finished:
                 self._encounter_notice(finished)

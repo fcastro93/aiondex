@@ -24,6 +24,7 @@ class Health:
         self.sniffing = False
         self.capture_error = ""
         self.tls = False                    # a captured connection turned out to be encrypted
+        self.client_sends = deque(maxlen=64)  # when the client sent its last actions (for the ping)
         self.errors = deque(maxlen=40)      # (time, logger, message) warnings and errors of this session
         self.previous = previous_session(self.data_dir / "overlay.log")
 

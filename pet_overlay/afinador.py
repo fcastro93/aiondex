@@ -6,12 +6,15 @@ from collections import Counter, deque
 from pathlib import Path
 
 from .skills import SLOT_KEYS, OwnSkill, QuickSlot, base_skill, chain_parents, is_basic_attack
-from .tuner import Finding, MacroSetup, TunerSession, analyze
+from .tuner import (CALIBRATION_SECONDS, Finding, MacroSetup, TunerSession, analyze, calibration_run,
+                    calibration_values, recommend, test_summary)
 
 CAST_MATCH_SECONDS = 0.2     # the cast (0238) and the reply to its press (0138) arrive in the same packet
 FRESH_LOADOUT = 15.0         # a skill list this recent belongs to the character that logs in right after it
 STORE_DELAY = 3.0            # wait for the login's character info before saving a skill list
 PRESET_MARGIN = 0.15         # how much better another preset must match your presses to be the one you used
+RTT_WINDOW = 0.6             # a press is answered within this many seconds of being sent
+TEST_HISTORY = 6             # tests kept per character and preset ("Antes" + the latest ones)
 SHARED_KEYS = ("external", "external_repeat", "skill_queue")
 PRESET_KEYS = ("ingame", "suggested")
 
@@ -34,6 +37,9 @@ class Afinador:
         self._loadout_at = 0.0
         self._loadout_for = None     # character the skill list and bars belong to (None: not known yet)
         self._store_pending = False
+        self.rtts = deque(maxlen=60)         # ms between sending a press and the server's answer
+        self.calibration = None              # {"kind", "values", "runs"} while calibrating delays
+        self._rtt_send = 0.0
         self._presses = deque(maxlen=8)      # (ts, skill id, folded) accepted presses not matched to a cast yet
         self._casts = deque(maxlen=8)        # (ts, skill id, folded, cooldown ms) own casts not matched yet
 
@@ -58,7 +64,7 @@ class Afinador:
                 return {}
             entry = store[self.key] = {}
         if "ingame" in entry or "external" in entry:          # 1.3.0: one setup per character
-            old = {k: entry.pop(k) for k in list(entry) if k not in ("loadout", "shared", "setups")}
+            old = {k: entry.pop(k) for k in list(entry) if k not in ("loadout", "shared", "setups", "tests")}
             entry["shared"] = {k: old[k] for k in SHARED_KEYS if k in old}
             entry["setups"] = {str(self.preset): {k: old[k] for k in PRESET_KEYS if k in old}}
         loadout = entry.get("loadout") or {}
@@ -224,6 +230,15 @@ class Afinador:
         q = next((q for q in self.bar if sid in q.priority), None)
         return SLOT_KEYS.get(q.slot) if q else None
 
+    def click_skills(self):
+        """What the left click fires: the skills of the current preset's mouse slot (slot 0)."""
+        q = next((q for q in self.bar if q.slot == 0), None)
+        return [self.fold(s) for s in q.priority] if q else []
+
+    @property
+    def ping_ms(self):
+        return sorted(self.rtts)[len(self.rtts) // 2] if len(self.rtts) >= 3 else None
+
     def slot_label(self, slot):
         key = SLOT_KEYS.get(slot, str(slot))
         return "Ratón" if key == "Ratón" else f"Tecla {key}"
@@ -259,6 +274,7 @@ class Afinador:
         """The game answered one of your skill presses (result 0 = accepted)."""
         sid = self.fold(skill)
         self._maybe_store()
+        self._measure_ping(ts)
         if self.recording:
             self.session.presses.append((ts, sid, result))
         if result != 0:
@@ -279,6 +295,21 @@ class Afinador:
         else:
             self._casts.append((ts, int(skill), sid, cooldown_ms))
 
+    def _measure_ping(self, ts):
+        """The press left the PC as the client's last action packet before this answer."""
+        health = getattr(self.ctl, "health", None)
+        sends = [s for s in list(health.client_sends) if self._rtt_send < s <= ts] if health else []
+        if sends and ts - sends[-1] <= RTT_WINDOW:
+            self._rtt_send = sends[-1]
+            rtt = 1000 * (ts - sends[-1])
+            self.rtts.append(rtt)
+            if self.recording:
+                self.session.rtts.append(rtt)
+
+    def on_damage(self, amount):
+        if self.recording:
+            self.session.damage += amount
+
     def _pressed_cast(self, ts, sid, cooldown_ms):
         self.last_cast[sid] = (ts, cooldown_ms)
         if self.recording:
@@ -295,12 +326,67 @@ class Afinador:
         switched = used is not None and used != self.preset
         if switched:
             self.select_preset(used)
-        self.last_report = analyze(self.session, self.setup, name=self.skill_name)
+        self.last_report = analyze(self.session, self.setup, name=self.skill_name, click_skills=self.click_skills())
+        if self.calibration is not None and self.calibration.get("running"):
+            self._finish_run()
+        elif self.last_report.total >= 10:
+            self._record_test(self.last_report)
         if switched:
             self.last_report.findings.append(Finding(
                 "info", f"Analizado con el preset {used}: es el que coincide con las habilidades que lanzaste.",
                 "Si no es el que usabas, elige otro preset arriba y repite la prueba."))
         return self.last_report
+
+    # --- before / after ------------------------------------------------------------------------------
+    def tests(self):
+        """Tests of this character and preset, oldest first: the first is "Antes", then "Prueba 1, 2..."."""
+        return self._entry().get("tests", {}).get(str(self.preset), [])
+
+    def _record_test(self, report):
+        tests = self._entry(create=True).setdefault("tests", {}).setdefault(str(self.preset), [])
+        tests.append(test_summary(report, self.setup))
+        while len(tests) > TEST_HISTORY:
+            del tests[1]                     # keep "Antes", drop the oldest of the others
+        if self.ctl.character_name():
+            self.ctl.settings.save()
+
+    def reset_tests(self):
+        self._entry(create=True).setdefault("tests", {})[str(self.preset)] = []
+        self.ctl.settings.save()
+
+    # --- delay calibration --------------------------------------------------------------------------
+    def start_calibration(self, kind):
+        """kind: "macro" (delay of the in-game macro's steps) or "external" (wait between click and macro key)."""
+        self.calibration = {"kind": kind, "values": calibration_values(kind, self.ping_ms), "runs": [],
+                            "running": False}
+
+    def calibration_value(self):
+        c = self.calibration
+        return c["values"][len(c["runs"])] if c and len(c["runs"]) < len(c["values"]) else None
+
+    def start_run(self):
+        self.calibration["running"] = True
+        self.start()
+
+    def _finish_run(self):
+        c = self.calibration
+        c["running"] = False
+        c["runs"].append(calibration_run(self.calibration_value(), self.last_report, self.setup))
+
+    def calibration_result(self):
+        return recommend(self.calibration["runs"]) if self.calibration else (None, "")
+
+    def apply_calibration(self, value):
+        """Write the winning value into your setup (the game itself still has to be changed by hand)."""
+        setup = self.setup
+        if self.calibration["kind"] == "macro":
+            for line in setup.ingame:
+                line.delay_ms = value
+        else:
+            click = next((i for i, step in enumerate(setup.external) if step.key == "click_izq"), None)
+            if click is not None:
+                setup.external[click].wait_ms = value
+        self.save()
 
     def preset_used(self, session):
         """The preset whose bar holds most of what you pressed during the test (None if it is not clear)."""

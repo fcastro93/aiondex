@@ -4,7 +4,8 @@ In-game macro: steps, each a quickslot line of up to 4 skills by priority plus a
 is held the game cycles the steps and fires the first usable skill of each line. Releasing the key stops it and
 pressing it again starts over from step 1.
 External macro (Synapse / iCUE / G HUB...): a sequence of presses (key, hold ms, wait ms), optionally
-repeated while the button is held; typically it presses the in-game macro key and the basic attack.
+repeated while the button is held; typically it presses the in-game macro key and the left click. The left
+click fires the skill in the bar's mouse slot (Earth's Retribution, Snipe...), not a separate basic attack.
 
 A test records every skill press the game answers (accepted or rejected) and the cooldown each cast started;
 analyze() turns it into a per-skill comparison (fired vs possible by cooldown) and recommendations.
@@ -64,6 +65,8 @@ class TunerSession:
     presses: list = field(default_factory=list)     # [(ts, skill, result)]; result 0 = accepted
     casts: list = field(default_factory=list)       # [(ts, skill, cooldown ms)] of the accepted presses
     prior: dict = field(default_factory=dict)       # skill -> (ts, cooldown ms) of its last cast before the test
+    damage: int = 0                                 # your damage during the test
+    rtts: list = field(default_factory=list)        # ms from sending a press to the server's answer (ping)
 
     @property
     def duration(self):
@@ -101,6 +104,10 @@ class Report:
     median_gap_ms: float | None
     idle_gaps: int
     findings: list
+    ping_ms: float | None = None
+    dps: float = 0.0            # your damage per second of fighting
+    casts_per_s: float = 0.0
+    click_share: float | None = None    # click casts / (click + macro casts), when the external macro uses both
 
 
 def fight_windows(times):
@@ -136,7 +143,8 @@ def cooldown_usage(cast_times, cooldown_s, windows, ready_from):
     return max(possible, len(cast_times)), ready_s
 
 
-def analyze(session, setup, name=lambda sid: f"#{sid}"):
+def analyze(session, setup, name=lambda sid: f"#{sid}", click_skills=()):
+    """click_skills: what the left click fires (the skills of the bar's mouse slot)."""
     presses = [(ts, base_skill(s), r) for ts, s, r in session.presses]
     accepted = [(ts, s) for ts, s, r in presses if r == 0]
     fired = Counter(s for _, s in accepted)
@@ -156,7 +164,8 @@ def analyze(session, setup, name=lambda sid: f"#{sid}"):
             step_of.setdefault(s, i)
     uses_click = any(step.key == "click_izq" for step in setup.external)
     uses_macro = any(step.key == "macro" for step in setup.external)
-    basic = {s for s in fired | rejected if is_basic_attack(s)}
+    basic = {s for s in fired | rejected if is_basic_attack(s)} | set(click_skills)
+    click = " / ".join(name(s) for s in click_skills) or "el ataque básico"
 
     # per-skill comparison ------------------------------------------------------------------------
     rows = {}
@@ -181,18 +190,18 @@ def analyze(session, setup, name=lambda sid: f"#{sid}"):
         n_basic = sum(fired[s] for s in basic)
         n_macro = sum(fired[s] for s in macro_skills)
         if n_basic == 0 or (macro_skills and n_macro == 0):
-            missing = "el ataque básico" if n_basic == 0 else "ninguna habilidad del macro del juego"
+            missing = f"lo de tu clic ({click})" if n_basic == 0 else "ninguna habilidad del macro del juego"
             findings.append(Finding(
                 "bad", f"Tu macro externo pulsa el clic izquierdo y la tecla del macro, pero no salió {missing}.",
                 _external_conflict_advice(setup, presses)))
         elif macro_skills and min(n_basic, n_macro) / max(n_basic, n_macro) < 0.5:
             # each cycle presses both once: if both landed, both counts would be close
-            weak = "el ataque básico" if n_basic < n_macro else "el macro del juego"
+            weak = f"lo de tu clic ({click})" if n_basic < n_macro else "el macro del juego"
             ratio = min(n_basic, n_macro) / max(n_basic, n_macro)
             findings.append(Finding(
                 "bad" if ratio < 0.25 else "warn",
                 f"Tu macro externo pulsa el clic y la tecla del macro en cada ciclo, pero {weak} sale mucho menos: "
-                f"{n_basic} ataques básicos y {n_macro} habilidades del macro (~{abs(n_basic - n_macro)} pulsaciones "
+                f"{n_basic} de tu clic y {n_macro} del macro (~{abs(n_basic - n_macro)} pulsaciones "
                 f"que no llegaron a lanzarse).",
                 _external_conflict_advice(setup, presses)))
 
@@ -230,7 +239,7 @@ def analyze(session, setup, name=lambda sid: f"#{sid}"):
             findings.append(Finding(
                 level, f"{name(s)} se lanzó {row.fired} de ~{row.possible} veces posibles; estuvo lista "
                        f"{row.ready_s:.0f} s sin usarse" + (f" mientras salían {took}." if took else "."),
-                _ready_advice(s, setup, busy, step_of, cooldowns, name)))
+                _ready_advice(s, setup, busy, step_of, cooldowns, name, basic)))
 
     # 5. priority: a lower skill of a line fired while a higher one of the same line was ready
     for i, line in enumerate(lines, 1):
@@ -268,7 +277,94 @@ def analyze(session, setup, name=lambda sid: f"#{sid}"):
         findings.append(Finding("ok", "Todo lo que esperaban tus macros se está lanzando.",
                                 "Si quieres más ritmo, prueba a bajar un retraso 10 ms y repite la prueba."))
     findings.sort(key=lambda f: {"bad": 0, "warn": 1, "ok": 2}[f.level])
-    return Report(session.duration, fight_s, len(accepted), n_rej, list(rows.values()), median_ms, idle, findings)
+    ping = statistics.median(session.rtts) if len(session.rtts) >= 3 else None
+    n_click = sum(fired[s] for s in basic)
+    n_macro = sum(fired[s] for s in step_of)
+    share = n_click / (n_click + n_macro) if uses_click and uses_macro and n_click + n_macro else None
+    return Report(session.duration, fight_s, len(accepted), n_rej, list(rows.values()), median_ms, idle, findings,
+                  ping, session.damage / fight_s if fight_s else 0.0, len(accepted) / fight_s if fight_s else 0.0,
+                  share)
+
+
+# --- delay calibration --------------------------------------------------------------------------------
+CALIBRATION_SECONDS = 30        # fighting time per run
+REJECT_LIMIT = 0.05             # a run that loses more presses than this is not a candidate
+CLICK_SHARE_MIN = 0.15          # with click + macro, both parts must fire at least this much
+CAST_TIE = 0.06                 # runs within 6 % of the best cast rate are a tie (same settings vary ~6 %)
+# Runs are ranked by casts per second, not DPS: the delay decides how many presses get through, and over half a
+# minute DPS swings ~40 % by itself (crits, when the long cooldowns line up), casts per second only ~5 %.
+
+
+def calibration_values(kind, ping_ms=None):
+    """Delays to try. In-game macro: the delay of every step; external: the wait between the click and the macro key.
+    Longer ladders for higher pings, since a press needs about one ping to be answered."""
+    ping = ping_ms or 60
+    if kind == "macro":
+        return [10, 20, 30, 50] if ping < 60 else [10, 30, 50, 80] if ping < 130 else [20, 50, 80, 120]
+    return [20, 40, 60, 100] if ping < 60 else [20, 50, 80, 120] if ping < 130 else [40, 80, 120, 160]
+
+
+@dataclass
+class CalibrationRun:
+    value: int                  # ms tried
+    fight_s: float
+    dps: float
+    casts_per_s: float
+    rejected: float             # share of presses the game rejected
+    click_share: float | None
+    missing: list               # macro skills that never fired
+
+
+def calibration_run(value, report, setup):
+    presses = report.total + report.rejected
+    fired = {row.skill for row in report.rows if row.fired}
+    missing = [line.skills[0] for line in setup.ingame if line.skills and not fired & set(line.skills)]
+    return CalibrationRun(value, report.fight_s, report.dps, report.casts_per_s,
+                          report.rejected / presses if presses else 0.0, report.click_share, missing)
+
+
+def setup_label(setup):
+    """Short description of the delays in use, for the before/after table."""
+    parts = []
+    if setup.ingame:
+        parts.append("macro " + "/".join(str(line.delay_ms) for line in setup.ingame))
+    click = next((s for s in setup.external if s.key == "click_izq"), None)
+    if click is not None:
+        parts.append(f"clic {click.wait_ms}")
+    return " · ".join(parts) or "sin macro"
+
+
+def test_summary(report, setup):
+    """The numbers of one test, small enough to keep (per character and preset) for the before/after table."""
+    presses = report.total + report.rejected
+    return {"at": time.time(), "config": setup_label(setup), "fight_s": round(report.fight_s, 1),
+            "casts_per_s": round(report.casts_per_s, 3), "dps": round(report.dps), "ping": report.ping_ms,
+            "rejected": round(report.rejected / presses, 3) if presses else 0.0, "click_share": report.click_share,
+            "skills": {str(row.skill): row.fired for row in report.rows if row.fired},
+            "where": {str(row.skill): row.where for row in report.rows if row.where}}
+
+
+def recommend(runs):
+    """(best run or None, reason) — the most casts per second among runs that lose nothing; ties go to the
+    shorter delay."""
+    if not runs:
+        return None, ""
+    valid = [r for r in runs if r.fight_s >= CALIBRATION_SECONDS * 0.6 and r.rejected <= REJECT_LIMIT
+             and not r.missing and (r.click_share is None or r.click_share >= CLICK_SHARE_MIN)]
+    if not valid:
+        return None, ("Con ninguno de los valores salió todo bien (pulsaciones rechazadas, una parte que no sale o "
+                      "pruebas demasiado cortas). Repite con valores más altos.")
+    top = max(r.casts_per_s for r in valid)
+    best = min((r for r in valid if r.casts_per_s >= top * (1 - CAST_TIE)), key=lambda r: r.value)
+    reason = (f"con {best.value} ms salieron {best.casts_per_s:.2f} habilidades por segundo sin perder "
+              f"pulsaciones")
+    slowest = min(runs, key=lambda r: r.casts_per_s)
+    gain = best.casts_per_s / slowest.casts_per_s - 1 if slowest.casts_per_s else 0
+    if slowest is not best and gain >= CAST_TIE:
+        reason += f" ({100 * gain:.0f}% más que con {slowest.value} ms)"
+    elif len(valid) > 1:
+        reason += "; los demás valores rinden casi igual, así que conviene el más bajo"
+    return best, reason + "."
 
 
 def _masked_priority(skills, accepted, cooldowns, prior):
@@ -330,7 +426,7 @@ def _fired_while_ready(sid, cooldown_s, accepted, windows, ready_from):
     return out
 
 
-def _ready_advice(sid, setup, busy, step_of, cooldowns, name):
+def _ready_advice(sid, setup, busy, step_of, cooldowns, name, click=frozenset()):
     step, line = next(((i, l) for i, l in enumerate(setup.ingame, 1) if sid in l.skills), (None, None))
     if not line:
         return ""
@@ -350,12 +446,12 @@ def _ready_advice(sid, setup, busy, step_of, cooldowns, name):
         return (f"El juego eligió {name(top)}, que está por debajo en el mismo paso, así que {name(sid)} no se podía "
                 f"usar en ese momento: suele ser una condición (distancia, objetivo, un combo o buff previo) o que el "
                 f"paso se pulsa antes de que el juego actualice su recarga. Prueba a subir 10–20 ms el retraso.")
-    if is_basic_attack(top):
+    if is_basic_attack(top) or top in click:
         if any(step.key == "click_izq" for step in setup.external):
-            return (f"El clic izquierdo (ataque básico) se llevaba el turno. Si tu macro externo pulsa el clic y la "
+            return (f"El clic izquierdo ({name(top)}) se llevaba el turno. Si tu macro externo pulsa el clic y la "
                     f"tecla del macro casi a la vez, el juego se queda solo con una: deja 20–40 ms entre las dos y "
                     f"mantén la tecla del macro pulsada en vez de repetirla.")
-        return (f"El ataque básico se llevaba el turno: mientras haces clic, el macro no lanza {name(sid)}. Mantén la "
+        return (f"Tu clic ({name(top)}) se llevaba el turno: mientras haces clic, el macro no lanza {name(sid)}. Mantén la "
                 f"tecla del macro a la vez que el clic, o deja de hacer clic cuando {name(sid)} esté lista.")
     if top in step_of:
         return (f"El macro estaba lanzando {name(top)} (paso {step_of[top]}). Pon {name(sid)} en ese mismo paso, por "
@@ -381,10 +477,9 @@ def _external_conflict_advice(setup, presses):
     soon = sum(1 for _, s, r in presses if r == REJECT_TOO_SOON)
     if soon:
         tips.append(f"El juego rechazó {soon} pulsaciones por llegar mientras aún se ejecutaba la anterior.")
-    tips += ["Separa las dos pulsaciones: deja al menos 20–40 ms de espera entre el clic izquierdo y la tecla de "
-             "macro (el juego descarta la segunda si llega en el mismo instante).",
+    tips += ["La espera entre el clic izquierdo y la tecla del macro decide cuál de las dos sale: usa «¿Cuántos ms "
+             "poner? Calibrar retrasos» y AionDex medirá el valor exacto para tu ping y tus habilidades.",
              "Mantén cada pulsación al menos 20–35 ms (pulsar y soltar en 1 ms a veces no se registra)."]
     if not setup.skill_queue:
         tips.append("Activa la cola de habilidades: sin ella, el clic y el macro compiten por el mismo hueco.")
-    tips.append("Si sigue fallando, deja el ataque básico solo en el macro externo y el resto en el del juego.")
     return " ".join(tips)

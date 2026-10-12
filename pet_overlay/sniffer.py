@@ -13,6 +13,7 @@ from .stream import ServerStream
 log = logging.getLogger(__name__)
 GAME_PROCESS = "aion2.exe"
 RESCAN_SECONDS = 10
+REQUEST_MIN_BYTES = 40      # client packets this big are actions (skill presses are 45-50 bytes; movement is 11)
 
 
 def game_pids():
@@ -147,7 +148,11 @@ class GameSniffer:
             return
         ip, tcp = pkt[IP], pkt[TCP]
         if (ip.src, tcp.sport) not in self.endpoints:
-            return  # client->server: encrypted, not useful
+            # client->server is encrypted; only the moment an action leaves is used (to measure the ping)
+            action = Raw in pkt and len(pkt[Raw].load) >= REQUEST_MIN_BYTES
+            if self.health and action and (ip.dst, tcp.dport) in self.endpoints:
+                self.health.client_sends.append(time.time())
+            return
         key = (ip.src, tcp.sport, ip.dst, tcp.dport)
         with self.lock:
             stream = self.streams.setdefault(key, ServerStream())
