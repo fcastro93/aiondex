@@ -1,17 +1,18 @@
 """Gathering map: one material's nodes on the world map, its areas with the recommended one and a route through it,
-and "full of bots" marks on areas (button) and nodes (right click)."""
+and "full of bots" marks on areas (button) and nodes (right click). The maps are picked by side (Elyos, Asmodian,
+Abyss); in the Abyss, only the maps open now unless you untick it."""
 import math
 import time
 import webbrowser
 
 from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QBrush, QColor, QPainterPath, QPen, QPolygonF
-from PySide6.QtWidgets import (QFrame, QGraphicsItem, QGraphicsPathItem, QGraphicsPolygonItem,
-                               QGraphicsSimpleTextItem, QHBoxLayout, QPushButton, QScrollArea, QTabBar, QVBoxLayout,
-                               QWidget)
+from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFrame, QGraphicsItem, QGraphicsPathItem,
+                               QGraphicsPolygonItem, QGraphicsSimpleTextItem, QHBoxLayout, QPushButton, QScrollArea,
+                               QTabBar, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
-from ..gathering import BOT_DAYS, GAME_MAPS, MAP_SIDE, hull, zone_centers
+from ..gathering import ABYSS_OPEN, BOT_DAYS, GAME_MAPS, MAP_SIDE, SIDES, hull, zone_centers
 from ..mapdata import MAP_NAMES
 from ..paths import DATA_DIR
 from . import theme
@@ -57,7 +58,9 @@ class GatherMapWindow(QWidget):
         self.fonts = Fonts(1.0)
         self.material = None
         self.map_id = None
-        self._maps = []                   # [(map id, has points)]
+        self.side = None                  # "elyos" | "asmodian" | "abyss": the maps shown in the tabs
+        self._all_maps = []               # [(map id, has points)] of the material, every side
+        self._maps = []                   # [(map id, has points)] in the tabs
         self._items = []                  # scene items other than the markers (areas, route, labels)
         self.setObjectName("MapWindow")
         self.setWindowIcon(ctl.app_icon)
@@ -70,6 +73,28 @@ class GatherMapWindow(QWidget):
         left = QVBoxLayout()
         left.setContentsMargins(8, 8, 0, 0)
         left.setSpacing(0)
+        sides = QHBoxLayout()
+        sides.setContentsMargins(0, 0, 8, 8)
+        sides.setSpacing(6)
+        self.side_buttons = {}
+        group = QButtonGroup(self)
+        group.setExclusive(True)
+        for side in SIDES:
+            button = QPushButton(theme.FACTION_LABEL[side])
+            button.setProperty("tab", True)
+            button.setCheckable(True)
+            button.clicked.connect(lambda _=False, s=side: self._pick_side(s))
+            group.addButton(button)
+            sides.addWidget(button)
+            self.side_buttons[side] = button
+        open_names = " · ".join(sorted(MAP_NAMES.get(m, m).split(" (")[0] for m in ABYSS_OPEN))
+        self.open_only = QCheckBox(f"Solo lo abierto ahora ({open_names})")
+        self.open_only.setChecked(self.ctl.settings.get("crafting", {}).get("abyss_open_only", True))
+        self.open_only.toggled.connect(self._open_only_toggled)
+        sides.addSpacing(10)
+        sides.addWidget(self.open_only)
+        sides.addStretch(1)
+        left.addLayout(sides)
         self.tabs = QTabBar()
         self.tabs.setDrawBase(False)
         self.tabs.setExpanding(False)
@@ -119,29 +144,71 @@ class GatherMapWindow(QWidget):
         verb = "conseguir" if self.gathering.is_drop(name) else "recolectar"
         self.setWindowTitle(f"{APP_NAME} — Dónde {verb} {name}")
         faction = self.ctl.crafting_faction()
-        own = [r for r in self.gathering.side_regions(name, faction) if r[1]]
         maps = [(m, True) for m in self.gathering.maps(name)]
-        for _, map_id, _, _ in own:
-            if map_id not in [m for m, _ in maps]:
+        for _, map_id, _, _ in self.gathering.side_regions(name, None):
+            if map_id and map_id not in [m for m, _ in maps]:
                 maps.append((map_id, False))
-        # the map you are on first, then your side, then where the points are
+        self._all_maps = maps
+        counts = {s: sum(1 for m, _ in maps if MAP_SIDE.get(m) == s) for s in SIDES}
+        for side, button in self.side_buttons.items():
+            button.setText(f"{theme.FACTION_LABEL[side]} · {counts[side]}")
+            button.setEnabled(counts[side] > 0)
+            button.setToolTip(f"{counts[side]} {'mapa' if counts[side] == 1 else 'mapas'} con {name}")
+        # the side of the map you are on, else yours, else the first one where it is
+        here = MAP_SIDE.get(GAME_MAPS.get(self.ctl.game_map))
+        self.side = next((s for s in (here, faction, *SIDES) if s and counts.get(s)), None)
+        if self.side is None:              # dropped by monsters with no spawn map: just the list
+            for button in self.side_buttons.values():
+                button.setChecked(False)
+            self.open_only.setVisible(False)
+            self._set_tabs([])
+            self.title.setText(f"Dónde {verb} {name}")
+            self._panel([], [], [])
+            return
+        self._fill_tabs()
+
+    def _pick_side(self, side):
+        self.side = side
+        self._fill_tabs()
+
+    def _open_only_toggled(self, on):
+        self.ctl.settings.setdefault("crafting", {})["abyss_open_only"] = on
+        self.ctl.settings.save()
+        if self.material and self.side == "abyss":
+            self._fill_tabs()
+
+    def _fill_tabs(self):
+        """The tabs of the side picked: the map you are on first, then the ones with points."""
+        self.side_buttons[self.side].setChecked(True)
+        abyss = self.side == "abyss"
+        self.open_only.setVisible(abyss)
+        open_only = abyss and self.open_only.isChecked()
         here = GAME_MAPS.get(self.ctl.game_map)
-        maps.sort(key=lambda m: (m[0] != here, MAP_SIDE.get(m[0]) != faction if faction else False, not m[1]))
+        maps = [m for m in self._all_maps if MAP_SIDE.get(m[0]) == self.side and (not open_only or m[0] in ABYSS_OPEN)]
+        maps.sort(key=lambda m: (m[0] != here, m[0] not in ABYSS_OPEN if abyss else False, not m[1]))
+        self._set_tabs(maps)
+        if not maps:                      # all of it is in Abyss maps that are not open yet
+            self.title.setText(f"Dónde {'conseguir' if self.gathering.is_drop(self.material) else 'recolectar'} "
+                               f"{self.material}")
+            self._panel([], [], [], closed=True)
+            return
+        self.tabs.setCurrentIndex(0)
+        self._tab_changed(0)
+
+    def _set_tabs(self, maps):
         self._maps = maps
+        self.map_id = None
         self.tabs.blockSignals(True)
         while self.tabs.count():
             self.tabs.removeTab(0)
         for map_id, has_points in maps:
-            self.tabs.addTab(MAP_NAMES.get(map_id) or self.ctl.mapdata.map_label(map_id)
-                             + ("" if has_points else " · zonas"))
-        if not maps:                      # dropped by monsters with no spawn map: just the list
-            self.map_id = None
-            self.title.setText(f"Dónde {verb} {name}")
-            self._panel([], [], [])
-            return
+            text = (MAP_NAMES.get(map_id) or self.ctl.mapdata.map_label(map_id)).split(" (")[0]
+            if MAP_SIDE.get(map_id) == "abyss" and map_id not in ABYSS_OPEN:
+                text += " · cerrado"
+            self.tabs.addTab(text + ("" if has_points else " · zonas"))
         self.tabs.blockSignals(False)
-        self.tabs.setCurrentIndex(0)
-        self._tab_changed(0)
+        if not maps:
+            self._clear_scene()
 
     def _tab_changed(self, index):
         if not 0 <= index < len(self._maps):
@@ -167,10 +234,7 @@ class GatherMapWindow(QWidget):
             node = info.get("node", name)
             level = info.get("level")
             self.subtitle.setText(f"Nodo: {node}" + (f" · nivel de recolección {level}" if level else ""))
-        self.view.clear_markers()
-        for item in self._items:
-            self.view.scene().removeItem(item)
-        self._items = []
+        self._clear_scene()
         areas, loose = g.areas(name, map_id)
         focus = []
         for area in areas:
@@ -201,6 +265,12 @@ class GatherMapWindow(QWidget):
             pts = focus or [p for a in areas for p in a.nodes] or [(x, y) for _, x, y in zones]
             self.view.focus_points(pts)
         self._panel(areas, loose, zones)
+
+    def _clear_scene(self):
+        self.view.clear_markers()
+        for item in self._items:
+            self.view.scene().removeItem(item)
+        self._items = []
 
     def _node(self, p, color, radius, tip):
         m = NodeMarker(p[0], p[1], color, radius, tip, on_click=lambda q=p: self.view.center_on_norm(*q),
@@ -268,7 +338,7 @@ class GatherMapWindow(QWidget):
             self.view.markers.append(halo)
 
     # --- side panel ---
-    def _panel(self, areas, loose, zones):
+    def _panel(self, areas, loose, zones, closed=False):
         while self.panel.count():
             widget = self.panel.takeAt(0).widget()
             if widget:
@@ -292,6 +362,12 @@ class GatherMapWindow(QWidget):
                                                 "jefes o de mazmorra)."))
                 self.panel.addStretch(1)
                 return
+        if closed:
+            self.panel.addWidget(self._hint(
+                f"En lo que está abierto ahora del Abismo no hay {self.material}: solo en mapas que aún no abren. "
+                f"Desmarca «Solo lo abierto ahora» para verlos."))
+            self.panel.addStretch(1)
+            return
         for region, map_id, nodes, zone_names in g.side_regions(self.material, faction):
             line = label(f"{region}: {nodes} nodos · {', '.join(zone_names)}", f.small, theme.TEXT)
             line.setWordWrap(True)

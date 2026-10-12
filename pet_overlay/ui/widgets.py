@@ -1,13 +1,14 @@
 """Overlay building blocks, all custom-painted so they stay crisp on a translucent panel."""
 from pathlib import Path
 
-from PySide6.QtCore import QEasingCurve, QRectF, QSize, Qt, QVariantAnimation
-from PySide6.QtGui import QColor, QPainter, QPainterPath, QPixmap
+from PySide6.QtCore import QEasingCurve, QPointF, QRectF, QSize, Qt, QVariantAnimation
+from PySide6.QtGui import QColor, QPainter, QPainterPath, QPixmap, QRadialGradient
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 from . import theme
 
 _icon_cache = {}
+LED_COLORS = {"red": QColor("#ff4d4d"), "green": QColor("#46d97a"), "grey": QColor("#5a6478")}
 
 
 def clear_icon_cache():
@@ -51,6 +52,38 @@ def label(text, font, color, parent=None, elide=False):
     lbl.setStyleSheet(f"color: {color.name(QColor.HexArgb)}; background: transparent;")
     lbl.setAttribute(Qt.WA_TransparentForMouseEvents)
     return lbl
+
+
+class Led(QWidget):
+    """A small lamp: "red" (something needs you), "green" (fine) or "grey" (nothing to watch / no reading)."""
+
+    def __init__(self, state, size, tip="", parent=None):
+        super().__init__(parent)
+        self.state = state
+        self.setFixedSize(size, size)
+        if tip:
+            self.setToolTip(tip)
+        else:
+            self.setAttribute(Qt.WA_TransparentForMouseEvents)
+
+    def paintEvent(self, _):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(Qt.NoPen)
+        color = LED_COLORS.get(self.state, LED_COLORS["grey"])
+        r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        if self.state != "grey":                   # the glow around a lit lamp
+            glow = QColor(color)
+            glow.setAlpha(60)
+            p.setBrush(glow)
+            p.drawEllipse(r)
+        inset = r.width() * 0.2
+        bulb = r.adjusted(inset, inset, -inset, -inset)
+        shine = QRadialGradient(bulb.center() - QPointF(bulb.width() * 0.18, bulb.height() * 0.18), bulb.width() * 0.75)
+        shine.setColorAt(0, color.lighter(165))
+        shine.setColorAt(1, color.darker(135))
+        p.setBrush(shine)
+        p.drawEllipse(bulb)
 
 
 class ProgressBar(QWidget):

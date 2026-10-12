@@ -7,6 +7,8 @@ FACTIONS = ("elyos", "asmodian")
 MAP_NAMES = {
     "world_l_starter": "Poeta (Elyos)", "world_l_a": "Verteron (Elyos)", "world_l_b": "Eltnen (Elyos)",
     "world_d_starter": "Ishalgen (Asmodian)", "world_d_a": "Altgard (Asmodian)", "world_d_b": "Morheim (Asmodian)",
+    "abyss_reshanta_a": "Chaotic Lower Reshanta (Abismo)", "abyss_reshanta_c": "Chaotic Middle Reshanta (Abismo)",
+    "abyss_reshanta_d": "Chaotic Upper Reshanta (Abismo)",
 }
 
 

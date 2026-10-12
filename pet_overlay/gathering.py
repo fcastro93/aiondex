@@ -21,11 +21,19 @@ MIN_NODES = 3
 BOT_DAYS = 3
 MATCH = 0.004            # a mark belongs to an area whose centre is this close (normalized map units)
 NODE_MATCH = 1e-4        # ... and to a node at this same spot (nodes can be 0.001 apart)
-REGION_MAP = {"altgard": "world_d_a", "morheim": "world_d_b", "verteron": "world_l_a", "eltnen": "world_l_b"}
+REGION_MAP = {"altgard": "world_d_a", "morheim": "world_d_b", "verteron": "world_l_a", "eltnen": "world_l_b",
+              "chaotic-lower-reshanta": "abyss_reshanta_a", "chaotic-middle-reshanta": "abyss_reshanta_c",
+              "chaotic-upper-reshanta": "abyss_reshanta_d"}
 REGION_NAME = {"altgard": "Altgard", "morheim": "Morheim", "verteron": "Verteron", "eltnen": "Eltnen",
-               "chaotic-lower-reshanta": "Reshanta inferior"}
-MAP_SIDE = {"world_d_a": "asmodian", "world_d_b": "asmodian", "world_l_a": "elyos", "world_l_b": "elyos"}
-GAME_MAPS = {1110: "world_d_a", 1010: "world_l_a"}       # the game's map id (2136) -> metabot's
+               "chaotic-lower-reshanta": "Chaotic Lower Reshanta", "chaotic-middle-reshanta": "Chaotic Middle Reshanta",
+               "chaotic-upper-reshanta": "Chaotic Upper Reshanta"}
+MAP_SIDE = {"world_d_a": "asmodian", "world_d_b": "asmodian", "world_l_a": "elyos", "world_l_b": "elyos",
+            "abyss_reshanta_a": "abyss", "abyss_reshanta_c": "abyss", "abyss_reshanta_d": "abyss"}
+SIDES = ("elyos", "asmodian", "abyss")
+# the Abyss maps open on the global servers (2026-10-12: only Chaotic Lower Reshanta; Middle and Upper not yet)
+ABYSS_OPEN = {"abyss_reshanta_a"}
+# the game's map id (2136) -> metabot's (20 is the Abyss; the only one open is Chaotic Lower Reshanta)
+GAME_MAPS = {1110: "world_d_a", 1010: "world_l_a", 20: "abyss_reshanta_a"}
 
 
 @dataclass
@@ -156,11 +164,12 @@ class Gathering:
 
     # --- your side ---
     def side_regions(self, name, faction):
-        """[(region name, map id, nodes, [zone names])] of the material on your side (all sides without one)."""
+        """[(region name, map id, nodes, [zone names])] of the material on your side and the Abyss (all sides
+        without one)."""
         out = []
         for region, row in self.info(name).get("regions", {}).items():
             map_id = REGION_MAP.get(region)
-            if faction and MAP_SIDE.get(map_id) not in (None, faction):
+            if faction and MAP_SIDE.get(map_id) not in (None, faction, "abyss"):
                 continue
             out.append((REGION_NAME.get(region, region), map_id, row["nodes"], row["zones"]))
         return sorted(out, key=lambda r: -r[2])

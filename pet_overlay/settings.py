@@ -28,6 +28,7 @@ DEFAULTS = {
     "sounds": {},           # alert sound -> {"volume": 0-100, "muted": bool}
     "gear": {},             # character name -> {"at", "job", "level", "faction", "slots": {pos: [item, +N, level]}}
     "crafting": {},         # profession, levels by profession, your prices for materials, sort, show_unpriced
+    "status": {},           # alerts on, membership, character name -> {"at", "tickets": {id: [count, bonus, ms, at]}}
     "hotkeys": {
         "toggle_visible": "Alt+Shift+P",
         "toggle_lock": "Alt+Shift+L",

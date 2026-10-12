@@ -22,6 +22,8 @@ from .tracker import FIELD_LIST_OPCODE, Tracker, parse_field_list
 from .crafting import Crafting
 from .gathering import Gathering
 from .professions import CRAFT_OPCODE, EXP_OPCODE, parse_craft, parse_exp, parse_levels
+from .status import (ALERTS as STATUS_ALERTS, LIST_OPCODE as COUNTERS_OPCODE, UPDATE_OPCODE as COUNTER_OPCODE, Status,
+                     alert_text, parse_list as parse_counters, parse_update as parse_counter)
 from .protocol import read_varint
 from .health import Health
 from .mapdata import MapData
@@ -43,6 +45,7 @@ from .modules.tuner import TunerModule
 from .modules.diagnostics import DiagnosticsModule, open_problems
 from .modules.tracker import TrackerModule
 from .modules.crafting import CraftingModule
+from .modules.status import StatusModule
 from .afinador import STORE_DELAY, Afinador
 from .update_controller import UpdateController
 from .notifications import NotificationCenter
@@ -88,6 +91,7 @@ def _short_state(pet):
 OP_KIND = {SNAPSHOT_OPCODE: "collection", PROGRESS_OPCODE: "progress", CHARACTER_OPCODE: "character",
            MAP_ENTER_OPCODE: "map", SPAWN_OPCODE: "spawn", REQUEST_OPCODE: "press", SKILL_LIST_OPCODE: "skills",
            PRESETS_OPCODE: "bar", ROSTER_OPCODE: "roster", PARTY_INFO_OPCODE: "roster",
+           COUNTERS_OPCODE: "status", COUNTER_OPCODE: "status",
            **{op: "combat" for op in DAMAGE_OPCODES}}
 
 
@@ -109,6 +113,7 @@ class Bridge(QObject):
     own_entity = Signal(int)         # your entity id, found from your own presses before the character info
     profession = Signal(object)      # ("levels", name, {id: (level, exp)}) | ("exp", id, exp, gained) |
                                      # ("craft", id, recipe id, success)
+    counters = Signal(object)        # ("list", time, [(id, count, bonus, ms)]) | ("update", time, ticket)
     own_skill = Signal(object)       # ("press", ts, skill, result) | ("cast", ts, skill, cooldown ms) |
                                      # ("skills", {base: OwnSkill}) | ("bar", [QuickSlot])
     status = Signal(str)
@@ -168,6 +173,14 @@ class Bridge(QObject):
             event = parse_craft(body)
             if event:
                 self.profession.emit(("craft", *event))
+        elif op == COUNTERS_OPCODE:
+            tickets = parse_counters(body)
+            if tickets:
+                self.counters.emit(("list", time.time(), tickets))
+        elif op == COUNTER_OPCODE:
+            ticket = parse_counter(body)
+            if ticket:
+                self.counters.emit(("update", time.time(), ticket))
         elif op == PARTY_INFO_OPCODE:
             members = parse_party_info(body)
             if members:
@@ -368,6 +381,9 @@ class Controller(QObject):
         self._ocr.read.connect(self._shot_read)
         self.crafting.character = self.settings.get("last_character")
         self.bridge.profession.connect(self.on_profession)
+        self.status = Status(self.settings, self._save_settings)
+        self.status_window = None
+        self.bridge.counters.connect(self.on_counters)
 
         self.fonts = Fonts(self.settings["scale"])
         self.notifications = NotificationCenter(self.data_dir / "notifications.json" if self.persist else None)
@@ -388,7 +404,7 @@ class Controller(QObject):
         self.diag_window = None
         self.dps_window = None
         self.modules = [PetsModule(self), DpsModule(self), TunerModule(self), TrackerModule(self),
-                        CraftingModule(self), NotificationsModule(self), DiagnosticsModule(self),
+                        CraftingModule(self), StatusModule(self), NotificationsModule(self), DiagnosticsModule(self),
                         SettingsModule(self)]
         for module in self.modules:
             self.window.add_panel(module.create_panel(self.fonts))
@@ -413,6 +429,8 @@ class Controller(QObject):
         self._combat_tick.start()
         self._tracker_tick = QTimer(self, interval=15_000, timeout=self._on_tracker_tick)
         self._tracker_tick.start()
+        self._status_tick = QTimer(self, interval=60_000, timeout=self._on_status_tick)
+        self._status_tick.start()
         self._problems_seen = {}        # problem title -> first time seen (a notice once it lasts)
         self._problems_notified = set()
         self._health_tick = QTimer(self, interval=15_000, timeout=self._watch_health)
@@ -661,6 +679,42 @@ class Controller(QObject):
         if self.active_module.key == "crafting" and not self._refreshing:
             self.refresh()
 
+    # --- status ---------------------------------------------------------------------------------
+    def on_counters(self, event):
+        """Energy and entry tickets from the game: the list (before the game names your character) or one change."""
+        kind, at, payload = event
+        if kind == "list":
+            self.status.on_list(at, payload)
+        elif self.status.on_update(at, payload, self.character_name()):
+            self.status_changed()
+
+    def status_changed(self):
+        if self.status_window and self.status_window.isVisible():
+            self.status_window.refresh()
+        if self.active_module.key == "status" and not self._refreshing:
+            self.refresh()
+        self._on_status_tick(refresh=False)
+
+    def _on_status_tick(self, refresh=True):
+        """The alerts whose bell is on: a notice (and sound) when one starts holding, then every hour."""
+        due = self.status.due()
+        for key, chars in due:
+            self.notify("status", f"Status: {STATUS_ALERTS[key][0].lower()}", alert_text(self.status, key, chars))
+        if due:
+            self.sounds.play("status_alert")
+        if refresh and self.active_module.key == "status":
+            self.refresh()
+
+    def open_status(self):
+        from .ui.statuswindow import StatusWindow
+        if self.status_window is None:
+            self.status_window = StatusWindow(self)
+        else:
+            self.status_window.refresh()
+        self.status_window.show()
+        self.status_window.raise_()
+        self.status_window.activateWindow()
+
     def _on_combat_tick(self):
         finished = self.combat.tick()
         if finished:
@@ -685,6 +739,8 @@ class Controller(QObject):
                     f"({short_number(me.damage)} de daño).{group}")
 
     def on_character(self, info):
+        if self.status.claim(info.name, time.time()):     # the ticket list read just before is this character's
+            QTimer.singleShot(0, self.status_changed)
         if self.character and self.character.name == info.name:
             if info.entity_id != self.character.entity_id:
                 # same character on a new connection (teleport, Abyss, instance server): new entity id
@@ -1256,6 +1312,7 @@ class Controller(QObject):
         menu.addAction(f"Abrir mapa de pets\t{hk['toggle_map']}", self.open_map)
         menu.addAction("Abrir Crafting", self.open_crafting)
         menu.addAction(f"Escanear el mercado (Crafting)\t{hk.get('crafting_scan', '')}", self.crafting_scan)
+        menu.addAction("Abrir Status de tus personajes", self.open_status)
         menu.addSeparator()
         menu.addAction(f"Mostrar / ocultar\t{hk['toggle_visible']}", self.toggle_visible)
         menu.addAction(f"Bloquear / desbloquear\t{hk['toggle_lock']}", self.toggle_lock)
