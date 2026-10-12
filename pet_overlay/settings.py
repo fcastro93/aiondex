@@ -10,7 +10,7 @@ DEFAULTS = {
     "locked": False,        # locked = click-through, clicks go to the game
     "compact": True,
     "visible": True,
-    "sound": True,
+    "sound": True,          # before 1.14: sound on pet level-up (now sounds.pet_level_up.muted)
     "auto_update": True,    # check GitHub releases and install signed updates
     "toasts": True,         # notification bubbles beside the overlay
     "toast_progress": True, # a bubble for every +N of pet progress (merged while it is on screen)
@@ -20,8 +20,9 @@ DEFAULTS = {
     "map_faction": "auto",  # auto (character's) | elyos | asmodian | all
     "characters": {},       # name -> {faction, server, job, level}
     "tuner": {},            # character name -> Afinador macro setup (in-game + external macro)
-    "game_keys": {},
-    "tracker": {},          # region, minutes of notice and the bosses/events marked in the Tracker        # the game's key bindings the Afinador needs: {"macro": [k1, k2], "click": [k1, k2]}
+    "game_keys": {},        # the game's key bindings the Afinador needs: {"macro": [k1, k2], "click": [k1, k2]}
+    "tracker": {},          # region, minutes of notice and the bosses/events marked in the Tracker
+    "sounds": {},           # alert sound -> {"volume": 0-100, "muted": bool}
     "hotkeys": {
         "toggle_visible": "Alt+Shift+P",
         "toggle_lock": "Alt+Shift+L",

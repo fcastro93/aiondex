@@ -3,7 +3,6 @@ import json
 import logging
 import threading
 import time
-import winsound
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QThread, QTimer, Signal
@@ -23,6 +22,7 @@ from .protocol import read_varint
 from .health import Health
 from .mapdata import MapData
 from .paths import ASSETS_DIR
+from .sounds import SoundPlayer
 from .pets import Collection, Pet, PROGRESS_OPCODE, SNAPSHOT_OPCODE, parse_progress, parse_snapshot
 from .session import Session
 from .settings import Settings
@@ -270,8 +270,8 @@ class Controller(QObject):
         self.bridge.roster.connect(lambda members: self.combat.set_group([m[0] for m in members]))
         self.bridge.hp.connect(lambda update: self.combat.on_hp(*update))
         self.bridge.own_skill.connect(self.on_own_skill)
-        self.tracker = Tracker(self.data_dir, self.settings,
-                               lambda title, body: self.notify("tracker", title, body))
+        self.sounds = SoundPlayer(self.settings, ASSETS_DIR / "sounds")
+        self.tracker = Tracker(self.data_dir, self.settings, self._tracker_notice)
         self._tracked_eids = {}         # entity id -> npc id of field bosses in view
         self.tracker_window = None
         self.bridge.field_list.connect(lambda event: self._tracker_changed(self.tracker.on_field_list(*event)))
@@ -410,6 +410,10 @@ class Controller(QObject):
             self._encounter_notice(finished)
             self.refresh()
 
+    def _tracker_notice(self, title, body, kind):
+        self.notify("tracker", title, body)
+        self.sounds.play("event_alert" if kind == "event" else "boss_alert")
+
     def _tracker_changed(self, _=None):
         if self.tracker_window and self.tracker_window.isVisible():
             self.tracker_window.refresh()
@@ -532,8 +536,7 @@ class Controller(QObject):
             else:
                 self.notify("levelup", f"¡{name} subió a nivel {pet.level}!",
                             "Llegó al nivel máximo." if pet.is_max else _next_step(pet), pet_id=pet.pet_id)
-            if self.settings["sound"]:
-                winsound.PlaySound("SystemAsterisk", winsound.SND_ALIAS | winsound.SND_ASYNC)
+            self.sounds.play("pet_level_up")
         elif self.settings["toast_progress"]:
             self.notify("progress", "", _progress_sentence(pet), pet_id=pet.pet_id, key=f"progress:{pet.pet_id}",
                         amount=event.gain, title_template=f"{name}: +{{amount}} de progreso")
@@ -920,6 +923,7 @@ class Controller(QObject):
         for i in range(1, len(HOTKEY_ACTIONS) + 1):
             winapi.unregister_hotkey(hwnd, i)
         self._save_collection()
+        self.sounds.close()
         self.tray.hide()
         QApplication.quit()
 
@@ -973,11 +977,11 @@ class Controller(QObject):
             group.addAction(act)
             scale.addAction(act)
         notices = _submenu(menu, "Notificaciones")
-        for key, text in (("toasts", "Globos de notificación"), ("toast_progress", "Globo en cada +1"),
-                          ("sound", "Sonido al subir de nivel")):
+        for key, text in (("toasts", "Globos de notificación"), ("toast_progress", "Globo en cada +1")):
             act = QAction(text, notices, checkable=True, checked=self.settings[key])
             act.toggled.connect(lambda on, k=key: (self.settings.__setitem__(k, on), self._save_settings()))
             notices.addAction(act)
+        notices.addAction("Sonidos y volumen…", lambda: self.switch_module("settings"))
         notices.addSeparator()
         notices.addAction("Ver historial", lambda: self.switch_module("notifications"))
         menu.addAction("Actualizar base de datos", self.update_database)

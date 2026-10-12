@@ -1,4 +1,4 @@
-"""Overlay panel of the Ajustes module: version, updates, auto-update switch, Npcap status, links."""
+"""Overlay panel of the Ajustes module: version, updates, auto-update switch, alert sounds, Npcap status, links."""
 import webbrowser
 
 from PySide6.QtCore import QRectF, Qt
@@ -6,6 +6,7 @@ from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from .. import REPO, __version__
+from ..sounds import SOUNDS, VOLUME_STEPS
 from . import theme
 from .notifications_panel import ago
 from .widgets import SectionTitle, label
@@ -60,6 +61,25 @@ class Switch(QWidget):
         p.drawEllipse(QRectF(x, r.top() + 2, d, d))
 
 
+class VolumeStep(QWidget):
+    """One segment of a volume bar: a click sets the volume up to it."""
+
+    def __init__(self, filled, muted, fonts, on_click):
+        super().__init__()
+        self.filled, self.muted = filled, muted
+        self.on_click = on_click
+        self.setFixedSize(fonts.px(11), fonts.px(14))
+        self.setCursor(Qt.PointingHandCursor)
+
+    def paintEvent(self, _):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        r = QRectF(self.rect()).adjusted(1, 3, -1, -3)
+        p.setPen(Qt.NoPen)
+        p.setBrush((theme.MUTED if self.muted else theme.ACCENT) if self.filled else theme.BAR_BG)
+        p.drawRoundedRect(r, 2, 2)
+
+
 class SettingsPanel(QWidget):
     def __init__(self, ctl, fonts, parent=None):
         super().__init__(parent)
@@ -97,6 +117,10 @@ class SettingsPanel(QWidget):
             self.content.addWidget(label(f"Última búsqueda: {ago(up.last_check)}", f.small, theme.MUTED))
         self.content.addWidget(self._toggle("Actualizar automáticamente", "auto_update"))
 
+        self.content.addWidget(SectionTitle("Sonidos", f))
+        for key, (text, _) in SOUNDS.items():
+            self._sound_row(key, text)
+
         self.content.addWidget(SectionTitle("Sistema", f))
         npcap = self.ctl.npcap_installed()
         self.content.addWidget(label("Npcap instalado" if npcap else "Falta Npcap: la app no puede leer el juego",
@@ -108,6 +132,50 @@ class SettingsPanel(QWidget):
         credit.setWordWrap(True)
         self.content.addWidget(credit)
         self.adjustSize()
+
+    def _sound_row(self, key, text):
+        """Name and a test button, then the volume bar (click a segment), the % and the on/off switch."""
+        f, sounds = self.fonts, self.ctl.sounds
+        conf = sounds.config(key)
+        head = QHBoxLayout()
+        head.setContentsMargins(0, f.px(4), 0, 0)
+        head.addWidget(label(text, f.body, theme.TEXT), 1)
+        test = label("▶ Probar", f.small, theme.ACCENT)
+        test.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        test.setCursor(Qt.PointingHandCursor)
+        test.on_click = lambda: sounds.play(key, test=True)
+        head.addWidget(test)
+        self.content.addLayout(head)
+
+        row = QHBoxLayout()
+        row.setSpacing(f.px(2))
+        level = round(conf["volume"] / (100 / VOLUME_STEPS))
+        for i in range(1, VOLUME_STEPS + 1):
+            row.addWidget(VolumeStep(i <= level, conf["muted"], f,
+                                     lambda v=i * 100 // VOLUME_STEPS: self._set_volume(key, v)))
+        row.addSpacing(f.px(6))
+        row.addWidget(label("silenciado" if conf["muted"] else f"{conf['volume']}%", f.small,
+                            theme.MUTED if conf["muted"] else theme.TEXT))
+        row.addStretch(1)
+        switch = QWidget()
+        lay = QHBoxLayout(switch)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.addWidget(Switch(not conf["muted"], f))
+        switch.setCursor(Qt.PointingHandCursor)
+        switch.setToolTip("Activar / silenciar este sonido")
+        switch.on_click = lambda: self._toggle_mute(key)
+        row.addWidget(switch)
+        self.content.addLayout(row)
+
+    def _set_volume(self, key, volume):
+        self.ctl.sounds.set_volume(key, volume)
+        self.ctl.sounds.play(key)
+        self.ctl.refresh()
+
+    def _toggle_mute(self, key):
+        self.ctl.sounds.toggle_mute(key)
+        self.ctl.sounds.play(key)          # silent when it was just muted; a sample when it was turned back on
+        self.ctl.refresh()
 
     def _toggle(self, text, key):
         row = QWidget()

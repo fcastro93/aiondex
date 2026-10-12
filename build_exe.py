@@ -36,6 +36,7 @@ def build_app():
         "--icon", str(ROOT / "assets" / "app.ico"),
         "--add-data", f"{ROOT / 'assets' / 'app.ico'};assets",
         "--add-data", f"{ROOT / 'assets' / 'badge.png'};assets",
+        "--add-data", f"{ROOT / 'assets' / 'sounds'};assets/sounds",
         "--add-data", f"{ROOT / 'data' / 'pets_db.json'};seed",
         "--add-data", f"{ROOT / 'data' / 'map_db.json'};seed",
         "--add-data", f"{ROOT / 'data' / 'skills_db.json'};seed",

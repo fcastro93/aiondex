@@ -177,6 +177,7 @@ class Status:
 
 class Tracker:
     def __init__(self, data_dir, settings, notify):
+        """notify(title, body, kind) posts a notice; kind is the entry's ("event" | "abyss" | "field")."""
         self.data_dir = Path(data_dir)
         self.settings = settings
         self.notify = notify
@@ -316,11 +317,12 @@ class Tracker:
             if st.state in ("pronto", "muerto") and 0 <= st.start - now <= lead and soon not in self._notified:
                 self._notified.add(soon)
                 self.notify(f"{e.name}: sale en {max(1, round((st.start - now) / 60))} min",
-                            f"{e.sub + ' · ' if e.sub else ''}a las {_clock(st.start)}.")
+                            f"{e.sub + ' · ' if e.sub else ''}a las {_clock(st.start)}.", e.kind)
             now_key = (e.id, round(st.start), "now")
             if st.state in ("en curso", "debería estar") and now - st.start < 120 and now_key not in self._notified:
                 self._notified.add(now_key)
-                self.notify(f"{e.name}: ¡ya está!", f"{e.sub + ' · ' if e.sub else ''}desde las {_clock(st.start)}.")
+                self.notify(f"{e.name}: ¡ya está!", f"{e.sub + ' · ' if e.sub else ''}desde las {_clock(st.start)}.",
+                            e.kind)
 
     # --- persistence of the game's field boss list (per server) ---
     def _state_path(self):
