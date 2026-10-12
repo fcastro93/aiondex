@@ -32,15 +32,48 @@ class MacroLine:
 
 @dataclass
 class ExternalStep:
-    key: str                    # "click_izq", "click_der", "macro" (in-game macro key) or a key name
+    """One key of the external macro as the analysis sees it: what it does, how long it is held and the wait
+    after releasing it (derived from the events)."""
+    key: str                    # "click_izq" (left click / mouse slot), "macro" (in-game macro key) or a key name
     hold_ms: int = 20
     wait_ms: int = 20
 
 
 @dataclass
+class MacroEvent:
+    """One row of a mouse/keyboard macro, as Synapse / iCUE / G HUB list them."""
+    kind: str                   # "down" (pulsar) | "up" (soltar) | "wait" (esperar)
+    key: str = ""               # key or button as named in your software: "F10", "Clic izquierdo"...
+    ms: int = 0                 # length of a wait
+
+
+ROLES = {"macro": "Tecla del macro del juego (K → Macro)", "click": "Clic izquierdo (ranura del ratón)",
+         "other": "Otra cosa"}
+MOUSE_WORDS = ("clic", "click", "botón", "button", "mouse", "ratón")
+OLD_KEYS = {"click_izq": "Clic izquierdo", "click_der": "Clic derecho", "macro": "Tecla del macro", "otra": "Otra tecla"}
+
+
+def is_mouse(key):
+    return any(word in key.lower() for word in MOUSE_WORDS)
+
+
+def guess_role(key):
+    k = key.lower()
+    if k in ("clic izquierdo", "botón izquierdo", "left click", "lbutton", "mouse1"):
+        return "click"
+    return "macro" if k == "tecla del macro" else "other"
+
+
+def key_events(key, hold_ms=10):
+    """Press and release of one key, the way the software records it."""
+    return [MacroEvent("down", key), MacroEvent("wait", ms=hold_ms), MacroEvent("up", key)]
+
+
+@dataclass
 class MacroSetup:
     ingame: list = field(default_factory=list)      # [MacroLine]
-    external: list = field(default_factory=list)    # [ExternalStep]
+    events: list = field(default_factory=list)      # [MacroEvent] of the external macro
+    roles: dict = field(default_factory=dict)       # key name -> "macro" | "click" | "other"
     external_repeat: bool = True                    # "repeat while held"
     skill_queue: bool = True                        # game option "Skill Queue" (스킬 예약)
     suggested: bool = False                         # 1.5.0 guessed the steps from the bar (not reviewed yet)
@@ -51,11 +84,75 @@ class MacroSetup:
     @classmethod
     def from_json(cls, data):
         data = data or {}
-        return cls(ingame=[MacroLine(**l) for l in data.get("ingame", [])],
-                   external=[ExternalStep(**s) for s in data.get("external", [])],
+        events = [MacroEvent(**e) for e in data.get("events", [])]
+        roles = dict(data.get("roles", {}))
+        if not events and data.get("external"):        # up to 1.8: one line per key (key, hold, wait)
+            for step in data["external"]:
+                name = OLD_KEYS.get(step["key"], step["key"])
+                roles.setdefault(name, {"click_izq": "click", "macro": "macro"}.get(step["key"], "other"))
+                events += key_events(name, step.get("hold_ms", 20))
+                if step.get("wait_ms"):
+                    events.append(MacroEvent("wait", ms=step["wait_ms"]))
+        return cls(ingame=[MacroLine(**l) for l in data.get("ingame", [])], events=events, roles=roles,
                    external_repeat=data.get("external_repeat", True),
                    skill_queue=data.get("skill_queue", True),
                    suggested=data.get("suggested", False))
+
+    def role(self, key):
+        return self.roles.get(key) or guess_role(key)
+
+    @property
+    def external(self):
+        """[ExternalStep] in press order: hold = waits while the key is down, wait = waits after releasing it."""
+        steps, down = [], {}
+        for ev in self.events:
+            if ev.kind == "down":
+                role = self.role(ev.key)
+                steps.append(ExternalStep({"click": "click_izq", "macro": "macro"}.get(role, ev.key), 0, 0))
+                down[ev.key] = steps[-1]
+            elif ev.kind == "up":
+                down.pop(ev.key, None)
+            elif ev.kind == "wait":
+                for step in down.values():
+                    step.hold_ms += ev.ms
+                if not down and steps:
+                    steps[-1].wait_ms += ev.ms
+        return steps
+
+    def keys(self):
+        return list(dict.fromkeys(ev.key for ev in self.events if ev.kind != "wait" and ev.key))
+
+    def cycle_ms(self):
+        return sum(ev.ms for ev in self.events if ev.kind == "wait")
+
+    def gap_index(self):
+        """Index of the wait between the first key's release and the next press (None if there is none)."""
+        first_up = next((i for i, ev in enumerate(self.events) if ev.kind == "up"), None)
+        if first_up is None:
+            return None
+        for i in range(first_up + 1, len(self.events)):
+            if self.events[i].kind == "wait":
+                return i
+            if self.events[i].kind == "down":
+                return None
+        return None
+
+    def main_gap(self):
+        i = self.gap_index()
+        return self.events[i].ms if i is not None else 0
+
+    def set_main_gap(self, ms):
+        """Set the wait between the first key's release and the next press (the one calibration tunes)."""
+        first_up = next((i for i, ev in enumerate(self.events) if ev.kind == "up"), None)
+        if first_up is None:
+            return
+        i = self.gap_index()
+        if i is None:
+            self.events.insert(first_up + 1, MacroEvent("wait", ms=ms))
+            return
+        self.events[i].ms = ms
+        while i + 1 < len(self.events) and self.events[i + 1].kind == "wait":
+            del self.events[i + 1]
 
 
 @dataclass
@@ -328,9 +425,8 @@ def setup_label(setup):
     parts = []
     if setup.ingame:
         parts.append("macro " + "/".join(str(line.delay_ms) for line in setup.ingame))
-    click = next((s for s in setup.external if s.key == "click_izq"), None)
-    if click is not None:
-        parts.append(f"clic {click.wait_ms}")
+    if len(setup.keys()) >= 2:
+        parts.append(f"espera {setup.main_gap()}")
     return " · ".join(parts) or "sin macro"
 
 

@@ -15,7 +15,7 @@ STORE_DELAY = 3.0            # wait for the login's character info before saving
 PRESET_MARGIN = 0.15         # how much better another preset must match your presses to be the one you used
 RTT_WINDOW = 0.6             # a press is answered within this many seconds of being sent
 TEST_HISTORY = 6             # tests kept per character and preset ("Antes" + the latest ones)
-SHARED_KEYS = ("external", "external_repeat", "skill_queue")
+SHARED_KEYS = ("events", "roles", "external_repeat", "skill_queue")
 PRESET_KEYS = ("ingame", "suggested")
 
 
@@ -383,9 +383,7 @@ class Afinador:
             for line in setup.ingame:
                 line.delay_ms = value
         else:
-            click = next((i for i, step in enumerate(setup.external) if step.key == "click_izq"), None)
-            if click is not None:
-                setup.external[click].wait_ms = value
+            setup.set_main_gap(value)
         self.save()
 
     def preset_used(self, session):

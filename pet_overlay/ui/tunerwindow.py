@@ -3,12 +3,14 @@ step), your skills; then the external macro, the test and what to change."""
 import time
 
 from PySide6.QtCore import QPoint, Qt, QTimer
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxLayout, QPushButton, QScrollArea,
                                QSpinBox, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
 from ..diagnostics import ago
-from ..tuner import CALIBRATION_SECONDS, ExternalStep, MacroLine, fight_windows
+from ..tuner import (CALIBRATION_SECONDS, ROLES, MacroEvent, MacroLine, fight_windows, is_mouse,
+                     key_events)
 from . import theme
 from .appmenu import styled_menu
 from .mapwindow import STYLE, badge_label
@@ -30,8 +32,9 @@ QSpinBox {{ background: #0d1628; color: {theme.TEXT.name()}; border: 1px solid #
     padding: 3px 6px; }}
 QCheckBox {{ color: {theme.TEXT.name()}; }}
 """
-EXTERNAL_KEYS = [("click_izq", "Clic izquierdo"), ("click_der", "Clic derecho"), ("macro", "Tecla del macro"),
-                 ("otra", "Otra tecla")]
+KEY_CHOICES = (["Clic izquierdo", "Clic derecho", "Botón central", "Botón lateral 4", "Botón lateral 5"]
+               + [f"F{i}" for i in range(1, 13)] + list("1234567890") + ["Q", "E", "R", "T", "F", "Espacio"])
+GLYPH_KEYBOARD, GLYPH_MOUSE, GLYPH_WAIT = "\uE765", "\uE962", "\uE916"
 LEVEL_COLOR = {"bad": theme.COMBAT, "warn": theme.WARN, "ok": theme.GAIN, "info": theme.ACCENT}
 BAR_TILE = 48
 STEP_TILE = 56
@@ -184,12 +187,7 @@ class TunerWindow(QWidget):
         self.left.addWidget(add, 0, Qt.AlignLeft)
 
         self.left.addWidget(SectionTitle("Tu macro externo (Synapse, iCUE, G HUB…) — opcional", f))
-        for i, step in enumerate(setup.external):
-            self.left.addWidget(self._external_row(i, step))
-        add_ext = QPushButton("+ Añadir pulsación")
-        add_ext.setProperty("flat", True)
-        add_ext.clicked.connect(lambda: self._edit(lambda s: s.external.append(ExternalStep("macro", 20, 20))))
-        self.left.addWidget(add_ext, 0, Qt.AlignLeft)
+        self.left.addWidget(self._external_editor(setup))
         repeat = QCheckBox("Se repite mientras mantengo el botón")
         repeat.setChecked(setup.external_repeat)
         repeat.toggled.connect(lambda on: self._edit(lambda s: setattr(s, "external_repeat", on), rebuild=False))
@@ -341,34 +339,131 @@ class TunerWindow(QWidget):
             s.ingame[i].skills = [x for x in skills[:4] if x is not None]
         self._edit(change, rebuild=False)
 
-    def _external_row(self, i, step):
+    # --- external macro, one row per event like the mouse software -----------------------------------
+    def _external_editor(self, setup):
+        f = self.fonts
+        box = QFrame()
+        box.setObjectName("Step")
+        box.setStyleSheet("QFrame#Step { background: #0f1830; border-radius: 8px; }")
+        col = QVBoxLayout(box)
+        col.setContentsMargins(12, 8, 12, 10)
+        col.setSpacing(4)
+        if not setup.events:
+            hint = label("Cópialo tal cual lo tienes en tu programa del ratón: cada «pulsar», «soltar» y espera, en "
+                         "el mismo orden.", f.small, theme.MUTED)
+            hint.setWordWrap(True)
+            col.addWidget(hint)
+        for i, ev in enumerate(setup.events):
+            col.addWidget(self._event_row(i, ev, len(setup.events)))
+        buttons = QHBoxLayout()
+        add_key = QPushButton("+ Tecla (pulsar y soltar)")
+        add_key.setProperty("flat", True)
+        add_key.clicked.connect(self._add_key)
+        add_wait = QPushButton("+ Espera")
+        add_wait.setProperty("flat", True)
+        add_wait.clicked.connect(lambda: self._edit(lambda s: s.events.append(MacroEvent("wait", ms=10))))
+        buttons.addWidget(add_key)
+        buttons.addWidget(add_wait)
+        buttons.addStretch(1)
+        col.addLayout(buttons)
+        keys = setup.keys()
+        if keys:
+            col.addWidget(label("Qué hace cada tecla en el juego", f.name, theme.TEXT))
+            for key in keys:
+                row = QHBoxLayout()
+                row.addWidget(self._glyph(GLYPH_MOUSE if is_mouse(key) else GLYPH_KEYBOARD))
+                row.addWidget(label(key, f.body, theme.TEXT))
+                role = QComboBox()
+                for code, text in ROLES.items():
+                    role.addItem(text, code)
+                role.setCurrentIndex(max(0, role.findData(setup.role(key))))
+                role.currentIndexChanged.connect(
+                    lambda _, k=key, c=role: self._edit(lambda s: s.roles.__setitem__(k, c.currentData())))
+                row.addWidget(role)
+                row.addStretch(1)
+                col.addLayout(row)
+            cycle = setup.cycle_ms()
+            text = f"Un ciclo dura {cycle} ms" + (f" (≈{1000 / cycle:.0f} por segundo)" if cycle else "")
+            if len(keys) >= 2:
+                text += f"; entre {keys[0]} y {keys[1]} esperas {setup.main_gap()} ms"
+            col.addWidget(label(text + ".", f.small, theme.MUTED))
+        return box
+
+    def _glyph(self, glyph, color=theme.ACCENT):
+        font = QFont(self.fonts.icons_family)
+        font.setPixelSize(16)
+        icon = label(glyph, font, color)
+        icon.setFixedWidth(22)
+        return icon
+
+    def _event_row(self, i, ev, count):
+        f = self.fonts
         row = QWidget()
         lay = QHBoxLayout(row)
         lay.setContentsMargins(0, 0, 0, 0)
-        lay.addWidget(label(f"{i + 1}.", self.fonts.name, theme.MUTED))
-        key = QComboBox()
-        key.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
-        key.setMinimumContentsLength(14)
-        for code, text in EXTERNAL_KEYS:
-            key.addItem(text, code)
-        key.setCurrentIndex(max(0, key.findData(step.key)))
-        key.currentIndexChanged.connect(lambda _: self._edit(lambda s: setattr(s.external[i], "key", key.currentData()),
-                                                            rebuild=False))
-        lay.addWidget(key)
-        for attr, text in (("hold_ms", "mantener"), ("wait_ms", "esperar")):
+        lay.setSpacing(8)
+        number = label(str(i + 1), f.small, theme.MUTED)
+        number.setFixedWidth(18)
+        lay.addWidget(number)
+        if ev.kind == "wait":
+            lay.addWidget(self._glyph(GLYPH_WAIT, theme.GOLD))
             spin = QSpinBox()
-            spin.setRange(0, 2000)
+            spin.setRange(0, 5000)
             spin.setSuffix(" ms")
-            spin.setValue(getattr(step, attr))
-            spin.valueChanged.connect(lambda v, a=attr: self._edit(lambda s: setattr(s.external[i], a, v), rebuild=False))
-            lay.addWidget(label(text, self.fonts.small, theme.MUTED))
+            spin.setValue(ev.ms)
+            spin.valueChanged.connect(lambda v: self._edit(lambda s: setattr(s.events[i], "ms", v), rebuild=False))
             lay.addWidget(spin)
-        remove = QPushButton("Quitar")
-        remove.setProperty("flat", True)
-        remove.clicked.connect(lambda: self._edit(lambda s: s.external.pop(i)))
-        lay.addWidget(remove)
+        else:
+            lay.addWidget(self._glyph(GLYPH_MOUSE if is_mouse(ev.key) else GLYPH_KEYBOARD))
+            key = QComboBox()
+            key.setEditable(True)
+            key.addItems(KEY_CHOICES)
+            key.setCurrentText(ev.key)
+            key.setMinimumContentsLength(12)
+            key.activated.connect(lambda _: self._rename_key(i, key.currentText()))
+            key.lineEdit().editingFinished.connect(lambda: self._rename_key(i, key.currentText()))
+            lay.addWidget(key)
+            direction = QPushButton("↓ pulsar" if ev.kind == "down" else "↑ soltar")
+            direction.setProperty("tab", True)
+            direction.clicked.connect(lambda: self._edit(
+                lambda s: setattr(s.events[i], "kind", "up" if s.events[i].kind == "down" else "down")))
+            lay.addWidget(direction)
         lay.addStretch(1)
+        for text, enabled, move in (("▲", i > 0, -1), ("▼", i < count - 1, 1)):
+            button = QPushButton(text)
+            button.setProperty("flat", True)
+            button.setEnabled(enabled)
+            button.clicked.connect(lambda _=False, m=move: self._edit(lambda s: _swap(s.events, i, i + m)))
+            lay.addWidget(button)
+        remove = QPushButton("✕")
+        remove.setProperty("flat", True)
+        remove.clicked.connect(lambda: self._edit(lambda s: s.events.pop(i)))
+        lay.addWidget(remove)
         return row
+
+    def _add_key(self):
+        def change(s):
+            used = set(s.keys())
+            key = next(k for k in ["Clic izquierdo"] + KEY_CHOICES[5:] if k not in used)
+            if s.events and s.events[-1].kind != "wait":
+                s.events.append(MacroEvent("wait", ms=40))
+            s.events.extend(key_events(key))
+        self._edit(change)
+
+    def _rename_key(self, i, new):
+        """Renaming a key renames its press and its release (and keeps what it does in the game)."""
+        new = new.strip()
+        old = self.tuner.setup.events[i].key
+        if not new or new == old:
+            return
+
+        def change(s):
+            for ev in s.events:
+                if ev.key == old:
+                    ev.key = new
+            if old in s.roles:
+                s.roles.setdefault(new, s.roles.pop(old))
+        self._edit(change)
 
     def _edit(self, change, rebuild=True):
         change(self.tuner.setup)
@@ -511,7 +606,7 @@ class TunerWindow(QWidget):
             intro.setWordWrap(True)
             col.addWidget(intro)
             for kind, text in (("macro", "Retraso de los pasos del macro del juego"),
-                               ("external", "Espera entre el clic y la tecla del macro (macro externo)")):
+                               ("external", "Espera entre las dos teclas de tu macro externo")):
                 button = QPushButton(text)
                 button.setProperty("tab", True)
                 button.clicked.connect(lambda _=False, k=kind: self._choose_kind(k))
@@ -526,8 +621,11 @@ class TunerWindow(QWidget):
             if runs:
                 col.addWidget(self._runs_table(runs))
             if value is not None:
+                keys = tuner.setup.keys()
+                pair = f"{keys[0]} y {keys[1]}" if len(keys) >= 2 else "tus dos teclas"
                 where = ("en el retraso de TODOS los pasos de K → Macro" if c["kind"] == "macro" else
-                         "en la espera entre el clic izquierdo y la tecla del macro de tu Synapse / iCUE / G HUB")
+                         f"en la espera entre {pair} de tu macro externo (la que va justo después de soltar "
+                         f"{keys[0] if keys else 'la primera'})")
                 total = len(c["values"])
                 step = label(f"Prueba {len(runs) + 1} de {total}: pon {value} ms {where}. Luego pulsa «Empezar» y "
                              f"pelea {CALIBRATION_SECONDS} s contra el mismo objetivo de siempre (un muñeco de "
@@ -657,6 +755,10 @@ class TunerWindow(QWidget):
         note.setWordWrap(True)
         self.results.addWidget(note)
         self.results.addStretch(1)
+
+
+def _swap(items, i, j):
+    items[i], items[j] = items[j], items[i]
 
 
 def _test_label(i):
