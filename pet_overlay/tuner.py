@@ -64,6 +64,12 @@ def guess_role(key):
     return "macro" if k == "tecla del macro" else "other"
 
 
+# The game's key bindings that matter for the macros (Esc → Settings → Keys), two keys each like the game shows:
+# "Macro" (Gameplay) and "Skill Quickslot: Quick Use 1", which is the bar's mouse slot (the left click by default).
+BINDINGS = {"macro": "Macro (Gameplay)", "click": "Skill Quickslot: Quick Use 1 (ranura del ratón)"}
+DEFAULT_BINDINGS = {"macro": ["", ""], "click": ["Clic izquierdo", ""]}
+
+
 def key_events(key, hold_ms=10):
     """Press and release of one key, the way the software records it."""
     return [MacroEvent("down", key), MacroEvent("wait", ms=hold_ms), MacroEvent("up", key)]
@@ -77,6 +83,7 @@ class MacroSetup:
     external_repeat: bool = True                    # "repeat while held"
     skill_queue: bool = True                        # game option "Skill Queue" (스킬 예약)
     suggested: bool = False                         # 1.5.0 guessed the steps from the bar (not reviewed yet)
+    bindings: dict = field(default_factory=lambda: {k: list(v) for k, v in DEFAULT_BINDINGS.items()})
 
     def to_json(self):
         return asdict(self)
@@ -98,8 +105,14 @@ class MacroSetup:
                    skill_queue=data.get("skill_queue", True),
                    suggested=data.get("suggested", False))
 
+    def bound_role(self, key):
+        """What the key does according to your game key bindings (None if it is not bound to them)."""
+        k = key.strip().lower()
+        return next((role for role, keys in self.bindings.items() if k and k in {x.strip().lower() for x in keys}),
+                    None)
+
     def role(self, key):
-        return self.roles.get(key) or guess_role(key)
+        return self.bound_role(key) or self.roles.get(key) or guess_role(key)
 
     @property
     def external(self):

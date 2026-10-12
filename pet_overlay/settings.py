@@ -20,6 +20,7 @@ DEFAULTS = {
     "map_faction": "auto",  # auto (character's) | elyos | asmodian | all
     "characters": {},       # name -> {faction, server, job, level}
     "tuner": {},            # character name -> Afinador macro setup (in-game + external macro)
+    "game_keys": {},        # the game's key bindings the Afinador needs: {"macro": [k1, k2], "click": [k1, k2]}
     "hotkeys": {
         "toggle_visible": "Alt+Shift+P",
         "toggle_lock": "Alt+Shift+L",

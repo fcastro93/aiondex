@@ -6,8 +6,8 @@ from collections import Counter, deque
 from pathlib import Path
 
 from .skills import SLOT_KEYS, OwnSkill, QuickSlot, base_skill, chain_parents, is_basic_attack
-from .tuner import (CALIBRATION_SECONDS, Finding, MacroSetup, TunerSession, analyze, calibration_run,
-                    calibration_values, recommend, test_summary)
+from .tuner import (CALIBRATION_SECONDS, DEFAULT_BINDINGS, Finding, MacroSetup, TunerSession, analyze,
+                    calibration_run, calibration_values, recommend, test_summary)
 
 CAST_MATCH_SECONDS = 0.2     # the cast (0238) and the reply to its press (0138) arrive in the same packet
 FRESH_LOADOUT = 15.0         # a skill list this recent belongs to the character that logs in right after it
@@ -79,6 +79,8 @@ class Afinador:
             entry = self._entry()
             per = entry.get("setups", {}).get(str(self.preset), {})
             self._setup = MacroSetup.from_json({**entry.get("shared", {}), **per})
+            self._setup.bindings = {k: list((self.ctl.settings.get("game_keys") or {}).get(k, v))
+                                    for k, v in DEFAULT_BINDINGS.items()}       # the game's keys: one per PC
             self._setup_key = (self.key, self.preset)
             self._sync_lines()
         return self._setup
@@ -88,6 +90,7 @@ class Afinador:
         entry = self._entry(create=True)
         entry["shared"] = {k: data[k] for k in SHARED_KEYS}
         entry.setdefault("setups", {})[str(self.preset)] = {k: data[k] for k in PRESET_KEYS}
+        self.ctl.settings["game_keys"] = data["bindings"]
         self.ctl.settings.save()
 
     def select_preset(self, number):

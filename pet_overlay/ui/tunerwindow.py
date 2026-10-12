@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxL
 
 from .. import APP_NAME
 from ..diagnostics import ago
-from ..tuner import (CALIBRATION_SECONDS, ROLES, MacroEvent, MacroLine, fight_windows, is_mouse,
+from ..tuner import (BINDINGS, CALIBRATION_SECONDS, ROLES, MacroEvent, MacroLine, fight_windows, is_mouse,
                      key_events)
 from . import theme
 from .appmenu import styled_menu
@@ -186,6 +186,8 @@ class TunerWindow(QWidget):
         add.clicked.connect(lambda: self._add_step_menu(add))
         self.left.addWidget(add, 0, Qt.AlignLeft)
 
+        self.left.addWidget(SectionTitle("Tus teclas del juego (Esc → Ajustes → Teclas)", f))
+        self.left.addWidget(self._bindings_editor(setup))
         self.left.addWidget(SectionTitle("Tu macro externo (Synapse, iCUE, G HUB…) — opcional", f))
         self.left.addWidget(self._external_editor(setup))
         repeat = QCheckBox("Se repite mientras mantengo el botón")
@@ -379,7 +381,13 @@ class TunerWindow(QWidget):
                 role.setCurrentIndex(max(0, role.findData(setup.role(key))))
                 role.currentIndexChanged.connect(
                     lambda _, k=key, c=role: self._edit(lambda s: s.roles.__setitem__(k, c.currentData())))
+                bound = setup.bound_role(key)
+                if bound:
+                    role.setEnabled(False)
+                    role.setToolTip("Según tus teclas del juego (arriba)")
                 row.addWidget(role)
+                if bound:
+                    row.addWidget(label("según tus teclas del juego", f.small, theme.MUTED))
                 row.addStretch(1)
                 col.addLayout(row)
             cycle = setup.cycle_ms()
@@ -388,6 +396,48 @@ class TunerWindow(QWidget):
                 text += f"; entre {keys[0]} y {keys[1]} esperas {setup.main_gap()} ms"
             col.addWidget(label(text + ".", f.small, theme.MUTED))
         return box
+
+    def _bindings_editor(self, setup):
+        """The two keys the game has for "Macro" and for "Quick Use 1" (the mouse slot), as in its settings."""
+        f = self.fonts
+        box = QFrame()
+        box.setObjectName("Step")
+        box.setStyleSheet("QFrame#Step { background: #0f1830; border-radius: 8px; }")
+        grid = QGridLayout(box)
+        grid.setContentsMargins(12, 8, 12, 10)
+        grid.setHorizontalSpacing(8)
+        for r, (role, title) in enumerate(BINDINGS.items()):
+            grid.addWidget(label(title, f.body, theme.TEXT), r, 0)
+            keys = (setup.bindings.get(role) or ["", ""]) + ["", ""]
+            for c in range(2):
+                combo = QComboBox()
+                combo.setEditable(True)
+                combo.addItems([""] + KEY_CHOICES)
+                combo.setCurrentText(keys[c])
+                combo.setMinimumContentsLength(12)
+                combo.lineEdit().setPlaceholderText("sin asignar")
+                combo.activated.connect(lambda _, rl=role, i=c, cb=combo: self._set_binding(rl, i, cb.currentText()))
+                combo.lineEdit().editingFinished.connect(
+                    lambda rl=role, i=c, cb=combo: self._set_binding(rl, i, cb.currentText()))
+                grid.addWidget(combo, r, 1 + c)
+        hint = label("AionDex no puede leer tus teclas del juego: ponlas igual que en el juego y sabrá qué hace cada "
+                     "tecla de tu macro externo (por ejemplo, F10 = macro y F9 = tu clic).", f.small, theme.MUTED)
+        hint.setWordWrap(True)
+        grid.addWidget(hint, len(BINDINGS), 0, 1, 3)
+        grid.setColumnStretch(0, 1)
+        return box
+
+    def _set_binding(self, role, index, key):
+        key = key.strip()
+        current = (self.tuner.setup.bindings.get(role) or ["", ""]) + ["", ""]
+        if current[index] == key:
+            return
+
+        def change(s):
+            keys = (s.bindings.get(role) or ["", ""]) + ["", ""]
+            keys[index] = key
+            s.bindings[role] = keys[:2]
+        self._edit(change)
 
     def _glyph(self, glyph, color=theme.ACCENT):
         font = QFont(self.fonts.icons_family)
