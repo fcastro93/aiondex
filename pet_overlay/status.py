@@ -12,6 +12,10 @@ Attempt Count 0/14, Shugo Festival Reward Key 3/21, Unknown Fissure Attempt Coun
   Conquest (2) or Transcendence (3) rewards, 90000001..6 the three Sanctuaries' attempts and final boss kills (4/1,
   4/2, 4/2 a week). Their values match the counts metabot lists for those tickets; the others (7, 8, 10-15, 102,
   103, 70000001, ...) are kept but not named yet.
+- Dungeon reward counters: 6000DD101 Exploration (7 a week), 6000DD201 Conquest (14), 6000DD301 Transcendence (4),
+  DD = the dungeon. Which DD a dungeon map is (Fire Temple 600022, Draupnir 600032) is not in the traffic, so it is
+  learnt the first time one of them is spent inside that map (instance_ticket()). Odyle Energy pays the reward cube at
+  the end of Exploration / Transcendence runs (Fire Temple 2026-10-11: 80 each run, in the 0c61 right after 1357).
 - Recharges: energy +15 every 3 h counted from the daily reset (07:00 UTC = 16:00 KST; seen 30 -> 75 over three),
   daily tickets at 07:00 UTC, weekly ones on Wednesday at 07:00 UTC, Conquest rewards every 8 h from the daily reset
   (one arrived at 23:00 UTC). Characters you are not playing are worked out from these.
@@ -32,6 +36,7 @@ DAILY_PHASE = 7 * HOUR                    # 07:00 UTC = 16:00 KST, the global se
 WEEKLY_PHASE = 6 * DAY + DAILY_PHASE      # Wednesday 07:00 UTC (1970-01-07 was a Wednesday)
 ENERGY_ID = 60000001
 ENERGY_CAP, ENERGY_CAP_MEMBER = 560, 840
+SPENT = 3                                 # 0c61 reason: the ticket was spent
 CLAIM_SECONDS = 30                        # a list belongs to the character the game names within this time
 REPEAT = HOUR                             # an alert that still holds sounds again after this
 KEEP_DAYS = 30                            # characters not seen for longer are left out
@@ -124,8 +129,20 @@ def parse_list(body):
 
 def parse_update(body):
     """0c61 -> (id, count, bonus, ms) or None."""
-    ticket, _ = parse_ticket(body, 1) if len(body) > 5 else (None, 0)
-    return ticket
+    return parse_change(body)[0]
+
+
+def parse_change(body):
+    """0c61 -> ((id, count, bonus, ms), reason: 2 recharged / 3 spent / ...) or (None, None)."""
+    ticket, pos = parse_ticket(body, 1) if len(body) > 5 else (None, 0)
+    if ticket is None:
+        return None, None
+    return ticket, body[pos] if pos < len(body) else None
+
+
+def is_dungeon_reward(tid):
+    """A dungeon's own reward counter (6000DDM01, M 1-3) or the shared Conquest rewards (60000006)."""
+    return tid == 60000006 or (60001000 <= tid < 60100000 and tid % 100 == 1 and (tid // 100) % 10 in (1, 2, 3))
 
 
 # --- time ---
@@ -223,6 +240,23 @@ class Status:
         self._learn_membership(entry)
         self.save()
         return True
+
+    def learn_instance(self, map_id, tid):
+        """A dungeon reward counter was spent inside this map: that is the map's counter. True if it is new."""
+        known = self.config.setdefault("instance_tickets", {})
+        if known.get(str(map_id)) == tid:
+            return False
+        known[str(map_id)] = tid
+        self.save()
+        return True
+
+    def instance_ticket(self, map_id):
+        return self.config.get("instance_tickets", {}).get(str(map_id))
+
+    def ticket(self, name, tid):
+        """(count, bonus) of one counter as last read for this character, or None."""
+        row = self._characters().get(name, {}).get("tickets", {}).get(str(tid))
+        return (row[0], row[1]) if row else None
 
     def _learn_membership(self, entry):
         energy = entry.get("tickets", {}).get(str(ENERGY_ID))

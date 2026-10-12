@@ -1,12 +1,16 @@
 """Overlay panel of the DPS module, kept clean for the fight: the enemies (HP and the damage they dealt) on top, the
-players' damage below with a selector (you / your party or force / everyone), and the history of recent fights."""
+players' damage below with a selector (you / your party or force / everyone), and the history of recent fights. In
+dungeons (not in a force) it switches to the party view of dps_party.py: the boss card and one row per player."""
 from pathlib import Path
 
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QFontMetrics, QPainter, QPixmap
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
 
+from ..combat import in_instance
+from ..gear import CLASS_OF_JOB
 from . import theme
+from .dps_party import BossCard, PartyRow, thousands
 from .notifications_panel import ago
 from .widgets import label
 
@@ -164,6 +168,8 @@ class DpsPanel(QWidget):
             self._history()
         elif not ready:
             self._note("Preparando el medidor…")
+        elif self.party_view():
+            self._party(encounter, compact)
         elif encounter is None:
             self._note("Golpea a un enemigo para empezar.")
             self._footer()
@@ -234,6 +240,81 @@ class DpsPanel(QWidget):
                                + (f" · tu {c.group_kind}: {pct(c.share(c.group))}" if c.group_kind else ""))
         self._footer()
 
+    # --- the party view (dungeons) -----------------------------------------------------------------------------
+    def party_view(self):
+        combat = self.ctl.combat
+        return bool(self.ctl.settings.get("dps_party_view", True)) and in_instance(combat.map_id) \
+            and not combat.in_force
+
+    def _party(self, encounter, compact):
+        f = self.fonts
+        ctl = self.ctl
+        combat = ctl.combat
+        me = ctl.character_name()
+        energy, rewards = self._counters(me)
+        members = self._members(me)
+        jobs = {m[0]: m[2] for m in members}
+        if encounter is None:
+            self.content.addWidget(BossCard(f, 0, energy, rewards, None))
+            for name, _, job, _, is_me in members:
+                cls = CLASS_OF_JOB.get(job, "")
+                self.content.addWidget(PartyRow(f, name, cls, self._class_icon(cls), self._cp(name), "", "", 0,
+                                                is_me, compact))
+            self._footer()
+            return
+        group = combat.group
+        boss = encounter.main_target_eid
+        boss_view = encounter.activity(group).boss and ctl.settings.get("dps_boss_only", True)
+        value = (lambda a: a.by_target[boss]) if boss_view else (lambda a: a.damage)  # noqa: E731
+        hp = encounter.hp.get(boss)
+        max_hp = (hp[1] if hp else None) or encounter.target_max_hp.get(boss)
+        dead = boss in encounter.dead
+        card = {"name": encounter.target_names.get(boss) or "Enemigo", "max_hp": max_hp, "dead": dead,
+                "hp": 0 if dead else (hp[0] if hp else max_hp or 0),
+                "rage": None if encounter.ended else combat.rage_left(boss), "ttk": encounter.time_to_kill()}
+        self.content.addWidget(BossCard(f, encounter.duration, energy, rewards, card))
+        dealers = sorted((a for a in encounter.dealers() if value(a)), key=lambda a: -value(a))
+        outsiders = [a for a in dealers if not (a.is_self or a.name in group)]
+        alias = {a.eid: f"Jugador {i}" for i, a in enumerate(outsiders, 1)}   # nobody outside your group is named
+        top = max((value(a) for a in dealers), default=1) or 1
+        # the share of the boss's HP each one took (all of it adds up to what it lost), else of the damage
+        basis = max_hp if boss_view and max_hp else max(1, sum(value(a) for a in dealers))
+        limit = 5 if compact else 6
+        for a in dealers[:limit]:
+            cls = a.class_name or CLASS_OF_JOB.get(jobs.get(a.name), "")
+            self.content.addWidget(PartyRow(f, alias.get(a.eid, a.name), cls, self._class_icon(cls),
+                                            None if a.eid in alias else self._cp(a.name),
+                                            f"{thousands(value(a) / encounter.duration)}/s",
+                                            f"{100 * value(a) / basis:.1f}%", value(a) / top, a.is_self, compact))
+        if len(dealers) > limit:
+            self._note(f"y {len(dealers) - limit} más")
+        if not dealers:
+            self._note("Aún sin daño.")
+        self._footer()
+
+    def _members(self, me):
+        """[(name, server, job, in your party, is you)]: your party, or only you."""
+        members = self.ctl.group_members()
+        if members:
+            return members
+        info = self.ctl.character
+        return [(me, info.server, info.job, True, True)] if info else []
+
+    def _cp(self, name):
+        if name == self.ctl.character_name() and self.ctl.own_cp:
+            return self.ctl.own_cp           # your own record in the group list has extra fields: 5636 is exact
+        stats = self.ctl.member_stats.get(name)
+        return stats[2] if stats else None
+
+    def _counters(self, name):
+        """(Odyle Energy, this dungeon's rewards left) as (count, bonus), or None when unknown."""
+        if not name:
+            return None, None
+        status = self.ctl.status
+        value = status.value(name, "energy")
+        tid = status.instance_ticket(self.ctl.combat.map_id)
+        return ((value.count, value.bonus) if value.known else None), (status.ticket(name, tid) if tid else None)
+
     def _selector(self, view):
         """Yo / Party (or Force) / Todos."""
         f = self.fonts
@@ -289,6 +370,12 @@ class DpsPanel(QWidget):
             lay.addWidget(Pill("Parties", self.fonts, lambda: self.ctl.open_players("plan"),
                                tip="Cómo repartir la force: sanadores y cantores por party, CP parejo, buffs que "
                                    "no se acumulan"))
+        if in_instance(combat.map_id) and not combat.in_force:
+            party = bool(self.ctl.settings.get("dps_party_view", True))
+            lay.addWidget(Pill("Clásica" if party else "Party", self.fonts,
+                               lambda: self.ctl.set_setting("dps_party_view", not party),
+                               tip="Cambiar a la vista clásica del medidor" if party else
+                               "Vista de party: el jefe arriba y una fila por jugador con su CP"))
         lay.addWidget(Pill("Historial", self.fonts, self._open_history))
         self.content.addWidget(row)
 

@@ -3,11 +3,22 @@
 Layout seen so far: varint entity id | 5 bytes ? | u8 name length | name | u16 server | u32 job |
 u8 ? | u32 level | ...
 """
+import struct
 from dataclasses import dataclass
 
 from .protocol import read_varint
 
 CHARACTER_OPCODE = bytes.fromhex("3336")
+COMBAT_POWER_OPCODE = bytes.fromhex("5636")
+
+
+def parse_combat_power(body):
+    """5636 = your combat power: u64 now | u64 (93,312 while Agame had 91,644: probably your highest). Sent at login
+    (three in a row while the gear loads, the last one is right) and when it changes."""
+    if len(body) < 8:
+        return None
+    cp = struct.unpack_from("<Q", body, 0)[0]
+    return cp if 0 < cp < 100_000_000 else None
 
 
 @dataclass

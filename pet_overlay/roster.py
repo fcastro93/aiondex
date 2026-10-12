@@ -16,6 +16,11 @@ with the force's size (u32 20 = 4 parties of 5) and one record per member in the
 u32 character id, u16 server, name, u32 job, hp, map, legion, level), so parse_party_info() reads it too. 0092 keeps
 listing only your own party (only you when you are alone in yours), so it must not clear the force.
 
+Each record also carries the member's level, item level and combat power (checked on 36 records of the Gartua force
+against the official profiles: same item level, same CP or a few points off from the hours between them):
+  ... u32 level | u32 0 | u32 item level | [12 bytes: f32 x, y, z in 0296 / 1b96] | u32 combat power
+with one floating byte (as in the gear records) that can sit right before the CP; parse_member_stats() reads them.
+
 In all of them the u32 eight bytes before a member's "$GUID" is the member's entity id (0 when out of view; Charfire's
 5740 in 0092 and 0296 was the attacker id of her hits), so the members are known by id even when the game never sent
 their spawn (4536). 1b96 / 2292 carry one member's record: someone joined (or their record changed).
@@ -86,6 +91,35 @@ def _member_after(body, start):
         job = struct.unpack_from("<I", body, end)[0]
         if _name_ok(name) and 1 <= job <= 64:
             return name, server, job
+    return None
+
+
+def parse_member_stats(body):
+    """{name: (level, item level, combat power)} of the members of a group message (0092 / 0296 / 1b96 / 2292)."""
+    out = {}
+    guids = list(_GUID.finditer(body))
+    for i, m in enumerate(guids):
+        stop = guids[i + 1].start() - 8 if i + 1 < len(guids) else len(body)
+        member = _member_after(body, m.end())
+        if not member:
+            continue
+        start = body.find(member[0].encode("utf-8"), m.end()) + len(member[0].encode("utf-8")) + 4    # after the job
+        stats = _stats_after(body, start, stop)
+        if stats:
+            out[member[0]] = stats
+    return out
+
+
+def _stats_after(body, start, stop):
+    for p in range(start, min(stop, len(body)) - 12):
+        level, zero, item_level = struct.unpack_from("<III", body, p)
+        if 1 <= level <= 60 and zero == 0 and 50 <= item_level <= 9999:
+            for skip in (0, 1, 12, 13):          # right after it, after the floating byte, after the position
+                if p + 16 + skip <= len(body):
+                    cp = struct.unpack_from("<I", body, p + 12 + skip)[0]
+                    if 1000 <= cp <= 3_000_000:
+                        return level, item_level, cp
+            return level, item_level, None
     return None
 
 

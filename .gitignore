@@ -16,6 +16,7 @@ data/*
 !data/gear_items.json
 !data/crafting_db.json
 !data/gather_db.json
+!data/npc_db.json
 
 # Dev artifacts
 prototipos/

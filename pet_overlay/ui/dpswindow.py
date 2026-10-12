@@ -394,12 +394,22 @@ class DpsDetailsWindow(QWidget):
         foot.addWidget(self.note, 1)
         foot.addWidget(label("En el overlay:", f.small, theme.MUTED))
         for key, text, tip in (("dps_boss_only", "En jefes, solo el daño al jefe",
-                                "Como LOXIN: en peleas contra jefes no cuenta el daño a los adds"),):
+                                "Como LOXIN: en peleas contra jefes no cuenta el daño a los adds"),
+                               ("dps_party_view", "Vista de party en mazmorras",
+                                "En las mazmorras de 5 (Exploración, Conquista, Trascendencia...) y fuera de una force: "
+                                "el jefe arriba con su vida, su furia, tu energía y tus recompensas, y una fila por "
+                                "jugador con su CP, DPS y la parte de la vida del jefe que le quitó")):
             box = QCheckBox(text)
             box.setToolTip(tip)
-            box.setChecked(bool(self.ctl.settings.get(key, key == "dps_boss_only")))
+            box.setChecked(bool(self.ctl.settings.get(key, True)))
             box.toggled.connect(lambda on, k=key: self._overlay_option(k, on))
             foot.addWidget(box)
+        credit = self.ctl.npc_db.credit or {"text": "Nombres de monstruos y furia de los jefes: aion2data.com",
+                                            "url": "https://aion2data.com/monsters"}
+        link = QPushButton(credit["text"].split(" (")[0])
+        link.setProperty("flat", True)
+        link.clicked.connect(lambda: __import__("webbrowser").open(credit["url"]))
+        foot.addWidget(link)
         root.addLayout(foot)
 
         self._timer = QTimer(self, interval=1000, timeout=self._live)

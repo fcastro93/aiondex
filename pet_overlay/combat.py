@@ -25,6 +25,11 @@ ABYSS_MAPS = {20}       # game map ids (2136) of the Abyss
 BOSS_HP = 150_000       # a target with this much HP is a boss (seal bosses have ~200K, field mobs ~40K)
 WORLD_BOSS_HP = 50_000_000
 CROWD = 8               # players outside your group hitting the same fight = a mass fight
+def in_instance(map_id):
+    """Dungeons and the other instances (Fire Temple 600022, Draupnir 600032...): not the open world or the Abyss."""
+    return map_id is not None and not 1000 <= map_id < 1200 and map_id not in ABYSS_MAPS
+
+
 CLASS_NAMES = {"11": "Gladiador", "12": "Templario", "13": "Asesino", "14": "Cazador", "15": "Hechicero",
                "16": "Invocador", "17": "Clérigo", "18": "Cantor"}
 
@@ -300,6 +305,8 @@ class CombatTracker:
         self.owners = {}         # summon eid -> owner eid
         self.npc_names = {}      # eid -> monster name
         self.max_hp = {}         # eid -> max hp from the spawn
+        self.rage = {}           # eid -> seconds from the start of the fight until that boss rages
+        self.engaged = {}        # eid -> first hit between that monster and your side (kept across encounters)
         self.group = set()       # names of your party / force members (from the group roster)
         self.party = set()       # names of your own party (inside a force: only once the game says which it is)
         self.in_force = False
@@ -324,12 +331,25 @@ class CombatTracker:
     def add_summon(self, eid, owner):
         self.owners[eid] = owner
 
-    def add_npc(self, eid, name, max_hp=None):
+    def add_npc(self, eid, name, max_hp=None, rage=None):
         if not name:
             name = f"Jefe ({max_hp // 1000}K HP)" if max_hp and max_hp >= 300_000 else "Enemigo"
         self.npc_names[eid] = name
         if max_hp:
             self.max_hp[eid] = max_hp
+        if rage:
+            self.rage[eid] = rage
+
+    def on_map(self, map_id):
+        self.map_id = map_id
+        self.engaged.clear()
+
+    def rage_left(self, eid, now=None):
+        """Seconds until this boss rages (negative once it has), counted from the first hit between it and your side,
+        or None for monsters that never rage. A pause that splits the fight in two encounters does not reset it."""
+        if eid not in self.rage or eid not in self.engaged:
+            return None
+        return self.rage[eid] - ((now or time.time()) - self.engaged[eid])
 
     def set_group(self, names, party=None):
         """Your group roster. A roster of up to 5 is your party; a bigger one is a force (4 parties of 5), and then
@@ -385,6 +405,7 @@ class CombatTracker:
         actor.skill_hits[hit.skill] += 1
         actor.by_target[hit.target] += hit.amount
         enc.targets[hit.target] += hit.amount
+        self.engaged.setdefault(hit.target, hit.ts)
         if hit.target in self.npc_names:
             enc.target_names[hit.target] = self.npc_names[hit.target]
         if hit.target in self.max_hp:
@@ -411,6 +432,7 @@ class CombatTracker:
             actor.taken_hits += not hit.dot
             enemy = self.owners.get(hit.attacker, hit.attacker)
             enc.enemy_damage[enemy] += hit.amount
+            self.engaged.setdefault(enemy, hit.ts)
             if enemy in self.npc_names:
                 enc.target_names.setdefault(enemy, self.npc_names[enemy])
             if enemy in self.max_hp:
@@ -461,6 +483,7 @@ class CombatTracker:
         enc = self.current
         if enc and not enc.ended and (eid in enc.targets or eid in enc.enemy_damage):
             enc.dead.add(eid)
+        self.engaged.pop(eid, None)
         return None
 
     def tick(self, now=None):

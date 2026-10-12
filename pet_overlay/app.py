@@ -10,13 +10,14 @@ from PySide6.QtCore import QObject, QThread, QTimer, Signal
 from PySide6.QtGui import QAction, QActionGroup, QIcon
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
-from .character import CHARACTER_OPCODE, parse_character
+from .character import CHARACTER_OPCODE, COMBAT_POWER_OPCODE, parse_character, parse_combat_power
 from .world import MAP_ENTER_OPCODE, SPAWN_OPCODE, WorldTracker, game_map_faction, parse_spawn_full
-from .combat import PLAYER_SPAWN_OPCODE, CombatTracker, parse_player
+from .combat import PLAYER_SPAWN_OPCODE, CombatTracker, in_instance, parse_player
 from .damage import (DAMAGE_OPCODES, DEATH_OPCODE, READY as DAMAGE_READY, STATS_OPCODE, parse_hp,
                      parse_mp, summon_owner)
+from .npcs import NpcDb
 from .roster import (FORCE_INFO_OPCODE, MEMBER_OPCODES, PARTY_INFO_OPCODE, ROSTER_OPCODE, parse_member_ids,
-                     parse_party_info, parse_roster)
+                     parse_member_stats, parse_party_info, parse_roster)
 from .skills import (CAST_OPCODE, PRESETS_OPCODE, REQUEST_OPCODE, SKILL_LIST_OPCODE, OwnEntityFinder, caster_of,
                      parse_cast, parse_presets, parse_request, parse_skill_list)
 from .tracker import FIELD_LIST_OPCODE, Tracker, parse_field_list
@@ -24,7 +25,7 @@ from .crafting import Crafting
 from .gathering import Gathering
 from .professions import CRAFT_OPCODE, EXP_OPCODE, level_text, parse_craft, parse_exp, parse_levels
 from .status import (ALERTS as STATUS_ALERTS, LIST_OPCODE as COUNTERS_OPCODE, UPDATE_OPCODE as COUNTER_OPCODE, Status,
-                     alert_text, parse_list as parse_counters, parse_update as parse_counter)
+                     SPENT, alert_text, is_dungeon_reward, parse_change, parse_list as parse_counters)
 from .protocol import read_varint
 from .health import Health
 from .mapdata import MapData
@@ -117,7 +118,9 @@ class Bridge(QObject):
     own_entity = Signal(int)         # your entity id, found from your own presses before the character info
     profession = Signal(object)      # ("levels", name, {id: (level, exp)}) | ("exp", id, exp, gained) |
                                      # ("craft", id, recipe id, success)
-    counters = Signal(object)        # ("list", time, [(id, count, bonus, ms)]) | ("update", time, ticket)
+    counters = Signal(object)        # ("list", time, [(id, count, bonus, ms)]) | ("update" | "spent", time, ticket)
+    member_stats = Signal(object)    # {name: (level, item level, combat power)} of your group (and you)
+    own_cp = Signal(int)             # your combat power
     items = Signal(object)           # ("list" | "update", time, body): your bag and storage (1156 / 1b56)
     own_skill = Signal(object)       # ("press", ts, skill, result) | ("cast", ts, skill, cooldown ms) |
                                      # ("skills", {base: OwnSkill}) | ("bar", [QuickSlot])
@@ -162,6 +165,10 @@ class Bridge(QObject):
                 owner = self.feed.owners.get(eid)     # summons (traps, spirits...), as the combat feed resolved them
                 self.npc.emit((eid, npc_id, owner if owner is not None else
                                summon_owner(body) if owner_name else None, max_hp))
+        elif op == COMBAT_POWER_OPCODE:
+            cp = parse_combat_power(body)
+            if cp:
+                self.own_cp.emit(cp)
         elif op == PLAYER_SPAWN_OPCODE:
             player = parse_player(body)
             if player:
@@ -183,9 +190,11 @@ class Bridge(QObject):
             if tickets:
                 self.counters.emit(("list", time.time(), tickets))
         elif op == COUNTER_OPCODE:
-            ticket = parse_counter(body)
+            ticket, reason = parse_change(body)
             if ticket:
                 self.counters.emit(("update", time.time(), ticket))
+                if reason == SPENT and is_dungeon_reward(ticket[0]):
+                    self.counters.emit(("spent", time.time(), ticket))
         elif op in MEMBER_OPCODES:
             self._know_members(body)
             members = parse_party_info(body)
@@ -273,6 +282,9 @@ class Bridge(QObject):
             if self.feed.players.get(eid) != name:
                 self.feed.players[eid] = name
                 self.player.emit((eid, name, 0))
+        stats = parse_member_stats(body)
+        if stats:
+            self.member_stats.emit(stats)
 
     def _found_self(self, eid):
         if eid is not None and eid != self.self_eid:
@@ -387,6 +399,8 @@ class Controller(QObject):
         self.bridge.status.connect(self.on_status)
         self.combat = CombatTracker()
         self.boss_names = _loxin_boss_names()
+        self.npc_db = NpcDb(self.data_dir)
+        self.member_stats = {}          # name -> (level, item level, combat power) from the group lists
         self.dps_ready = DAMAGE_READY
         self.bridge.player.connect(lambda p: self.combat.add_player(p[0], p[1]))
         self.bridge.npc.connect(self.on_npc)
@@ -397,6 +411,9 @@ class Controller(QObject):
         self._party_names, self._force_names = [], []    # your party and your force (from 0092 / 0296 / 0297)
         self._roster_info = {}                            # name -> (server, job, level) from those lists
         self.bridge.roster.connect(self.on_roster)
+        self.bridge.member_stats.connect(lambda stats: self.member_stats.update(stats))
+        self.own_cp = None              # your combat power (5636)
+        self.bridge.own_cp.connect(lambda cp: setattr(self, "own_cp", cp))
         self._armory_relay = _Relay()
         self.armory = Armory(self.data_dir, on_ready=self._armory_relay.ready.emit)
         self._armory_relay.ready.connect(self._profile_ready)
@@ -521,8 +538,8 @@ class Controller(QObject):
             self.combat.add_summon(eid, owner)
             return
         slug = self.mapdata.db.get("npcs", {}).get(str(npc_id))
-        name = self.mapdata.monsters.get(slug, {}).get("name") if slug else None
-        self.combat.add_npc(eid, name or self.boss_names.get(npc_id), max_hp)
+        name = (self.mapdata.monsters.get(slug, {}).get("name") if slug else None) or self.npc_db.name(npc_id)
+        self.combat.add_npc(eid, name or self.boss_names.get(npc_id), max_hp, rage=self.npc_db.rage(npc_id))
 
     def on_hits(self, hits):
         me = self.combat.self_eid
@@ -775,6 +792,10 @@ class Controller(QObject):
         kind, at, payload = event
         if kind == "list":
             self.status.on_list(at, payload)
+        elif kind == "spent":                   # a dungeon's reward spent inside it: that dungeon's counter
+            if in_instance(self.combat.map_id) and self.status.learn_instance(self.combat.map_id, payload[0]):
+                log.info("map %s rewards = counter %s", self.combat.map_id, payload[0])
+                self.refresh()
         elif self.status.on_update(at, payload, self.character_name()):
             self.status_changed()
 
@@ -926,7 +947,7 @@ class Controller(QObject):
 
     def on_map_entered(self, event):
         seq, map_id, _ = event
-        self.combat.map_id = map_id
+        self.combat.on_map(map_id)
         open_world = 1000 <= map_id < 1200
         # Instances (seals, dungeons) keep the last open-world zone as "where you farm".
         if open_world or game_map_faction(map_id) != self.location_faction():
