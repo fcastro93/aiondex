@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import market_ocr
+from .inventory import Inventory
 from .professions import KNOWN_IDS
 
 log = logging.getLogger(__name__)
@@ -235,6 +236,7 @@ class Crafting:
         self.recipes = db.get("recipes", [])
         self.professions = db.get("professions", {})
         self.names = db.get("names", {})
+        self.inventory = Inventory(settings, db.get("ids", {}))      # your bag and storage, from the game
         self.credit = db.get("credit")
         self.character = None            # who you are playing: profession levels are per character
         self._last_craft = None          # (when, profession id, recipe id, success) until its experience arrives
@@ -286,6 +288,15 @@ class Crafting:
     def levels_character(self):
         """Whose levels the numbers use: the one picked in the window, else the one you play."""
         return self.config.get("view_character") or self.character
+
+    def owned(self, item):
+        """(how many you have, {"Bolsa": n, "Almacén": n}) of the character the numbers use, or None if AionDex has
+        not read their items yet."""
+        return self.inventory.owned(self.levels_character, item)
+
+    def makes(self, row):
+        """(times you can make this recipe with what you have, the material that limits it) or None."""
+        return self.inventory.makes(self.levels_character, [(m.name, m.count) for m in row.materials])
 
     def known_characters(self):
         """Characters whose profession levels AionDex has read from the game."""

@@ -53,6 +53,7 @@ def main(recipes_path, shops_path, items_path):
                     npc[good["item"]] = (round(price, 2), shop["name"])
     products = {r["product"]["name"] for r in recipes}
     names = {}
+    ids = {}                                     # item id -> name, to recognise them in your inventory
     out = []
     for r in recipes:
         mats = []
@@ -69,8 +70,10 @@ def main(recipes_path, shops_path, items_path):
             mats.append({"name": m["name"], "count": m["count"], "source": source, "npc_price": price,
                          "faction": _faction(info)})
             names[m["name"]] = info.get("category", "")
+            ids[str(m["id"])] = m["name"]
         product = items.get(r["product"]["id"], {})
         names[r["product"]["name"]] = product.get("category", "")
+        ids[str(r["product"]["id"])] = r["product"]["name"]
         out.append({"id": r["id"], "profession": r["profession"], "product": r["product"]["name"],
                     "category": product.get("category", ""), "grade": product.get("grade", ""), "count": r["count"],
                     "faction": _faction(product) or next((m["faction"] for m in mats if m["faction"]), None),
@@ -84,10 +87,12 @@ def main(recipes_path, shops_path, items_path):
         "professions": {k: {"name": v[0], "market": v[1]} for k, v in PROFESSIONS.items()},
         "recipes": out,
         "names": names,                          # every product and material, for the OCR to snap to
+        "ids": ids,                              # their item ids (the game's inventory lists ids)
     }
     path = ROOT / "data" / "crafting_db.json"
     path.write_text(json.dumps(db, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(f"{path}: {len(out)} recipes, {len(names)} names, {sum(1 for n in names if n in npc)} sold by NPCs")
+    print(f"{path}: {len(out)} recipes, {len(names)} names, {len(ids)} item ids, "
+          f"{sum(1 for n in names if n in npc)} sold by NPCs")
 
 
 if __name__ == "__main__":

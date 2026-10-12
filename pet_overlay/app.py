@@ -29,6 +29,7 @@ from .health import Health
 from .mapdata import MapData
 from .contribution import OPCODES as CONTRIBUTION_OPCODES, CombatFeed
 from .gear import HIDDEN_POSITIONS, INVENTORY_OPCODE, GearDB, GearReader, own_faction
+from .inventory import UPDATE_OPCODE as ITEMS_UPDATE_OPCODE
 from .paths import ASSETS_DIR
 from .sounds import SoundPlayer
 from .pets import Collection, Pet, PROGRESS_OPCODE, SNAPSHOT_OPCODE, parse_progress, parse_snapshot
@@ -114,6 +115,7 @@ class Bridge(QObject):
     profession = Signal(object)      # ("levels", name, {id: (level, exp)}) | ("exp", id, exp, gained) |
                                      # ("craft", id, recipe id, success)
     counters = Signal(object)        # ("list", time, [(id, count, bonus, ms)]) | ("update", time, ticket)
+    items = Signal(object)           # ("list" | "update", time, body): your bag and storage (1156 / 1b56)
     own_skill = Signal(object)       # ("press", ts, skill, result) | ("cast", ts, skill, cooldown ms) |
                                      # ("skills", {base: OwnSkill}) | ("bar", [QuickSlot])
     status = Signal(str)
@@ -233,6 +235,9 @@ class Bridge(QObject):
                 self.own_skill.emit(("bar", presets))
         elif op == INVENTORY_OPCODE:
             self.gear_reader.feed_inventory(time.time(), body)
+            self.items.emit(("list", time.time(), body))
+        elif op == ITEMS_UPDATE_OPCODE:
+            self.items.emit(("update", time.time(), body))
         elif op == CHARACTER_OPCODE:
             info = parse_character(body)
             if info:
@@ -381,6 +386,8 @@ class Controller(QObject):
         self._ocr.read.connect(self._shot_read)
         self.crafting.character = self.settings.get("last_character")
         self.bridge.profession.connect(self.on_profession)
+        self.bridge.items.connect(self.on_items)
+        self._items_timer = QTimer(self, singleShot=True, interval=1500, timeout=self._crafting_changed)
         self.status = Status(self.settings, self._save_settings)
         self.status_window = None
         self.bridge.counters.connect(self.on_counters)
@@ -679,6 +686,14 @@ class Controller(QObject):
         if self.active_module.key == "crafting" and not self._refreshing:
             self.refresh()
 
+    def on_items(self, event):
+        """Your items (Crafting: what you have and how many you can make): the login list, then each change."""
+        kind, at, body = event
+        if kind == "list":
+            self.crafting.inventory.on_list(at, body)
+        elif self.crafting.inventory.on_update(at, body, self.character_name()):
+            self._items_timer.start()           # loot comes in bursts: one redraw after it
+
     # --- status ---------------------------------------------------------------------------------
     def on_counters(self, event):
         """Energy and entry tickets from the game: the list (before the game names your character) or one change."""
@@ -741,6 +756,8 @@ class Controller(QObject):
     def on_character(self, info):
         if self.status.claim(info.name, time.time()):     # the ticket list read just before is this character's
             QTimer.singleShot(0, self.status_changed)
+        if self.crafting.inventory.claim(info.name, time.time()):       # ... and so is the item list
+            self._items_timer.start()
         if self.character and self.character.name == info.name:
             if info.entity_id != self.character.entity_id:
                 # same character on a new connection (teleport, Abyss, instance server): new entity id
