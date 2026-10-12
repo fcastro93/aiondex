@@ -339,6 +339,42 @@ class CraftingWindow(QWidget):
             self.body.addWidget(self._product_row(row))
             if row.product in self._open:
                 self.body.addWidget(self._detail(row))
+        self._materials(query)
+
+    def _materials(self, query):
+        """The profession's materials with a price in your samples: what you scanned that no recipe makes (Lesser
+        Manastone...) shows here too, not only inside the recipes that use it."""
+        f, crafting = self.fonts, self.crafting
+        mats = [m for m in crafting.material_rows() if not query or query in m[0].lower()]
+        if not mats:
+            return
+        prof = crafting.professions.get(crafting.profession, {}).get("name", crafting.profession)
+        self.body.addWidget(SectionTitle(f"Materiales de {prof} en tus muestreos", f))
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(16)
+        grid.setVerticalSpacing(4)
+        for c, text in enumerate(("Material", "", "Más bajo", "Ofertas", "A la venta", "¿Se vende?", "Lo usan", "")):
+            grid.addWidget(label(text, f.small, theme.MUTED), 0, c, Qt.AlignRight if 1 < c < 6 else Qt.AlignLeft)
+        for r, (name, source, lowest, at, listings, sales, supply, products) in enumerate(mats, start=1):
+            grid.addWidget(label(name, f.body, QColor(GRADE_COLOR.get(self._grade(name), "#D6DAE3"))), r, 0)
+            text, color = SOURCE.get(source if source != "market" else "market", SOURCE["unknown"])
+            grid.addWidget(_chip(text if source != "market" else "Del juego / mercado", color, f), r, 1)
+            price = label(_kinah(lowest), f.name, theme.TEXT)
+            price.setToolTip(f"precio {_ago(at)}")
+            grid.addWidget(price, r, 2, Qt.AlignRight)
+            grid.addWidget(label("—" if listings is None else str(listings), f.body, theme.TEXT), r, 3, Qt.AlignRight)
+            units = f"{supply[0]}{'+' if supply[2] else ''} uds." if supply else "—"
+            grid.addWidget(label(units, f.body, theme.MUTED), r, 4, Qt.AlignRight)
+            verdict, kind = sales.verdict()
+            grid.addWidget(label(verdict, f.small, VERDICT_COLOR[kind]), r, 5, Qt.AlignRight)
+            used = label(", ".join(products[:2]) + (f" y {len(products) - 2} más" if len(products) > 2 else ""),
+                         f.small, theme.MUTED, elide=True)
+            used.setToolTip("Lo usan: " + ", ".join(products))
+            used.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+            grid.addWidget(used, r, 6)
+            grid.addWidget(self._chart_button(name), r, 7)
+        grid.setColumnStretch(6, 1)
+        self.body.addLayout(grid)
 
     def _picks(self, picks, level, prof):
         """The recommendation: what to make at your level (seen selling first), with why."""
@@ -522,7 +558,12 @@ class CraftingWindow(QWidget):
         combo = row.recipe.get("combo")
         if isinstance(combo, dict) and combo.get("chance"):
             what = f"otro {row.product}" if combo.get("same") else combo.get("name", "")
-            notes.append(f"combo: {combo['chance']}% tras un éxito ({what}; no contado en la ganancia)")
+            text = f"combo: {combo['chance']}% tras un éxito ({what}; no contado en la ganancia"
+            price = self.crafting.latest_prices().get(combo.get("name"))
+            if price and not combo.get("same"):
+                bonus = (success if success is not None else 1) * combo["chance"] / 100 * price[0] * (1 - row.fee)
+                text += f": vale {_kinah(price[0])}, sumaría {_kinah(bonus, sign=True)} por intento de media"
+            notes.append(text + ")")
         if notes:
             note = label(". ".join(n[0].upper() + n[1:] for n in notes) + ".", f.small, theme.MUTED)
             note.setWordWrap(True)

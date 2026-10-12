@@ -520,6 +520,24 @@ class Crafting:
         rows.sort(key=lambda r: _row_order(r, by_buy))
         return rows
 
+    def material_rows(self, profession=None):
+        """The materials the profession's recipes use that have a price in your samples (Lesser Manastone,
+        Pujery...): [(name, source, lowest, when, listings, Sales, supply, recipes using it)], by name."""
+        profession = profession or self.profession
+        prices = self.latest_prices()
+        uses = {}
+        for r in self.recipes:
+            if r["profession"] == profession:
+                for m in r["materials"]:
+                    if m["source"] != "npc":
+                        uses.setdefault(m["name"], [m["source"], set()])[1].add(r["product"])
+        out = []
+        for name, (source, products) in sorted(uses.items()):
+            if name in prices:
+                out.append((name, source, prices[name][0], prices[name][1], self._latest_field(name, "listings"),
+                            self.sales(name), self.supply(name), sorted(products)))
+        return out
+
     def recommend(self, rows, n=3):
         """What to cook: recipes you can make that leave money gathering what you can, those seen selling first,
         each by its average profit per attempt."""
