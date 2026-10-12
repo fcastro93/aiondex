@@ -252,7 +252,7 @@ class IconThread(QThread):
         from . import dbupdate
         try:
             download = {"pets": dbupdate.download_icons, "skills": dbupdate.download_skill_icons,
-                        "tracker": dbupdate.download_tracker_images}[self.kind]
+                        "tracker": dbupdate.download_tracker_images, "classes": dbupdate.download_class_icons}[self.kind]
             self.done.emit(download(self.data_dir, self.ids))
         except Exception:
             log.exception("icon download failed")
@@ -827,12 +827,15 @@ class Controller(QObject):
         if self.sniffer:
             self.sniffer.restart()
 
-    def open_dps_details(self):
+    def open_dps_details(self, encounter=None):
+        """The combat details window, on `encounter` (from the history) or on the latest fight."""
         from .ui.dpswindow import DpsDetailsWindow
         if self.dps_window is None:
             self.dps_window = DpsDetailsWindow(self)
         else:
             self.dps_window.refresh()
+        if encounter is not None:
+            self.dps_window.show_encounter(encounter)
         self.dps_window.show()
         self.dps_window.raise_()
         self.dps_window.activateWindow()
@@ -882,6 +885,20 @@ class Controller(QObject):
         if on_done:
             self._detail_icon_thread.done.connect(on_done)
         self._detail_icon_thread.start()
+
+    def fetch_class_icons(self):
+        """The class emblems of the DPS meter, downloaded once (then the panel redraws)."""
+        if not self.persist or getattr(self, "_class_icons_tried", False):
+            return
+        self._class_icons_tried = True
+        self._class_icon_thread = IconThread(self.data_dir, None, kind="classes")
+        self._class_icon_thread.done.connect(lambda _: self.refresh())
+        self._class_icon_thread.start()
+
+    def set_setting(self, key, value):
+        self.settings[key] = value
+        self._save_settings()
+        self.refresh()
 
     def fetch_tracker_images(self, paths, on_done=None):
         """Download the Tracker's boss portraits and item icons that are not on disk (each one is tried once)."""

@@ -117,6 +117,24 @@ def download_tracker_images(data_dir, paths):
     return len(missing)
 
 
+CLASS_SLUGS = ("gladiator", "templar", "ranger", "assassin", "sorcerer", "spiritmaster", "cleric", "chanter")
+
+
+def download_class_icons(data_dir, _ids=None):
+    """The eight class emblems for the DPS meter (metabot's /web/aion2/classes/), as small PNGs."""
+    folder = Path(data_dir) / "class_icons"
+    folder.mkdir(parents=True, exist_ok=True)
+    missing = [c for c in CLASS_SLUGS if not (folder / f"{c}.png").exists()]
+    for slug in missing:
+        try:
+            img = Image.open(io.BytesIO(metabot.fetch(f"/web/aion2/classes/{slug}.webp"))).convert("RGBA")
+            img.thumbnail((64, 64), Image.LANCZOS)
+            img.save(folder / f"{slug}.png")
+        except Exception:  # one missing icon should not abort the rest
+            pass
+    return len(missing)
+
+
 def download_skill_icons(data_dir, skill_ids):
     """Fetch the skill icons that are not on disk yet (only your own class's skills are asked for)."""
     icons = Path(data_dir) / "skill_icons"

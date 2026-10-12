@@ -19,7 +19,7 @@ PLAYER_SPAWN_OPCODE = bytes.fromhex("4536")
 IDLE_END = 8.0          # seconds without damage that end an encounter
 AFTER_KILL_END = 3.0    # shorter wait once the main target has died (adds may still be fought)
 HISTORY_MAX = 20
-RECENT_MAX = 5          # full encounters kept in memory for the details window
+RECENT_MAX = 20         # full encounters kept in memory for the history and the details window
 PARTY_SIZE = 5          # a group roster larger than this is a force (up to 4 parties)
 ABYSS_MAPS = {20}       # game map ids (2136) of the Abyss
 BOSS_HP = 150_000       # a target with this much HP is a boss (seal bosses have ~200K, field mobs ~40K)
@@ -147,6 +147,7 @@ class Encounter:
     last: float
     actors: dict = field(default_factory=dict)       # eid -> ActorStats
     targets: Counter = field(default_factory=Counter)  # target eid -> damage taken
+    enemy_damage: Counter = field(default_factory=Counter)  # enemy eid -> damage it dealt to players
     target_names: dict = field(default_factory=dict)
     dead: set = field(default_factory=set)            # targets that died during the encounter
     hp: dict = field(default_factory=dict)            # target eid -> [current hp, max hp]
@@ -201,6 +202,22 @@ class Encounter:
         if boss:
             return Activity("solo_boss", "Jefe en solitario", place, boss)
         return Activity("farm", "Abismo" if place == "abismo" else "Farmeo", place, boss)
+
+    def enemies(self, limit=None):
+        """[(eid, name, hp ratio or None, dead, damage it dealt, damage it took)]: the main target first, then the
+        enemies you hit hardest, then those that only hit you."""
+        main = self.main_target_eid
+        eids = list(dict.fromkeys([e for e, _ in self.targets.most_common()] +
+                                  [e for e, _ in self.enemy_damage.most_common()]))
+        eids.sort(key=lambda e: (e != main, -self.targets[e], -self.enemy_damage[e]))
+        out = []
+        for eid in eids[:limit]:
+            cur_max = self.hp.get(eid)
+            dead = eid in self.dead
+            ratio = 0.0 if dead else (max(0.0, min(1.0, cur_max[0] / cur_max[1])) if cur_max and cur_max[1] else None)
+            out.append((eid, self.target_names.get(eid) or "Enemigo", ratio, dead, self.enemy_damage[eid],
+                        self.targets[eid]))
+        return out
 
     def time_to_kill(self):
         """Seconds left for the main target at the rate it is losing HP (everyone's damage), or None."""
@@ -317,7 +334,7 @@ class CombatTracker:
 
     def on_hp(self, eid, hp):
         enc = self.current
-        if enc and not enc.ended and eid in enc.targets:
+        if enc and not enc.ended and (eid in enc.targets or eid in enc.enemy_damage):
             enc.hp[eid] = [hp, self.max_hp.get(eid) or max(hp, enc.hp.get(eid, [0, 0])[1])]
             if eid not in enc.hp_start:
                 enc.hp_start[eid], enc.hp_at[eid] = hp, enc.last
@@ -386,6 +403,12 @@ class CombatTracker:
                 return finished
             actor.taken += hit.amount
             actor.taken_hits += not hit.dot
+            enemy = self.owners.get(hit.attacker, hit.attacker)
+            enc.enemy_damage[enemy] += hit.amount
+            if enemy in self.npc_names:
+                enc.target_names.setdefault(enemy, self.npc_names[enemy])
+            if enemy in self.max_hp:
+                enc.target_max_hp.setdefault(enemy, self.max_hp[enemy])
             actor.taken_max = max(actor.taken_max, hit.amount)
             actor.taken_from[self.owners.get(hit.attacker, hit.attacker)] += hit.amount
             actor.taken_skills[hit.skill] += hit.amount
@@ -430,7 +453,7 @@ class CombatTracker:
     def on_death(self, eid):
         """Deaths do not cut the encounter (a dying add may not be the real fight); tick() closes it."""
         enc = self.current
-        if enc and not enc.ended and eid in enc.targets:
+        if enc and not enc.ended and (eid in enc.targets or eid in enc.enemy_damage):
             enc.dead.add(eid)
         return None
 

@@ -380,8 +380,9 @@ def diagnose_dps(ctl):
         d.checks.append(Check("Combate", "info", "En esta sesión aún no vi golpes."))
         d.todo.append("Pelea un poco: el medidor empieza con el primer golpe y la pelea termina tras unos segundos "
                       "sin daño.")
-    if ctl.settings.get("dps_only_me"):
-        d.checks.append(Check("Solo mi barra", "info", "Está activado: no verás a tu grupo."))
+    if (ctl.settings.get("dps_view") or ("me" if ctl.settings.get("dps_only_me") else "all")) == "me":
+        d.checks.append(Check("Vista «Yo»", "info", "El medidor muestra solo tu barra: pulsa Party o Todos para ver "
+                                                    "a los demás."))
     if ctl.active_module.key != "dps":
         d.actions.append(Action("Ir a DPS", lambda: ctl.switch_module("dps")))
     if not d.todo:

@@ -393,9 +393,8 @@ class DpsDetailsWindow(QWidget):
         self.note.setWordWrap(True)
         foot.addWidget(self.note, 1)
         foot.addWidget(label("En el overlay:", f.small, theme.MUTED))
-        for key, text, tip in (("dps_only_me", "Solo mi barra", "El panel del overlay muestra solo tu barra"),
-                               ("dps_boss_only", "En jefes, solo el daño al jefe",
-                                "Como LOXIN: en peleas contra jefes no cuenta el daño a los adds")):
+        for key, text, tip in (("dps_boss_only", "En jefes, solo el daño al jefe",
+                                "Como LOXIN: en peleas contra jefes no cuenta el daño a los adds"),):
             box = QCheckBox(text)
             box.setToolTip(tip)
             box.setChecked(bool(self.ctl.settings.get(key, key == "dps_boss_only")))
@@ -441,6 +440,11 @@ class DpsDetailsWindow(QWidget):
         self.encounter_box.setCurrentIndex(max(0, idx))
         self.encounter_box.blockSignals(False)
         self._fill()
+
+    def show_encounter(self, enc):
+        idx = self.encounter_box.findData(id(enc))
+        if idx >= 0:
+            self.encounter_box.setCurrentIndex(idx)
 
     def encounter(self):
         key = self.encounter_box.currentData()
