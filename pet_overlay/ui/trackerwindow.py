@@ -467,6 +467,9 @@ class TrackerWindow(QWidget):
                 text, color = "Vivo" + (f" · desde hace {countdown(now - st.start)}" if st.start else ""), theme.GAIN
             elif st.state == "en curso":
                 text, color = f"En curso · termina en {countdown(st.end - now)}", theme.GAIN
+            elif st.state == "quizá":
+                text, color = f"Quizá ahora · hasta dentro de {countdown(st.end - now)} (no sale todas las horas)", \
+                    theme.WARN
             elif st.state == "debería estar":
                 text, color = "Ya debería haber salido (sin confirmar)", theme.WARN
             elif st.start is not None:

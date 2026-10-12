@@ -15,9 +15,11 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+# in the client every hour at :30, but on the global servers not every slot happens (2026-10-12: none at 16:30 NY)
+MAYBE = {"invasion"}
 EVENTS = {   # metabot id -> (name, sub, clock)
     "festa": ("Shugo Festival", "Minijuegos · cada hora en punto", "region"),
-    "invasion": ("Invasión dimensional", "Verteron y Altgard · cada hora a y media", "region"),
+    "invasion": ("Invasión dimensional", "Verteron y Altgard · el juego la programa a las :30, pero en Global no sale todas las horas", "region"),
     "rifts": ("Spacetime Rift", "Portales en Altgard, Verteron, Morheim y Eltnen · cada 3 h", "region"),
     "arena": ("Arena of Tactics (10 vs 10)", "Odyle Shard Cradle · dos ventanas al día", "region"),
     "siege": ("Asedio de artefactos", "Chaotic Lower Reshanta · lunes, jueves y sábado", "region"),
@@ -78,7 +80,8 @@ def main(items_path, catalog_path=None, icons_path=None):
     for it in items:
         if it["id"] in EVENTS:
             name, sub, clock = EVENTS[it["id"]]
-            events.append({"id": it["id"], "name": name, "sub": sub, "clock": clock, "slots": it["slots"]})
+            events.append({"id": it["id"], "name": name, "sub": sub, "clock": clock, "slots": it["slots"],
+                           **({"maybe": True} if it["id"] in MAYBE else {})})
         elif it["id"].startswith("boss-"):
             npc = int(it["id"][5:])
             if npc not in ABYSS_LOWER:

@@ -17,6 +17,8 @@ ROWS = {True: 3, False: 8}
 def when_text(st, now):
     if st.state in ("vivo", "en curso"):
         return "ahora", theme.GAIN
+    if st.state == "quizá":
+        return "¿ahora?", theme.WARN
     if st.state == "debería estar":
         return "¿ya?", theme.WARN
     if st.start is None:

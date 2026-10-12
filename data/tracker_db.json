@@ -97,7 +97,7 @@
   {
    "id": "invasion",
    "name": "Invasión dimensional",
-   "sub": "Verteron y Altgard · cada hora a y media",
+   "sub": "Verteron y Altgard · el juego la programa a las :30, pero en Global no sale todas las horas",
    "clock": "region",
    "slots": [
     {
@@ -137,7 +137,8 @@
       1410
      ]
     }
-   ]
+   ],
+   "maybe": true
   },
   {
    "id": "siege",

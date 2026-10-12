@@ -150,6 +150,7 @@ class Entry:
     respawn_min: int | None = None
     image: str | None = None
     spawn_points: list = field(default_factory=list)  # every slot of the game's list for this boss (Nahma has three)
+    maybe: bool = False         # scheduled in the client but not every slot happens on the global servers
 
 
 def load_catalog(path):
@@ -160,7 +161,7 @@ def load_catalog(path):
     entries = []
     for e in data.get("events", []):
         entries.append(Entry(f"event:{e['id']}", "event", e["name"], e.get("sub", ""), slots=e["slots"],
-                             clock=e.get("clock", "region")))
+                             clock=e.get("clock", "region"), maybe=bool(e.get("maybe"))))
     for b in data.get("abyss", []):
         entries.append(Entry(f"abyss:{b['npc']}", "abyss", b["name"], b.get("sub", ""), b.get("level"),
                              b.get("drops", []), b["slots"], map_id=20 if b.get("slot") else None, slot=b.get("slot"),
@@ -341,6 +342,8 @@ class Tracker:
             return Status(None, None, "desconocido", "sin horario")
         start, end = nxt
         if start <= now < end:
+            if entry.maybe:
+                return Status(start, end, "quizá", f"quizá ahora, hasta las {_clock(end)} (no sale todas las horas)")
             return Status(start, end, "en curso", f"en curso hasta las {_clock(end)}")
         return Status(start, end, "pronto", f"a las {_clock(start)}")
 
@@ -382,8 +385,13 @@ class Tracker:
             soon = (e.id, round(st.start), "soon")
             if st.state in ("pronto", "muerto") and 0 <= st.start - now <= lead and soon not in self._notified:
                 self._notified.add(soon)
-                self.notify(f"{e.name}: sale en {max(1, round((st.start - now) / 60))} min",
-                            f"{e.sub + ' · ' if e.sub else ''}a las {_clock(st.start)}.", e.kind)
+                minutes = max(1, round((st.start - now) / 60))
+                if e.maybe:              # 2026-10-12: an invasion alert at 16:30 NY and no invasion in the game
+                    self.notify(f"{e.name}: puede salir en {minutes} min",
+                                f"{e.sub + ' · ' if e.sub else ''}a las {_clock(st.start)}, si sale.", e.kind)
+                else:
+                    self.notify(f"{e.name}: sale en {minutes} min",
+                                f"{e.sub + ' · ' if e.sub else ''}a las {_clock(st.start)}.", e.kind)
             now_key = (e.id, round(st.start), "now")
             if st.state in ("en curso", "vivo", "debería estar") and 0 <= now - st.start < 120 and \
                     now_key not in self._notified:
