@@ -379,7 +379,9 @@ class Controller(QObject):
         self.window.apply_lock(self.settings["locked"])
         self._register_hotkeys()
         for shot in self.crafting.shots:
-            if not shot.read:               # AionDex closed while it was reading them
+            if not shot.read or shot.error:     # AionDex closed while reading them, or the reading failed
+                if shot.error:
+                    self.crafting.reread(shot)
                 self._ocr.add(shot)
         self._tick = QTimer(self, interval=10_000, timeout=self.refresh)
         self._tick.start()
@@ -582,9 +584,18 @@ class Controller(QObject):
 
     def crafting_processed(self, sample):
         n = len(sample["items"])
-        self.notify("info", f"Crafting: muestreo guardado ({n} {'objeto' if n == 1 else 'objetos'})",
-                    time.strftime("Precios del %d/%m a las %H:%M. Mira la pestaña Rentabilidad.",
-                                  time.localtime(sample["at"])))
+        when = time.strftime("%d/%m a las %H:%M", time.localtime(sample["at"]))
+        if sample.pop("merged", False):
+            self.notify("info", f"Crafting: capturas sumadas al muestreo del {when}",
+                        f"Ahora tiene {n} {'objeto' if n == 1 else 'objetos'}. Mira la pestaña Rentabilidad.")
+        else:
+            self.notify("info", f"Crafting: muestreo guardado ({n} {'objeto' if n == 1 else 'objetos'})",
+                        f"Precios del {when}. Mira la pestaña Rentabilidad.")
+        self._crafting_changed()
+
+    def crafting_reread(self, shot):
+        self.crafting.reread(shot)
+        self._ocr.add(shot)
         self._crafting_changed()
 
     def _crafting_changed(self):

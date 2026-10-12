@@ -426,7 +426,8 @@ class CraftingWindow(QWidget):
         ready = crafting.ready()
         process = QPushButton(f"Procesar {len(ready)} {'captura' if len(ready) == 1 else 'capturas'}")
         process.setEnabled(bool(ready))
-        process.setToolTip("Junta las capturas marcadas en un muestreo con la fecha y hora de ahora (y las borra)")
+        process.setToolTip("Junta las capturas marcadas en un muestreo con la fecha y hora en que las tomaste (y las "
+                           "borra). Si las tomaste a menos de 15 min de un muestreo, se suman a ese.")
         process.clicked.connect(self._process)
         bar.addWidget(process)
         unchecked = [s for s in shots if not s.checked]
@@ -481,6 +482,11 @@ class CraftingWindow(QWidget):
             check.setToolTip("<br>".join(lines))
         foot = QHBoxLayout()
         foot.addWidget(label(time.strftime("%H:%M:%S", time.localtime(shot.at)), f.small, theme.MUTED), 1)
+        if shot.read and (shot.error or shot.kind == "unknown"):
+            again = QPushButton("Volver a leer")
+            again.setProperty("flat", True)
+            again.clicked.connect(lambda _=False, s=shot: self.ctl.crafting_reread(s))
+            foot.addWidget(again)
         remove = QPushButton("Borrar")
         remove.setProperty("flat", True)
         remove.clicked.connect(lambda _=False, s=shot: self._remove(s))

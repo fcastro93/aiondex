@@ -121,14 +121,26 @@ def ocr_available():
 
 
 # --- parsing --------------------------------------------------------------------------------------------------
-def number(text):
-    """'27,000' / '48.000' / 'S 135,000' / '010.000' -> int (separators and the coin icon dropped), or None."""
+def numbers(text):
+    """The readings of one number cell, most likely first: '27,000' / '48.000' / 'S 135,000' / '010.000' -> 27000...
+    (separators and the coin icon dropped). A separator read as a space ('1 ooo' = 1,000) gives the joined number
+    first and the longest part after it (a coin read as a digit, '8 475', is the other way round)."""
     fixed = text.replace("O", "0").replace("o", "0")
-    tokens = re.findall(r"\d[\d.,]*", fixed)
-    if not tokens:
-        return None
-    digits = re.sub(r"\D", "", max(tokens, key=len))
-    return int(digits) if digits else None
+    out = []
+    if not re.search(r"\d[.,]\d", fixed):
+        joined = re.findall(r"\d+(?: \d{3}(?!\d))+", fixed)
+        if joined:
+            out.append(int(max(joined, key=len).replace(" ", "")))
+    tokens = [re.sub(r"\D", "", t) for t in re.findall(r"\d[\d.,]*", fixed)]
+    if tokens:
+        out.append(int(max(tokens, key=len)))
+    return [v for i, v in enumerate(out) if v and v not in out[:i]]
+
+
+def number(text):
+    """The most likely reading of a number cell (see numbers()), or None."""
+    found = numbers(text)
+    return found[0] if found else None
 
 
 def hours_left(text):
@@ -219,8 +231,11 @@ def parse(lines, width, known=()):
             hours = _near(lines, a, spacing, lambda ln: _in(ln, time_left, slack) and hours_left(ln.text) is not None)
             if not names:
                 continue
-            unit = number(a.text)
             whole = number(totals[0].text) if totals else None
+            units = numbers(a.text)
+            # the reading of the unit price that divides the total into whole units (if the total was read)
+            unit = next((u for u in units if whole and abs(whole - max(1, round(whole / u)) * u) <= u * 0.05),
+                        units[0])
             qty = 1
             if whole:
                 qty = max(1, round(whole / unit))

@@ -21,6 +21,7 @@ FEE = 0.10                      # the market keeps 10% of every sale (the screen
 DEFAULT_PROFESSION = "Cooking"
 TIME_SLACK = 1.5                # hours: the market shows the time left rounded ("2d 17h")
 MIN_RATE_HOURS = 6              # a per-day rate needs samples spanning this long (1 offer in 1 h is not "24 a day")
+MERGE_MINUTES = 15              # shots taken this close to a sample (a page read again later) join it
 
 
 def span_text(hours):
@@ -229,12 +230,21 @@ class Crafting:
     def ready(self):
         return [s for s in self.shots if s.checked and s.read and s.kind in ("list", "listings") and s.rows]
 
+    def reread(self, shot):
+        """Forget what the OCR read from a shot, so it is read again."""
+        shot.kind, shot.rows, shot.error, shot.tax, shot.checked = None, [], "", None, True
+        self._save_shots()
+
     def process(self, now=None):
-        """The checked shots -> one sample dated now (their files are then deleted). None if nothing to keep."""
+        """The checked shots -> a sample dated when they were taken (their files are then deleted); shots taken
+        within MERGE_MINUTES of an existing sample of the profession join it instead. None if nothing to keep."""
         shots = self.ready()
         if not shots:
             return None
-        items = {}
+        taken = min(s.at for s in shots) if now is None else now
+        sample = next((s for s in self.samples if s.get("profession") == self.profession and
+                       abs(s["at"] - taken) <= MERGE_MINUTES * 60), None)
+        items = json.loads(json.dumps(sample["items"])) if sample else {}
         for shot in sorted(shots, key=lambda s: s.at):
             if shot.kind == "list":
                 for name, listings, lowest in shot.rows:
@@ -251,10 +261,16 @@ class Crafting:
         for item in items.values():
             if "lowest" not in item and item.get("offers"):
                 item["lowest"] = min(o[0] for o in item["offers"])
-        sample = {"at": now or time.time(), "profession": self.profession, "shots": len(shots), "items": items,
-                  "tax": next((s.tax for s in shots if s.tax is not None), None)}
-        self.samples.append(sample)
-        self.samples.sort(key=lambda s: s["at"])
+        tax = next((s.tax for s in shots if s.tax is not None), None)
+        if sample:
+            sample["items"] = items
+            sample["shots"] = sample.get("shots", 0) + len(shots)
+            sample["tax"] = sample.get("tax") if tax is None else tax
+            sample["merged"] = True             # for the notice: "added to the sample of 00:56"
+        else:
+            sample = {"at": taken, "profession": self.profession, "shots": len(shots), "items": items, "tax": tax}
+            self.samples.append(sample)
+            self.samples.sort(key=lambda s: s["at"])
         self._save_samples()
         for shot in shots:
             self.remove_shot(shot)
