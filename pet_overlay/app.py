@@ -31,6 +31,7 @@ from .mapdata import MapData
 from .contribution import OPCODES as CONTRIBUTION_OPCODES, CombatFeed
 from .gear import HIDDEN_POSITIONS, INVENTORY_OPCODE, GearDB, GearReader, own_faction
 from .inventory import UPDATE_OPCODE as ITEMS_UPDATE_OPCODE
+from .armory import Armory
 from .paths import ASSETS_DIR
 from .sounds import SoundPlayer
 from .pets import Collection, Pet, PROGRESS_OPCODE, SNAPSHOT_OPCODE, parse_progress, parse_snapshot
@@ -283,6 +284,11 @@ class Bridge(QObject):
         self.status.emit(text)
 
 
+class _Relay(QObject):
+    """Posts a background thread's news to the UI thread."""
+    ready = Signal(str)
+
+
 class DbUpdateThread(QThread):
     """Runs the metabot download off the UI thread."""
     progress = Signal(str)
@@ -389,7 +395,12 @@ class Controller(QObject):
         self._hits_drain.start()
         self.bridge.death.connect(self.on_death)
         self._party_names, self._force_names = [], []    # your party and your force (from 0092 / 0296 / 0297)
+        self._roster_info = {}                            # name -> (server, job, level) from those lists
         self.bridge.roster.connect(self.on_roster)
+        self._armory_relay = _Relay()
+        self.armory = Armory(self.data_dir, on_ready=self._armory_relay.ready.emit)
+        self._armory_relay.ready.connect(self._profile_ready)
+        self.players_window = None
         self.bridge.hp.connect(lambda update: self.combat.on_hp(*update))
         self.bridge.own_skill.connect(self.on_own_skill)
         self.gear_db = GearDB(self.data_dir / "gear_items.json")
@@ -810,6 +821,8 @@ class Controller(QObject):
         else your party. The party list (only you when you are alone in your party) never clears the force."""
         kind, members = event
         names = [m[0] for m in members]
+        for name, server, job, level in members:
+            self._roster_info[name] = (server, job, level)
         if kind == "member":                    # one member joined (or changed): into the force, else the party
             target = self._force_names if self._force_names else self._party_names
             target.extend(n for n in names if n not in target)
@@ -820,6 +833,33 @@ class Controller(QObject):
         self.combat.set_group(self._force_names or self._party_names,
                               party=self._party_names if self._force_names else None)
         log.info("group: party %s, force %s", len(self._party_names), len(self._force_names))
+
+    def group_members(self):
+        """[(name, server, job, in your party, is you)] of your force, else your party."""
+        names = self._force_names or self._party_names
+        me = self.character.name if self.character else self.settings.get("last_character")
+        default = (self.character.server if self.character else 2102, 0, 0)
+        out = []
+        for name in names:
+            server, job, _ = self._roster_info.get(name, default)
+            out.append((name, server, job, name in self._party_names, name == me))
+        return out
+
+    def open_players(self, tab=None):
+        """Your party / force's players (their official profiles) and how to split the force into parties."""
+        from .ui.playerswindow import PlayersWindow
+        if self.players_window is None:
+            self.players_window = PlayersWindow(self)
+        if tab:
+            self.players_window.tab = tab
+        self.players_window.refresh()
+        self.players_window.show()
+        self.players_window.raise_()
+        self.players_window.activateWindow()
+
+    def _profile_ready(self, name):
+        if self.players_window is not None:
+            self.players_window.profile_ready(name)
 
     def on_own_entity(self, eid):
         """Your entity id, learnt from your own skill presses before the game resent your character: the meter
@@ -1383,6 +1423,7 @@ class Controller(QObject):
         hk = self.settings["hotkeys"]
         menu.addAction(f"Abrir mapa de pets\t{hk['toggle_map']}", self.open_map)
         menu.addAction("Pets exclusivos (Asmodian / Elyos)", self.open_exclusive_pets)
+        menu.addAction("Jugadores de tu party / force", self.open_players)
         menu.addAction("Abrir Crafting", self.open_crafting)
         menu.addAction(f"Escanear el mercado (Crafting)\t{hk.get('crafting_scan', '')}", self.crafting_scan)
         menu.addAction("Abrir Status de tus personajes", self.open_status)

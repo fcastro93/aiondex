@@ -1,3 +1,3 @@
 APP_NAME = "AionDex"
-__version__ = "1.31.3"
+__version__ = "1.32.0"
 REPO = "fcastro93/aiondex"

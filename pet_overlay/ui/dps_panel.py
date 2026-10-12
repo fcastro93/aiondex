@@ -281,6 +281,14 @@ class DpsPanel(QWidget):
         lay = QHBoxLayout(row)
         lay.setContentsMargins(0, self.fonts.px(4), 0, 0)
         lay.addStretch(1)
+        combat = self.ctl.combat
+        if combat.group:
+            lay.addWidget(Pill("Jugadores", self.fonts, self.ctl.open_players,
+                               tip="Perfil de cada jugador de tu party / force: CP, item level, equipo, habilidades"))
+        if combat.in_force:
+            lay.addWidget(Pill("Parties", self.fonts, lambda: self.ctl.open_players("plan"),
+                               tip="Cómo repartir la force: sanadores y cantores por party, CP parejo, buffs que "
+                                   "no se acumulan"))
         lay.addWidget(Pill("Historial", self.fonts, self._open_history))
         self.content.addWidget(row)
 
