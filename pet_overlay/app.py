@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 from .character import CHARACTER_OPCODE, parse_character
 from .world import MAP_ENTER_OPCODE, SPAWN_OPCODE, WorldTracker, game_map_faction, parse_spawn_full
 from .combat import PLAYER_SPAWN_OPCODE, CombatTracker, parse_player
-from .damage import (DAMAGE_OPCODES, DEATH_OPCODE, READY as DAMAGE_READY, STATS_OPCODE, parse_damage, parse_hp,
+from .damage import (DAMAGE_OPCODES, DEATH_OPCODE, READY as DAMAGE_READY, STATS_OPCODE, parse_hp,
                      parse_mp, summon_owner)
 from .roster import ROSTER_OPCODE, parse_roster
 from .skills import (CAST_OPCODE, PRESETS_OPCODE, REQUEST_OPCODE, SKILL_LIST_OPCODE, caster_of, parse_cast,
@@ -21,6 +21,7 @@ from .tracker import FIELD_LIST_OPCODE, Tracker, parse_field_list
 from .protocol import read_varint
 from .health import Health
 from .mapdata import MapData
+from .contribution import OPCODES as CONTRIBUTION_OPCODES, CombatFeed
 from .paths import ASSETS_DIR
 from .sounds import SoundPlayer
 from .pets import Collection, Pet, PROGRESS_OPCODE, SNAPSHOT_OPCODE, parse_progress, parse_snapshot
@@ -107,6 +108,7 @@ class Bridge(QObject):
         self._pending_hits = []          # filled on the capture thread, drained by the UI every 200 ms
         self._hits_lock = threading.Lock()
         self.self_eid = None             # your entity id, to keep only your own casts
+        self.feed = CombatFeed()         # combat messages -> damage / healing / shields / taken... (in order)
 
     def take_hits(self):
         with self._hits_lock:
@@ -120,16 +122,18 @@ class Bridge(QObject):
             event = self.tracker.on_message(op, body)
             if event:
                 (self.map_entered if event[0] == "map" else self.zone_detected).emit(event[1])
-        if op in DAMAGE_OPCODES:
-            hits = parse_damage(op, body)
+        if op in CONTRIBUTION_OPCODES:
+            hits = self.feed.feed(op, body)
             if hits:
                 with self._hits_lock:
                     self._pending_hits.extend(hits)
-        elif op == SPAWN_OPCODE:
+        if op == SPAWN_OPCODE:
             spawn = parse_spawn_full(body)
             if spawn:
                 eid, npc_id, owner_name, max_hp = spawn
-                self.npc.emit((eid, npc_id, summon_owner(body) if owner_name else None, max_hp))
+                owner = self.feed.owners.get(eid)     # summons (traps, spirits...), as the combat feed resolved them
+                self.npc.emit((eid, npc_id, owner if owner is not None else
+                               summon_owner(body) if owner_name else None, max_hp))
         elif op == PLAYER_SPAWN_OPCODE:
             player = parse_player(body)
             if player:
@@ -369,7 +373,8 @@ class Controller(QObject):
     def on_hits(self, hits):
         me = self.combat.self_eid
         for hit in hits:
-            mine = me is not None and self.combat.owners.get(hit.attacker, hit.attacker) == me
+            mine = me is not None and hit.kind == "damage" and \
+                self.combat.owners.get(hit.attacker, hit.attacker) == me
             if mine and self.tuner.recording and hit.target not in self.combat.players:
                 self.tuner.on_damage(hit.skill, hit.amount)
             finished = self.combat.on_hit(hit)
@@ -445,12 +450,12 @@ class Controller(QObject):
             self.refresh()
 
     def _encounter_notice(self, enc):
-        me = next((a for a in enc.actors.values() if a.is_self), None)
+        me = next((a for a in enc.dealers() if a.is_self), None)
         if not me or enc.duration < 8 and not enc.killed:
             return
         from .ui.dps_panel import mmss, pct, short_number
         target = enc.main_target or "un enemigo"
-        others = len(enc.actors) - 1
+        others = len(enc.dealers()) - 1
         c = enc.contribution(self.combat.group) if others else None
         if c and c.hp_lost and c.seen < 0.9:          # world boss: most hits are not visible to us
             group = f" Aportaste el {pct(c.share(c.me))} del daño al jefe."
@@ -804,6 +809,19 @@ class Controller(QObject):
         self._skill_icon_thread.done.connect(lambda _: self.tuner_window and self.tuner_window.isVisible()
                                              and self.tuner_window.rebuild())
         self._skill_icon_thread.start()
+
+    def fetch_skill_icons(self, skill_ids, on_done=None):
+        """Download skill icons of any class (the combat details show everyone's skills); each id is tried once."""
+        tried = self.__dict__.setdefault("_icons_tried", set())
+        ids = [s for s in skill_ids if s not in tried]
+        running = getattr(self, "_detail_icon_thread", None)
+        if not self.persist or not ids or (running and running.isRunning()):
+            return
+        tried.update(ids)
+        self._detail_icon_thread = IconThread(self.data_dir, ids, skills=True)
+        if on_done:
+            self._detail_icon_thread.done.connect(on_done)
+        self._detail_icon_thread.start()
 
     def open_tuner(self):
         self._ensure_skill_icons()

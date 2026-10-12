@@ -24,7 +24,7 @@ class DpsModule(Module):
                           self.ctl.dps_ready)
         summary, footer = "", ""
         if enc:
-            me = next((a for a in enc.actors.values() if a.is_self), None)
+            me = next((a for a in enc.dealers() if a.is_self), None)
             summary = f"{short_number(enc.dps(me))}/s" if me else ""
             footer = f"{'Pelea terminada' if enc.ended else 'En combate'} · {mmss(enc.duration)}"
         return ModuleView(summary=summary, footer=footer)

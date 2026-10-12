@@ -92,7 +92,7 @@ class DpsPanel(QWidget):
                 self._boss_hp(encounter)
             # Names only for you and your party/force; everyone else is anonymous.
             named = [a for a in encounter.ranking() if a.is_self or (a.name in group and not only_me)]
-            outsiders = [a for a in encounter.actors.values() if not (a.is_self or a.name in group)]
+            outsiders = [a for a in encounter.dealers() if not (a.is_self or a.name in group)]
             crowd = act.kind == "crowd"
             if crowd:                       # a mass fight: what matters is your share of the boss
                 self._contribution(encounter, group, outsiders)
@@ -107,7 +107,7 @@ class DpsPanel(QWidget):
                 self.content.addWidget(DpsBar(name, right, damage / top, color, f, highlight=is_self))
             if crowd and outsiders and not only_me:
                 self._note(f"y {len(outsiders)} jugadores más ({short_number(sum(a.damage for a in outsiders))} de "
-                           f"daño visible); los ves todos en «Detalles del daño».")
+                           f"daño visible); los ves todos en «Detalles del combate».")
             elif outsiders:
                 self._contribution(encounter, group, outsiders)
             me = next((a for a in encounter.actors.values() if a.is_self), None)
@@ -115,6 +115,14 @@ class DpsPanel(QWidget):
                 pct_of = lambda n: f"{100 * n / me.hits:.0f}%"  # noqa: E731
                 self._note(f"Tus golpes: {me.hits} · críticos {pct_of(me.crits)} · por la espalda {pct_of(me.backs)}"
                            f" · perfect {pct_of(me.perfects)}" + (f" · DoT {short_number(me.dot)}" if me.dot else ""))
+            if me and me.healing:
+                given = me.healing + me.overheal
+                self._note(f"Tu curación: {short_number(me.healing)} ({short_number(me.healing / encounter.duration)}/s)"
+                           + (f" · sobrecuración {100 * me.overheal / given:.0f}%" if me.overheal else "")
+                           + (f" · escudos {short_number(me.shielding)}" if me.shielding else ""))
+            if me and me.taken:
+                self._note(f"Recibiste {short_number(me.taken)}" + (f" · los escudos absorbieron {short_number(me.absorbed)}"
+                                                                    if me.absorbed else ""))
         if ready and encounter is not None:
             toggle = label("Ver: solo yo  (clic para ver a todos)" if only_me else "Ver: todos  (clic para ver solo tu barra)",
                            f.small, theme.ACCENT)
@@ -123,7 +131,7 @@ class DpsPanel(QWidget):
             toggle.on_click = lambda: self.ctl.toggle_setting("dps_only_me")
             toggle.setContentsMargins(f.px(4), f.px(2), 0, 0)
             self.content.addWidget(toggle)
-            details = label("Detalles del daño (por jugador, clase y habilidad)", f.small, theme.ACCENT)
+            details = label("Detalles del combate (daño, curación, escudos, daño recibido…)", f.small, theme.ACCENT)
             details.setAttribute(Qt.WA_TransparentForMouseEvents, False)
             details.setCursor(Qt.PointingHandCursor)
             details.on_click = self.ctl.open_dps_details

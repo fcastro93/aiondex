@@ -1,9 +1,10 @@
-"""DPS meter model: encounters built from damage events, per-player stats, encounter history.
+"""DPS meter model: encounters built from combat events, per-player stats, encounter history.
 
-Only players (you and the people fighting with you) are ranked; monsters hitting you are ignored, and
-summons count for their owner. Encounters start with the first hit and end after IDLE_END seconds without
-damage or when the main target dies. The history keeps only your own numbers; the last few full encounters
-stay in memory (never on disk) for the details window.
+Players (you and the people fighting with you) are the actors: the damage they deal, the healing and shields they
+give, the damage they take and avoid, and the stagger they cause (events from contribution.CombatFeed). Summons
+count for their owner. Encounters start with the first hit dealt or taken and end after IDLE_END seconds without
+one or when the main target dies. The history keeps only your own numbers; the last few full encounters stay in
+memory (never on disk) for the details window.
 
 At world bosses the client only receives the hits of nearby players, so the share of the boss's damage is
 measured against the HP the boss lost (stat updates reach everyone), not against the hits we happen to see.
@@ -40,6 +41,11 @@ class Hit:
     perfect: bool = False
     double: bool = False
     dot: bool = False
+    kind: str = "damage"        # damage | taken | heal | absorb | avoid | stagger
+    overheal: int = 0           # heal: the part beyond the HP the target was missing
+    defense: str = ""           # taken / avoid: parry | block | endure | evade
+    reduced: int = 0            # taken: damage the target's endure removed
+    by: int | None = None       # absorb: whose hit the shield took (attacker = who cast the shield)
 
 
 @dataclass
@@ -58,15 +64,46 @@ class ActorStats:
     skills: Counter = field(default_factory=Counter)
     skill_hits: Counter = field(default_factory=Counter)
     by_target: Counter = field(default_factory=Counter)
+    # healing given (overheal = the part beyond the missing HP, already left out of healing)
+    healing: int = 0
+    overheal: int = 0
+    heal_hits: int = 0
+    heal_crits: int = 0
+    heal_skills: Counter = field(default_factory=Counter)
+    heal_skill_hits: Counter = field(default_factory=Counter)
+    heal_to: Counter = field(default_factory=Counter)
+    # damage the shields this player cast absorbed (on anyone)
+    shielding: int = 0
+    shield_skills: Counter = field(default_factory=Counter)
+    shield_to: Counter = field(default_factory=Counter)
+    # damage taken (absorbed = what shields took off it before it reached the HP)
+    taken: int = 0
+    taken_hits: int = 0
+    taken_max: int = 0
+    absorbed: int = 0
+    taken_from: Counter = field(default_factory=Counter)
+    taken_skills: Counter = field(default_factory=Counter)
+    # enemy hits avoided or softened (avoided = damage removed by endure; parries and blocks do not say how much)
+    avoided_hits: int = 0
+    parries: int = 0
+    blocks: int = 0
+    evades: int = 0
+    endures: int = 0
+    avoided: int = 0
+    avoided_skills: Counter = field(default_factory=Counter)
+    # stagger gauge points taken off bosses (split per hit: the game does not say who)
+    stagger: float = 0.0
+    stagger_skills: Counter = field(default_factory=Counter)
 
     @property
     def class_name(self):
-        """The class, from the prefix of the skills that did the damage (11 Gladiator ... 18 Chanter)."""
+        """The class, from the prefix of the skills used (11 Gladiator ... 18 Chanter)."""
         prefixes = Counter()
-        for skill, amount in self.skills.items():
-            prefix = str(skill)[:2]
-            if prefix in CLASS_NAMES and len(str(skill)) == 8:
-                prefixes[prefix] += amount
+        for counter in (self.skills, self.heal_skills, self.shield_skills):
+            for skill, amount in counter.items():
+                prefix = str(skill)[:2]
+                if prefix in CLASS_NAMES and len(str(skill)) == 8:
+                    prefixes[prefix] += amount
         return CLASS_NAMES[prefixes.most_common(1)[0][0]] if prefixes else ""
 
 
@@ -123,7 +160,7 @@ class Encounter:
     def contribution(self, group_names):
         """Contribution to the main target, or None when nobody hit it."""
         boss = self.main_target_eid
-        dealt = [(a, a.by_target[boss]) for a in self.actors.values() if a.by_target[boss]]
+        dealt = [(a, a.by_target[boss]) for a in self.dealers() if a.by_target[boss]]
         visible = sum(d for _, d in dealt)
         if not visible:
             return None
@@ -147,7 +184,7 @@ class Encounter:
         boss_eid = self.main_target_eid
         boss_hp = self.target_max_hp.get(boss_eid) or self.hp.get(boss_eid, [0, 0])[1] or 0
         boss = boss_hp >= BOSS_HP
-        others = [a for a in self.actors.values() if not a.is_self]
+        others = [a for a in self.dealers() if not a.is_self]
         outsiders = [a for a in others if a.name not in group_names]
         if len(outsiders) >= CROWD or boss_hp >= WORLD_BOSS_HP:
             if boss:
@@ -203,8 +240,12 @@ class Encounter:
     def dps(self, actor):
         return actor.damage / self.duration
 
+    def dealers(self):
+        """Actors that dealt damage (healers and tanks with only healing or damage taken are actors too)."""
+        return [a for a in self.actors.values() if a.damage]
+
     def ranking(self):
-        return sorted(self.actors.values(), key=lambda a: -a.damage)
+        return sorted(self.dealers(), key=lambda a: -a.damage)
 
 
 @dataclass
@@ -278,22 +319,33 @@ class CombatTracker:
                 enc.hp_start[eid], enc.hp_at[eid] = hp, enc.last
 
     # --- combat ----------------------------------------------------------------------------------
-    def on_hit(self, hit):
-        """Returns a finished Encounter if this hit started a new one after the previous ended."""
-        attacker = self.owners.get(hit.attacker, hit.attacker)
-        if attacker not in self.players or hit.amount <= 0:
-            return None
-        if hit.target in self.players or self.owners.get(hit.target) in self.players:
-            return None          # heals and buffs on players are not damage
+    def _actor(self, enc, eid):
+        actor = enc.actors.get(eid)
+        if actor is None:
+            actor = enc.actors[eid] = ActorStats(eid, self.players[eid], eid == self.self_eid)
+        return actor
+
+    def _encounter(self, ts):
+        """(the encounter a hit dealt or taken at ts belongs to, the one it closed or None)."""
         finished = None
         enc = self.current
-        if enc is None or enc.ended or hit.ts - enc.last > IDLE_END:
+        if enc is None or enc.ended or ts - enc.last > IDLE_END:
             finished = self._finish() if enc and not enc.ended else None
-            enc = self.current = Encounter(start=hit.ts, last=hit.ts, map_id=self.map_id)
-        enc.last = hit.ts
-        actor = enc.actors.get(attacker)
-        if actor is None:
-            actor = enc.actors[attacker] = ActorStats(attacker, self.players[attacker], attacker == self.self_eid)
+            enc = self.current = Encounter(start=ts, last=ts, map_id=self.map_id)
+        enc.last = ts
+        return enc, finished
+
+    def on_hit(self, hit):
+        """Returns a finished Encounter if this event started a new one after the previous ended."""
+        if hit.amount is None or hit.amount <= 0:
+            return None
+        if hit.kind != "damage":
+            return self._on_support(hit)
+        attacker = self.owners.get(hit.attacker, hit.attacker)
+        if attacker not in self.players:
+            return None          # (hits on players only come from enemies of the other faction: PvP)
+        enc, finished = self._encounter(hit.ts)
+        actor = self._actor(enc, attacker)
         actor.damage += hit.amount
         actor.hits += 1
         actor.crits += hit.crit
@@ -311,6 +363,65 @@ class CombatTracker:
         if hit.target in self.max_hp:
             enc.target_max_hp[hit.target] = self.max_hp[hit.target]
         return finished
+
+    def _on_support(self, hit):
+        """Damage taken (starts or extends a fight like a hit dealt), healing, shields, avoided hits and stagger
+        (these only count inside a fight that is going on: healing out of combat is not a fight)."""
+        enc = self.current
+        live = enc is not None and not enc.ended and hit.ts - enc.last <= IDLE_END
+        if hit.kind in ("taken", "avoid"):
+            target = self.owners.get(hit.target, hit.target)
+            if target not in self.players:
+                return None
+            enc, finished = self._encounter(hit.ts)
+            actor = self._actor(enc, target)
+            if hit.kind == "avoid":
+                actor.avoided_hits += 1
+                actor.evades += 1
+                actor.avoided_skills[hit.skill] += 1
+                return finished
+            actor.taken += hit.amount
+            actor.taken_hits += not hit.dot
+            actor.taken_max = max(actor.taken_max, hit.amount)
+            actor.taken_from[self.owners.get(hit.attacker, hit.attacker)] += hit.amount
+            actor.taken_skills[hit.skill] += hit.amount
+            if hit.defense:
+                actor.avoided_hits += 1
+                actor.avoided_skills[hit.skill] += 1
+                actor.parries += hit.defense == "parry"
+                actor.blocks += hit.defense == "block"
+                actor.endures += hit.defense == "endure"
+                actor.avoided += hit.reduced
+            return finished
+        if not live:
+            return None
+        source = self.owners.get(hit.attacker, hit.attacker) if hit.attacker is not None else None
+        if hit.kind == "heal":
+            if source not in self.players:
+                return None
+            actor = self._actor(enc, source)
+            effective = hit.amount - hit.overheal
+            actor.healing += effective
+            actor.overheal += hit.overheal
+            actor.heal_hits += 1
+            actor.heal_crits += hit.crit
+            actor.heal_skills[hit.skill] += effective
+            actor.heal_skill_hits[hit.skill] += 1
+            actor.heal_to[hit.target] += effective
+        elif hit.kind == "absorb":
+            if hit.target in self.players:
+                self._actor(enc, hit.target).absorbed += hit.amount
+            if source in self.players:
+                actor = self._actor(enc, source)
+                actor.shielding += hit.amount
+                actor.shield_skills[hit.skill] += hit.amount
+                actor.shield_to[hit.target] += hit.amount
+        elif hit.kind == "stagger":
+            if source in self.players:
+                actor = self._actor(enc, source)
+                actor.stagger += hit.amount
+                actor.stagger_skills[hit.skill] += hit.amount
+        return None
 
     def on_death(self, eid):
         """Deaths do not cut the encounter (a dying add may not be the real fight); tick() closes it."""
@@ -333,9 +444,11 @@ class CombatTracker:
         enc = self.current
         enc.ended = True
         enc.killed = enc.main_target_eid in enc.dead
+        if not enc.total:
+            return enc                   # nobody dealt damage (a monster hit you while passing by): not a fight
         self.recent.appendleft(enc)
         me = enc.actors.get(self.self_eid)
-        if me:
+        if me and me.damage:
             self.history.insert(0, EncounterSummary(enc.last, enc.main_target or "Pelea", enc.duration, me.damage,
                                                     enc.dps(me), me.damage / max(1, enc.total), enc.killed))
             del self.history[HISTORY_MAX:]
