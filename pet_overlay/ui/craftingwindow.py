@@ -6,13 +6,14 @@ import time
 import webbrowser
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
-from PySide6.QtGui import QColor, QIntValidator, QPainter, QPainterPath, QPen, QPixmap
+from PySide6.QtGui import QColor, QIntValidator, QPainter, QPainterPath, QPen, QPixmap, QValidator
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
                                QPushButton, QScrollArea, QSizePolicy, QSpinBox, QToolTip, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
 from ..crafting import SORT_KEYS, RecipeRow, span_text
 from ..gathering import kills_for, map_open
+from ..professions import NOVICE_MAX, RANKS, level_text, parse_level
 from ..mapdata import MAP_NAMES
 from . import theme
 from .mapwindow import STYLE, badge_label
@@ -115,9 +116,7 @@ class CraftingWindow(QWidget):
         self.profession.currentIndexChanged.connect(self._profession_changed)
         head.addWidget(self.profession)
         head.addWidget(label("Tu nivel:", f.small, theme.MUTED))
-        self.level = QSpinBox()
-        self.level.setRange(0, 200)
-        self.level.setSpecialValueText("¿?")
+        self.level = LevelBox()
         self.level.setToolTip("Tu nivel en esta profesión: decide tu probabilidad de éxito y qué recetas puedes hacer")
         self.level.setValue(self.crafting.level() or 0)
         self._level_timer = QTimer(self, singleShot=True, interval=500, timeout=self._level_changed)
@@ -200,12 +199,12 @@ class CraftingWindow(QWidget):
         game = crafting.game_level()
         self.level_back.setVisible(source == "try")
         if source == "try":
-            self.level_back.setText(f"↺ usar el del juego ({game})")
-            self.level.setToolTip(f"Estás probando con nivel {crafting.level()}: los números son como si lo tuvieras. "
-                                  f"Tu nivel real (del juego) es {game}.")
+            self.level_back.setText(f"↺ usar el del juego ({level_text(game)})")
+            self.level.setToolTip(f"Estás probando con {level_text(crafting.level())}: los números son como si lo "
+                                  f"tuvieras. Tu nivel real (del juego) es {level_text(game)}.")
         elif source == "game":
             exp = crafting.game_exp()
-            self.level.setToolTip(f"Leído del juego para {crafting.levels_character}: nivel {game}"
+            self.level.setToolTip(f"Leído del juego para {crafting.levels_character}: {level_text(game)}"
                                   + (f", {exp} de experiencia en el nivel" if exp is not None else "")
                                   + ". Se actualiza al entrar y cada vez que crafteas. Cámbialo para ver los números "
                                     "con otro nivel (por ejemplo, el que tendrás).")
@@ -250,7 +249,7 @@ class CraftingWindow(QWidget):
         who = crafting.levels_character
         level = crafting.level()
         last = crafting.samples[-1]["at"] if crafting.samples else None
-        bits = [who or "", f"nivel {level}" + (" (probando)" if crafting.level_source() == "try" else "")
+        bits = [who or "", level_text(level) + (" (probando)" if crafting.level_source() == "try" else "")
                 if level else "sin nivel", f"precios de tus muestreos del {_clock(last)}" if last else "sin muestreos"]
         image = crafting_report.render(getattr(self, "_shown", []), getattr(self, "_shown_picks", []),
                                        f"Crafting · {prof}", " · ".join(b for b in bits if b), GRADE_COLOR,
@@ -381,10 +380,11 @@ class CraftingWindow(QWidget):
         elif level is not None and not query:
             ahead = sorted((r for r in rows if r.can_craft is False and r.profit is not None and r.profit > 0),
                            key=lambda r: (r.needs, -r.profit))
-            text = f"Con tu nivel de {prof} ({level}) ninguna receta deja ganancia con los precios de tus muestreos."
+            text = (f"Con tu nivel de {prof} ({level_text(level)}) ninguna receta deja ganancia con los precios de "
+                    f"tus muestreos.")
             if ahead:
                 first = ahead[0]
-                text += (f" La primera que sí: {first.product} (nivel {first.needs}), "
+                text += (f" La primera que sí: {first.product} ({level_text(first.needs)}), "
                          f"{_kinah(first.profit, sign=True)} por intento al llegar.")
             pick = self._level_pick
             if pick is not None:
@@ -393,7 +393,7 @@ class CraftingWindow(QWidget):
                          f"({_kinah(cost, sign=True)} por intento).")
             self._hint(text, theme.WARN)
         options = QHBoxLayout()
-        only = QCheckBox(f"Solo lo que puedo craftear con mi nivel ({level})" if level is not None else
+        only = QCheckBox(f"Solo lo que puedo craftear con mi nivel ({level_text(level)})" if level is not None else
                          "Solo lo que puedo craftear con mi nivel")
         only.setToolTip("Marcado: solo las recetas de tu nivel o menos. Desmarcado: todas; las de más nivel salen en "
                         "gris con el nivel que piden.")
@@ -477,9 +477,10 @@ class CraftingWindow(QWidget):
         col.setContentsMargins(14, 10, 14, 10)
         col.setSpacing(3)
         if self.crafting.level_source() == "try":
-            who = f"Si tuvieras nivel {level} en {prof} (el tuyo es {self.crafting.game_level()})"
+            who = f"Si fueras {level_text(level)} en {prof} (eres {level_text(self.crafting.game_level())})"
         else:
-            who = f"Con tu nivel de {prof} ({level})" if level is not None else "Al nivel justo de cada receta"
+            who = (f"Con tu nivel de {prof} ({level_text(level)})" if level is not None else
+                   "Al nivel justo de cada receta")
         col.addWidget(label(f"{who}, lo que más deja recolectando:", f.name, theme.GOLD))
         for i, r in enumerate(picks, start=1):
             sold, kind = r.sales.verdict()
@@ -492,7 +493,7 @@ class CraftingWindow(QWidget):
         pick = getattr(self, "_level_pick", None)
         if pick is not None:
             cost = pick.profit if pick.profit is not None else -pick.cost
-            col.addWidget(label(f"Para subir de nivel:  {pick.product} (nivel {pick.needs})  —  "
+            col.addWidget(label(f"Para subir de nivel:  {pick.product} ({level_text(pick.needs)})  —  "
                                 f"{_kinah(cost, sign=True)} por intento", f.body, theme.GAIN))
         col.addWidget(label("Solo cuenta el precio más bajo de cada material: si necesitas muchos, mira cuántos hay a ese "
                             "precio en su pantalla de ofertas.", f.small, theme.MUTED))
@@ -569,8 +570,8 @@ class CraftingWindow(QWidget):
             supply = f"{units}{'+' if partial else ''} uds. a la venta"
             if at_lowest:
                 supply += f" ({at_lowest} al más bajo)"
-        needs = (f"requiere nivel {row.needs} (tienes {row.level})" if locked else
-                 f"nivel {row.needs}" if row.needs else "")
+        needs = (f"requiere {level_text(row.needs)} (tienes {level_text(row.level)})" if locked else
+                 level_text(row.needs) if row.needs else "")
         makes = self.crafting.makes(row)
         have = f"tienes para {makes[0]}" if makes and makes[0] > 0 else ""
         if row.thin:
@@ -680,12 +681,13 @@ class CraftingWindow(QWidget):
         if success is not None:
             curve = row.fail_curve()
             if row.can_craft is False:
-                text = f"Fallo: pide nivel {row.needs} (tienes {row.level}); al llegar fallarías un {1 - success:.0%}"
+                text = (f"Fallo: pide {level_text(row.needs)} (tienes {level_text(row.level)}); al llegar fallarías "
+                        f"un {1 - success:.0%}")
             else:
-                where = "al nivel justo" if row.level is None else f"con tu nivel {row.level}"
+                where = "al nivel justo" if row.level is None else f"con tu nivel ({level_text(row.level)})"
                 text = f"Fallo: {1 - success:.0%} {where}"
                 if curve and curve[-1][1] < 1 - success - 0.005:
-                    text += f"  →  {curve[-1][1]:.0%} desde el nivel {curve[-1][0]}"
+                    text += f"  →  {curve[-1][1]:.0%} desde {level_text(curve[-1][0])}"
             notes.addWidget(self._note("✕", text, _fail_tip(row)))
         combo = row.recipe.get("combo")
         if isinstance(combo, dict) and combo.get("chance"):
@@ -789,7 +791,8 @@ class CraftingWindow(QWidget):
         prof = self.crafting.professions.get(self.crafting.profession, {}).get("name", self.crafting.profession)
         exp = getattr(row, "exp", None)
         cost = row.profit if row.profit is not None else -row.cost
-        lines = [f"<b>Para subir {prof}</b>: receta de nivel {row.needs}, cerca del tuyo ({row.level}); las muy por "
+        lines = [f"<b>Para subir {prof}</b>: receta de {level_text(row.needs)}, cerca de tu nivel "
+                 f"({level_text(row.level)}); las muy por "
                  f"debajo dan poca experiencia."]
         if exp:
             seen = self.crafting.exp_seen(row.recipe["id"])
@@ -1279,16 +1282,41 @@ def _spawn_text(maps):
     return ", ".join(MAP_NAMES.get(m, m).split(" (")[0] + ("" if map_open(m) else " (cerrado)") for m in maps)
 
 
+class LevelBox(QSpinBox):
+    """Your proficiency as the game writes it (Novice 1-50, then Professional 1-50): the arrows go from Novice 50 to
+    Professional 1, and you can type "Novice 17", "pro 5" or just the number (of the rank you are at). Underneath,
+    the one 1-100 scale of the recipes."""
+
+    def __init__(self):
+        super().__init__()
+        self.setRange(0, NOVICE_MAX * (len(RANKS) - 1))          # Novice and Professional on the global servers
+        self.setSpecialValueText("¿?")
+        self.setMinimumWidth(self.fontMetrics().horizontalAdvance("Professional 50") + 40)
+
+    def textFromValue(self, value):
+        return level_text(value) if value else "¿?"
+
+    def valueFromText(self, text):
+        value = parse_level(text, self.value())
+        return self.value() if value is None else value
+
+    def validate(self, text, pos):
+        value = parse_level(text, self.value())
+        if value is not None and value <= self.maximum():
+            return QValidator.Acceptable, text, pos
+        return QValidator.Intermediate, text, pos
+
+
 def _fail_tip(row):
     if row.success is None:
         return "Sin datos de éxito para esta receta"
     lines = [f"Fallo {'al nivel justo' if row.level is None else 'con tu nivel'}: {1 - row.success:.0%} "
              f"(si falla, pierdes los materiales)"]
     for lv, fail in row.fail_curve():
-        lines.append(f"nivel {lv}: {fail:.0%}")
+        lines.append(f"{level_text(lv)}: {fail:.0%}")
     best = row.min_fail
     if best:
-        lines.append(f"Lo mínimo para esta receta: {best[0]:.0%} (desde nivel {best[1]})")
+        lines.append(f"Lo mínimo para esta receta: {best[0]:.0%} (desde {level_text(best[1])})")
     return "<br>".join(lines)
 
 

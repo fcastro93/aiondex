@@ -4,6 +4,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 
 from . import Module, ModuleView
+from ..professions import level_text
 from ..ui import theme
 from ..ui.appmenu import glyph_icon
 from ..ui.dps_panel import short_number
@@ -60,7 +61,7 @@ class CraftingPanel(QWidget):
         rows = crafting.recommend(crafting.recipe_rows(self.ctl.crafting_faction()), n=ROWS[compact])
         if rows:
             level = crafting.level()
-            self.content.addWidget(SectionTitle(f"Más rentable (nivel {level}, por intento)" if level else
+            self.content.addWidget(SectionTitle(f"Más rentable ({level_text(level)}, por intento)" if level else
                                                 "Más rentable (por intento)", f))
             for row in rows[:ROWS[compact]]:
                 line = QWidget()

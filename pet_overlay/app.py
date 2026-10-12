@@ -21,7 +21,7 @@ from .skills import (CAST_OPCODE, PRESETS_OPCODE, REQUEST_OPCODE, SKILL_LIST_OPC
 from .tracker import FIELD_LIST_OPCODE, Tracker, parse_field_list
 from .crafting import Crafting
 from .gathering import Gathering
-from .professions import CRAFT_OPCODE, EXP_OPCODE, parse_craft, parse_exp, parse_levels
+from .professions import CRAFT_OPCODE, EXP_OPCODE, level_text, parse_craft, parse_exp, parse_levels
 from .status import (ALERTS as STATUS_ALERTS, LIST_OPCODE as COUNTERS_OPCODE, UPDATE_OPCODE as COUNTER_OPCODE, Status,
                      alert_text, parse_list as parse_counters, parse_update as parse_counter)
 from .protocol import read_varint
@@ -671,7 +671,7 @@ class Controller(QObject):
             if up:
                 profession, level = up
                 name = self.crafting.professions.get(profession, {}).get("name", profession)
-                self.notify("info", f"¡{name} subió a nivel {level}!",
+                self.notify("info", f"¡{name} subió a {level_text(level)}!",
                             "Crafting ya calcula tu probabilidad de éxito con el nivel nuevo.")
                 self.sounds.play("pet_level_up")        # the same level-up sound as the pets
         self._crafting_changed()

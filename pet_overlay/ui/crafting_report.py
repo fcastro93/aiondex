@@ -6,6 +6,7 @@ from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPixmap
 
 from ..paths import ASSETS_DIR
+from ..professions import level_text
 from . import theme
 
 WIDTH = 1280
@@ -77,7 +78,7 @@ def render(rows, picks, title, subtitle, grade_color, level_pick=None):
             cost = level_pick.profit if level_pick.profit is not None else -level_pick.cost
             p.setPen(theme.GAIN)
             p.drawText(QRectF(MARGIN + 16, y + 6 + 30 * lines, inner - 32, 26), Qt.AlignLeft | Qt.AlignVCenter,
-                       f"Para subir de nivel (EXP):  {level_pick.product} (nivel {level_pick.needs})   —   "
+                       f"Para subir de nivel (EXP):  {level_pick.product} ({level_text(level_pick.needs)})   —   "
                        f"{_kinah(cost, sign=True)} por intento")
         y += box.height() + 10
 
@@ -108,7 +109,7 @@ def render(rows, picks, title, subtitle, grade_color, level_pick=None):
         cells = [
             (r.product + (f" ×{r.count}" if r.count > 1 else ""),
              theme.MUTED if locked else QColor(grade_color.get(r.recipe.get("grade"), "#D6DAE3"))),
-            (str(r.needs), theme.WARN if locked else theme.MUTED),
+            (level_text(r.needs) if r.needs else "—", theme.WARN if locked else theme.MUTED),
             (_kinah(r.sell), theme.TEXT),
             (f"{1 - r.success:.0%}" if r.success is not None else "—", theme.TEXT),
             (_kinah(r.profit, sign=True) if r.profit is not None else "?",
