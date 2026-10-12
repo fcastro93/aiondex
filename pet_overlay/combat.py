@@ -294,6 +294,10 @@ class CombatTracker:
     def set_self(self, eid, name):
         self.self_eid = eid
         self.players[eid] = name
+        enc = self.current
+        if enc and eid in enc.actors:            # named "Tú" or after your last character until the info came
+            enc.actors[eid].name = name
+            enc.actors[eid].is_self = True
 
     def add_player(self, eid, name):
         self.players[eid] = name

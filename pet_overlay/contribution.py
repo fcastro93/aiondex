@@ -251,6 +251,11 @@ class CombatFeed:
         self._burst_drop = Counter()             # npc -> gauge points lost in this burst
 
     # --- who is who ---
+    def set_self(self, eid, name=None):
+        """Your entity id found before the character info (see skills.OwnEntityFinder)."""
+        self.self_eid = eid
+        self.players.setdefault(eid, name or "")
+
     def owner(self, eid):
         return self.owners.get(eid, eid)
 

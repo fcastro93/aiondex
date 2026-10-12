@@ -15,8 +15,8 @@ from .combat import PLAYER_SPAWN_OPCODE, CombatTracker, parse_player
 from .damage import (DAMAGE_OPCODES, DEATH_OPCODE, READY as DAMAGE_READY, STATS_OPCODE, parse_hp,
                      parse_mp, summon_owner)
 from .roster import ROSTER_OPCODE, parse_roster
-from .skills import (CAST_OPCODE, PRESETS_OPCODE, REQUEST_OPCODE, SKILL_LIST_OPCODE, caster_of, parse_cast,
-                     parse_presets, parse_request, parse_skill_list)
+from .skills import (CAST_OPCODE, PRESETS_OPCODE, REQUEST_OPCODE, SKILL_LIST_OPCODE, OwnEntityFinder, caster_of,
+                     parse_cast, parse_presets, parse_request, parse_skill_list)
 from .tracker import FIELD_LIST_OPCODE, Tracker, parse_field_list
 from .protocol import read_varint
 from .health import Health
@@ -99,6 +99,7 @@ class Bridge(QObject):
     hp = Signal(object)              # (eid, current hp)
     field_list = Signal(object)      # (map id, [tracker.SlotState]) from the game's field boss list
     gear = Signal(object)            # (character name, job, level, faction, {pos: (item, +N, level)}, full list?)
+    own_entity = Signal(int)         # your entity id, found from your own presses before the character info
     own_skill = Signal(object)       # ("press", ts, skill, result) | ("cast", ts, skill, cooldown ms) |
                                      # ("skills", {base: OwnSkill}) | ("bar", [QuickSlot])
     status = Signal(str)
@@ -112,6 +113,8 @@ class Bridge(QObject):
         self.self_eid = None             # your entity id, to keep only your own casts
         self.feed = CombatFeed()         # combat messages -> damage / healing / shields / taken... (in order)
         self.gear_reader = GearReader()  # your equipped gear (login list + the visible slots of each 3336)
+        self.finder = OwnEntityFinder()  # who you are until the game resends your character (and after teleports)
+        self._self_stale = True          # the entity id may be unknown or old (start, map change) until a 3336
 
     def take_hits(self):
         with self._hits_lock:
@@ -125,6 +128,9 @@ class Bridge(QObject):
             event = self.tracker.on_message(op, body)
             if event:
                 (self.map_entered if event[0] == "map" else self.zone_detected).emit(event[1])
+                if event[0] == "map":            # a new map can mean a new entity id until the next 3336
+                    self._self_stale = True
+                    self.finder.reset()
         if op in CONTRIBUTION_OPCODES:
             hits = self.feed.feed(op, body)
             if hits:
@@ -168,7 +174,13 @@ class Bridge(QObject):
             press = parse_request(body)
             if press:
                 self.own_skill.emit(("press", time.time(), *press))
+                if self._self_stale:
+                    self._found_self(self.finder.on_press(time.time(), *press))
         elif op == CAST_OPCODE:
+            if self._self_stale:
+                cast = parse_cast(body)
+                if cast:
+                    self._found_self(self.finder.on_cast(time.time(), cast.caster, cast.skill))
             if self.self_eid is not None and caster_of(body) == self.self_eid:
                 cast = parse_cast(body)
                 if cast:
@@ -191,11 +203,18 @@ class Bridge(QObject):
             info = parse_character(body)
             if info:
                 self.self_eid = info.entity_id
+                self._self_stale = False
                 self.character.emit(info)
                 slots = self.gear_reader.feed_character(time.time(), body, info)
                 if slots:
                     self.gear.emit((info.name, info.job, info.level, own_faction(body, info.name), dict(slots),
                                     self.gear_reader.full))
+
+    def _found_self(self, eid):
+        if eid is not None and eid != self.self_eid:
+            self.self_eid = eid
+            self.feed.set_self(eid)
+            self.own_entity.emit(eid)
 
     def on_status(self, text):
         self.status.emit(text)
@@ -286,6 +305,7 @@ class Controller(QObject):
         self.bridge.hp.connect(lambda update: self.combat.on_hp(*update))
         self.bridge.own_skill.connect(self.on_own_skill)
         self.gear_db = GearDB(self.data_dir / "gear_items.json")
+        self.bridge.own_entity.connect(self.on_own_entity)
         self.bridge.gear.connect(self.on_gear)
         self.sounds = SoundPlayer(self.settings, ASSETS_DIR / "sounds")
         self._last_own_death = 0.0
@@ -495,12 +515,20 @@ class Controller(QObject):
         self.tracker.set_server(info.server)
         self.tuner.on_character()
         self._sync_tracker_side()
+        self.settings["last_character"] = info.name
         chars = self.settings.setdefault("characters", {})
         entry = chars.setdefault(info.name, {})
         entry.update({"server": info.server, "job": info.job, "level": info.level})
         self._save_settings()
         log.info("character %s (server %s, job %s, level %s)", info.name, info.server, info.job, info.level)
         self.refresh()
+
+    def on_own_entity(self, eid):
+        """Your entity id, learnt from your own skill presses before the game resent your character: the meter
+        counts your damage from now on (named after the character you last played until the info arrives)."""
+        name = self.character.name if self.character else self.settings.get("last_character") or "Tú"
+        self.combat.set_self(eid, name)
+        log.info("own entity %s found from your skill presses (%s)", eid, name)
 
     def on_gear(self, event):
         """Save the character's equipped gear (for the Tracker's "is this drop an upgrade for me?")."""

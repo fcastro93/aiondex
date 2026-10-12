@@ -20,6 +20,7 @@ DEFAULTS = {
     "rows": 6,              # rows in "closest to next level" when expanded
     "map_faction": "auto",  # auto (character's) | elyos | asmodian | all
     "characters": {},       # name -> {faction, server, job, level}
+    "last_character": None, # the character you played last (names your bar before the game resends it)
     "tuner": {},            # character name -> Afinador macro setup (in-game + external macro)
     "game_keys": {},        # the game's key bindings the Afinador needs: {"macro": [k1, k2], "click": [k1, k2]}
     "tracker": {},          # region, minutes of notice and the bosses/events marked in the Tracker
