@@ -4,10 +4,19 @@
   u32 character id | u16 server | u8 name length | name | u32 job | u32 level | ...
 The member records are found by scanning for that shape, so the parser does not depend on the
 unknown header fields; a force (up to 4 parties of 5) is expected to use the same records.
+
+0092 (party info) is sent at login and, in some sessions, on every party change instead of 0297 (2026-10-12: twelve
+0092 and no 0297 in a whole evening). One record per member, the first one being yours:
+  ... u8 3 | u8 slot (1-5) | u32 entity id (0 out of view) | u16 server | u16 | u8 36 | GUID (36 chars) | u32 | u16 |
+  u16 server | u8 name length | name | u32 job | ... legion name ... | u32 level | ...
+A list with only you means no party.
 """
+import re
 import struct
 
-ROSTER_OPCODE = bytes.fromhex("0297")   # 0092 (login) uses a different record layout; 0297 follows it anyway
+ROSTER_OPCODE = bytes.fromhex("0297")
+PARTY_INFO_OPCODE = bytes.fromhex("0092")
+_GUID = re.compile(rb"\x24[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}")    # u8 36 + GUID
 
 
 def _name_ok(name):
@@ -37,3 +46,26 @@ def parse_roster(body):
                     continue
         i += 1
     return members
+
+
+def parse_party_info(body):
+    """0092 -> [(name, server, job, level 0)] in slot order, without duplicates (only you: no party)."""
+    members, seen = [], set()
+    for m in _GUID.finditer(body):
+        slot = body[m.start() - 9] if m.start() >= 11 and body[m.start() - 10] == 3 else 9
+        for p in range(m.end(), min(m.end() + 12, len(body) - 3)):
+            server, n = struct.unpack_from("<H", body, p)[0], body[p + 2]
+            end = p + 3 + n
+            if not (1000 <= server <= 9999 and 2 <= n <= 24 and end + 4 <= len(body)):
+                continue
+            try:
+                name = body[p + 3:end].decode("utf-8")
+            except UnicodeDecodeError:
+                continue
+            job = struct.unpack_from("<I", body, end)[0]
+            if _name_ok(name) and 1 <= job <= 64:
+                if name not in seen:
+                    seen.add(name)
+                    members.append((slot, (name, server, job, 0)))
+                break
+    return [member for _, member in sorted(members, key=lambda sm: sm[0])]

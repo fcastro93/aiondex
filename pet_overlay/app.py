@@ -15,7 +15,7 @@ from .world import MAP_ENTER_OPCODE, SPAWN_OPCODE, WorldTracker, game_map_factio
 from .combat import PLAYER_SPAWN_OPCODE, CombatTracker, parse_player
 from .damage import (DAMAGE_OPCODES, DEATH_OPCODE, READY as DAMAGE_READY, STATS_OPCODE, parse_hp,
                      parse_mp, summon_owner)
-from .roster import ROSTER_OPCODE, parse_roster
+from .roster import PARTY_INFO_OPCODE, ROSTER_OPCODE, parse_party_info, parse_roster
 from .skills import (CAST_OPCODE, PRESETS_OPCODE, REQUEST_OPCODE, SKILL_LIST_OPCODE, OwnEntityFinder, caster_of,
                      parse_cast, parse_presets, parse_request, parse_skill_list)
 from .tracker import FIELD_LIST_OPCODE, Tracker, parse_field_list
@@ -85,7 +85,8 @@ def _short_state(pet):
 # message kinds counted for the Diagnóstico module
 OP_KIND = {SNAPSHOT_OPCODE: "collection", PROGRESS_OPCODE: "progress", CHARACTER_OPCODE: "character",
            MAP_ENTER_OPCODE: "map", SPAWN_OPCODE: "spawn", REQUEST_OPCODE: "press", SKILL_LIST_OPCODE: "skills",
-           PRESETS_OPCODE: "bar", ROSTER_OPCODE: "roster", **{op: "combat" for op in DAMAGE_OPCODES}}
+           PRESETS_OPCODE: "bar", ROSTER_OPCODE: "roster", PARTY_INFO_OPCODE: "roster",
+           **{op: "combat" for op in DAMAGE_OPCODES}}
 
 
 class Bridge(QObject):
@@ -155,6 +156,10 @@ class Bridge(QObject):
             members = parse_roster(body)
             if members:
                 self.roster.emit(members)
+        elif op == PARTY_INFO_OPCODE:
+            members = parse_party_info(body)
+            if members:
+                self.roster.emit(members if len(members) > 1 else [])     # only you: no party
         elif op == STATS_OPCODE:
             update = parse_hp(body)
             if update:
