@@ -3,3 +3,12 @@ psutil>=6.0
 pillow>=10.0
 PySide6-Essentials>=6.8
 cryptography>=42
+# Crafting: Windows' own OCR reads the market screenshots
+winrt-runtime>=3.2,<4
+winrt-Windows.Foundation>=3.2,<4
+winrt-Windows.Foundation.Collections>=3.2,<4
+winrt-Windows.Globalization>=3.2,<4
+winrt-Windows.Graphics.Imaging>=3.2,<4
+winrt-Windows.Media.Ocr>=3.2,<4
+winrt-Windows.Storage>=3.2,<4
+winrt-Windows.Storage.Streams>=3.2,<4

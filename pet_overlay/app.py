@@ -1,6 +1,7 @@
 """Wires capture, collection state, session stats, character/faction, tray, hotkeys, overlay and map."""
 import json
 import logging
+import queue
 import threading
 import time
 from pathlib import Path
@@ -18,6 +19,7 @@ from .roster import ROSTER_OPCODE, parse_roster
 from .skills import (CAST_OPCODE, PRESETS_OPCODE, REQUEST_OPCODE, SKILL_LIST_OPCODE, OwnEntityFinder, caster_of,
                      parse_cast, parse_presets, parse_request, parse_skill_list)
 from .tracker import FIELD_LIST_OPCODE, Tracker, parse_field_list
+from .crafting import Crafting
 from .protocol import read_varint
 from .health import Health
 from .mapdata import MapData
@@ -38,6 +40,7 @@ from .modules.dps import DpsModule
 from .modules.tuner import TunerModule
 from .modules.diagnostics import DiagnosticsModule, open_problems
 from .modules.tracker import TrackerModule
+from .modules.crafting import CraftingModule
 from .afinador import STORE_DELAY, Afinador
 from .update_controller import UpdateController
 from .notifications import NotificationCenter
@@ -47,7 +50,8 @@ from .ui.pets_panel import ViewState
 from .ui.window import OverlayWindow
 
 log = logging.getLogger(__name__)
-HOTKEY_ACTIONS = ["toggle_visible", "toggle_lock", "toggle_compact", "toggle_map"]
+HOTKEY_ACTIONS = ["toggle_visible", "toggle_lock", "toggle_compact", "toggle_map", "crafting_scan"]
+GRAB_DELAY_MS = 180             # AionDex's own windows fade out of the way before a market capture
 ZONE_NOTICE_COOLDOWN = 600      # seconds before the same zone's "pets here" notice repeats
 
 
@@ -259,6 +263,29 @@ class IconThread(QThread):
             self.done.emit(0)
 
 
+class OcrWorker(QObject):
+    """Reads the Crafting market shots one after another on a background thread (Windows OCR, ~0.3 s each)."""
+    read = Signal(object)
+
+    def __init__(self, crafting):
+        super().__init__()
+        self.crafting = crafting
+        self._queue = queue.Queue()
+        self._thread = None
+
+    def add(self, shot):
+        self._queue.put(shot)
+        if self._thread is None:
+            self._thread = threading.Thread(target=self._run, name="market-ocr", daemon=True)
+            self._thread.start()
+
+    def _run(self):
+        while True:
+            shot = self._queue.get()
+            self.crafting.read_shot(shot)
+            self.read.emit(shot)            # queued to the UI thread
+
+
 class Controller(QObject):
     def __init__(self, data_dir, collection=None):
         """collection: inject a ready-made Collection (preview mode); it is then never saved to disk."""
@@ -313,6 +340,10 @@ class Controller(QObject):
         self._tracked_eids = {}         # entity id -> npc id of field bosses in view
         self.tracker_window = None
         self.bridge.field_list.connect(lambda event: self._tracker_changed(self.tracker.on_field_list(*event)))
+        self.crafting = Crafting(self.data_dir, self.settings)
+        self.crafting_window = None
+        self._ocr = OcrWorker(self.crafting)
+        self._ocr.read.connect(self._shot_read)
 
         self.fonts = Fonts(self.settings["scale"])
         self.notifications = NotificationCenter(self.data_dir / "notifications.json" if self.persist else None)
@@ -333,7 +364,8 @@ class Controller(QObject):
         self.diag_window = None
         self.dps_window = None
         self.modules = [PetsModule(self), DpsModule(self), TunerModule(self), TrackerModule(self),
-                        NotificationsModule(self), DiagnosticsModule(self), SettingsModule(self)]
+                        CraftingModule(self), NotificationsModule(self), DiagnosticsModule(self),
+                        SettingsModule(self)]
         for module in self.modules:
             self.window.add_panel(module.create_panel(self.fonts))
         self.active_module = next((m for m in self.modules if m.key == self.settings["module"]), self.modules[0])
@@ -346,6 +378,9 @@ class Controller(QObject):
             self.window.show()
         self.window.apply_lock(self.settings["locked"])
         self._register_hotkeys()
+        for shot in self.crafting.shots:
+            if not shot.read:               # AionDex closed while it was reading them
+                self._ocr.add(shot)
         self._tick = QTimer(self, interval=10_000, timeout=self.refresh)
         self._tick.start()
         self._combat_tick = QTimer(self, interval=1000, timeout=self._on_combat_tick)
@@ -479,6 +514,84 @@ class Controller(QObject):
         self.tracker_window.show()
         self.tracker_window.raise_()
         self.tracker_window.activateWindow()
+
+    # --- crafting ------------------------------------------------------------------------------
+    def open_crafting(self, tab=None):
+        from .ui.craftingwindow import CraftingWindow
+        if self.crafting_window is None:
+            self.crafting_window = CraftingWindow(self)
+        if tab:
+            self.crafting_window.show_tab(tab)
+        else:
+            self.crafting_window.refresh()
+        self.crafting_window.show()
+        self.crafting_window.raise_()
+        self.crafting_window.activateWindow()
+
+    def crafting_scan(self, from_window=False):
+        """Capture the game window (with the market open) for Crafting; AionDex's windows step aside meanwhile."""
+        from . import market_ocr
+        from .sniffer import game_pids
+        if not market_ocr.ocr_available():
+            self.notify("warn", "Crafting: falta el lector de texto",
+                        "Esta instalación no trae el OCR de Windows. Actualiza AionDex.")
+            return
+        rect = market_ocr.game_window_rect(game_pids())
+        if rect is None:
+            self.notify("warn", "Crafting: no encuentro la ventana del juego",
+                        "Abre AION 2 (en ventana o ventana sin bordes, sin minimizar) con el mercado abierto y vuelve "
+                        "a escanear.")
+            return
+        hidden = [(w, w.windowOpacity()) for w in QApplication.topLevelWidgets()
+                  if w.isVisible() and w.windowOpacity() > 0]
+        for w, _ in hidden:
+            w.setWindowOpacity(0.0)
+        QTimer.singleShot(GRAB_DELAY_MS, lambda: self._grab_market(rect, hidden, from_window))
+
+    def _grab_market(self, rect, hidden, from_window):
+        from . import market_ocr
+        path = self.crafting.new_shot_path()
+        try:
+            image = market_ocr.capture(rect, path)
+        except Exception:
+            log.exception("market capture failed")
+            image = None
+        finally:
+            for w, opacity in hidden:
+                w.setWindowOpacity(opacity)
+        if image is None:
+            self.notify("warn", "Crafting: no se pudo capturar la pantalla", "Vuelve a intentarlo.")
+            return
+        if image.convert("L").getextrema()[1] < 16:
+            path.unlink(missing_ok=True)
+            self.notify("warn", "Crafting: la captura salió negra",
+                        "El juego está en pantalla completa exclusiva: ponlo en «ventana sin bordes» en sus "
+                        "opciones de vídeo y vuelve a escanear.")
+            return
+        shot = self.crafting.add_shot(path)
+        self._ocr.add(shot)
+        if not from_window and self.active_module.key != "crafting" and self.window.isVisible():
+            self.switch_module("crafting")          # so the overlay shows what each shot read
+        self._crafting_changed()
+
+    def _shot_read(self, shot):
+        if self.crafting_window and self.crafting_window.isVisible():
+            self.crafting_window.shot_read(shot)
+        if self.active_module.key == "crafting":
+            self.refresh()
+
+    def crafting_processed(self, sample):
+        n = len(sample["items"])
+        self.notify("info", f"Crafting: muestreo guardado ({n} {'objeto' if n == 1 else 'objetos'})",
+                    time.strftime("Precios del %d/%m a las %H:%M. Mira la pestaña Rentabilidad.",
+                                  time.localtime(sample["at"])))
+        self._crafting_changed()
+
+    def _crafting_changed(self):
+        if self.crafting_window and self.crafting_window.isVisible():
+            self.crafting_window.refresh()
+        if self.active_module.key == "crafting" and not self._refreshing:
+            self.refresh()
 
     def _on_combat_tick(self):
         finished = self.combat.tick()
@@ -1060,6 +1173,8 @@ class Controller(QObject):
         menu = styled_menu()
         hk = self.settings["hotkeys"]
         menu.addAction(f"Abrir mapa de pets\t{hk['toggle_map']}", self.open_map)
+        menu.addAction("Abrir Crafting", self.open_crafting)
+        menu.addAction(f"Escanear el mercado (Crafting)\t{hk.get('crafting_scan', '')}", self.crafting_scan)
         menu.addSeparator()
         menu.addAction(f"Mostrar / ocultar\t{hk['toggle_visible']}", self.toggle_visible)
         menu.addAction(f"Bloquear / desbloquear\t{hk['toggle_lock']}", self.toggle_lock)

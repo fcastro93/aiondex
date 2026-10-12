@@ -42,8 +42,11 @@ def build_app():
         "--add-data", f"{ROOT / 'data' / 'skills_db.json'};seed",
         "--add-data", f"{ROOT / 'data' / 'tracker_db.json'};seed",
         "--add-data", f"{ROOT / 'data' / 'gear_items.json'};seed",
+        "--add-data", f"{ROOT / 'data' / 'crafting_db.json'};seed",
         "--collect-submodules", "scapy.layers",
         "--hidden-import", "scapy.arch.windows",
+        "--collect-submodules", "winrt",          # Windows OCR for Crafting (namespace package of .pyd modules)
+        "--collect-binaries", "winrt",
         "--exclude-module", "tkinter",
         "--exclude-module", "matplotlib",
         "--exclude-module", "IPython",

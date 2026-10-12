@@ -1,0 +1,423 @@
+"""Crafting: is it worth crafting and selling? Market screenshots (the market's data travels encrypted, so the screen is
+the only source) are read into samples with their date and time; each recipe of the chosen profession is priced from
+them: what it costs (NPC materials at their Kinah price, gathered ones free, the rest at the market's price or yours),
+what it sells for after the market's 10%, and whether it sells at all (offers that disappear between samples).
+
+- Shots: data/crafting/shots/*.png, waiting to be processed (with what the OCR read, in shots.json).
+- Samples: data/crafting/samples.json, [{at, profession, shots, items: {name: {lowest, listings, offers}}}];
+  offers are the listings screen's rows [unit price, total, quantity, hours left].
+"""
+import json
+import logging
+import threading
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from . import market_ocr
+
+log = logging.getLogger(__name__)
+FEE = 0.10                      # the market keeps 10% of every sale (the screen says it: "Current Tax Rate 10%")
+DEFAULT_PROFESSION = "Cooking"
+TIME_SLACK = 1.5                # hours: the market shows the time left rounded ("2d 17h")
+
+
+@dataclass
+class Shot:
+    file: str
+    at: float
+    checked: bool = True
+    kind: str = None            # None = not read yet; "list" | "listings" | "unknown"
+    rows: list = field(default_factory=list)
+    error: str = ""
+    tax: float = None
+
+    @property
+    def read(self):
+        return self.kind is not None
+
+    def caption(self):
+        if not self.read:
+            return "Leyendo…"
+        if self.error:
+            return f"No se pudo leer: {self.error}"
+        if self.kind == "list":
+            return f"Lista · {len(self.rows)} {'objeto' if len(self.rows) == 1 else 'objetos'}"
+        if self.kind == "listings" and self.rows:
+            return f"Ofertas de {self.rows[0][0]} · {len(self.rows)}"
+        return "No parece el mercado"
+
+
+@dataclass
+class MaterialCost:
+    name: str
+    count: int
+    source: str                 # npc | gather | craft | market
+    unit: float = None          # Kinah per unit used in the cost (None = unknown)
+    how: str = ""               # npc | gather | market | manual | craft | unknown
+    at: float = None            # when the market price was seen
+
+    @property
+    def total(self):
+        return None if self.unit is None else self.unit * self.count
+
+
+@dataclass
+class Sales:
+    sold: int = 0               # units (or offers when only the list was scanned) gone between samples
+    hours: float = 0.0          # time those samples cover
+    observations: int = 0
+    by_offers: bool = False     # counted from the offers screen (units) rather than the list (offers)
+
+    @property
+    def per_day(self):
+        return self.sold * 24 / self.hours if self.hours > 0 else None
+
+    def verdict(self):
+        """(short text, kind) with kind "good" | "bad" | "none"."""
+        if self.observations < 2:
+            return "sin datos", "none"
+        if self.sold:
+            unit = "uds." if self.by_offers else "ofertas"
+            rate = self.per_day
+            if rate is not None and self.hours >= 1:
+                return f"se vende · ~{rate:.0f} {unit}/día" if rate >= 1 else f"se vende · {self.sold} {unit}", "good"
+            return f"se vende · {self.sold} {unit}", "good"
+        if self.hours >= 6:
+            return "sin ventas vistas", "bad"
+        return "pocos datos", "none"
+
+
+@dataclass
+class RecipeRow:
+    recipe: dict
+    product: str
+    sell: int = None            # lowest price on the market
+    sell_at: float = None
+    listings: int = None
+    materials: list = field(default_factory=list)
+    sales: Sales = field(default_factory=Sales)
+    fee: float = FEE
+
+    @property
+    def count(self):
+        return self.recipe.get("count") or 1
+
+    @property
+    def net(self):
+        """What the market pays you for one craft, after its tax."""
+        return None if self.sell is None else self.sell * self.count * (1 - self.fee)
+
+    @property
+    def cost(self):
+        totals = [m.total for m in self.materials]
+        return None if any(t is None for t in totals) else sum(totals)
+
+    @property
+    def known_cost(self):
+        return sum(m.total or 0 for m in self.materials)
+
+    @property
+    def missing(self):
+        return [m.name for m in self.materials if m.unit is None]
+
+    @property
+    def profit(self):
+        return None if self.net is None or self.cost is None else self.net - self.cost
+
+    @property
+    def margin(self):
+        return None if self.profit is None or not self.cost else self.profit / self.cost
+
+
+class Crafting:
+    def __init__(self, data_dir, settings):
+        self.data_dir = Path(data_dir)
+        self.dir = self.data_dir / "crafting"
+        self.shots_dir = self.dir / "shots"
+        self.settings = settings
+        db = _load(self.data_dir / "crafting_db.json", {})
+        self.recipes = db.get("recipes", [])
+        self.professions = db.get("professions", {})
+        self.names = db.get("names", {})
+        self.credit = db.get("credit")
+        self.samples = _load(self.dir / "samples.json", [])
+        self.shots = self._load_shots()
+        self._lock = threading.Lock()        # the OCR thread saves the shots too
+
+    # --- settings --------------------------------------------------------------------------------------
+    @property
+    def config(self):
+        return self.settings.setdefault("crafting", {})
+
+    @property
+    def profession(self):
+        key = self.config.get("profession") or DEFAULT_PROFESSION
+        return key if key in self.professions or not self.professions else next(iter(self.professions))
+
+    def set_option(self, key, value):
+        self.config[key] = value
+        self.settings.save()
+
+    def manual_price(self, name):
+        return self.config.get("prices", {}).get(name)
+
+    def set_manual_price(self, name, price):
+        prices = self.config.setdefault("prices", {})
+        if price:
+            prices[name] = int(price)
+        else:
+            prices.pop(name, None)
+        self.settings.save()
+
+    # --- shots -----------------------------------------------------------------------------------------
+    def new_shot_path(self):
+        self.shots_dir.mkdir(parents=True, exist_ok=True)
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        path, n = self.shots_dir / f"{stamp}.png", 1
+        while path.exists():
+            n += 1
+            path = self.shots_dir / f"{stamp}-{n}.png"
+        return path
+
+    def add_shot(self, path):
+        shot = Shot(Path(path).name, time.time())
+        self.shots.append(shot)
+        self._save_shots()
+        return shot
+
+    def path(self, shot):
+        return self.shots_dir / shot.file
+
+    def read_shot(self, shot):
+        """OCR of one shot (slow: run it off the UI thread)."""
+        try:
+            screen = market_ocr.read_screen(self.path(shot), list(self.names))
+            shot.kind, shot.rows, shot.error = screen.kind, [list(r) for r in screen.rows], ""
+            shot.tax = screen.tax
+            if screen.kind == "unknown":
+                shot.checked = False
+        except Exception as exc:          # noqa: BLE001 - shown on the shot; the app keeps running
+            log.exception("market OCR failed for %s", shot.file)
+            shot.kind, shot.rows, shot.error, shot.checked = "unknown", [], str(exc) or type(exc).__name__, False
+        self._save_shots()
+        return shot
+
+    def set_checked(self, shot, on):
+        shot.checked = on
+        self._save_shots()
+
+    def remove_shot(self, shot):
+        try:
+            self.path(shot).unlink()
+        except OSError:
+            pass
+        self.shots = [s for s in self.shots if s is not shot]
+        self._save_shots()
+
+    def ready(self):
+        return [s for s in self.shots if s.checked and s.read and s.kind in ("list", "listings") and s.rows]
+
+    def process(self, now=None):
+        """The checked shots -> one sample dated now (their files are then deleted). None if nothing to keep."""
+        shots = self.ready()
+        if not shots:
+            return None
+        items = {}
+        for shot in sorted(shots, key=lambda s: s.at):
+            if shot.kind == "list":
+                for name, listings, lowest in shot.rows:
+                    item = items.setdefault(name, {})
+                    if "lowest" not in item or lowest < item["lowest"]:
+                        item["lowest"], item["listings"] = lowest, listings
+            else:
+                by_name = {}
+                for name, unit, total, qty, hours in shot.rows:
+                    by_name.setdefault(name, []).append([unit, total, qty, hours])
+                for name, offers in by_name.items():
+                    item = items.setdefault(name, {})
+                    item["offers"] = _union(item.get("offers", []), offers)
+        for item in items.values():
+            if "lowest" not in item and item.get("offers"):
+                item["lowest"] = min(o[0] for o in item["offers"])
+        sample = {"at": now or time.time(), "profession": self.profession, "shots": len(shots), "items": items,
+                  "tax": next((s.tax for s in shots if s.tax is not None), None)}
+        self.samples.append(sample)
+        self.samples.sort(key=lambda s: s["at"])
+        self._save_samples()
+        for shot in shots:
+            self.remove_shot(shot)
+        return sample
+
+    def delete_sample(self, sample):
+        self.samples = [s for s in self.samples if s is not sample]
+        self._save_samples()
+
+    # --- prices and sales -------------------------------------------------------------------------------
+    @property
+    def fee(self):
+        """The market's tax as last read from its screen, else 10%."""
+        return next((s["tax"] for s in reversed(self.samples) if s.get("tax") is not None), FEE)
+
+    def latest_prices(self):
+        """name -> (lowest price, when) from the newest sample that has it."""
+        out = {}
+        for s in self.samples:
+            for name, item in s["items"].items():
+                if item.get("lowest"):
+                    out[name] = (item["lowest"], s["at"])
+        return out
+
+    def history(self, name):
+        """[(when, lowest, listings, offers)] of one item, oldest first."""
+        return [(s["at"], s["items"][name].get("lowest"), s["items"][name].get("listings"),
+                 s["items"][name].get("offers") or [])
+                for s in self.samples if name in s["items"]]
+
+    def sales(self, name):
+        """What disappeared from the market between consecutive samples of this item: sold (or taken down)."""
+        hist = self.history(name)
+        units = Sales(observations=len(hist), by_offers=True)      # from the offers screens (units)
+        offers = Sales(observations=len(hist))                      # from the list's offer counts
+        for (t1, _, n1, o1), (t2, _, n2, o2) in zip(hist, hist[1:]):
+            hours = (t2 - t1) / 3600
+            if o1 and o2:
+                units.sold += _sold_between(o1, o2, hours)
+                units.hours += hours
+            if n1 is not None and n2 is not None:
+                offers.sold += max(0, n1 - n2)
+                offers.hours += hours
+        return units if units.hours else offers
+
+    # --- recipes -----------------------------------------------------------------------------------------
+    def recipe_rows(self, faction=None, profession=None):
+        """One row per product of the profession (the recipe of your side), priced from the samples."""
+        profession = profession or self.profession
+        prices = self.latest_prices()
+        best = {}
+        for r in self.recipes:
+            if r["profession"] != profession or "(Bound)" in r["product"]:      # bound items cannot be sold
+                continue
+            mine = faction is None or r.get("faction") in (None, faction)
+            old = best.get(r["product"])
+            if old is None or (mine and old[0] is False):
+                best[r["product"]] = (mine, r)
+        rows = []
+        for product, (_, recipe) in best.items():
+            row = RecipeRow(recipe, product, fee=self.fee)
+            if product in prices:
+                row.sell, row.sell_at = prices[product]
+                row.listings = self._latest_field(product, "listings")
+            row.materials = [self._material(m, prices, faction, 0) for m in recipe["materials"]]
+            row.sales = self.sales(product)
+            rows.append(row)
+        rows.sort(key=_row_order)
+        return rows
+
+    def _latest_field(self, name, key):
+        for s in reversed(self.samples):
+            if name in s["items"] and s["items"][name].get(key) is not None:
+                return s["items"][name][key]
+        return None
+
+    def _material(self, m, prices, faction, depth):
+        cost = MaterialCost(m["name"], m["count"], m["source"])
+        market = prices.get(m["name"])
+        manual = self.manual_price(m["name"])
+        if m["source"] == "npc":
+            cost.unit, cost.how = m["npc_price"], "npc"
+        elif m["source"] == "gather":
+            if self.config.get("value_gathered") and (market or manual):
+                cost.unit, cost.how = (market[0], "market") if market else (manual, "manual")
+                cost.at = market[1] if market else None
+            else:
+                cost.unit, cost.how = 0, "gather"
+        elif market:
+            cost.unit, cost.how, cost.at = market[0], "market", market[1]
+        elif manual:
+            cost.unit, cost.how = manual, "manual"
+        elif m["source"] == "craft" and depth < 3:
+            sub = self._craft_cost(m["name"], prices, faction, depth + 1)
+            if sub is not None:
+                cost.unit, cost.how = sub, "craft"
+        if cost.unit is None:
+            cost.how = "unknown"
+        return cost
+
+    def _craft_cost(self, product, prices, faction, depth):
+        recipe = next((r for r in self.recipes if r["product"] == product and r.get("faction") in (None, faction)),
+                      None) or next((r for r in self.recipes if r["product"] == product), None)
+        if recipe is None:
+            return None
+        totals = [self._material(m, prices, faction, depth).total for m in recipe["materials"]]
+        return None if any(t is None for t in totals) else sum(totals) / (recipe.get("count") or 1)
+
+    # --- storage -------------------------------------------------------------------------------------------
+    def _load_shots(self):
+        saved = _load(self.dir / "shots.json", {})
+        shots = []
+        for path in sorted(self.shots_dir.glob("*.png")) if self.shots_dir.exists() else []:
+            info = saved.get(path.name, {})
+            shots.append(Shot(path.name, info.get("at") or path.stat().st_mtime, info.get("checked", True),
+                              info.get("kind"), info.get("rows", []), info.get("error", ""), info.get("tax")))
+        return shots
+
+    def _save_shots(self):
+        with self._lock:
+            self.dir.mkdir(parents=True, exist_ok=True)
+            data = {s.file: {"at": s.at, "checked": s.checked, "kind": s.kind, "rows": s.rows, "error": s.error,
+                             "tax": s.tax} for s in list(self.shots)}
+            (self.dir / "shots.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+    def _save_samples(self):
+        self.dir.mkdir(parents=True, exist_ok=True)
+        (self.dir / "samples.json").write_text(json.dumps(self.samples, ensure_ascii=False), encoding="utf-8")
+
+
+def _row_order(row):
+    """Known profit first (highest first), then priced but missing a material's price, then the rest."""
+    if row.profit is not None:
+        return 0, -row.profit
+    if row.sell is not None:
+        return 1, -(row.net or 0)
+    return 2, row.recipe.get("proficiency") or 0
+
+
+def _union(a, b):
+    """Offers from two shots of the same item (overlapping scrolls): each distinct offer as many times as the shot
+    that shows it most."""
+    out = [list(o) for o in a]
+    for offer in b:
+        key = list(offer)
+        if out.count(key) < b.count(offer):
+            out.append(key)
+    return sorted(out, key=lambda o: (o[0], -o[2]))
+
+
+def _sold_between(before, after, hours):
+    """Units of the earlier offers missing later (same price; same or fewer units; time left lowered by the time
+    passed): bought, or taken down. Offers that expired meanwhile, or are dearer than every offer the later shot
+    shows (they may just be scrolled out of view), do not count."""
+    pool = [list(o) for o in after]
+    shown_max = max(o[0] for o in after)
+    gone = 0
+    for unit, _, qty, left in sorted(before, key=lambda o: o[0]):
+        if left is not None and left - hours <= 0.5:
+            continue
+        expected = None if left is None else left - hours
+        same = [o for o in pool if o[0] == unit and o[2] <= qty and
+                (expected is None or o[3] is None or abs(o[3] - expected) <= TIME_SLACK)]
+        if same:
+            match = max(same, key=lambda o: o[2])          # the whole offer, else what is left of it
+            gone += qty - match[2]
+            pool.remove(match)
+        elif unit <= shown_max:
+            gone += qty
+    return gone
+
+
+def _load(path, default):
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return default
