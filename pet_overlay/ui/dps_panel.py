@@ -223,8 +223,15 @@ class DpsPanel(QWidget):
         if act.kind == "crowd":
             c = encounter.contribution(group)
             if c:
-                self._note(f"Tu aporte al jefe: {pct(c.share(c.me))}"
-                           + (f" · tu {c.group_kind}: {pct(c.share(c.group))}" if c.group_kind else ""))
+                if c.group_kind and c.hp_lost and c.seen < 0.2:
+                    # world bosses with a crowd: the game sends your own hits and only the damage-over-time ticks of
+                    # the others (Gartua, 2026-10-12: 0.14% of its 312M HP visible), so your group's share cannot be
+                    # measured; yours can (every hit of yours arrives)
+                    self._note(f"Tu aporte al jefe: {pct(c.share(c.me))} · el juego no envía el daño del resto de tu "
+                               f"{c.group_kind} en jefes con tanta gente")
+                else:
+                    self._note(f"Tu aporte al jefe: {pct(c.share(c.me))}"
+                               + (f" · tu {c.group_kind}: {pct(c.share(c.group))}" if c.group_kind else ""))
         self._footer()
 
     def _selector(self, view):

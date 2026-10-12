@@ -15,7 +15,8 @@ from .world import MAP_ENTER_OPCODE, SPAWN_OPCODE, WorldTracker, game_map_factio
 from .combat import PLAYER_SPAWN_OPCODE, CombatTracker, parse_player
 from .damage import (DAMAGE_OPCODES, DEATH_OPCODE, READY as DAMAGE_READY, STATS_OPCODE, parse_hp,
                      parse_mp, summon_owner)
-from .roster import FORCE_INFO_OPCODE, PARTY_INFO_OPCODE, ROSTER_OPCODE, parse_party_info, parse_roster
+from .roster import (FORCE_INFO_OPCODE, MEMBER_OPCODES, PARTY_INFO_OPCODE, ROSTER_OPCODE, parse_member_ids,
+                     parse_party_info, parse_roster)
 from .skills import (CAST_OPCODE, PRESETS_OPCODE, REQUEST_OPCODE, SKILL_LIST_OPCODE, OwnEntityFinder, caster_of,
                      parse_cast, parse_presets, parse_request, parse_skill_list)
 from .tracker import FIELD_LIST_OPCODE, Tracker, parse_field_list
@@ -92,6 +93,7 @@ def _short_state(pet):
 OP_KIND = {SNAPSHOT_OPCODE: "collection", PROGRESS_OPCODE: "progress", CHARACTER_OPCODE: "character",
            MAP_ENTER_OPCODE: "map", SPAWN_OPCODE: "spawn", REQUEST_OPCODE: "press", SKILL_LIST_OPCODE: "skills",
            PRESETS_OPCODE: "bar", ROSTER_OPCODE: "roster", PARTY_INFO_OPCODE: "roster", FORCE_INFO_OPCODE: "roster",
+           **{op: "roster" for op in MEMBER_OPCODES},
            COUNTERS_OPCODE: "status", COUNTER_OPCODE: "status",
            **{op: "combat" for op in DAMAGE_OPCODES}}
 
@@ -183,11 +185,18 @@ class Bridge(QObject):
             ticket = parse_counter(body)
             if ticket:
                 self.counters.emit(("update", time.time(), ticket))
+        elif op in MEMBER_OPCODES:
+            self._know_members(body)
+            members = parse_party_info(body)
+            if members:
+                self.roster.emit(("member", members))
         elif op == PARTY_INFO_OPCODE:
+            self._know_members(body)
             members = parse_party_info(body)
             if members:
                 self.roster.emit(("party", members if len(members) > 1 else []))     # only you: no party
         elif op == FORCE_INFO_OPCODE:
+            self._know_members(body)
             members = parse_party_info(body)
             self.feed.group = {m[0] for m in members} | self.feed.group     # allies for the healing
             self.roster.emit(("force", members))
@@ -255,6 +264,14 @@ class Bridge(QObject):
                 if slots:
                     self.gear.emit((info.name, info.job, info.level, own_faction(body, info.name), dict(slots),
                                     self.gear_reader.full))
+
+    def _know_members(self, body):
+        """Your group's members by entity id, from the group lists: their hits count (and are named) even when the
+        game never sent their spawn."""
+        for eid, name in parse_member_ids(body).items():
+            if self.feed.players.get(eid) != name:
+                self.feed.players[eid] = name
+                self.player.emit((eid, name, 0))
 
     def _found_self(self, eid):
         if eid is not None and eid != self.self_eid:
@@ -771,9 +788,10 @@ class Controller(QObject):
                 log.info("character %s has a new entity id %s", info.name, info.entity_id)
             self.character = info
             return
+        if self.character is not None:          # a switch to another character: its own groups (the first one
+            self._party_names, self._force_names = [], []   # read keeps the groups the lists already gave)
+            self.combat.set_group([])
         self.character = info
-        self._party_names, self._force_names = [], []       # another character: its own groups
-        self.combat.set_group([])
         self.crafting.character = info.name
         self.combat.set_self(info.entity_id, info.name)
         self.tracker.set_server(info.server)
@@ -792,7 +810,10 @@ class Controller(QObject):
         else your party. The party list (only you when you are alone in your party) never clears the force."""
         kind, members = event
         names = [m[0] for m in members]
-        if kind == "force" or (kind == "roster" and len(names) > 5):
+        if kind == "member":                    # one member joined (or changed): into the force, else the party
+            target = self._force_names if self._force_names else self._party_names
+            target.extend(n for n in names if n not in target)
+        elif kind == "force" or (kind == "roster" and len(names) > 5):
             self._force_names = names
         else:
             self._party_names = names

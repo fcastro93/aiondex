@@ -15,6 +15,10 @@ A list with only you means no party.
 with the force's size (u32 20 = 4 parties of 5) and one record per member in the same shape as 0092's (u8 36 + GUID,
 u32 character id, u16 server, name, u32 job, hp, map, legion, level), so parse_party_info() reads it too. 0092 keeps
 listing only your own party (only you when you are alone in yours), so it must not clear the force.
+
+In all of them the u32 eight bytes before a member's "$GUID" is the member's entity id (0 when out of view; Charfire's
+5740 in 0092 and 0296 was the attacker id of her hits), so the members are known by id even when the game never sent
+their spawn (4536). 1b96 / 2292 carry one member's record: someone joined (or their record changed).
 """
 import re
 import struct
@@ -22,6 +26,7 @@ import struct
 ROSTER_OPCODE = bytes.fromhex("0297")
 PARTY_INFO_OPCODE = bytes.fromhex("0092")
 FORCE_INFO_OPCODE = bytes.fromhex("0296")
+MEMBER_OPCODES = (bytes.fromhex("1b96"), bytes.fromhex("2292"))
 _GUID = re.compile(rb"\x24[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}")    # u8 36 + GUID
 
 
@@ -52,6 +57,36 @@ def parse_roster(body):
                     continue
         i += 1
     return members
+
+
+def parse_member_ids(body):
+    """{entity id: name} of the members of a group message (0092 / 0296 / 1b96 / 2292) that are in view."""
+    out = {}
+    for m in _GUID.finditer(body):
+        if m.start() < 8:
+            continue
+        eid = struct.unpack_from("<I", body, m.start() - 8)[0]
+        member = _member_after(body, m.end())
+        if eid and member:
+            out[eid] = member[0]
+    return out
+
+
+def _member_after(body, start):
+    """(name, server, job) of the member record right after its GUID, or None."""
+    for p in range(start, min(start + 12, len(body) - 3)):
+        server, n = struct.unpack_from("<H", body, p)[0], body[p + 2]
+        end = p + 3 + n
+        if not (1000 <= server <= 9999 and 2 <= n <= 24 and end + 4 <= len(body)):
+            continue
+        try:
+            name = body[p + 3:end].decode("utf-8")
+        except UnicodeDecodeError:
+            continue
+        job = struct.unpack_from("<I", body, end)[0]
+        if _name_ok(name) and 1 <= job <= 64:
+            return name, server, job
+    return None
 
 
 def parse_party_info(body):
