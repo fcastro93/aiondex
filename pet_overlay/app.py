@@ -345,6 +345,7 @@ class Controller(QObject):
         self.current_zone = None        # zone slug from nearby NPCs, else from the last kills
         self.zone_from_npcs = False
         self.map_window = None
+        self.exclusive_window = None
         self.capture_status = "Iniciando captura…"
         self.flash_ids = set()
         self.sniffer = None             # set by run.py (not in preview)
@@ -1062,6 +1063,17 @@ class Controller(QObject):
         self.map_window.raise_()
         self.map_window.activateWindow()
 
+    def open_exclusive_pets(self):
+        """The pets only one side can farm: a tab for the Asmodian side and one for the Elyos side."""
+        from .ui.exclusivewindow import ExclusivePetsWindow
+        if self.exclusive_window is None:
+            self.exclusive_window = ExclusivePetsWindow(self)
+        else:
+            self.exclusive_window.refresh()
+        self.exclusive_window.show()
+        self.exclusive_window.raise_()
+        self.exclusive_window.activateWindow()
+
     def update_database(self):
         if getattr(self, "_db_thread", None) and self._db_thread.isRunning():
             return
@@ -1321,12 +1333,15 @@ class Controller(QObject):
     def _save_collection(self):
         if self.persist and self.collection.pets:
             self.collection.save(self.state_path)
+        if self.exclusive_window and self.exclusive_window.isVisible():
+            self.exclusive_window.refresh()             # your progress changed
 
     def _build_tray(self):
         self.tray = QSystemTrayIcon(self.app_icon, self)
         menu = styled_menu()
         hk = self.settings["hotkeys"]
         menu.addAction(f"Abrir mapa de pets\t{hk['toggle_map']}", self.open_map)
+        menu.addAction("Pets exclusivos (Asmodian / Elyos)", self.open_exclusive_pets)
         menu.addAction("Abrir Crafting", self.open_crafting)
         menu.addAction(f"Escanear el mercado (Crafting)\t{hk.get('crafting_scan', '')}", self.crafting_scan)
         menu.addAction("Abrir Status de tus personajes", self.open_status)
