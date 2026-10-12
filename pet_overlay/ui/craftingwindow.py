@@ -94,10 +94,17 @@ class CraftingWindow(QWidget):
         head.addWidget(badge_label(30, self.devicePixelRatioF()))
         titles = QVBoxLayout()
         titles.setSpacing(0)
-        titles.addWidget(label("Crafting", f.name_big, theme.TEXT))
-        titles.addWidget(label("Escanea el mercado, procesa un muestreo y mira qué vale la pena craftear y vender.",
-                               f.small, theme.MUTED))
+        title = label("Crafting", f.name_big, theme.TEXT)
+        title.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        title.setToolTip("Escanea el mercado, procesa un muestreo y mira qué vale la pena craftear y vender.")
+        titles.addWidget(title)
         head.addLayout(titles, 1)
+        head.addWidget(label("Personaje:", f.small, theme.MUTED))
+        self.who = QComboBox()
+        self.who.setToolTip("Con los niveles de qué personaje se calcula (AionDex los lee del juego al entrar con cada "
+                            "uno)")
+        self.who.currentIndexChanged.connect(self._who_changed)
+        head.addWidget(self.who)
         head.addWidget(label("Profesión:", f.small, theme.MUTED))
         self.profession = QComboBox()
         for key, info in self.crafting.professions.items():
@@ -118,6 +125,11 @@ class CraftingWindow(QWidget):
         self.level_back.setProperty("flat", True)
         self.level_back.clicked.connect(self._level_back)
         head.addWidget(self.level_back)
+        self.report_button = QPushButton("Informe")
+        self.report_button.setProperty("flat", True)
+        self.report_button.setToolTip("Crea una imagen con lo importante para compartir (se guarda en Imágenes\\AionDex "
+                                      "y se copia al portapapeles)")
+        self.report_button.clicked.connect(self._report)
         self.scan_button = QPushButton("Escanear")
         self.scan_button.clicked.connect(self._scan)
         head.addWidget(self.scan_button)
@@ -139,6 +151,7 @@ class CraftingWindow(QWidget):
         self.search.setMinimumWidth(240)
         self._search_timer = QTimer(self, singleShot=True, interval=250, timeout=self.refresh)
         self.search.textChanged.connect(lambda _: self._search_timer.start())
+        tabs.addWidget(self.report_button)
         tabs.addWidget(self.search)
         root.addLayout(tabs)
 
@@ -190,7 +203,7 @@ class CraftingWindow(QWidget):
                                   f"Tu nivel real (del juego) es {game}.")
         elif source == "game":
             exp = crafting.game_exp()
-            self.level.setToolTip(f"Leído del juego para {crafting.character}: nivel {game}"
+            self.level.setToolTip(f"Leído del juego para {crafting.levels_character}: nivel {game}"
                                   + (f", {exp} de experiencia en el nivel" if exp is not None else "")
                                   + ". Se actualiza al entrar y cada vez que crafteas. Cámbialo para ver los números "
                                     "con otro nivel (por ejemplo, el que tendrás).")
@@ -206,6 +219,49 @@ class CraftingWindow(QWidget):
             self.crafting.set_level(self.level.value())
         self.refresh()
         self.ctl.refresh()
+
+    def _fill_who(self):
+        crafting = self.crafting
+        playing = crafting.character
+        others = [n for n in crafting.known_characters() if n != playing]
+        chosen = crafting.config.get("view_character")
+        self.who.blockSignals(True)
+        self.who.clear()
+        self.who.addItem(f"El que juegas ({playing})" if playing else "El que juegas", None)
+        for name in others:
+            self.who.addItem(name, name)
+        self.who.setCurrentIndex(max(0, self.who.findData(chosen)) if chosen in others else 0)
+        self.who.blockSignals(False)
+
+    def _who_changed(self, _):
+        self.crafting.set_option("view_character", self.who.currentData())
+        self.refresh()
+        self.ctl.refresh()
+
+    def _report(self):
+        """The shareable picture of what is on screen: saved, copied to the clipboard and opened."""
+        from pathlib import Path
+        from PySide6.QtWidgets import QApplication
+        from . import crafting_report
+        crafting = self.crafting
+        prof = crafting.professions.get(crafting.profession, {}).get("name", crafting.profession)
+        who = crafting.levels_character
+        level = crafting.level()
+        last = crafting.samples[-1]["at"] if crafting.samples else None
+        bits = [who or "", f"nivel {level}" + (" (probando)" if crafting.level_source() == "try" else "")
+                if level else "sin nivel", f"precios de tus muestreos del {_clock(last)}" if last else "sin muestreos"]
+        image = crafting_report.render(getattr(self, "_shown", []), getattr(self, "_shown_picks", []),
+                                       f"Crafting · {prof}", " · ".join(b for b in bits if b), GRADE_COLOR)
+        folder = Path.home() / "Pictures" / "AionDex"
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / time.strftime(f"crafting-{crafting.profession.lower()}-%Y%m%d-%H%M%S.jpg")
+        if not image.save(str(path), "JPG", 92):
+            self.ctl.notify("warn", "No se pudo guardar el informe", str(path))
+            return
+        QApplication.clipboard().setImage(image)
+        self.ctl.notify("info", "Informe de Crafting listo",
+                        "Copiado al portapapeles (pégalo en Discord o WhatsApp) y guardado en Imágenes\\AionDex.")
+        os.startfile(str(path))
 
     def _level_back(self):
         self.crafting.try_level(None)
@@ -269,6 +325,7 @@ class CraftingWindow(QWidget):
         hk = self.ctl.settings["hotkeys"].get("crafting_scan")
         self.scan_button.setToolTip("Captura la ventana del juego (con el mercado abierto)"
                                     + (f". En el juego: {hk}" if hk else ""))
+        self._fill_who()
         self._show_level()
         _clear(self.body)
         {"profit": self._profit_tab, "shots": self._shots_tab, "samples": self._samples_tab}[self.tab]()
@@ -350,6 +407,7 @@ class CraftingWindow(QWidget):
             rows = [r for r in rows if r.can_craft]
         priced = [r for r in rows if r.sell is not None]
         shown = rows if everything.isChecked() else priced
+        self._shown, self._shown_picks = [r for r in shown if r.sell is not None], picks
         if not shown:
             if rows and not priced and crafting.samples:
                 self._hint("Ningún producto de esta profesión aparece en los muestreos: escanea su categoría del "

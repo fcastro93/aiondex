@@ -278,8 +278,17 @@ class Crafting:
         learnt = {int(k): v for k, v in self.config.get("profession_ids", {}).items()}
         return {**learnt, **KNOWN_IDS}
 
+    @property
+    def levels_character(self):
+        """Whose levels the numbers use: the one picked in the window, else the one you play."""
+        return self.config.get("view_character") or self.character
+
+    def known_characters(self):
+        """Characters whose profession levels AionDex has read from the game."""
+        return sorted(name for name, levels in self.config.get("game_levels", {}).items() if levels)
+
     def _game_entry(self, character=None):
-        return self.config.get("game_levels", {}).get(character or self.character or "", {})
+        return self.config.get("game_levels", {}).get(character or self.levels_character or "", {})
 
     def game_level(self, profession=None, character=None):
         profession = profession or self.profession

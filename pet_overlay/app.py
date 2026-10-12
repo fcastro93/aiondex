@@ -633,6 +633,7 @@ class Controller(QObject):
                 name = self.crafting.professions.get(profession, {}).get("name", profession)
                 self.notify("info", f"¡{name} subió a nivel {level}!",
                             "Crafting ya calcula tu probabilidad de éxito con el nivel nuevo.")
+                self.sounds.play("pet_level_up")        # the same level-up sound as the pets
         self._crafting_changed()
 
     def crafting_reread(self, shot):
