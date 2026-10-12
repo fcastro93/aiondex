@@ -546,6 +546,7 @@ class Controller(QObject):
             return
         hidden = [(w, w.windowOpacity()) for w in QApplication.topLevelWidgets()
                   if w.isVisible() and w.windowOpacity() > 0]
+        hidden.sort(key=lambda pair: pair[0] is not self.window)       # the overlay comes back first
         for w, _ in hidden:
             w.setWindowOpacity(0.0)
         QTimer.singleShot(GRAB_DELAY_MS, lambda: self._grab_market(rect, hidden, from_window))
@@ -560,7 +561,10 @@ class Controller(QObject):
             image = None
         finally:
             for w, opacity in hidden:
-                w.setWindowOpacity(opacity)
+                try:
+                    w.setWindowOpacity(opacity)
+                except RuntimeError:            # a notification bubble that closed meanwhile
+                    pass
         if image is None:
             self.notify("warn", "Crafting: no se pudo capturar la pantalla", "Vuelve a intentarlo.")
             return
@@ -1069,6 +1073,7 @@ class Controller(QObject):
         self.settings["visible"] = not self.window.isVisible()
         self.window.setVisible(self.settings["visible"])
         if self.settings["visible"]:
+            self.window.setWindowOpacity(1.0)       # whatever left it see-through, showing it brings it back
             self.window.apply_lock(self.settings["locked"])
         self._save_settings()
 

@@ -308,10 +308,12 @@ class Crafting:
         hist = self.history(name)
         units = Sales(observations=len(hist), by_offers=True)      # from the offers screens (units)
         offers = Sales(observations=len(hist))                      # from the list's offer counts
+        duration = self.offer_duration()
         for (t1, _, n1, o1), (t2, _, n2, o2) in zip(hist, hist[1:]):
             hours = (t2 - t1) / 3600
             if o1 and o2:
-                gone, added = _sold_between(o1, o2, hours)
+                gone, added = _sold_between(o1, o2, hours, before_all=n1 is not None and len(o1) >= n1,
+                                            after_all=n2 is not None and len(o2) >= n2, duration=duration)
                 units.sold += gone
                 units.added += added
                 units.hours += hours
@@ -319,6 +321,12 @@ class Crafting:
                 offers.sold += max(0, n1 - n2)
                 offers.hours += hours
         return units if units.hours else offers
+
+    def offer_duration(self):
+        """How long an offer stays on the market: the longest time left seen on any offers screen (None before
+        any)."""
+        return max((o[3] for s in self.samples for item in s["items"].values() for o in item.get("offers") or []
+                    if o[3] is not None), default=None)
 
     def supply(self, name):
         """(units on sale, units at the lowest price, more offers than were seen) from the newest sample with this
@@ -464,16 +472,22 @@ def _union(a, b):
     return sorted(out, key=lambda o: (o[0], -o[2]))
 
 
-def _sold_between(before, after, hours):
+def _in_view(offer, shown, everything):
+    """Would this offer be on a screen that showed `shown`? Yes if that screen showed every offer (the list counted
+    no more); else only if it comes strictly before the last one shown, by total (the screen's usual order) and by
+    unit price: at a tie with the last one it may be just out of view."""
+    return everything or (offer[0] < max(o[0] for o in shown) and offer[1] < max(o[1] for o in shown))
+
+
+def _sold_between(before, after, hours, before_all=False, after_all=False, duration=None):
     """-> (units gone, units new) between two offers screens of one item.
 
     Gone: earlier offers missing later (matched by price, same or fewer units, and time left lowered by the time
-    passed): bought, or taken down. New: later offers that were not there before. The screen shows the first offers
-    by total ("Sale Price" ascending): an offer beyond the last one shown, by total or by unit price, may just be
-    out of view, so it counts neither way. Offers that expired meanwhile do not count either."""
+    passed): bought, or taken down. New: later offers that were not there before. An offer that would not have been
+    in view on the other screen counts neither way (_in_view), nor does one that expired meanwhile. A later offer
+    with less time left than one put up after the earlier screen would have (duration = how long offers stay up)
+    was already there, out of view, so it is not new."""
     pool = [list(o) for o in after]
-    after_unit, after_total = max(o[0] for o in after), max(o[1] for o in after)
-    before_unit, before_total = max(o[0] for o in before), max(o[1] for o in before)
     gone = 0
     for unit, total, qty, left in sorted(before, key=lambda o: o[0]):
         expected = None if left is None else left - hours
@@ -485,9 +499,10 @@ def _sold_between(before, after, hours):
             pool.remove(match)
         elif expected is not None and expected <= 0.5:
             continue                                       # expired
-        elif unit <= after_unit and total <= after_total:
+        elif _in_view((unit, total), after, after_all):
             gone += qty
-    new = sum(o[2] for o in pool if o[0] <= before_unit and o[1] <= before_total)
+    new = sum(o[2] for o in pool if _in_view(o, before, before_all) and
+              (duration is None or o[3] is None or o[3] >= duration - hours - TIME_SLACK))
     return gone, new
 
 
