@@ -25,6 +25,7 @@ DEFAULT_PROFESSION = "Cooking"
 TIME_SLACK = 1.5                # hours: the market shows the time left rounded ("2d 17h")
 MIN_RATE_HOURS = 6              # a per-day rate needs samples spanning this long (1 offer in 1 h is not "24 a day")
 MERGE_MINUTES = 15              # shots taken this close to a sample (a page read again later) join it
+THIN_LISTINGS = 2               # this few offers and no sale seen: the lowest price may be anything (6,000,235...)
 TOO_CHEAP = 0.5                 # an offer under half the list's lowest price is a misreading (0, 1 Kinah...)
 
 
@@ -128,6 +129,12 @@ class RecipeRow:
     @property
     def count(self):
         return self.recipe.get("count") or 1
+
+    @property
+    def thin(self):
+        """Too few offers to trust the price (and none seen selling)."""
+        return (self.listings is not None and self.listings <= THIN_LISTINGS
+                and self.sales.verdict()[1] != "good")
 
     @property
     def needs(self):
@@ -541,7 +548,7 @@ class Crafting:
     def recommend(self, rows, n=3):
         """What to cook: recipes you can make that leave money gathering what you can, those seen selling first,
         each by its average profit per attempt."""
-        ok = [r for r in rows if r.can_craft is not False and r.profit is not None and r.profit > 0]
+        ok = [r for r in rows if r.can_craft is not False and r.profit is not None and r.profit > 0 and not r.thin]
         return sorted(ok, key=lambda r: (r.sales.verdict()[1] != "good", -r.profit))[:n]
 
     def _latest_field(self, name, key):
