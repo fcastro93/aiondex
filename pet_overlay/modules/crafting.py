@@ -57,7 +57,7 @@ class CraftingPanel(QWidget):
         elif not crafting.samples:
             self._line(f"Abre el mercado en «{prof.get('market', '…')}», pulsa Escanear en cada página y luego "
                        f"procesa las capturas: verás qué vale la pena craftear.", theme.MUTED)
-        rows = [r for r in crafting.recipe_rows(self.ctl.character_faction()) if r.profit is not None]
+        rows = [r for r in crafting.recipe_rows(self.ctl.crafting_faction()) if r.profit is not None]
         if rows:
             self.content.addWidget(SectionTitle("Más rentable (por craft)", f))
             for row in rows[:ROWS[compact]]:

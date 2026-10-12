@@ -254,7 +254,7 @@ class CraftingWindow(QWidget):
         options.addStretch(1)
         self.body.addLayout(options)
 
-        rows = crafting.recipe_rows(self.ctl.character_faction())
+        rows = crafting.recipe_rows(self.ctl.crafting_faction())
         if query:
             rows = [r for r in rows if query in r.product.lower() or any(query in m.name.lower() for m in r.materials)]
         priced = [r for r in rows if r.sell is not None]

@@ -769,6 +769,17 @@ class Controller(QObject):
             return None
         return self.settings.get("characters", {}).get(self.character.name, {}).get("faction")
 
+    def crafting_faction(self):
+        """Your side for Crafting's recipes (Dark Dragon / Altgard Pepper for Asmodians): the one you set for the
+        character, else the faction the game sends with your gear (3336), else the last character's."""
+        side = self.character_faction()
+        if side:
+            return side
+        gear = self.settings.get("gear", {})
+        name = self.character.name if self.character else self.settings.get("last_character")
+        letter = (gear.get(name) or {}).get("faction")
+        return {"A": "asmodian", "E": "elyos"}.get(letter)
+
     def location_faction(self):
         """Side of the world the player is standing in right now, from the last map entry."""
         return game_map_faction(self.game_map) if self.game_map is not None else None
