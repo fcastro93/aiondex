@@ -10,12 +10,18 @@ unknown header fields; a force (up to 4 parties of 5) is expected to use the sam
   ... u8 3 | u8 slot (1-5) | u32 entity id (0 out of view) | u16 server | u16 | u8 36 | GUID (36 chars) | u32 | u16 |
   u16 server | u8 name length | name | u32 job | ... legion name ... | u32 level | ...
 A list with only you means no party.
+
+0296 (force info, 2026-10-12 before the world boss Gartua) is sent on map entries while you are in a force: a header
+with the force's size (u32 20 = 4 parties of 5) and one record per member in the same shape as 0092's (u8 36 + GUID,
+u32 character id, u16 server, name, u32 job, hp, map, legion, level), so parse_party_info() reads it too. 0092 keeps
+listing only your own party (only you when you are alone in yours), so it must not clear the force.
 """
 import re
 import struct
 
 ROSTER_OPCODE = bytes.fromhex("0297")
 PARTY_INFO_OPCODE = bytes.fromhex("0092")
+FORCE_INFO_OPCODE = bytes.fromhex("0296")
 _GUID = re.compile(rb"\x24[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}")    # u8 36 + GUID
 
 

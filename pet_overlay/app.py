@@ -15,7 +15,7 @@ from .world import MAP_ENTER_OPCODE, SPAWN_OPCODE, WorldTracker, game_map_factio
 from .combat import PLAYER_SPAWN_OPCODE, CombatTracker, parse_player
 from .damage import (DAMAGE_OPCODES, DEATH_OPCODE, READY as DAMAGE_READY, STATS_OPCODE, parse_hp,
                      parse_mp, summon_owner)
-from .roster import PARTY_INFO_OPCODE, ROSTER_OPCODE, parse_party_info, parse_roster
+from .roster import FORCE_INFO_OPCODE, PARTY_INFO_OPCODE, ROSTER_OPCODE, parse_party_info, parse_roster
 from .skills import (CAST_OPCODE, PRESETS_OPCODE, REQUEST_OPCODE, SKILL_LIST_OPCODE, OwnEntityFinder, caster_of,
                      parse_cast, parse_presets, parse_request, parse_skill_list)
 from .tracker import FIELD_LIST_OPCODE, Tracker, parse_field_list
@@ -91,7 +91,7 @@ def _short_state(pet):
 # message kinds counted for the Diagnóstico module
 OP_KIND = {SNAPSHOT_OPCODE: "collection", PROGRESS_OPCODE: "progress", CHARACTER_OPCODE: "character",
            MAP_ENTER_OPCODE: "map", SPAWN_OPCODE: "spawn", REQUEST_OPCODE: "press", SKILL_LIST_OPCODE: "skills",
-           PRESETS_OPCODE: "bar", ROSTER_OPCODE: "roster", PARTY_INFO_OPCODE: "roster",
+           PRESETS_OPCODE: "bar", ROSTER_OPCODE: "roster", PARTY_INFO_OPCODE: "roster", FORCE_INFO_OPCODE: "roster",
            COUNTERS_OPCODE: "status", COUNTER_OPCODE: "status",
            **{op: "combat" for op in DAMAGE_OPCODES}}
 
@@ -107,7 +107,7 @@ class Bridge(QObject):
     npc = Signal(object)             # (eid, npc_id, owner entity id for summons or None, max hp)
     hits = Signal(object)            # [combat.Hit]
     death = Signal(int)
-    roster = Signal(object)          # [(name, server, job, level)] of your party / force
+    roster = Signal(object)          # ("roster" | "party" | "force", [(name, server, job, level)])
     hp = Signal(object)              # (eid, current hp)
     field_list = Signal(object)      # (map id, [tracker.SlotState]) from the game's field boss list
     gear = Signal(object)            # (character name, job, level, faction, {pos: (item, +N, level)}, full list?)
@@ -166,7 +166,7 @@ class Bridge(QObject):
         elif op == ROSTER_OPCODE:
             members = parse_roster(body)
             if members:
-                self.roster.emit(members)
+                self.roster.emit(("roster", members))
         elif op == EXP_OPCODE:
             event = parse_exp(body)
             if event:
@@ -186,7 +186,11 @@ class Bridge(QObject):
         elif op == PARTY_INFO_OPCODE:
             members = parse_party_info(body)
             if members:
-                self.roster.emit(members if len(members) > 1 else [])     # only you: no party
+                self.roster.emit(("party", members if len(members) > 1 else []))     # only you: no party
+        elif op == FORCE_INFO_OPCODE:
+            members = parse_party_info(body)
+            self.feed.group = {m[0] for m in members} | self.feed.group     # allies for the healing
+            self.roster.emit(("force", members))
         elif op == STATS_OPCODE:
             update = parse_hp(body)
             if update:
@@ -367,7 +371,8 @@ class Controller(QObject):
         self._hits_drain = QTimer(self, interval=200, timeout=lambda: self.on_hits(self.bridge.take_hits()))
         self._hits_drain.start()
         self.bridge.death.connect(self.on_death)
-        self.bridge.roster.connect(lambda members: self.combat.set_group([m[0] for m in members]))
+        self._party_names, self._force_names = [], []    # your party and your force (from 0092 / 0296 / 0297)
+        self.bridge.roster.connect(self.on_roster)
         self.bridge.hp.connect(lambda update: self.combat.on_hp(*update))
         self.bridge.own_skill.connect(self.on_own_skill)
         self.gear_db = GearDB(self.data_dir / "gear_items.json")
@@ -767,6 +772,8 @@ class Controller(QObject):
             self.character = info
             return
         self.character = info
+        self._party_names, self._force_names = [], []       # another character: its own groups
+        self.combat.set_group([])
         self.crafting.character = info.name
         self.combat.set_self(info.entity_id, info.name)
         self.tracker.set_server(info.server)
@@ -779,6 +786,19 @@ class Controller(QObject):
         self._save_settings()
         log.info("character %s (server %s, job %s, level %s)", info.name, info.server, info.job, info.level)
         self.refresh()
+
+    def on_roster(self, event):
+        """Your party and force for the DPS meter: the force when you are in one (its contribution against the rest),
+        else your party. The party list (only you when you are alone in your party) never clears the force."""
+        kind, members = event
+        names = [m[0] for m in members]
+        if kind == "force" or (kind == "roster" and len(names) > 5):
+            self._force_names = names
+        else:
+            self._party_names = names
+        self.combat.set_group(self._force_names or self._party_names,
+                              party=self._party_names if self._force_names else None)
+        log.info("group: party %s, force %s", len(self._party_names), len(self._force_names))
 
     def on_own_entity(self, eid):
         """Your entity id, learnt from your own skill presses before the game resent your character: the meter
