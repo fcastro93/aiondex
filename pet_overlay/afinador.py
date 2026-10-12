@@ -6,8 +6,8 @@ from collections import Counter, deque
 from pathlib import Path
 
 from .skills import SLOT_KEYS, OwnSkill, QuickSlot, base_skill, chain_parents, is_basic_attack
-from .tuner import (CALIBRATION_SECONDS, DEFAULT_BINDINGS, Finding, MacroSetup, TunerSession, analyze,
-                    calibration_run, calibration_values, recommend, test_summary)
+from .tuner import (CALIBRATION_KINDS, CALIBRATION_SECONDS, DEFAULT_BINDINGS, Finding, MacroSetup, TunerSession,
+                    analyze, calibration_run, calibration_values, recommend, test_noise, test_summary)
 
 CAST_MATCH_SECONDS = 0.2     # the cast (0238) and the reply to its press (0138) arrive in the same packet
 FRESH_LOADOUT = 15.0         # a skill list this recent belongs to the character that logs in right after it
@@ -358,10 +358,42 @@ class Afinador:
         self.ctl.settings.save()
 
     # --- delay calibration --------------------------------------------------------------------------
+    def calibration_kinds(self):
+        """What can be calibrated with this setup, in the recommended order."""
+        setup = self.setup
+        kinds = []
+        if setup.key_for("macro") and len(setup.ingame) >= 2:
+            kinds.append("hold")
+        if len(setup.keys()) >= 2:
+            kinds.append("gap")
+        if setup.ingame:
+            kinds.append("macro")
+        return [k for k in CALIBRATION_KINDS if k in kinds]
+
+    def calibration_first(self):
+        """What to calibrate first: the hold of the macro key when the last test showed the macro restarting."""
+        kinds = self.calibration_kinds()
+        if self.last_report and self.last_report.starved and "hold" in kinds:
+            return "hold"
+        return kinds[0] if kinds else None
+
     def start_calibration(self, kind):
-        """kind: "macro" (delay of the in-game macro's steps) or "external" (wait between click and macro key)."""
-        self.calibration = {"kind": kind, "values": calibration_values(kind, self.ping_ms), "runs": [],
-                            "running": False}
+        """kind: "hold" / "gap" / "macro", or "all" for every kind in order."""
+        queue = self.calibration_kinds() if kind == "all" else [kind]
+        self.calibration = {"queue": queue[1:], "done": [], "running": False}
+        self._calibrate(queue[0])
+
+    def _calibrate(self, kind):
+        c = self.calibration
+        c.update(kind=kind, values=calibration_values(kind, self.ping_ms, self.setup), runs=[])
+
+    def next_calibration(self):
+        """After saving a result in "Calibrar todo": go on with the next kind (False when finished)."""
+        c = self.calibration
+        if not c or not c["queue"]:
+            return False
+        self._calibrate(c["queue"].pop(0))
+        return True
 
     def calibration_value(self):
         c = self.calibration
@@ -377,16 +409,22 @@ class Afinador:
         c["runs"].append(calibration_run(self.calibration_value(), self.last_report, self.setup))
 
     def calibration_result(self):
-        return recommend(self.calibration["runs"]) if self.calibration else (None, "")
+        if not self.calibration:
+            return None, ""
+        return recommend(self.calibration["runs"], test_noise(self.tests())[0])
 
     def apply_calibration(self, value):
         """Write the winning value into your setup (the game itself still has to be changed by hand)."""
         setup = self.setup
-        if self.calibration["kind"] == "macro":
+        kind = self.calibration["kind"]
+        if kind == "macro":
             for line in setup.ingame:
                 line.delay_ms = value
+        elif kind == "hold":
+            setup.set_hold("macro", value)
         else:
             setup.set_main_gap(value)
+        self.calibration["done"].append((kind, value))
         self.save()
 
     def preset_used(self, session):

@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxL
 from .. import APP_NAME
 from ..diagnostics import ago
 from ..tuner import (BINDINGS, CALIBRATION_SECONDS, ROLES, MacroEvent, MacroLine, fight_windows, is_mouse,
-                     key_events)
+                     key_events, test_noise)
 from . import theme
 from .appmenu import styled_menu
 from .mapwindow import STYLE, badge_label
@@ -574,12 +574,24 @@ class TunerWindow(QWidget):
             grid.addWidget(label(_test_label(i), f.name, theme.GOLD if c == len(cols) else theme.TEXT), 0, c,
                            Qt.AlignRight)
 
-        def row(r, title, values, best=None, fmt=str):
+        noise, measured = test_noise(tests)
+
+        def row(r, title, values, better=None, fmt=str, threshold=None):
+            """Each test against "Antes": green = better beyond chance, orange = worse beyond chance."""
             grid.addWidget(label(title, f.small, theme.MUTED), r, 0)
-            present = [v for v in values if v is not None]
-            top = (max(present) if best == "max" else min(present) if best == "min" else None) if present else None
+            base = values[0]
+            limit = noise if threshold is None else threshold
             for c, v in enumerate(values, 1):
-                color = theme.GAIN if best and v is not None and v == top and len(present) > 1 else theme.TEXT
+                color = theme.TEXT
+                if better and c > 1 and v is not None and base is not None:
+                    if better == "less":
+                        delta = (base - v)
+                        significant = abs(delta) > 0.02           # rejections: two points of share
+                    else:
+                        delta = (v - base) / base if base else 0
+                        significant = abs(delta) > limit
+                    if significant:
+                        color = theme.GAIN if delta > 0 else theme.WARN
                 grid.addWidget(label("—" if v is None else fmt(v), f.body, color), r, c, Qt.AlignRight)
 
         configs = [t["config"] for _, t in cols]
@@ -588,9 +600,10 @@ class TunerWindow(QWidget):
             cell = label(text.replace(" · ", "\n"), f.small, theme.TEXT)
             cell.setAlignment(Qt.AlignRight)
             grid.addWidget(cell, 1, c, Qt.AlignRight)
-        row(2, "Habilidades/s", [t["casts_per_s"] for _, t in cols], "max", lambda v: f"{v:.2f}")
-        row(3, "Daño/s", [t["dps"] for _, t in cols], "max", lambda v: f"{v / 1000:.1f}K")
-        row(4, "Rechazos", [t["rejected"] for _, t in cols], "min", lambda v: f"{100 * v:.0f}%")
+        row(2, "Habilidades/s", [t["casts_per_s"] for _, t in cols], "more", lambda v: f"{v:.2f}")
+        row(3, "Daño/s", [t["dps"] for _, t in cols], "more", lambda v: f"{v / 1000:.1f}K",
+            threshold=max(0.4, noise))       # damage swings much more than casts (crits, long cooldowns)
+        row(4, "Rechazos", [t["rejected"] for _, t in cols], "less", lambda v: f"{100 * v:.0f}%")
         row(5, "Clic", [t["click_share"] for _, t in cols], None, lambda v: f"{100 * v:.0f}%")
         row(6, "Ping", [t["ping"] for _, t in cols], None, lambda v: f"{v:.0f} ms")
         row(7, "Peleando", [t["fight_s"] for _, t in cols], None, lambda v: f"{v:.0f} s")
@@ -603,15 +616,24 @@ class TunerWindow(QWidget):
         if skills:
             grid.addWidget(label("Por minuto", f.small, theme.MUTED), r, 0)
             r += 1
+        def rate(test, sid):
+            return 60 * test["skills"].get(sid, 0) / test["fight_s"] if test["fight_s"] else None
+
         for sid in skills:
-            per_min = [60 * t["skills"].get(sid, 0) / t["fight_s"] if t["fight_s"] else None for _, t in cols]
-            row(r, tuner.skill_name(int(sid)), per_min, "max", lambda v: f"{v:.1f}")
+            # each skill's own chance swing, from tests repeated with the same settings
+            swings = [abs(rate(a, sid) - rate(b, sid)) / max(rate(a, sid), rate(b, sid))
+                      for i, a in enumerate(tests) for b in tests[i + 1:]
+                      if a["config"] == b["config"] and max(rate(a, sid) or 0, rate(b, sid) or 0)]
+            limit = max([0.5, 2 * noise] + swings)
+            row(r, tuner.skill_name(int(sid)), [rate(t, sid) for _, t in cols], "more", lambda v: f"{v:.1f}",
+                threshold=limit)
             r += 1
         grid.setColumnStretch(0, 1)
         self.results.addWidget(table)
-        hint = label("Haz una prueba con tus ajustes de siempre («Antes»), cambia lo que te recomiende el Afinador y "
-                     "pulsa «Probar luego del ajuste»: verde = mejor de la fila. Compara peleas parecidas (mismo "
-                     "objetivo, ~30 s).", f.small, theme.MUTED)
+        source = ("con los mismos ajustes, tus pruebas variaron" if measured else "dos pruebas iguales suelen variar")
+        hint = label(f"Cada prueba se compara con «Antes»: verde = mejor, naranja = peor, blanco = igual dentro del "
+                     f"azar ({source} un {100 * noise:.0f}%). Para afinar más el margen, repite una prueba sin cambiar "
+                     f"nada. Compara peleas parecidas (mismo objetivo, 30–60 s).", f.small, theme.MUTED)
         hint.setWordWrap(True)
         self.results.addWidget(hint)
         reset = QPushButton("Empezar una comparación nueva")
@@ -635,6 +657,27 @@ class TunerWindow(QWidget):
         self.calib_button.setVisible(True)
         _clear(self.calib)
 
+    def _kind_label(self, kind):
+        setup = self.tuner.setup
+        keys = setup.keys()
+        if kind == "hold":
+            return f"Cuánto mantener {setup.key_for('macro') or 'la tecla del macro'} (macro externo)"
+        if kind == "gap":
+            return f"Espera entre {keys[0]} y {keys[1]} (macro externo)" if len(keys) >= 2 else "Espera entre teclas"
+        return "Retraso de los pasos del macro del juego"
+
+    def _kind_where(self, kind):
+        setup = self.tuner.setup
+        keys = setup.keys()
+        if kind == "hold":
+            key = setup.key_for("macro") or "la tecla del macro"
+            return f"en la espera entre «{key} ↓ pulsar» y «{key} ↑ soltar» de tu macro externo"
+        if kind == "gap":
+            pair = f"{keys[0]} y {keys[1]}" if len(keys) >= 2 else "tus dos teclas"
+            return (f"en la espera entre {pair} de tu macro externo (la que va justo después de soltar "
+                    f"{keys[0] if keys else 'la primera'})")
+        return "en el retraso de TODOS los pasos de K → Macro"
+
     def _show_calibration(self):
         f, tuner = self.fonts, self.tuner
         _clear(self.calib)
@@ -647,87 +690,110 @@ class TunerWindow(QWidget):
         col = QVBoxLayout(box)
         col.setContentsMargins(12, 10, 12, 10)
         col.setSpacing(6)
-        col.addWidget(label("Calibrar retrasos", f.name, theme.TEXT))
+
+        def text(value, font=f.small, color=theme.TEXT):
+            lbl = label(value, font, color)
+            lbl.setWordWrap(True)
+            col.addWidget(lbl)
+            return lbl
+
         if c is None:
+            col.addWidget(label("Calibrar retrasos", f.name, theme.TEXT))
             ping = tuner.ping_ms
-            intro = label("Pruebas cortas con distintos retrasos contra el mismo objetivo; AionDex mide tu daño por "
-                          "segundo, lo que se lanza y lo que se pierde en cada una, y te dice el mejor valor."
-                          + (f" Tu ping medido: {ping:.0f} ms." if ping else ""), f.small, theme.MUTED)
-            intro.setWordWrap(True)
-            col.addWidget(intro)
-            for kind, text in (("macro", "Retraso de los pasos del macro del juego"),
-                               ("external", "Espera entre las dos teclas de tu macro externo")):
-                button = QPushButton(text)
+            text("Pruebas cortas con distintos valores contra el mismo objetivo; AionDex mide lo que se lanza, lo "
+                 "que se pierde y tu daño en cada una, y te dice el mejor valor."
+                 + (f" Tu ping medido: {ping:.0f} ms." if ping else ""), color=theme.MUTED)
+            kinds = tuner.calibration_kinds()
+            first = tuner.calibration_first()
+            if first == "hold" and tuner.last_report and tuner.last_report.starved:
+                text(f"Tu última prueba: el macro del juego no pasa del paso 1. Empieza por «{self._kind_label('hold')}»: "
+                     f"hasta que llegue a todos los pasos, el resto de valores no cambia nada.", color=theme.WARN)
+            if len(kinds) > 1:
+                every = QPushButton("Calibrar todo, en orden (recomendado)")
+                every.clicked.connect(lambda: self._choose_kind("all"))
+                col.addWidget(every)
+            for kind in kinds:
+                button = QPushButton(self._kind_label(kind))
                 button.setProperty("tab", True)
                 button.clicked.connect(lambda _=False, k=kind: self._choose_kind(k))
                 col.addWidget(button)
+            if not kinds:
+                text("Añade antes los pasos de tu macro del juego o tu macro externo.", color=theme.MUTED)
             cancel = QPushButton("Cancelar")
             cancel.setProperty("flat", True)
             cancel.clicked.connect(self._close_calibration)
             col.addWidget(cancel, 0, Qt.AlignLeft)
+            self.calib.addWidget(box)
+            return
+
+        stage = len(c["done"]) + 1
+        stages = stage + len(c["queue"])
+        title = self._kind_label(c["kind"])
+        col.addWidget(label(f"Calibrar ({stage} de {stages}): {title}" if stages > 1 else f"Calibrar: {title}",
+                            f.name, theme.TEXT))
+        for kind, value in c["done"]:
+            text(f"✓ {self._kind_label(kind)}: {value} ms", color=theme.GAIN)
+        value = tuner.calibration_value()
+        runs = c["runs"]
+        if runs:
+            col.addWidget(self._runs_table(runs))
+        if value is not None:
+            text(f"Prueba {len(runs) + 1} de {len(c['values'])}: pon {value} ms {self._kind_where(c['kind'])}. Luego "
+                 f"pulsa «Empezar» y pelea {CALIBRATION_SECONDS} s contra el mismo objetivo de siempre (un muñeco de "
+                 f"entrenamiento es lo ideal). AionDex para solo.")
+            start = QPushButton(f"Empezar prueba con {value} ms")
+            start.setEnabled(not c.get("running"))
+            start.clicked.connect(self._start_run)
+            col.addWidget(start)
         else:
-            value = tuner.calibration_value()
-            runs = c["runs"]
-            if runs:
-                col.addWidget(self._runs_table(runs))
-            if value is not None:
-                keys = tuner.setup.keys()
-                pair = f"{keys[0]} y {keys[1]}" if len(keys) >= 2 else "tus dos teclas"
-                where = ("en el retraso de TODOS los pasos de K → Macro" if c["kind"] == "macro" else
-                         f"en la espera entre {pair} de tu macro externo (la que va justo después de soltar "
-                         f"{keys[0] if keys else 'la primera'})")
-                total = len(c["values"])
-                step = label(f"Prueba {len(runs) + 1} de {total}: pon {value} ms {where}. Luego pulsa «Empezar» y "
-                             f"pelea {CALIBRATION_SECONDS} s contra el mismo objetivo de siempre (un muñeco de "
-                             f"entrenamiento es lo ideal). AionDex para solo.", f.small, theme.TEXT)
-                step.setWordWrap(True)
-                col.addWidget(step)
-                start = QPushButton(f"Empezar prueba con {value} ms")
-                start.setEnabled(not c.get("running"))
-                start.clicked.connect(self._start_run)
-                col.addWidget(start)
+            best, reason = tuner.calibration_result()
+            if best:
+                col.addWidget(label(f"Pon {best.value} ms", f.name_big, theme.GAIN))
+                text(reason[0].upper() + reason[1:])
+                follow = f" y seguir con «{self._kind_label(c['queue'][0])}»" if c["queue"] else ""
+                apply = QPushButton(f"Guardar {best.value} ms{follow}")
+                apply.clicked.connect(lambda: self._apply(best.value))
+                col.addWidget(apply)
+                text("Ponlo también en el juego o en tu programa del ratón: AionDex no puede cambiarlo por ti.",
+                     color=theme.MUTED)
             else:
-                best, reason = tuner.calibration_result()
-                if best:
-                    col.addWidget(label(f"Pon {best.value} ms", f.name_big, theme.GAIN))
-                    why = label(reason[0].upper() + reason[1:], f.small, theme.TEXT)
-                    why.setWordWrap(True)
-                    col.addWidget(why)
-                    apply = QPushButton(f"Guardar {best.value} ms en mi configuración")
-                    apply.clicked.connect(lambda: self._apply(best.value))
-                    col.addWidget(apply)
-                    note = label("Ponlo también en el juego o en tu programa del ratón: AionDex no puede cambiarlo "
-                                 "por ti.", f.small, theme.MUTED)
-                    note.setWordWrap(True)
-                    col.addWidget(note)
-                else:
-                    msg = label(reason, f.small, theme.WARN)
-                    msg.setWordWrap(True)
-                    col.addWidget(msg)
-            close = QPushButton("Cerrar calibración")
-            close.setProperty("flat", True)
-            close.clicked.connect(self._close_calibration)
-            col.addWidget(close, 0, Qt.AlignLeft)
+                text(reason, color=theme.WARN)
+                retry = QPushButton("Repetir con valores más altos")
+                retry.clicked.connect(self._retry_higher)
+                col.addWidget(retry)
+        close = QPushButton("Cerrar calibración")
+        close.setProperty("flat", True)
+        close.clicked.connect(self._close_calibration)
+        col.addWidget(close, 0, Qt.AlignLeft)
         self.calib.addWidget(box)
 
     def _runs_table(self, runs):
+        from ..tuner import run_problem
         f = self.fonts
         table = QWidget()
         grid = QGridLayout(table)
         grid.setContentsMargins(0, 0, 0, 0)
-        grid.setHorizontalSpacing(10)
+        grid.setHorizontalSpacing(8)
         grid.setVerticalSpacing(2)
-        for col, head in enumerate(("Retraso", "Daño/s", "Lanz./s", "Rechazos", "Clic")):
-            grid.addWidget(label(head, f.small, theme.MUTED), 0, col, Qt.AlignRight if col else Qt.AlignLeft)
+        for col, head in enumerate(("Valor", "Hab./s", "Daño/s", "Rech.", "Clic", "")):
+            grid.addWidget(label(head, f.small, theme.MUTED), 0, col, Qt.AlignRight if 0 < col < 5 else Qt.AlignLeft)
         for r, run in enumerate(runs, 1):
-            bad = run.missing or run.rejected > 0.05 or (run.click_share is not None and run.click_share < 0.15)
-            color = theme.WARN if bad else theme.TEXT
+            problem = run_problem(run)
+            color = theme.WARN if problem else theme.TEXT
             share = f"{100 * run.click_share:.0f}%" if run.click_share is not None else "—"
-            cells = (f"{run.value} ms", f"{run.dps / 1000:.1f}K", f"{run.casts_per_s:.2f}",
-                     f"{100 * run.rejected:.0f}%", share)
-            for col, text in enumerate(cells):
-                grid.addWidget(label(text, f.body, color), r, col, Qt.AlignRight if col else Qt.AlignLeft)
+            cells = (f"{run.value} ms", f"{run.casts_per_s:.2f}", f"{run.dps / 1000:.1f}K",
+                     f"{100 * run.rejected:.0f}%", share, problem)
+            for col, value in enumerate(cells):
+                grid.addWidget(label(value, f.small if col == 5 else f.body, color), r, col,
+                               Qt.AlignRight if 0 < col < 5 else Qt.AlignLeft)
         return table
+
+    def _retry_higher(self):
+        c = self.tuner.calibration
+        top = max(c["values"])
+        c["values"] = [top * 2, top * 3, top * 4]
+        c["runs"] = []
+        self._show_calibration()
 
     def _choose_kind(self, kind):
         self.tuner.start_calibration(kind)
@@ -747,7 +813,13 @@ class TunerWindow(QWidget):
 
     def _apply(self, value):
         self.tuner.apply_calibration(value)
+        self.tuner.next_calibration()
         self.rebuild()
+        if self.tuner.calibration and not self.tuner.calibration["queue"] and self.tuner.calibration_value() is None:
+            self._close_calibration()
+            self.test_status.setText("Calibración guardada. Haz una prueba con los valores nuevos para compararla "
+                                     "con «Antes».")
+            return
         self._show_calibration()
 
     def _show_report(self, report):

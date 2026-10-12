@@ -150,6 +150,39 @@ class MacroSetup:
                 return None
         return None
 
+    def key_for(self, role):
+        """The key of the external macro that does this in the game ("macro" / "click"), or None."""
+        return next((k for k in self.keys() if self.role(k) == role), None)
+
+    def _hold_span(self, key):
+        """(index of the key's press, index of its release) in the events, or None."""
+        down = next((i for i, ev in enumerate(self.events) if ev.kind == "down" and ev.key == key), None)
+        if down is None:
+            return None
+        up = next((i for i in range(down + 1, len(self.events))
+                   if self.events[i].kind == "up" and self.events[i].key == key), None)
+        return (down, up) if up is not None else None
+
+    def hold_of(self, role):
+        key = self.key_for(role)
+        span = self._hold_span(key) if key else None
+        return sum(ev.ms for ev in self.events[span[0] + 1:span[1]] if ev.kind == "wait") if span else None
+
+    def set_hold(self, role, ms):
+        """How long the external macro keeps that key down (the waits between its press and its release)."""
+        key = self.key_for(role)
+        span = self._hold_span(key) if key else None
+        if not span:
+            return
+        down, up = span
+        waits = [i for i in range(down + 1, up) if self.events[i].kind == "wait"]
+        if not waits:
+            self.events.insert(down + 1, MacroEvent("wait", ms=ms))
+            return
+        self.events[waits[0]].ms = ms
+        for i in reversed(waits[1:]):
+            del self.events[i]
+
     def main_gap(self):
         i = self.gap_index()
         return self.events[i].ms if i is not None else 0
@@ -215,6 +248,7 @@ class Report:
     idle_gaps: int
     findings: list
     ping_ms: float | None = None
+    starved: list = field(default_factory=list)   # macro steps that (almost) never ran
     dps: float = 0.0            # your damage per second of fighting
     casts_per_s: float = 0.0
     click_share: float | None = None    # click casts / (click + macro casts), when the external macro uses both
@@ -316,21 +350,25 @@ def analyze(session, setup, name=lambda sid: f"#{sid}", click_skills=()):
                 _external_conflict_advice(setup, presses)))
 
     # 2. only the first step of the in-game macro runs (the macro restarts every time its key is pressed again)
+    starved, starved_skills = [], set()
     if len(lines) >= 2 and len(accepted) >= 10:
         per_step = [sum(fired[s] for s in line.skills) for line in lines]
-        starved = [i for i, line in enumerate(lines[1:], 2)
-                   if per_step[i - 1] < 0.3 * per_step[0] and any(rows[s].ready_s >= 5 or rows[s].fired == 0
-                                                                  for s in line.skills if s in rows)]
-        if per_step[0] >= 5 and starved:
+        candidates = [i for i, line in enumerate(lines[1:], 2)
+                      if per_step[i - 1] < 0.3 * per_step[0] and any(rows[s].ready_s >= 5 or rows[s].fired == 0
+                                                                     for s in line.skills if s in rows)]
+        if per_step[0] >= 5 and candidates:
+            starved = candidates
+            starved_skills = {s for i in starved for s in lines[i - 1].skills}
             steps = ", ".join(str(i) for i in starved)
-            findings.append(Finding(
+            skills = ", ".join(name(s) for s in lines[starved[0] - 1].skills)
+            findings.insert(0, Finding(
                 "bad", f"Tu macro del juego casi nunca llega al paso {steps}: el paso 1 se lanzó {per_step[0]} veces "
-                       f"y el {starved[0]} solo {per_step[starved[0] - 1]}.",
-                _restart_advice(setup)))
+                       f"y el {starved[0]} ({skills}) solo {per_step[starved[0] - 1]}.",
+                _restart_advice(setup, starved)))
 
-    # 3. macro skills that never fired
+    # 3. macro skills that never fired (not the ones of a step the macro never reaches: finding 2 covers them)
     for s in step_of:
-        if fired[s] == 0:
+        if fired[s] == 0 and s not in starved_skills:
             if rejected[s]:
                 text = f"{name(s)} está en tu macro del juego: se pulsó {rejected[s]} veces y el juego la rechazó siempre."
             else:
@@ -339,6 +377,8 @@ def analyze(session, setup, name=lambda sid: f"#{sid}", click_skills=()):
 
     # 4. macro skills that sat ready (fired far below what their cooldown allows): what took their turn?
     for s in step_of:
+        if s in starved_skills:
+            continue
         row = rows[s]
         if row.fired and row.possible and row.possible >= 3 and row.fired / row.possible < 0.6:
             level = "bad" if row.fired / row.possible < 0.35 else "warn"
@@ -392,26 +432,44 @@ def analyze(session, setup, name=lambda sid: f"#{sid}", click_skills=()):
     n_macro = sum(fired[s] for s in step_of)
     share = n_click / (n_click + n_macro) if uses_click and uses_macro and n_click + n_macro else None
     return Report(session.duration, fight_s, len(accepted), n_rej, list(rows.values()), median_ms, idle, findings,
-                  ping, session.damage / fight_s if fight_s else 0.0, len(accepted) / fight_s if fight_s else 0.0,
-                  share)
+                  ping, starved, session.damage / fight_s if fight_s else 0.0,
+                  len(accepted) / fight_s if fight_s else 0.0, share)
 
 
 # --- delay calibration --------------------------------------------------------------------------------
 CALIBRATION_SECONDS = 30        # fighting time per run
 REJECT_LIMIT = 0.05             # a run that loses more presses than this is not a candidate
 CLICK_SHARE_MIN = 0.15          # with click + macro, both parts must fire at least this much
-CAST_TIE = 0.06                 # runs within 6 % of the best cast rate are a tie (same settings vary ~6 %)
+CAST_TIE = 0.12                 # runs closer than this to the best cast rate are a tie: two of the user's tests
+                                # with the very same settings differed 12 % (2.08 vs 1.84 casts/s over 60 s)
+NOISE_MIN, NOISE_MAX = 0.06, 0.30
 # Runs are ranked by casts per second, not DPS: the delay decides how many presses get through, and over half a
 # minute DPS swings ~40 % by itself (crits, when the long cooldowns line up), casts per second only ~5 %.
 
 
-def calibration_values(kind, ping_ms=None):
-    """Delays to try. In-game macro: the delay of every step; external: the wait between the click and the macro key.
-    Longer ladders for higher pings, since a press needs about one ping to be answered."""
+# What can be calibrated, in the order "Calibrar todo" goes: first make the in-game macro reach all its steps
+# (how long the external macro holds its key), then the wait between the external macro's two keys, then the
+# delay of the in-game macro's steps.
+CALIBRATION_KINDS = ("hold", "gap", "macro")
+
+
+def calibration_values(kind, ping_ms=None, setup=None):
+    """Values to try. Longer ladders for higher pings, since a press needs about one ping to be answered."""
     ping = ping_ms or 60
     if kind == "macro":
         return [10, 20, 30, 50] if ping < 60 else [10, 30, 50, 80] if ping < 130 else [20, 50, 80, 120]
+    if kind == "hold":
+        # the macro key must stay down long enough for the game to walk through every step's delay
+        need = hold_needed(setup) if setup else 30
+        return sorted({10, max(20, need), max(40, 2 * need), max(100, 4 * need)})
     return [20, 40, 60, 100] if ping < 60 else [20, 50, 80, 120] if ping < 130 else [40, 80, 120, 160]
+
+
+def hold_needed(setup, upto=None):
+    """Rough minimum hold of the macro key to reach step `upto` (default: the last): the delays of the steps
+    before it, plus a margin for the game to read the key."""
+    lines = setup.ingame[:(upto or len(setup.ingame))]
+    return sum(line.delay_ms for line in lines[:-1]) + 30 if len(lines) > 1 else 30
 
 
 @dataclass
@@ -422,13 +480,13 @@ class CalibrationRun:
     casts_per_s: float
     rejected: float             # share of presses the game rejected
     click_share: float | None
-    missing: list               # macro skills that never fired
+    missing: list               # macro steps (1-based) that never fired
 
 
 def calibration_run(value, report, setup):
     presses = report.total + report.rejected
     fired = {row.skill for row in report.rows if row.fired}
-    missing = [line.skills[0] for line in setup.ingame if line.skills and not fired & set(line.skills)]
+    missing = [i for i, line in enumerate(setup.ingame, 1) if line.skills and not fired & set(line.skills)]
     return CalibrationRun(value, report.fight_s, report.dps, report.casts_per_s,
                           report.rejected / presses if presses else 0.0, report.click_share, missing)
 
@@ -440,6 +498,9 @@ def setup_label(setup):
         parts.append("macro " + "/".join(str(line.delay_ms) for line in setup.ingame))
     if len(setup.keys()) >= 2:
         parts.append(f"espera {setup.main_gap()}")
+    key, hold = setup.key_for("macro"), setup.hold_of("macro")
+    if key and hold is not None:
+        parts.append(f"{key} {hold}")
     return " · ".join(parts) or "sin macro"
 
 
@@ -453,27 +514,58 @@ def test_summary(report, setup):
             "where": {str(row.skill): row.where for row in report.rows if row.where}}
 
 
-def recommend(runs):
-    """(best run or None, reason) — the most casts per second among runs that lose nothing; ties go to the
-    shorter delay."""
+def run_problem(run):
+    """Why a run cannot be recommended ("" if it can)."""
+    if run.fight_s < CALIBRATION_SECONDS * 0.6:
+        return "prueba corta"
+    if run.missing:
+        return "sin paso " + ", ".join(map(str, run.missing))
+    if run.rejected > REJECT_LIMIT:
+        return f"{100 * run.rejected:.0f}% rechazos"
+    if run.click_share is not None and run.click_share < CLICK_SHARE_MIN:
+        return "clic casi no sale"
+    if run.click_share is not None and run.click_share > 1 - CLICK_SHARE_MIN:
+        return "macro casi no sale"
+    return ""
+
+
+def test_noise(tests):
+    """How much two tests differ by chance: the largest difference in casts/s between tests with the same settings
+    (the player's own data), else CAST_TIE."""
+    diffs = []
+    for i, a in enumerate(tests):
+        for b in tests[i + 1:]:
+            if a["config"] == b["config"] and a["casts_per_s"] and b["casts_per_s"]:
+                diffs.append(abs(a["casts_per_s"] - b["casts_per_s"]) / max(a["casts_per_s"], b["casts_per_s"]))
+    noise = max(diffs) if diffs else CAST_TIE
+    return min(NOISE_MAX, max(NOISE_MIN, noise)), bool(diffs)
+
+
+def recommend(runs, noise=CAST_TIE):
+    """(best run or None, reason) — the most casts per second among runs that lose nothing; runs within the noise
+    of the best are a tie, and ties go to the shorter delay."""
     if not runs:
         return None, ""
-    valid = [r for r in runs if r.fight_s >= CALIBRATION_SECONDS * 0.6 and r.rejected <= REJECT_LIMIT
-             and not r.missing and (r.click_share is None or r.click_share >= CLICK_SHARE_MIN)]
+    valid = [r for r in runs if not run_problem(r)]
+    bad = [r for r in runs if run_problem(r)]
+    excluded = ""
+    if bad:
+        excluded = " Descartados: " + "; ".join(f"{r.value} ms ({run_problem(r)})" for r in bad) + "."
     if not valid:
-        return None, ("Con ninguno de los valores salió todo bien (pulsaciones rechazadas, una parte que no sale o "
-                      "pruebas demasiado cortas). Repite con valores más altos.")
+        return None, ("Con ninguno de los valores salió todo bien." + excluded +
+                      " Repite la calibración: probará valores más altos.")
     top = max(r.casts_per_s for r in valid)
-    best = min((r for r in valid if r.casts_per_s >= top * (1 - CAST_TIE)), key=lambda r: r.value)
+    best = min((r for r in valid if r.casts_per_s >= top * (1 - noise)), key=lambda r: r.value)
     reason = (f"con {best.value} ms salieron {best.casts_per_s:.2f} habilidades por segundo sin perder "
               f"pulsaciones")
-    slowest = min(runs, key=lambda r: r.casts_per_s)
+    slowest = min(valid, key=lambda r: r.casts_per_s)
     gain = best.casts_per_s / slowest.casts_per_s - 1 if slowest.casts_per_s else 0
-    if slowest is not best and gain >= CAST_TIE:
+    if slowest is not best and gain >= noise:
         reason += f" ({100 * gain:.0f}% más que con {slowest.value} ms)"
     elif len(valid) > 1:
-        reason += "; los demás valores rinden casi igual, así que conviene el más bajo"
-    return best, reason + "."
+        reason += (f"; los demás valores válidos rinden igual dentro del margen de azar (±{100 * noise:.0f}%), así "
+                   f"que conviene el más bajo")
+    return best, reason + "." + excluded
 
 
 def _masked_priority(skills, accepted, cooldowns, prior):
@@ -570,13 +662,16 @@ def _ready_advice(sid, setup, busy, step_of, cooldowns, name, click=frozenset())
             f"de pulsarla aparte.")
 
 
-def _restart_advice(setup):
-    ext = next((s for s in setup.external if s.key == "macro"), None)
-    if ext and setup.external_repeat:
-        return (f"Tu macro externo pulsa y suelta la tecla del macro (la mantiene {ext.hold_ms} ms): cada vez que la "
-                f"vuelve a pulsar, el macro del juego empieza otra vez desde el paso 1. En Synapse/iCUE haz que la "
-                f"tecla del macro se mantenga pulsada mientras tienes el botón presionado, y deja que el macro "
-                f"externo solo repita el clic izquierdo.")
+def _restart_advice(setup, starved=()):
+    key = setup.key_for("macro")
+    hold = setup.hold_of("macro")
+    if key and hold is not None and setup.external_repeat:
+        need = hold_needed(setup, max(starved) if starved else None)
+        return (f"Tu macro externo pulsa {key} y la suelta a los {hold} ms; cada vez que la vuelve a pulsar, el macro "
+                f"del juego empieza otra vez desde el paso 1, y en {hold} ms no le da tiempo a llegar al siguiente "
+                f"(con tus retrasos necesita unos {need} ms). Usa «Calibrar retrasos → Cuánto mantener {key}» para "
+                f"medir el valor exacto, o haz que {key} se quede pulsada mientras mantienes el botón y repite solo "
+                f"el clic.")
     return ("Mantén la tecla del macro pulsada sin soltarla: al soltarla, el macro del juego se detiene y al volver "
             "a pulsar empieza desde el paso 1. Si el paso 1 tiene una habilidad sin recarga, ponla al final.")
 
