@@ -6,8 +6,8 @@ from dataclasses import dataclass, field
 
 from PySide6.QtCore import QRect, QRectF, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QPainter, QPixmap
-from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QHeaderView, QLineEdit,
-                               QPushButton, QSplitter, QStyledItemDelegate, QTableWidget, QTableWidgetItem,
+from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QFrame, QHBoxLayout, QHeaderView,
+                               QLineEdit, QPushButton, QSplitter, QStyledItemDelegate, QTableWidget, QTableWidgetItem,
                                QVBoxLayout, QWidget)
 
 from .. import APP_NAME
@@ -388,12 +388,28 @@ class DpsDetailsWindow(QWidget):
         split.setSizes([830, 490])
         root.addWidget(split, 1)
 
+        foot = QHBoxLayout()
         self.note = label("", f.small, theme.MUTED)
         self.note.setWordWrap(True)
-        root.addWidget(self.note)
+        foot.addWidget(self.note, 1)
+        foot.addWidget(label("En el overlay:", f.small, theme.MUTED))
+        for key, text, tip in (("dps_only_me", "Solo mi barra", "El panel del overlay muestra solo tu barra"),
+                               ("dps_boss_only", "En jefes, solo el daño al jefe",
+                                "Como LOXIN: en peleas contra jefes no cuenta el daño a los adds")):
+            box = QCheckBox(text)
+            box.setToolTip(tip)
+            box.setChecked(bool(self.ctl.settings.get(key, key == "dps_boss_only")))
+            box.toggled.connect(lambda on, k=key: self._overlay_option(k, on))
+            foot.addWidget(box)
+        root.addLayout(foot)
 
         self._timer = QTimer(self, interval=1000, timeout=self._live)
         self.refresh()
+
+    def _overlay_option(self, key, on):
+        self.ctl.settings[key] = on
+        self.ctl.settings.save()
+        self.ctl.refresh()
 
     def showEvent(self, event):
         self._timer.start()

@@ -15,14 +15,16 @@ from .widgets import SectionTitle, label
 class PillButton(QLabel):
     """Clickable pill; the overlay shell calls on_click on a plain click."""
 
-    def __init__(self, text, fonts, on_click, enabled=True):
+    def __init__(self, text, fonts, on_click, enabled=True, small=False):
         super().__init__(text)
-        self.setFont(fonts.name)
+        self.setFont(fonts.small if small else fonts.name)
         self.setAlignment(Qt.AlignCenter)
         self.enabled = enabled
         self.on_click = on_click if enabled else (lambda: None)
         self.setCursor(Qt.PointingHandCursor if enabled else Qt.ArrowCursor)
-        self.setContentsMargins(fonts.px(14), fonts.px(5), fonts.px(14), fonts.px(5))
+        pad = (10, 3) if small else (14, 5)
+        self.radius = fonts.px(9 if small else 12)
+        self.setContentsMargins(fonts.px(pad[0]), fonts.px(pad[1]), fonts.px(pad[0]), fonts.px(pad[1]))
         self._style(False)
 
     def _style(self, hover):
@@ -30,7 +32,7 @@ class PillButton(QLabel):
             bg, fg = "rgba(255,255,255,0.06)", theme.MUTED.name()
         else:
             bg, fg = ("#3fd3ff" if hover else theme.ACCENT.name()), "#06101f"
-        self.setStyleSheet(f"background: {bg}; color: {fg}; border-radius: 12px;")
+        self.setStyleSheet(f"background: {bg}; color: {fg}; border-radius: {self.radius}px;")
 
     def enterEvent(self, _):
         self._style(True)

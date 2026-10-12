@@ -1,7 +1,7 @@
 from . import Module, ModuleView
 from ..ui import theme
 from ..ui.appmenu import glyph_icon
-from ..ui.dps_panel import DpsPanel, mmss, short_number
+from ..ui.dps_panel import DpsPanel, short_number
 
 GLYPH_SWORD = ""      # lightning bolt in Segoe MDL2/Fluent
 
@@ -29,5 +29,5 @@ class DpsModule(Module):
                 summary = f"{short_number(me.by_target[enc.main_target_eid] / enc.duration)}/s"
             else:
                 summary = f"{short_number(enc.dps(me))}/s" if me else ""
-            footer = f"{'Pelea terminada' if enc.ended else 'En combate'} · {mmss(enc.duration)}"
+            footer = ""                  # the fight time is in the panel's first row
         return ModuleView(summary=summary, footer=footer)
