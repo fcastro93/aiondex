@@ -1,8 +1,8 @@
 """Pet map window: where a pet's monsters spawn, and which other pets share those zones."""
 from PySide6.QtCore import QSize, Qt, QStringListModel
 from PySide6.QtGui import QColor, QIcon, QPixmap
-from PySide6.QtWidgets import (QComboBox, QCompleter, QFrame, QHBoxLayout, QLabel, QLineEdit, QScrollArea,
-                               QTabBar, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QComboBox, QCompleter, QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton,
+                               QScrollArea, QTabBar, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
 from ..paths import ASSETS_DIR, DATA_DIR
@@ -93,6 +93,8 @@ class MapWindow(QWidget):
         self.source = None          # monster slug selected in "Dónde farmear"
         self.map_id = None
         self.colors = {}
+        self.highlight = None            # a pet of the zone whose dots stand out (clicked in the list or the map)
+        self._other_rows = {}
 
         root = QHBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -169,6 +171,7 @@ class MapWindow(QWidget):
     # --- public ------------------------------------------------------------------------------
     def show_pet(self, pet_id, source=None):
         self.pet_id, self.source = pet_id, source
+        self.highlight = None            # another pet of the zone whose dots stand out
         self._rebuild_tabs()
         self._rebuild_panel()
         self._plot()
@@ -267,7 +270,8 @@ class MapWindow(QWidget):
                 for m in mob["maps"]:
                     if m["map"] == self.map_id:
                         for x, y in m["spawns"]:
-                            self.view.add_marker(x, y, color, 4.5, tip, on_click=lambda p=pid: self.show_pet(p))
+                            self.view.add_marker(x, y, color, 4.5, tip + "\n(clic: resaltar sus puntos)",
+                                                 on_click=lambda p=pid: self._toggle_highlight(p), group=pid)
 
         focus_pts = []
         for src, mob in self._sources():
@@ -279,11 +283,31 @@ class MapWindow(QWidget):
                 for x, y in m["spawns"]:
                     self.view.add_marker(x, y, theme.GOLD, 6.5 if selected else 5, tip,
                                          on_click=lambda s=src["monster"]: self.show_pet(self.pet_id, s),
-                                         ring=selected and self.source is not None, z=200 if selected else 150)
+                                         ring=selected and self.source is not None, z=200 if selected else 150,
+                                         group=("main", src["monster"]))
                     if selected:
                         focus_pts.append((x, y))
         if refocus:
             self.view.focus_points(focus_pts)
+        self._apply_emphasis()
+
+    def _apply_emphasis(self):
+        """A pet of the zone picked: its dots outlined, the rest faded. One monster of the shown pet picked: the
+        same with its dots. Nothing picked: all as usual."""
+        if getattr(self, "highlight", None) is not None:
+            self.view.emphasize(lambda g: g == self.highlight)
+        elif self.source is not None:
+            self.view.emphasize(lambda g: g == ("main", self.source))
+        else:
+            self.view.emphasize(None)
+
+    def _toggle_highlight(self, pid):
+        self.highlight = None if self.highlight == pid else pid
+        self._apply_emphasis()
+        for opid, rows in self._other_rows.items():
+            for row in rows:
+                row._selected = opid == self.highlight
+                row._paint(False)
 
     def _zones(self):
         zones = set()
@@ -387,8 +411,13 @@ class MapWindow(QWidget):
             self.panel.addWidget(item)
 
         zones = self._zones()
+        self._other_rows = {}
         if zones:
             self._section("En esta zona también")
+            hint = label("Clic en un pet: resalta sus puntos en el mapa (otro clic lo quita). «Ver»: abrir ese pet.",
+                         f.small, theme.MUTED)
+            hint.setWordWrap(True)
+            self.panel.addWidget(hint)
             for zslug in sorted(zones, key=lambda s: self.data.zones[s]["name"]):
                 zone = self.data.zones[zslug]
                 found = self.data.pets_in_zones([zslug], exclude={pid})
@@ -411,7 +440,9 @@ class MapWindow(QWidget):
     def _other_row(self, pid, mob_slugs):
         f = self.fonts
         pet = self.ctl.collection.pets.get(pid)
-        item = Clickable(lambda: self.show_pet(pid))
+        item = Clickable(lambda: self._toggle_highlight(pid), selected=pid == getattr(self, "highlight", None))
+        item.setToolTip("Clic: resaltar sus puntos en el mapa")
+        self._other_rows.setdefault(pid, []).append(item)
         lay = QHBoxLayout(item)
         lay.setContentsMargins(6, 4, 8, 4)
         lay.setSpacing(8)
@@ -426,6 +457,13 @@ class MapWindow(QWidget):
         missing = pet is None or pet.level == 0
         lay.addWidget(label("Te falta" if missing else self._progress(pid), f.small,
                             theme.WARN if missing else theme.TEXT))
+        see = QPushButton("Ver")
+        see.setStyleSheet(f"QPushButton {{ background: transparent; border: none; color: {theme.ACCENT.name()}; "
+                          f"padding: 2px 6px; }} QPushButton:hover {{ color: #3fd3ff; }}")
+        see.setCursor(Qt.PointingHandCursor)
+        see.setToolTip("Abrir este pet en el mapa")
+        see.clicked.connect(lambda _=False: self.show_pet(pid))
+        lay.addWidget(see)
         return item
 
 

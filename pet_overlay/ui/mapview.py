@@ -18,19 +18,32 @@ class Marker(QGraphicsEllipseItem):
         self.setPos(x * WORLD, y * WORLD)
         self.setFlag(QGraphicsItem.ItemIgnoresTransformations)
         self.setBrush(QBrush(color))
-        self.setPen(QPen(QColor(255, 255, 255, 230) if ring else QColor(5, 10, 20, 220), 2 if ring else 1.2))
+        self.base_pen = QPen(QColor(255, 255, 255, 230) if ring else QColor(5, 10, 20, 220), 2 if ring else 1.2)
+        self.setPen(self.base_pen)
         self.setToolTip(tooltip)
         self.setAcceptHoverEvents(True)
         self.setCursor(Qt.PointingHandCursor if on_click else Qt.ArrowCursor)
         self.on_click = on_click
         self.base_radius = radius
+        self.radius = radius
+        self.base_z = 100
+        self.group = None            # what the marker stands for (a pet, a monster of the shown pet)
+
+    def set_emphasis(self, mode):
+        """"focus": bigger with a white outline, above the rest; "dim": almost see-through; "normal"."""
+        self.radius = self.base_radius * (1.35 if mode == "focus" else 1.0)
+        self.setRect(-self.radius, -self.radius, 2 * self.radius, 2 * self.radius)
+        self.setOpacity(0.14 if mode == "dim" else 1.0)
+        self.setPen(QPen(QColor(255, 255, 255, 245), 2.6) if mode == "focus" else
+                    QPen(Qt.NoPen) if mode == "dim" else self.base_pen)
+        self.setZValue(self.base_z + (500 if mode == "focus" else 0))
 
     def hoverEnterEvent(self, _):
-        r = self.base_radius * 1.5
+        r = self.radius * 1.5
         self.setRect(-r, -r, 2 * r, 2 * r)
 
     def hoverLeaveEvent(self, _):
-        r = self.base_radius
+        r = self.radius
         self.setRect(-r, -r, 2 * r, 2 * r)
 
     def mousePressEvent(self, event):
@@ -123,12 +136,18 @@ class MapView(QGraphicsView):
             self.scene().removeItem(m)
         self.markers = []
 
-    def add_marker(self, x, y, color, radius, tooltip, on_click=None, ring=False, z=100):
+    def add_marker(self, x, y, color, radius, tooltip, on_click=None, ring=False, z=100, group=None):
         m = Marker(x, y, color, radius, tooltip, on_click, ring)
         m.setZValue(z)
+        m.base_z, m.group = z, group
         self.scene().addItem(m)
         self.markers.append(m)
         return m
+
+    def emphasize(self, wanted):
+        """Outline the markers for which wanted(group) is true and fade the others; wanted None = all normal."""
+        for m in self.markers:
+            m.set_emphasis("normal" if wanted is None else "focus" if wanted(m.group) else "dim")
 
     def focus_points(self, points, max_zoom_scale=1.6):
         """Fit the view around normalized points (or the whole map when empty)."""
