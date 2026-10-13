@@ -150,6 +150,18 @@ def number(text):
     return found[0] if found else None
 
 
+def _cell_text(ln, coin_x):
+    """The text of a price cell without the coin icon read as a digit. Prices sit left-aligned after a coin, which
+    the OCR reads as 'S', '0'... or as a digit: '911,950' for 11,950 (Superior Wind Serum, 2026-10-12). A reading
+    that starts where the coin is (the digits start some 2.5 digits to its right) has the coin for its first
+    character. coin_x: where the coin is (the list's "Lowest Sale" title starts there), or None."""
+    text = ln.text.strip()
+    digit = (ln.x1 - ln.x0) / (len(re.sub(r"\s", "", text)) + 1.5)      # one digit's width, the coin taking ~2.5
+    if coin_x is not None and text[:1] in "123456789" and ln.x0 < coin_x + 1.2 * digit:
+        return text[1:]
+    return text
+
+
 def hours_left(text):
     """'2d 17h' / 'ld 8h' / '5h 30m' / '45m' -> hours, or None."""
     t = text.lower().replace("l", "1").replace("i", "1").replace("o", "0")
@@ -286,7 +298,7 @@ def parse(lines, width, known=()):
             prices = _near(lines, a, spacing, lambda ln: _in(ln, lowest, slack * 2) and number(ln.text))
             if names:
                 name = " ".join(ln.text for ln in sorted(names, key=lambda ln: ln.y)).strip()
-                price = number(prices[0].text) if prices else None
+                price = number(_cell_text(prices[0], lowest.x0)) if prices else None
                 screen.rows.append([snap(name, known) or name, number(a.text), price, a.y, spacing])
         return screen
     total = next((ln for ln in lines if ln.text.strip().lower().startswith("sale price") and "per" not in
@@ -448,6 +460,7 @@ def _offer(units, whole, icon):
     wholes = [whole] if whole else []
     if whole and whole >= 10:
         wholes.append(int(str(whole)[1:]))       # a coin read as a digit
+    units = list(units) + [int(str(u)[1:]) for u in units if u >= 10]       # the same in front of the unit price
     for w in wholes:
         for u in units:
             q = round(w / u)
@@ -458,9 +471,10 @@ def _offer(units, whole, icon):
     return None, None
 
 
-def _read_cell(image, x0, x1, y0, y1):
+def _read_cell(image, x0, x1, y0, y1, coin=None):
     """A number from one cell, trying a few crops and sizes: Windows' OCR misses some numbers in a given crop (one
-    250,000,000 was only read without the coin icon at 75%), so the first variant that gives digits wins."""
+    250,000,000 was only read without the coin icon at 75%), so the first variant that gives digits wins. coin: the
+    x of the coin icon in the image, to drop it when it is read as a digit (see _cell_text)."""
     import tempfile
     from pathlib import Path
 
@@ -475,7 +489,11 @@ def _read_cell(image, x0, x1, y0, y1):
                 canvas.paste(g, (100, 100))
                 canvas.convert("RGB").save(cell)
                 lines, _, _ = recognize(cell)
-                value = number(" ".join(ln.text for ln in lines)) if lines else None
+                value = None
+                if lines:
+                    lines = sorted(lines, key=lambda ln: ln.x0)
+                    coin_x = None if coin is None else 100 + (coin - int(left)) * scale
+                    value = number(" ".join([_cell_text(lines[0], coin_x)] + [ln.text for ln in lines[1:]]))
                 if value and value >= 1:
                     return value
     return None
@@ -497,7 +515,8 @@ def read_screen(path, known=()):
                 y, spacing = row[3], row[4]
                 head = lowest.x1 - lowest.x0
                 row[2] = _read_cell(image, (lowest.x0 - width * 0.03, lowest.x0 + head * 0.14),
-                                    min(width, lowest.x1 + width * 0.03), y - spacing * 0.35, y + spacing * 0.5)
+                                    min(width, lowest.x1 + width * 0.03), y - spacing * 0.35, y + spacing * 0.5,
+                                    coin=lowest.x0)
         screen.rows = [tuple(r[:3]) for r in screen.rows if r[2]]
     else:
         screen.rows = [tuple(r) for r in screen.rows]
