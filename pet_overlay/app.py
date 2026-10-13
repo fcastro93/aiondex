@@ -121,6 +121,8 @@ OP_KIND = {SNAPSHOT_OPCODE: "collection", PROGRESS_OPCODE: "progress", LEVEL_OPC
 
 SESSION_KEEP = 600       # seconds: a restart this short (an update) keeps your group and your entity id
 JUST_MAXED = 300         # seconds a pet that reached max level stays in "Cerca de ti" (shown as MAX)
+HINT_AGAIN = 10          # seconds: a group hint is passed on again this often (the member is still there)
+HINT_GONE = 60           # seconds without hints: a member learnt from them left (random forces come and go)
 WORLD_REGIONS = {1010: "Verteron", 1110: "Altgard"}      # open-world map ids (2136)
 SEAL_REGIONS = {310: "Verteron", 320: "Altgard"}         # sealed dungeons: Seal_Verteron 3100NN, Seal_Altgard 3200NN
 
@@ -168,7 +170,7 @@ class Bridge(QObject):
         self.gear_reader = GearReader()  # your equipped gear (login list + the visible slots of each 3336)
         self.finder = OwnEntityFinder()  # who you are until the game resends your character (and after teleports)
         self._self_stale = True          # the entity id may be unknown or old (start, map change) until a 3336
-        self._hinted = set()             # (kind, entity id) of the group hints already passed on
+        self._hinted = {}                # (kind, entity id) -> when that group hint was last passed on
 
     def take_hits(self):
         with self._hits_lock:
@@ -200,8 +202,9 @@ class Bridge(QObject):
         elif op in MEMBER_HINT_OPCODES:
             eid, _ = read_varint(body, 0)
             key = (MEMBER_HINT_OPCODES[op], eid)
-            if eid and key not in self._hinted:
-                self._hinted.add(key)
+            now = time.time()
+            if eid and now - self._hinted.get(key, 0) >= HINT_AGAIN:     # first time, then "still here" every 10 s
+                self._hinted[key] = now
                 self.member_seen.emit(key)
         elif op == COMBAT_POWER_OPCODE:
             cp = parse_combat_power(body)
@@ -473,6 +476,10 @@ class Controller(QObject):
         self.bridge.member_seen.connect(self.on_member_seen)
         self.bridge.revive_cast.connect(lambda c: self.combat.on_cast(*c))
         self._hinted_eids = {}          # entity id -> "party" of party members not named yet (no spawn seen)
+        self._hint_seen = {}            # member name -> last hint (their HP / buffs the game keeps sending you)
+        self._from_hints = set()        # members AionDex added from those hints (not from the game's group lists)
+        self._hint_check = QTimer(self, interval=15_000, timeout=self._drop_gone_members)
+        self._hint_check.start()
         self._placeholders = {}         # entity id -> "Compañero N" until the game sends that member's name
         self.bridge.npc.connect(self.on_npc)
         self.bridge.hits.connect(self.on_hits)          # simulated fights (preview) still emit directly
@@ -1254,8 +1261,10 @@ class Controller(QObject):
             target.extend(n for n in names if n not in target)
         elif kind == "force" or (kind == "roster" and len(names) > 5):
             self._force_names = names
+            self._from_hints -= set(names)          # the game's own list: they stay until the next list
         else:
             self._party_names = names
+            self._from_hints -= set(names)
         self.combat.set_group(self._force_names or self._party_names,
                               party=self._party_names if self._force_names else None)
         log.info("group: party %s, force %s", len(self._party_names), len(self._force_names))
@@ -1315,6 +1324,9 @@ class Controller(QObject):
             self.combat.rename_player(eid, name)
             self.bridge.feed.players[eid] = name
             self.bridge.feed.group = (self.bridge.feed.group - {old}) | {name}
+            if old in self._from_hints:
+                self._from_hints = (self._from_hints - {old}) | {name}
+                self._hint_seen[name] = self._hint_seen.pop(old, time.time())
             self.combat.set_group(self._force_names or self._party_names,
                                   party=self._party_names if self._force_names else None)
             log.info("group member %s is %s", old, name)
@@ -1329,9 +1341,14 @@ class Controller(QObject):
         """The game keeps sending this player's HP or buffs to you: a member of your group (party for 0e92 / 1a92).
         Added to the group when the lists did not arrive (AionDex started mid-session) or missed them."""
         kind, eid = event
-        if eid == self.combat.self_eid or eid in self._placeholders:
+        if eid in self._placeholders:                # still there (named "Compañero N" until its name arrives)
+            self._hint_seen[self._placeholders[eid]] = time.time()
+            return
+        if eid == self.combat.self_eid:
             return
         name = self.combat.players.get(eid)
+        if name is not None:
+            self._hint_seen[name] = time.time()
         if name is None:
             if kind == "party":                    # 0e92 / 1a92 include you: wait for its name
                 self._hinted_eids[eid] = kind
@@ -1342,7 +1359,27 @@ class Controller(QObject):
             self._placeholders[eid] = name
             self.combat.add_player(eid, name)
             self.bridge.feed.players[eid] = name
+            self._hint_seen[name] = time.time()
         self._add_hinted(kind, name)
+
+    def _drop_gone_members(self):
+        """Members learnt from the hints that the game stopped sending a minute ago left your group (Etienne,
+        2026-10-13: in your party 11:12:39-11:13:36, then gone; the force had grown to 25 of 24)."""
+        now = time.time()
+        gone = [n for n in self._from_hints if now - self._hint_seen.get(n, 0) > HINT_GONE]
+        if not gone:
+            return
+        for name in gone:
+            self._from_hints.discard(name)
+            self.bridge.feed.group.discard(name)
+            for names in (self._party_names, self._force_names):
+                if name in names:
+                    names.remove(name)
+        self.combat.set_group(self._force_names or self._party_names,
+                              party=self._party_names if self._force_names else None)
+        log.info("left the group (no news of them for %s s): %s -> party %s, force %s", HINT_GONE,
+                 ", ".join(gone), len(self._party_names), len(self._force_names))
+        self._save_session()
 
     def _add_hinted(self, kind, name):
         me = self.combat.players.get(self.combat.self_eid) if self.combat.self_eid is not None else None
@@ -1352,6 +1389,8 @@ class Controller(QObject):
             self._party_names.extend(n for n in (me, name) if n and n not in self._party_names)
         if self._force_names:
             self._force_names.extend(n for n in (me, name) if n and n not in self._force_names)
+        self._from_hints.add(name)
+        self._hint_seen.setdefault(name, time.time())
         self.bridge.feed.group |= {name}
         self.combat.set_group(self._force_names or self._party_names,
                               party=self._party_names if self._force_names else None)
