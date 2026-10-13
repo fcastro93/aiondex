@@ -8,6 +8,8 @@ between samples).
 - Shots: data/crafting/shots/*.png, waiting to be processed (with what the OCR read, in shots.json).
 - Samples: data/crafting/samples.json, [{at, profession, shots, items: {name: {lowest, listings, offers}}}];
   offers are the listings screen's rows [unit price, total, quantity, hours left].
+- Shared samples (market_share.py): the other users' of your market, when you share yours. Prices, sales, supply and
+  charts use them with yours (`pool`); a shared price far from every other reading of the item is dropped.
 """
 import json
 import logging
@@ -32,6 +34,8 @@ NEAR_LEVELS = 10                # to level up, recipes this close below your lev
 FAIL_EXP = 7 / 26               # a failed craft gave 7 experience where a success gave 26 (Curry Meat Stirfry, Lv 1)
 EXP_LINK = 30                   # seconds between a craft (6f8d) and its experience (7c8d)
 TOO_CHEAP = 0.5                 # an offer under half the list's lowest price is a misreading (0, 1 Kinah...)
+OUTLIER = 3.0                   # a shared price this many times above or below the item's other readings is dropped
+OUTLIER_HOURS = 72              # ... the readings of these last hours
 
 
 def span_text(hours):
@@ -243,6 +247,8 @@ class Crafting:
         self.character = None            # who you are playing: profession levels are per character
         self._last_craft = None          # (when, profession id, recipe id, success) until its experience arrives
         self.samples = [_clean_sample(s) for s in _load(self.dir / "samples.json", [])]
+        self.shared = []                      # the other users' samples of your market (set by the app)
+        self._pool = None
         self.shots = self._load_shots()
         self.ledger = Ledger(self.dir)        # your sales: Settlement scans (kept as proof) and List scans
         self.ledger.cost_fn = self.real_sale_cost
@@ -561,7 +567,7 @@ class Crafting:
         if key in self._day_cache:
             return self._day_cache[key]
         seen = {}
-        for s in self.samples:
+        for s in self.pool:
             if start <= s["at"] < end:
                 for name, item in s["items"].items():
                     if item.get("lowest"):
@@ -699,6 +705,7 @@ class Crafting:
             sample = {"at": taken, "profession": self.profession, "shots": len(shots), "items": items, "tax": tax}
             self.samples.append(sample)
             self.samples.sort(key=lambda s: s["at"])
+        self._pool = None
         self._save_samples()
         for shot in shots:
             self.remove_shot(shot)
@@ -706,21 +713,48 @@ class Crafting:
 
     def delete_sample(self, sample):
         self.samples = [s for s in self.samples if s is not sample]
+        self._pool = None
         self._save_samples()
+
+    def set_shared(self, samples):
+        """The other users' samples of your market ([] when you do not share)."""
+        self.shared = samples
+        self._pool = None
+        self._day_cache.clear()
+
+    @property
+    def pool(self):
+        """Your samples and the other users' of your market, oldest first."""
+        if not self.shared:
+            return self.samples
+        if self._pool is None:
+            self._pool = sorted(self.samples + _agreeing(self.samples, self.shared), key=lambda s: s["at"])
+        return self._pool
+
+    @property
+    def shared_count(self):
+        return len(self.pool) - len(self.samples)
+
+    def price_is_shared(self, name, at=None):
+        """True when the price used for an item comes from another user's sample."""
+        for s in reversed(self.pool):
+            if (at is None or s["at"] <= at) and s["items"].get(name, {}).get("lowest"):
+                return bool(s.get("shared"))
+        return False
 
     # --- prices and sales -------------------------------------------------------------------------------
     @property
     def fee(self):
         """The market's tax as last read from its screen, else 10%."""
-        return next((s["tax"] for s in reversed(self.samples) if s.get("tax") is not None), FEE)
+        return next((s["tax"] for s in reversed(self.samples + self.shared) if s.get("tax") is not None), FEE)
 
     def latest_prices(self, at=None):
         """name -> (lowest price, when) from the newest sample that has it (with `at`: the newest one taken before
         that moment, so a sale is costed with the prices of its time; the oldest samples when none is older)."""
         out = {}
-        samples = self.samples
+        samples = self.pool
         if at is not None:
-            samples = [s for s in self.samples if s["at"] <= at] or self.samples[:1]
+            samples = [s for s in samples if s["at"] <= at] or samples[:1]
         for s in samples:
             for name, item in s["items"].items():
                 if item.get("lowest"):
@@ -731,7 +765,7 @@ class Crafting:
         """[(when, lowest, listings, offers)] of one item, oldest first."""
         return [(s["at"], s["items"][name].get("lowest"), s["items"][name].get("listings"),
                  s["items"][name].get("offers") or [])
-                for s in self.samples if name in s["items"]]
+                for s in self.pool if name in s["items"]]
 
     def sales(self, name):
         """What disappeared from the market between consecutive samples of this item: sold (or taken down)."""
@@ -755,13 +789,13 @@ class Crafting:
     def offer_duration(self):
         """How long an offer stays on the market: the longest time left seen on any offers screen (None before
         any)."""
-        return max((o[3] for s in self.samples for item in s["items"].values() for o in item.get("offers") or []
+        return max((o[3] for s in self.pool for item in s["items"].values() for o in item.get("offers") or []
                     if o[3] is not None), default=None)
 
     def supply(self, name):
         """(units on sale, units at the lowest price, more offers than were seen) from the newest sample with this
         item, if its offers screen was scanned then; else None."""
-        s = next((s for s in reversed(self.samples) if name in s["items"]), None)
+        s = next((s for s in reversed(self.pool) if name in s["items"]), None)
         item = s["items"][name] if s else {}
         offers = item.get("offers")
         if not offers:
@@ -872,7 +906,7 @@ class Crafting:
         return sorted(ok, key=lambda r: (r.sales.verdict()[1] != "good", -r.profit))[:n]
 
     def _latest_field(self, name, key):
-        for s in reversed(self.samples):
+        for s in reversed(self.pool):
             if name in s["items"] and s["items"][name].get(key) is not None:
                 return s["items"][name][key]
         return None
@@ -981,6 +1015,33 @@ def _clean_item(item):
 def _clean_sample(sample):
     sample["items"] = {name: _clean_item(item) for name, item in sample.get("items", {}).items()}
     return sample
+
+
+def _agreeing(own, shared):
+    """The other users' samples without the prices that disagree a lot with the item's other readings: over OUTLIER
+    times above or below their median in the last OUTLIER_HOURS (a misreading like 911,950 for 11,950, or a fake).
+    An item needs 3 readings for this; with fewer, a shared price is kept."""
+    cut = max((s["at"] for s in own + shared), default=0) - 2 * OUTLIER_HOURS * 3600
+    seen = {}
+    for s in own + shared:
+        if s["at"] >= cut:
+            for name, item in s.get("items", {}).items():
+                if item.get("lowest"):
+                    seen.setdefault(name, []).append(item["lowest"])
+    middle = {name: sorted(v)[len(v) // 2] for name, v in seen.items() if len(v) >= 3}
+    out = []
+    for s in shared:
+        items = {}
+        for name, item in s.get("items", {}).items():
+            item = _clean_item(dict(item))
+            low, mid = item.get("lowest"), middle.get(name)
+            if low and mid and (low > mid * OUTLIER or low * OUTLIER < mid):
+                continue
+            if item.get("lowest") or item.get("offers"):
+                items[name] = item
+        if items:
+            out.append(dict(s, items=items))
+    return out
 
 
 SORT_KEYS = {          # column -> (value of a row, best first by default)

@@ -30,6 +30,8 @@ DEFAULTS = {
     "sounds": {},           # alert sound -> {"volume": 0-100, "muted": bool}
     "gear": {},             # character name -> {"at", "job", "level", "faction", "slots": {pos: [item, +N, level]}}
     "crafting": {},         # profession, levels by profession, your prices for materials, sort, show_unpriced
+    "market_share": None,   # share your market samples and use the others' (None = not asked yet)
+    "install_id": "",       # random id of this install for the shared samples (the server keeps only its hash)
     "status": {},
     "players": {},          # the players window's filters: min_cp, min_ilvl           # alerts on, membership, character name -> {"at", "tickets": {id: [count, bonus, ms, at]}}
     "hotkeys": {

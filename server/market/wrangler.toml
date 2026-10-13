@@ -1,0 +1,17 @@
+# AionDex shared market samples: a Cloudflare Worker + D1 database (free plan).
+# Deploy: npx wrangler@4.149.0 deploy   ·   schema: npx wrangler@4.149.0 d1 execute aiondex-market --remote --file schema.sql
+name = "aiondex-market"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "aiondex-market"
+database_id = "c5a703db-cab8-4437-9ea1-db1fd5a81bde"
+
+[triggers]
+crons = ["0 4 * * *"]          # daily: delete samples older than 30 days
+
+[observability]
+enabled = false                # no request logs kept

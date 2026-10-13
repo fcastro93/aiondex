@@ -28,6 +28,7 @@ from .skills import (CAST_OPCODE, PRESETS_OPCODE, REQUEST_OPCODE, SKILL_LIST_OPC
                      parse_cast, parse_presets, parse_request, parse_skill_list)
 from .tracker import FIELD_LIST_OPCODE, Tracker, parse_field_list
 from .crafting import Crafting
+from .market_share import SYNC_SECONDS as SHARE_SYNC_SECONDS, MarketShare
 from .gathering import Gathering
 from .professions import CRAFT_OPCODE, EXP_OPCODE, level_text, parse_craft, parse_exp, parse_levels
 from .status import (ALERTS as STATUS_ALERTS, LIST_OPCODE as COUNTERS_OPCODE, UPDATE_OPCODE as COUNTER_OPCODE, Status,
@@ -478,6 +479,12 @@ class Controller(QObject):
         self.bridge.field_list.connect(lambda event: self._tracker_changed(self.tracker.on_field_list(*event)))
         self.crafting = Crafting(self.data_dir, self.settings)
         self.crafting_window = None
+        self.market_share = MarketShare(self.data_dir, self.settings, online=self.persist)
+        self.market_share.changed.connect(self._shared_changed)
+        self._share_timer = QTimer(self, interval=SHARE_SYNC_SECONDS * 1000, timeout=self.sync_market)
+        self._share_timer.start()
+        QTimer.singleShot(0, self._shared_changed)              # the ones kept from the last run
+        QTimer.singleShot(20_000, self.sync_market)
         self.gathering = Gathering(self.data_dir, self.settings)
         self.gather_window = None
         self._ocr = OcrWorker(self.crafting)
@@ -706,6 +713,32 @@ class Controller(QObject):
         self.crafting_window.show()
         self.crafting_window.raise_()
         self.crafting_window.activateWindow()
+        if not self.market_share.asked and self.persist:
+            QTimer.singleShot(400, self.crafting_window.ask_share)
+        self.sync_market()
+
+    # --- shared market samples ---
+    def market_key(self):
+        """Your market for the shared samples: "<server>-<side>" of the character you play (or played last)."""
+        name = self.character.name if self.character else self.settings.get("last_character")
+        server = self.character.server if self.character else \
+            (self.settings.get("characters", {}).get(name) or {}).get("server")
+        side = self.crafting_faction()
+        return f"{server}-{side}" if server and side in ("asmodian", "elyos") else None
+
+    def sync_market(self):
+        self.market_share.sync(self.market_key())
+
+    def set_market_share(self, on):
+        self.market_share.set_enabled(on)
+        self._shared_changed()
+        if on:
+            self.sync_market()
+
+    def _shared_changed(self):
+        share, market = self.market_share, self.market_key()
+        self.crafting.set_shared(share.for_market(market) if share.enabled and market else [])
+        self._crafting_changed()
 
     def crafting_scan(self, from_window=False):
         """Capture the game window (with the market open) for Crafting; AionDex's windows step aside meanwhile."""
@@ -807,6 +840,7 @@ class Controller(QObject):
         else:
             self.notify("info", f"Crafting: muestreo guardado ({n} {'objeto' if n == 1 else 'objetos'})",
                         f"Precios del {when}. Mira la pestaña Rentabilidad.")
+        self.market_share.upload(sample, self.market_key())
         self._crafting_changed()
 
     def on_profession(self, event):
@@ -1061,6 +1095,8 @@ class Controller(QObject):
         entry = chars.setdefault(info.name, {})
         entry.update({"server": info.server, "job": info.job, "level": info.level})
         self._save_settings()
+        self._shared_changed()                  # another server or side: another market
+        self.sync_market()
         log.info("character %s (server %s, job %s, level %s)", info.name, info.server, info.job, info.level)
         self._save_session()
         self.refresh()

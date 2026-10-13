@@ -72,6 +72,12 @@ def _axis(value):
     return f"{value / 1_000_000:,.2f}M" if value >= 1_000_000 else f"{value:,.0f}"
 
 
+SHARE_TIP = ("Comparte tus muestreos del mercado con los demás usuarios de AionDex de tu servidor y lado, y usa los "
+             "suyos junto con los tuyos (precios más al día, más ventas vistas). Solo viaja lo que se ve en la lista y "
+             "las ofertas del mercado; nunca tus ventas, tu inventario ni tu personaje. Un precio de otro usuario muy "
+             "distinto de los demás del mismo objeto no se usa.")
+
+
 class CraftingWindow(QWidget):
     def __init__(self, ctl):
         super().__init__(None, Qt.Window)
@@ -176,6 +182,14 @@ class CraftingWindow(QWidget):
         link.clicked.connect(lambda: webbrowser.open(credit["url"]))
         foot.addWidget(link)
         foot.addStretch(1)
+        self.share_box = QCheckBox("Compartir muestreos")
+        self.share_box.setToolTip(SHARE_TIP)
+        self.share_box.toggled.connect(self._share_toggled)
+        foot.addWidget(self.share_box)
+        self.share_status = label("", f.small, theme.MUTED)
+        self.share_status.setToolTip(SHARE_TIP)
+        foot.addWidget(self.share_status)
+        foot.addSpacing(12)
         foot.addWidget(label("El texto del mercado se lee con el OCR de Windows, en tu PC: las capturas no salen de "
                              "ella.", f.small, theme.MUTED))
         root.addLayout(foot)
@@ -275,6 +289,49 @@ class CraftingWindow(QWidget):
     def _scan(self):
         self.ctl.crafting_scan(from_window=True)
 
+    def ask_share(self):
+        """Once: share your market samples and use the other users'?"""
+        if self.ctl.market_share.asked:
+            return
+        box = QMessageBox(self)
+        box.setWindowTitle(f"{APP_NAME} — Compartir muestreos")
+        box.setIcon(QMessageBox.Question)
+        box.setText("¿Compartes tus muestreos del mercado con los demás usuarios de AionDex de tu servidor y lado?")
+        box.setInformativeText(
+            "Con más gente escaneando, los precios están más al día y se ve mejor qué se vende: usarás sus muestreos "
+            "junto con los tuyos.\n\nSolo viaja lo que se ve en la lista y en las ofertas del mercado (objetos, "
+            "precios y ofertas). Nunca tus ventas, tu inventario ni tu personaje, y las capturas no salen de tu PC.\n\n"
+            "Puedes cambiarlo cuando quieras con «Compartir muestreos», abajo en esta ventana.")
+        yes = box.addButton("Compartir", QMessageBox.AcceptRole)
+        box.addButton("Ahora no", QMessageBox.RejectRole)
+        box.exec()
+        self.ctl.set_market_share(box.clickedButton() is yes)
+        self.refresh()
+
+    def _share_toggled(self, on):
+        if on != self.ctl.market_share.enabled:
+            self.ctl.set_market_share(on)
+            self.refresh()
+
+    def _share_text(self):
+        share, crafting = self.ctl.market_share, self.crafting
+        if not share.enabled:
+            return "desactivado"
+        market = self.ctl.market_key()
+        if not market:
+            return "entra con un personaje para saber tu mercado"
+        server, side = market.split("-")
+        bits = [f"{crafting.shared_count} de otros ({server} · {'Asmodian' if side == 'asmodian' else 'Elyos'})"]
+        if share.sent:
+            bits.append(f"{share.sent} tuyos enviados")
+        if share.pending:
+            bits.append(f"{len(share.pending)} por enviar")
+        if share.error:
+            bits.append(share.error)
+        elif share.synced_at:
+            bits.append(f"al día {time.strftime('%H:%M', time.localtime(share.synced_at))}")
+        return " · ".join(bits)
+
     def show_tab(self, key):
         self.tab = key
         self.refresh()
@@ -332,6 +389,10 @@ class CraftingWindow(QWidget):
                                     + (f". En el juego: {hk}" if hk else ""))
         self._fill_who()
         self._show_level()
+        self.share_box.blockSignals(True)
+        self.share_box.setChecked(self.ctl.market_share.enabled)
+        self.share_box.blockSignals(False)
+        self.share_status.setText(self._share_text())
         _clear(self.body)
         {"profit": self._profit_tab, "shots": self._shots_tab, "samples": self._samples_tab,
          "sales": self._sales_tab}[self.tab]()
@@ -360,11 +421,13 @@ class CraftingWindow(QWidget):
         query = self.search.text().strip().lower()
         prof = crafting.professions.get(crafting.profession, {}).get("name", crafting.profession)
         level = crafting.level()
-        if not crafting.samples:
+        if not crafting.pool:
             self._hint("Aún no hay muestreos. " + self._how_to())
         else:
-            last = crafting.samples[-1]
-            hint = self._hint(f"Precios de tus muestreos (el último: {_clock(last['at'])}, {_ago(last['at'])}). "
+            last = crafting.pool[-1]
+            others = crafting.shared_count
+            whose = f"tus muestreos y {others} de otros usuarios" if others else "tus muestreos"
+            hint = self._hint(f"Precios de {whose} (el último: {_clock(last['at'])}, {_ago(last['at'])}). "
                               f"Ganancia media por intento, con tu % de éxito y el {crafting.fee:.0%} del mercado.  ⓘ")
             hint.setAttribute(Qt.WA_TransparentForMouseEvents, False)
             hint.setToolTip(f"Ganancia por intento = lo que te paga el mercado (precio − {crafting.fee:.0%}) × tu "
@@ -579,12 +642,15 @@ class CraftingWindow(QWidget):
                  level_text(row.needs) if row.needs else "")
         makes = self.crafting.makes(row)
         have = f"tienes para {makes[0]}" if makes and makes[0] > 0 else ""
+        age = f"precio de {_ago(row.sell_at)}" if row.sell_at else ""
+        if age and self.crafting.price_is_shared(row.product):
+            age += " (de otro usuario)"
         if row.thin:
             sub = [f"⚠ solo {row.listings} {'oferta' if row.listings == 1 else 'ofertas'}: precio poco fiable",
-                   have, needs, f"precio de {_ago(row.sell_at)}" if row.sell_at else ""]
+                   have, needs, age]
         else:
             sub = [have, needs, f"{row.listings} ofertas" if row.listings is not None else "", supply,
-                   f"precio de {_ago(row.sell_at)}" if row.sell_at else "sin precio de mercado"]
+                   age or "sin precio de mercado"]
         names.addWidget(label(" · ".join(s for s in sub if s), f.small,
                               theme.WARN if locked or row.thin else theme.MUTED, elide=True))
         if row.thin:

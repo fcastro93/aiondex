@@ -24,3 +24,7 @@ prototipos/
 *.log
 .vscode/
 .idea/
+
+# Cloudflare Worker local state
+server/market/.wrangler/
+node_modules/
