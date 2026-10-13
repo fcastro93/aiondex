@@ -29,11 +29,16 @@ SLOT_ES = {"MainHand": "Arma", "SubHand": "Secundaria", "Helmet": "Casco", "Shou
 CATEGORY = [("Active", "Activas"), ("Passive", "Pasivas"), ("Dp", "Stigmas")]
 KIND_ES = {"damage": "Daño", "heal": "Curación", "dot": "Daño en el tiempo", "hot": "Curación en el tiempo",
            "shield": "Escudo"}
-SLOT = 50
+SLOT = 56
 SKILL = 42
+CENTER = 230                     # the middle column (portrait, level, CP, item level) like the game's
+STATS = 300
 POPUP_STYLE = """
 QFrame#Popup { background: #0d1424; border: 1px solid #2a3b5f; border-radius: 10px; }
 QFrame#Inspect { background: #0f1830; border: 1px solid #1a2643; border-radius: 10px; }
+QFrame#Stats { background: #0b1324; border: 1px solid #1a2643; border-radius: 8px; }
+QFrame#Center { background: qradialgradient(cx:0.5, cy:0.45, radius:0.6, fx:0.5, fy:0.45, stop:0 #1d3157,
+                stop:1 #0f1830); border: 1px solid #1a2643; border-radius: 10px; }
 """
 _skill_info = None
 
@@ -196,30 +201,60 @@ class InspectView(QFrame):
 
     # --- gear ---
     def _gear(self):
+        """Like the game's inspect window: weapons and armour on the left, the character in the middle (portrait,
+        level, CP and item level), accessories on the right; then the stats in their own card. Compact on the
+        left, not stretched over the whole window."""
         f, p = self.f, self.p
         box = QWidget()
         row = QHBoxLayout(box)
         row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(24)
+        row.setSpacing(14)
         row.addLayout(self._slots(LEFT))
-        middle = QVBoxLayout()
-        middle.setSpacing(2)
+        center = QFrame()
+        center.setObjectName("Center")
+        center.setFixedWidth(CENTER)
+        col = QVBoxLayout(center)
+        col.setContentsMargins(10, 12, 10, 12)
+        col.setSpacing(4)
         image = self.armory.image(p)
-        pix = _pixmap(image, 150, self.devicePixelRatioF() or 1.0) if image else None
+        pix = _pixmap(image, CENTER - 40, self.devicePixelRatioF() or 1.0) if image else None
         if pix is not None:
             portrait = QLabel()
             portrait.setPixmap(pix)
             portrait.setAlignment(Qt.AlignCenter)
-            middle.addWidget(portrait)
-        for name, value in p.stats[:12]:
-            middle.addWidget(label(f"{name}  {value}", f.small, theme.TEXT))
-        extras = [x for x in (f"Mascota: {p.pet}" if p.pet else "", f"Alas: {p.wing}" if p.wing else "") if x]
-        for text in extras:
-            middle.addWidget(label(text, f.small, theme.MUTED))
-        middle.addStretch(1)
-        row.addLayout(middle, 1)
+            col.addWidget(portrait)
+        col.addStretch(1)
+        for text, font, color in ((f"Nivel {p.level}" if p.level else "", f.name, theme.TEXT),
+                                  (f"⚔ {self.cp:,} CP" if self.cp is not None else "", f.name, QColor("#5fe0ff")),
+                                  (f"◆ {self.item_level:,} item level" if self.item_level else "", f.name, theme.GOLD)):
+            if text:
+                col.addWidget(label(text, font, color), 0, Qt.AlignHCenter)
+        for text in (f"Mascota: {p.pet}" if p.pet else "", f"Alas: {p.wing}" if p.wing else ""):
+            if text:
+                col.addWidget(label(text, f.small, theme.MUTED), 0, Qt.AlignHCenter)
+        row.addWidget(center)
         row.addLayout(self._slots(RIGHT))
+        row.addSpacing(10)
+        row.addWidget(self._stats(), 0, Qt.AlignTop)
+        row.addStretch(1)
         return box
+
+    def _stats(self):
+        f, p = self.f, self.p
+        card = QFrame()
+        card.setObjectName("Stats")
+        card.setFixedWidth(STATS)
+        grid = QGridLayout(card)
+        grid.setContentsMargins(12, 10, 12, 10)
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(3)
+        grid.addWidget(label("Estadísticas", f.name, theme.TEXT), 0, 0, 1, 2)
+        for i, (name, value) in enumerate(p.stats, 1):
+            grid.addWidget(label(str(name), f.small, theme.MUTED), i, 0)
+            grid.addWidget(label(f"{value:,}" if isinstance(value, int) else str(value), f.small, theme.TEXT), i, 1,
+                           Qt.AlignRight)
+        grid.setColumnStretch(0, 1)
+        return card
 
     def _slots(self, layout):
         grid = QGridLayout()

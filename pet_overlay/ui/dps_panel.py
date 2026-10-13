@@ -34,9 +34,9 @@ def short_number(n):
 
 
 def pct(ratio):
-    """Percentage with a decimal for the small shares typical of world bosses."""
+    """Percentage with decimals for the small shares typical of world bosses (0.04% on Gartua, not "0.0%")."""
     value = 100 * ratio
-    return f"{value:.1f}%" if value < 10 else f"{value:.0f}%"
+    return f"{value:.2f}%" if 0 < value < 1 else f"{value:.1f}%" if value < 10 else f"{value:.0f}%"
 
 
 def share_text(ratio):
