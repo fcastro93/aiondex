@@ -41,7 +41,8 @@ from .inventory import UPDATE_OPCODE as ITEMS_UPDATE_OPCODE
 from .armory import Armory
 from .paths import ASSETS_DIR
 from .sounds import SoundPlayer
-from .pets import Collection, Pet, PROGRESS_OPCODE, SNAPSHOT_OPCODE, parse_progress, parse_snapshot
+from .pets import Collection, Pet, LEVEL_OPCODE, PROGRESS_OPCODE, SNAPSHOT_OPCODE, parse_level, parse_progress, \
+    parse_snapshot
 from .session import Session
 from .settings import Settings
 from .ui import theme, winapi
@@ -92,13 +93,16 @@ def _progress_sentence(pet):
 
 
 def _short_state(pet):
+    if pet.is_max:
+        return "al máximo"
     if pet.level == 0:
         return "aún no lo tienes" if pet.progress == 0 else f"almas {pet.progress}/{pet.threshold}"
     return f"nivel {pet.level}, {pet.progress}/{pet.threshold}"
 
 
 # message kinds counted for the Diagnóstico module
-OP_KIND = {SNAPSHOT_OPCODE: "collection", PROGRESS_OPCODE: "progress", CHARACTER_OPCODE: "character",
+OP_KIND = {SNAPSHOT_OPCODE: "collection", PROGRESS_OPCODE: "progress", LEVEL_OPCODE: "progress",
+           CHARACTER_OPCODE: "character",
            MAP_ENTER_OPCODE: "map", SPAWN_OPCODE: "spawn", REQUEST_OPCODE: "press", SKILL_LIST_OPCODE: "skills",
            PRESETS_OPCODE: "bar", ROSTER_OPCODE: "roster", PARTY_INFO_OPCODE: "roster", FORCE_INFO_OPCODE: "roster",
            **{op: "roster" for op in MEMBER_OPCODES},
@@ -106,12 +110,14 @@ OP_KIND = {SNAPSHOT_OPCODE: "collection", PROGRESS_OPCODE: "progress", CHARACTER
            **{op: "combat" for op in DAMAGE_OPCODES}}
 
 SESSION_KEEP = 600       # seconds: a restart this short (an update) keeps your group and your entity id
+JUST_MAXED = 300         # seconds a pet that reached max level stays in "Cerca de ti" (shown as MAX)
 
 
 class Bridge(QObject):
     """Moves parsed game messages from the capture thread to the UI thread."""
     snapshot = Signal(object)
     progress = Signal(object)
+    pet_level = Signal(object)       # (pet id, new level)
     character = Signal(object)
     map_entered = Signal(object)
     zone_detected = Signal(object)
@@ -250,6 +256,10 @@ class Bridge(QObject):
             updates = parse_progress(body)
             if updates:
                 self.progress.emit(updates)
+        elif op == LEVEL_OPCODE:
+            level = parse_level(body)
+            if level:
+                self.pet_level.emit(level)
         elif op == REQUEST_OPCODE:
             press = parse_request(body)
             if press:
@@ -420,6 +430,7 @@ class Controller(QObject):
         self.bridge = Bridge(self._make_tracker(), self.health)
         self.bridge.snapshot.connect(self.on_snapshot)
         self.bridge.progress.connect(self.on_progress)
+        self.bridge.pet_level.connect(self.on_pet_level)
         self.bridge.character.connect(self.on_character)
         self.bridge.map_entered.connect(self.on_map_entered)
         self.bridge.zone_detected.connect(self.on_zone_detected)
@@ -566,6 +577,19 @@ class Controller(QObject):
         for pid, amount in updates:
             self._record(self.collection.add_progress(pid, amount))
             self._learn_from_kill(pid)
+        self._save_collection()
+        self.refresh()
+
+    def on_pet_level(self, change):
+        pid, level = change
+        if str(pid) not in self.db and pid not in self.collection.pets:
+            return
+        event = self.collection.set_level(pid, level)
+        if event is None:
+            return
+        log.info("pet %s reached level %s without its 0d90 (+%s)", pid, level, event.gain)
+        self._record(event)
+        self._learn_from_kill(pid)
         self._save_collection()
         self.refresh()
 
@@ -1240,6 +1264,7 @@ class Controller(QObject):
         if now - self._last_zone_notice.get(zone_slug, 0) < ZONE_NOTICE_COOLDOWN:
             return
         zone, nearby, _ = self.nearby_pets()
+        nearby = [e for e in nearby if not e[0].is_max]
         if not zone or not nearby:
             return
         self._last_zone_notice[zone_slug] = now
@@ -1368,21 +1393,24 @@ class Controller(QObject):
         return (max(active, key=lambda p: p.last_change) if active else None), False
 
     def nearby_pets(self):
-        """Pets (not maxed) farmable in the zone the player is in, closest to max level first.
+        """Pets farmable in the zone the player is in: the ones killed this session first, the last one killed on
+        top (one that just reached max level stays a few minutes, shown as MAX), then the rest closest to max level.
         Returns (zone, [(pet, [monster names here])], number of maxed pets in the zone)."""
         if not self.current_zone:
             return None, [], 0
         zone = self.mapdata.zones.get(self.current_zone)
         found = self.mapdata.pets_in_zones([self.current_zone])
-        out, maxed = [], 0
+        out, maxed, now = [], 0, time.time()
         for pid, mob_slugs in found.items():
             pet = self.collection.pets.get(pid) or Pet(pid, 0, 0)
             if pet.is_max:
                 maxed += 1
-                continue
+                if not (pet.session_gain and now - pet.last_change < JUST_MAXED):
+                    continue
             mobs = [self.mapdata.monsters[s]["name"] for s in mob_slugs if s in self.mapdata.monsters]
             out.append((pet, mobs))
-        out.sort(key=lambda e: (e[0].remaining_to_max, -e[0].ratio))
+        out.sort(key=lambda e: (0, -e[0].last_change) if e[0].session_gain else
+                 (1, e[0].remaining_to_max, -e[0].ratio))
         return zone, out, maxed
 
     def collection_stats(self):

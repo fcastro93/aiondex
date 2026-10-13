@@ -8,8 +8,9 @@ from .protocol import read_varint
 
 SNAPSHOT_OPCODE = bytes.fromhex("0090")
 PROGRESS_OPCODE = bytes.fromhex("0d90")
+LEVEL_OPCODE = bytes.fromhex("1490")
 # Progress needed to reach the next level, by current level.
-# 0 -> 1 is the 5-soul unlock; 2 -> 3 is 75 (seen in the UI); 1 -> 2 = 25 is inferred (max seen: 24).
+# 0 -> 1 is the 5-soul unlock; 2 -> 3 is 75 (seen in the UI); 1 -> 2 is 25 (the 0e90 sent at that level-up says 25).
 LEVEL_THRESHOLDS = {0: 5, 1: 25, 2: 75}
 MAX_LEVEL = 3
 
@@ -52,6 +53,15 @@ def parse_progress(body):
     if not n or pos + 8 * n != len(body):
         return None
     return [(_u32(body, pos + 8 * i), _u32(body, pos + 8 * i + 4)) for i in range(n)]
+
+
+def parse_level(body):
+    """1490, sent when a pet levels up (after that kill's 0d90): u16 0 | u32 pet_id | u32 new level | ... (23 bytes
+    seen, level 1 -> 2, 2026-10). Returns (pet_id, level) or None."""
+    if len(body) < 10 or body[:2] != b"\0\0":
+        return None
+    pid, level = _u32(body, 2), _u32(body, 6)
+    return (pid, level) if pid and 1 <= level <= MAX_LEVEL else None
 
 
 @dataclass
@@ -134,6 +144,18 @@ class Collection:
             pet.level += 1
             leveled = True
         return ProgressEvent(pid, amount, leveled)
+
+    def set_level(self, pid, level, now=None):
+        """Apply a 1490 level-up. Usually the kill's 0d90 already took the pet there (then this does nothing), but
+        the kill that maxes a pet may come without it: the pet stayed at 74/75. Returns a ProgressEvent or None."""
+        pet = self.pets.setdefault(pid, Pet(pid, 0, 0))
+        if level <= pet.level:
+            return None
+        gain = _gain(pet, level, 0)
+        pet.level, pet.progress = level, 0
+        pet.session_gain += gain
+        pet.last_change = now or time.time()
+        return ProgressEvent(pid, gain, True)
 
     @property
     def owned(self):

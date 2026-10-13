@@ -1,7 +1,8 @@
 """Overlay panel of the Pets module.
 
-Shows the pets farmable where the player is, closest to max level first. When there are none (zone
-unknown, or everything there is maxed) it shows collection statistics: share of pets per level.
+Shows the pets farmable where the player is: the ones you are killing on top (the last one first), then the rest
+closest to max level. When there are none (zone unknown, or everything there is maxed) it shows collection
+statistics: share of pets per level.
 """
 from dataclasses import dataclass, field
 
@@ -20,7 +21,7 @@ class ViewState:
     pinned: object = None                # Pet pinned by the user, shown first
     recent: list = field(default_factory=list)
     zone_name: str = ""                  # zone the player is in
-    nearby: list = field(default_factory=list)   # [(pet, [monster names])], closest to max first
+    nearby: list = field(default_factory=list)   # [(pet, [monster names])], last killed first
     zone_maxed: int = 0                  # pets of this zone already at max level
     stats: list = field(default_factory=list)    # [(label, count, color)]
     total: int = 0
