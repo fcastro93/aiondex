@@ -1,9 +1,14 @@
 """Live TCP reassembly and frame extraction for one server->client direction."""
+import logging
+import time
+
 from .protocol import frame_size
 
+log = logging.getLogger(__name__)
 SYNC_CHAIN = 4          # consecutive valid frames needed to trust a frame boundary
 SYNC_SCAN = 4096        # bytes scanned when looking for a boundary
 MAX_PENDING = 256       # out-of-order segments kept before giving up on a gap
+GAP_SECONDS = 2.0       # ... or this long: a lost segment no longer holds back everything after it
 TLS_PREFIXES = (b"\x16\x03", b"\x17\x03")
 
 
@@ -15,6 +20,8 @@ class ServerStream:
         self.synced = False
         self.is_tls = False
         self.tls_checked = False
+        self.waiting = None     # since when a missing segment holds the rest back
+        self.lost = 0           # times data was lost (a gap skipped, bytes dropped to find the framing again)
 
     def on_syn(self, seq):
         self.__init__()
@@ -29,11 +36,21 @@ class ServerStream:
             self.next_seq = seq
         self.pending.setdefault(seq, payload)
         self._drain()
-        if len(self.pending) > MAX_PENDING:
+        now = time.monotonic()
+        if not self.pending:
+            self.waiting = None
+        elif self.waiting is None:
+            self.waiting = now
+        if len(self.pending) > MAX_PENDING or (self.pending and now - self.waiting > GAP_SECONDS):
             # A segment was never captured: jump past the gap and resync framing.
+            gap = min(self.pending) - self.next_seq
+            self.lost += 1
+            log.warning("game stream: %s bytes never captured (%s segments waiting); skipping them", gap,
+                        len(self.pending))
             self.next_seq = min(self.pending)
             self.buf.clear()
             self.synced = False
+            self.waiting = None
             self._drain()
         return self._frames()
 
@@ -87,6 +104,8 @@ class ServerStream:
                 self.synced = True
                 return True
         if len(self.buf) > SYNC_SCAN * 4:
+            self.lost += 1
+            log.warning("game stream: no frame boundary in %s bytes; dropping %s", len(self.buf), SYNC_SCAN)
             del self.buf[:SYNC_SCAN]
         return False
 

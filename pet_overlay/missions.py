@@ -134,6 +134,7 @@ class Missions:
     def on_list(self, at, records):
         """The whole list, waiting for the game to name the character it belongs to (like Status' 0b61)."""
         self._pending = (at, [r for r in records if r[0] in self.db])
+        log.info("%s: list read (%s of %s records)", self.path.stem, len(self._pending[1]), len(records))
 
     def claim(self, name, at):
         if self._pending and name and 0 <= at - self._pending[0] <= CLAIM_SECONDS:
@@ -143,7 +144,11 @@ class Missions:
             entry["records"] = {str(mid): [count, ms / 1000, got] for mid, count, ms, got in records}
             entry["at"] = read_at
             self._save()
+            log.info("%s: list is %s's", self.path.stem, name)
             return True
+        if name and (name not in self.characters or self._pending):     # not on every teleport (no list then)
+            log.info("%s: no list read for %s (%s)", self.path.stem, name,
+                     f"the last one {at - self._pending[0]:.0f} s before" if self._pending else "none waiting")
         return False
 
     def on_update(self, at, records, name, map_id=None):

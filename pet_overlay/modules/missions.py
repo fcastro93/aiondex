@@ -45,8 +45,12 @@ class ProgressPanel(QWidget):
         faction = self.ctl.crafting_faction()
         if not ms.available:
             self._line("Falta su lista (data/*_db.json).", theme.WARN)
-        elif name is None:
-            self._line("Entra con tu personaje con AionDex abierto: aquí verás tu progreso y lo que puedes avanzar "
+        elif name is None or (self.ctl.character_name() and name != self.ctl.character_name()):
+            playing = self.ctl.character_name()
+            self._line(f"Aún no leí los de {playing}: el juego los manda al entrar y en cada cambio de servidor. Si "
+                       f"acabas de entrar y no salen, entra y sal de una mazmorra, del Abismo o de la Arena (o cambia de "
+                       f"canal) y aparecen." if playing else
+                       "Entra con tu personaje con AionDex abierto: aquí verás tu progreso y lo que puedes avanzar "
                        "donde estés.", theme.MUTED)
         else:
             place, tags = self.ctl.missions_place(ms)

@@ -1,6 +1,7 @@
 """Find the AION2 game connections and sniff their server->client traffic with Npcap."""
 import ipaddress
 import logging
+import queue
 import threading
 import time
 
@@ -14,6 +15,32 @@ log = logging.getLogger(__name__)
 GAME_PROCESS = "aion2.exe"
 RESCAN_SECONDS = 10
 REQUEST_MIN_BYTES = 40      # client packets this big are actions (skill presses are 45-50 bytes; movement is 11)
+CAPTURE_BUFFER = 32 << 20   # bytes Npcap keeps while AionDex catches up (its default is 1 MB)
+
+
+def _bigger_capture_buffer():
+    """The game's login and server-change burst (the achievements list alone is 40 KB, with the tickets, the bag and
+    every monster around) could overflow Npcap's 1 MB while AionDex was busy: Status, Season M., Logros and the zone
+    missed that login (2026-10-13). scapy has no option for it, so it is set where scapy sets the timeout."""
+    try:
+        import scapy.libs.winpcapy as pcap
+    except Exception as exc:                        # not on Npcap
+        log.info("capture buffer left as is: %s", exc)
+        return
+    if getattr(pcap, "_aiondex_buffer", False):
+        return
+    original = pcap.pcap_set_timeout
+
+    def set_timeout(handle, to_ms):
+        try:
+            if pcap.pcap_set_buffer_size(handle, CAPTURE_BUFFER) != 0:
+                log.warning("could not set the capture buffer to %s MB", CAPTURE_BUFFER >> 20)
+        except Exception as exc:
+            log.warning("could not set the capture buffer: %s", exc)
+        return original(handle, to_ms)
+
+    pcap.pcap_set_timeout = set_timeout
+    pcap._aiondex_buffer = True
 
 
 def game_pids():
@@ -66,14 +93,31 @@ class GameSniffer:
         self._stop = threading.Event()
         self._wake = threading.Event()
         self._force_restart = False
+        self._frames = queue.SimpleQueue()      # capture thread -> handler thread, in order
 
     def start(self):
+        _bigger_capture_buffer()
+        threading.Thread(target=self._handle, daemon=True, name="aion2-messages").start()
         threading.Thread(target=self._watch, daemon=True, name="aion2-watch").start()
 
     def stop(self):
         self._stop.set()
         self._wake.set()
         self._stop_sniffers()
+        self._frames.put(None)
+
+    def _handle(self):
+        """The messages, off the capture thread: it only reassembles, so it keeps up with Npcap during bursts."""
+        while True:
+            frames = self._frames.get()
+            if frames is None:
+                return
+            for frame in frames:
+                for op, body in expand(frame):
+                    try:
+                        self.on_message(op, body)
+                    except Exception:
+                        log.exception("handler failed for opcode %s", op.hex())
 
     def restart(self):
         """Look for the game again and restart the capture now (Diagnóstico)."""
@@ -167,9 +211,5 @@ class GameSniffer:
             frames = stream.on_segment(tcp.seq, bytes(pkt[Raw].load))
             if stream.is_tls and self.health:
                 self.health.tls = True
-        for frame in frames:
-            for op, body in expand(frame):
-                try:
-                    self.on_message(op, body)
-                except Exception:
-                    log.exception("handler failed for opcode %s", op.hex())
+        if frames:
+            self._frames.put(frames)
