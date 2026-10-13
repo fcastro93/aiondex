@@ -140,6 +140,7 @@ METRICS = [
         ("%", _share),
         ("Golpes", _hits("taken_hits")),
         ("Mayor golpe", _amount("taken_max")),
+        ("Muertes", _hits("deaths")),
         ("Absorbido", _amount("absorbed")),
     ], [("De quién", "taken_from", None, "npc"), ("Habilidades enemigas", "taken_skills", None, "enemy_skill")],
         note="«Absorbido»: daño que los escudos le quitaron antes de llegar a su vida."),

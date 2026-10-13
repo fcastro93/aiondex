@@ -2,7 +2,10 @@
 
 Decoded from the captures and checked against the HP the server reports after each event and against LOXIN's fight
 logs (hit counts, damage taken, parries and death recaps match; LOXIN's healing does not: it adds the whole pool of
-a heal-over-time and MP/buff values, so healing is checked against the HP changes instead).
+a heal-over-time and MP/buff values, so healing is checked against the HP changes instead). Rechecked on 2026-10-12
+(Transcendent Bakarma, 5 players): damage, hits, crits, back, perfect and double hits within 0.4% of LOXIN; a cleric
+heal-over-time (1709xxxx) creates a pool (2,764) and every tick heals 184 while the pool drops by 184, so the healing
+is the sum of the ticks (2,760); adding the pool left at each tick gives 19,380, about what LOXIN shows.
 
 0438 direct effect (hit, heal, status):
   varint target | u8 f1 | u8 f2 | varint source | u32 skill | u8 seq | u8 kind (1 evaded/resisted, 2 normal,

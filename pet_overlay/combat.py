@@ -98,6 +98,7 @@ class ActorStats:
     avoided_skills: Counter = field(default_factory=Counter)
     # stagger gauge points taken off bosses (split per hit: the game does not say who)
     stagger: float = 0.0
+    deaths: int = 0             # times this player died during the fight (048d)
     stagger_skills: Counter = field(default_factory=Counter)
 
     @property
@@ -554,6 +555,8 @@ class CombatTracker:
         if enc and not enc.ended and (eid in enc.targets or eid in enc.enemy_damage):
             enc.dead.add(eid)
             enc.died_at.setdefault(eid, max(enc.last, enc.last_hit.get(eid, 0)))
+        elif enc and not enc.ended and eid in self.players and time.time() - enc.last <= IDLE_END:
+            self._actor(enc, eid).deaths += 1       # a player of the fight died
         self.engaged.pop(eid, None)
         return None
 

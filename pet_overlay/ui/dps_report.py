@@ -227,7 +227,7 @@ def _tiles(p, r, y):
 
 COLUMNS = [("#", 40, "l"), ("Jugador", 0, "l"), ("CP", 84, "r"), ("Daño", 96, "r"), ("DPS", 92, "r"),
            ("%", 76, "r"), ("Crít.", 64, "r"), ("Curación", 98, "r"), ("Escudos", 90, "r"),
-           ("Recibido", 96, "r"), ("Evitados", 86, "r"), ("Puntos MVP", 150, "r")]
+           ("Recibido", 96, "r"), ("Evitados", 86, "r"), ("Muertes", 78, "r"), ("Puntos MVP", 150, "r")]
 
 
 def _table(p, r, icons, y):
@@ -260,7 +260,8 @@ def _table(p, r, icons, y):
                   compact_number(dmg) if dmg else "—", f"{thousands(dmg / r.seconds)}" if dmg else "—",
                   _pct(100 * dmg / r.basis) if dmg else "—", crit,
                   compact_number(a.healing) if a.healing else "—", compact_number(a.shielding) if a.shielding else "—",
-                  compact_number(a.taken) if a.taken else "—", str(a.avoided_hits) if a.avoided_hits else "—", None]
+                  compact_number(a.taken) if a.taken else "—", str(a.avoided_hits) if a.avoided_hits else "—",
+                  str(a.deaths) if a.deaths else "—", None]
         body = _font(17, QFont.DemiBold if i == 1 else QFont.Normal)
         for (title, _, align), x, w, value in zip(COLUMNS, xs, widths, values):
             cell = QRectF(x, rect.top(), w - 8, rect.height())
