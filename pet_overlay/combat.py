@@ -162,6 +162,9 @@ class Encounter:
     target_max_hp: dict = field(default_factory=dict)  # target eid -> max hp from its spawn
     target_npc: dict = field(default_factory=dict)    # enemy eid -> its npc id (its kind)
     target_boss: dict = field(default_factory=dict)   # enemy eid -> True boss / False normal or elite (when known)
+    first_hit: dict = field(default_factory=dict)     # target eid -> time of the first hit on it
+    last_hit: dict = field(default_factory=dict)      # target eid -> time of the last hit on it
+    died_at: dict = field(default_factory=dict)       # target eid -> when it died
     map_id: int | None = None                         # game map where the fight happened
     killed: bool = False
     ended: bool = False
@@ -268,6 +271,22 @@ class Encounter:
     @property
     def duration(self):
         return max(1.0, self.last - self.start)
+
+    def target_time(self, eid):
+        """Seconds from the first hit on this enemy to its death (or the last hit on it): a boss fight's time, the one
+        boss DPS is measured over like LOXIN does, without the trash before the pull or the adds after the kill
+        (Phantasmal Lakshmi, 2026-10-12: 87 s of boss in a 119 s encounter; same damage per player as LOXIN)."""
+        if eid not in self.first_hit:
+            return self.duration
+        end = self.died_at.get(eid) or (self.last if not self.ended else self.last_hit.get(eid, self.last))
+        return max(1.0, end - self.first_hit[eid])
+
+    def fight_time(self, group_names, boss_only=True):
+        """The time DPS is measured over: the boss's in boss fights (when the meter counts the damage to the boss),
+        else the whole encounter."""
+        if boss_only and self.activity(group_names).boss:
+            return self.target_time(self.main_target_eid)
+        return self.duration
 
     @property
     def total(self):
@@ -442,6 +461,8 @@ class CombatTracker:
         actor.skill_hits[hit.skill] += 1
         actor.by_target[hit.target] += hit.amount
         enc.targets[hit.target] += hit.amount
+        enc.first_hit.setdefault(hit.target, hit.ts)
+        enc.last_hit[hit.target] = hit.ts
         if actor.is_self or actor.name in self.group:
             enc.side_targets[hit.target] += hit.amount
         self.engaged.setdefault(hit.target, hit.ts)
@@ -532,6 +553,7 @@ class CombatTracker:
         enc = self.current
         if enc and not enc.ended and (eid in enc.targets or eid in enc.enemy_damage):
             enc.dead.add(eid)
+            enc.died_at.setdefault(eid, max(enc.last, enc.last_hit.get(eid, 0)))
         self.engaged.pop(eid, None)
         return None
 

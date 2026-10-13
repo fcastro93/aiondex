@@ -61,6 +61,7 @@ class Report:
         self.basis = c.total if c else visible
         hp = enc.hp.get(enc.main_target_eid)
         self.max_hp = (hp[1] if hp else None) or enc.target_max_hp.get(enc.main_target_eid)
+        self.seconds = enc.target_time(self.boss) if self.boss is not None else enc.duration
 
     def cp(self, name):
         return self.enc.cp.get(name) or self.ctl.cp_of(name)
@@ -125,13 +126,13 @@ def _header(p, r):
           _font(34, QFont.Bold), TEXT)
     state = "✓ Derrotado" if enc.killed else ("En curso" if not enc.ended else "Sin terminar")
     when = time.strftime("%d/%m/%Y %H:%M", time.localtime(enc.last))
-    _text(p, QRectF(x, 88, 800, 26), f"{state}  ·  {mmss(enc.duration)}  ·  {r.act.label}  ·  {when}",
+    _text(p, QRectF(x, 88, 800, 26), f"{state}  ·  {mmss(r.seconds)}  ·  {r.act.label}  ·  {when}",
           _font(17), GREEN if enc.killed else MUTED)
     right = QRectF(WIDTH - PAD - 360, 30, 360, 30)
     group_dmg = sum(s.parts["damage"] for s in r.ranked)
     if r.max_hp:
         _text(p, right, f"{thousands(r.max_hp)} HP", _font(24, QFont.DemiBold), TEXT, Qt.AlignRight | Qt.AlignVCenter)
-    _text(p, QRectF(right.left(), 64, 360, 26), f"DPS del grupo: {thousands(group_dmg / enc.duration)}/s",
+    _text(p, QRectF(right.left(), 64, 360, 26), f"DPS del grupo: {thousands(group_dmg / r.seconds)}/s",
           _font(17), MUTED, Qt.AlignRight | Qt.AlignVCenter)
     return 130
 
@@ -172,7 +173,7 @@ def _mvp(p, r, icons, y):
     _text(p, QRectF(x, rect.top() + 82, 470, 28), sub, _font(19), MUTED)
     _text(p, QRectF(x, rect.top() + 118, 470, 40), f"{best.points:.1f} pts", _font(32, QFont.Bold), TEXT)
     dmg = best.parts["damage"]
-    line = f"{_pct(100 * dmg / r.basis)} del daño · {thousands(dmg / r.enc.duration)}/s" if dmg else ""
+    line = f"{_pct(100 * dmg / r.basis)} del daño · {thousands(dmg / r.seconds)}/s" if dmg else ""
     _text(p, QRectF(x, rect.top() + 160, 600, 28), f"{best.points:.0f}% del aporte del grupo"
           + (f" · {line}" if line else ""), _font(17), MUTED)
     # what made it: one bar per kind of contribution
@@ -220,7 +221,7 @@ def _tiles(p, r, y):
         _text(p, QRectF(rect.left() + 18, rect.top() + 36, w - 30, 34), shown, _font(26, QFont.Bold), TEXT)
         if rate:
             _text(p, QRectF(rect.left() + 18, rect.top() + 66, w - 30, 22),
-                  f"{compact_number(value / enc.duration)}/s", _font(15), MUTED)
+                  f"{compact_number(value / r.seconds)}/s", _font(15), MUTED)
     return y + 94
 
 
@@ -256,7 +257,7 @@ def _table(p, r, icons, y):
         dmg = s.parts["damage"]
         crit = f"{100 * a.crits / a.hits:.0f}%" if a.hits else "—"
         values = [str(i), None, (f"{r.cp(a.name) / 1000:.1f}K" if r.cp(a.name) else "—"),
-                  compact_number(dmg) if dmg else "—", f"{thousands(dmg / enc.duration)}" if dmg else "—",
+                  compact_number(dmg) if dmg else "—", f"{thousands(dmg / r.seconds)}" if dmg else "—",
                   _pct(100 * dmg / r.basis) if dmg else "—", crit,
                   compact_number(a.healing) if a.healing else "—", compact_number(a.shielding) if a.shielding else "—",
                   compact_number(a.taken) if a.taken else "—", str(a.avoided_hits) if a.avoided_hits else "—", None]
@@ -289,7 +290,7 @@ def _table(p, r, icons, y):
         dmg = sum(r.value(a) for a in r.outsiders)
         _text(p, QRectF(xs[1], rect.top(), widths[1] + 300, rect.height()),
               f"Fuera de tu grupo: {len(r.outsiders)} jugadores (sin nombre)", _font(17), MUTED)
-        for col, value in ((3, compact_number(dmg)), (4, thousands(dmg / enc.duration)),
+        for col, value in ((3, compact_number(dmg)), (4, thousands(dmg / r.seconds)),
                            (5, _pct(100 * dmg / r.basis))):
             _text(p, QRectF(xs[col], rect.top(), widths[col] - 8, rect.height()), value, _font(17), MUTED,
                   Qt.AlignRight | Qt.AlignVCenter)

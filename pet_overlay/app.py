@@ -927,9 +927,12 @@ class Controller(QObject):
             group = f" Aportaste el {pct(c.share(c.me))} del daño al jefe."
         else:
             group = f" Hiciste el {100 * me.damage / max(1, enc.total):.0f}% del daño de la pelea." if others else ""
+        boss_view = self.settings.get("dps_boss_only", True) and enc.activity(self.combat.group).boss
+        seconds = enc.fight_time(self.combat.group, boss_view)
+        mine = me.by_target[enc.main_target_eid] if boss_view else me.damage
         self.notify("combat", f"Pelea terminada: {target}{' (derrotado)' if enc.killed else ''}",
-                    f"Tu DPS fue {short_number(enc.dps(me))}/s durante {mmss(enc.duration)} "
-                    f"({short_number(me.damage)} de daño).{group}")
+                    f"Tu DPS fue {short_number(mine / seconds)}/s durante {mmss(seconds)} "
+                    f"({short_number(mine)} de daño).{group}")
 
     def on_character(self, info):
         if self.status.claim(info.name, time.time()):     # the ticket list read just before is this character's

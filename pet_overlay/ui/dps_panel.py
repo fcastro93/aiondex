@@ -137,7 +137,8 @@ class DpsPanel(QWidget):
             card = {"name": encounter.target_names.get(boss) or "Enemigo", "max_hp": max_hp, "dead": dead,
                     "hp": 0 if dead else (hp[0] if hp else max_hp or 0), "label": act.label,
                     "rage": None if encounter.ended else combat.rage_left(boss), "ttk": encounter.time_to_kill()}
-        self.content.addWidget(BossCard(f, encounter.duration, energy, rewards, card))
+        seconds = encounter.target_time(boss) if boss_view else encounter.duration    # boss DPS over the boss's time
+        self.content.addWidget(BossCard(f, seconds, energy, rewards, card))
 
         dealers = sorted((a for a in encounter.dealers() if value(a)), key=lambda a: -value(a))
         outsiders = [a for a in dealers if not (a.is_self or a.name in group)]
@@ -170,7 +171,7 @@ class DpsPanel(QWidget):
             cls = a.class_name or CLASS_OF_JOB.get(self._job(a.name), "")
             self.content.addWidget(PartyRow(f, alias.get(a.eid, a.name), cls, self._class_icon(cls),
                                             None if a.eid in alias else (encounter.cp.get(a.name) or ctl.cp_of(a.name)),
-                                            f"{thousands(value(a) / encounter.duration)}/s",
+                                            f"{thousands(value(a) / seconds)}/s",
                                             share_text(value(a) / basis), value(a) / top, a.is_self, compact))
         if len(shown) > limit:
             rest = shown[limit:]

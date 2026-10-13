@@ -65,7 +65,8 @@ def _pct(ratio):
 
 
 def _rate(actor, value, enc, total):
-    return short_number(value / enc.duration), value / enc.duration
+    seconds = getattr(enc, "rate_time", None) or enc.duration    # the boss's time with "Solo al jefe"
+    return short_number(value / seconds), value / seconds
 
 
 def _share(actor, value, enc, total):
@@ -600,8 +601,11 @@ class DpsDetailsWindow(QWidget):
         shown = [r for r in rows if (not chosen or r.actor.class_name == chosen)
                  and (not query or query in r.name.lower() or query in r.actor.class_name.lower())]
         total = sum(r.value for r in rows) or 1
+        boss_only = metric.boss_filter and self.target_box.currentData() == "boss"
+        enc.rate_time = enc.target_time(enc.main_target_eid) if boss_only else None
         summary = (f"{enc.activity(self._group(enc)).label} · {enc.main_target or 'Pelea'} · "
-                   f"{mmss(enc.duration)} · {len(enc.actors)} jugadores")
+                   f"{mmss(enc.duration)}" + (f" (jefe {mmss(enc.rate_time)}: el DPS es sobre ese tiempo)"
+                                             if boss_only else "") + f" · {len(enc.actors)} jugadores")
         contribution = enc.contribution(self._group(enc))
         if metric.key == "damage" and self.target_box.currentData() == "boss" and contribution:
             total = contribution.total          # % of what the boss lost, not of the few hits we see
@@ -772,7 +776,8 @@ class DpsDetailsWindow(QWidget):
             first.setForeground(theme.GOLD if a.is_self else theme.TEXT)
             for col, item in enumerate([first, SortItem(short_number(amount), amount),
                                         SortItem(_pct(amount / total), amount / total),
-                                        SortItem(short_number(amount / enc.duration), amount / enc.duration)]):
+                                        SortItem(short_number(amount / enc.target_time(eid)),
+                                                 amount / enc.target_time(eid))]):
                 table.setItem(i, col, item)
         table.setSortingEnabled(True)
         table.sortItems(1, Qt.DescendingOrder)

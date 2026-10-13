@@ -27,9 +27,11 @@ class DpsModule(Module):
         summary = ""
         if enc:
             me = next((a for a in enc.dealers() if a.is_self), None)
-            if me and settings.get("dps_boss_only", True) and enc.activity(combat.group).boss:
-                summary = f"{short_number(me.by_target[enc.main_target_eid] / enc.duration)}/s"
+            boss_view = settings.get("dps_boss_only", True) and enc.activity(combat.group).boss
+            seconds = enc.target_time(enc.main_target_eid) if boss_view else enc.duration
+            if me and boss_view:
+                summary = f"{short_number(me.by_target[enc.main_target_eid] / seconds)}/s"
             else:
                 summary = f"{short_number(enc.dps(me))}/s" if me else ""
-            summary = " · ".join(x for x in (summary, mmss(enc.duration)) if x)     # the fight time lives here
+            summary = " · ".join(x for x in (summary, mmss(seconds)) if x)     # the fight time lives here
         return ModuleView(summary=summary, footer="")

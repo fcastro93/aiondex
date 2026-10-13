@@ -39,11 +39,14 @@ def aliases(enc, group):
 
 
 def summary(enc, group):
+    """Your numbers of a fight for the history: in boss fights over the boss's time and its damage (as the meter)."""
     me = next((a for a in enc.actors.values() if a.is_self), None)
+    boss = enc.main_target_eid if enc.activity(group).boss else None
+    mine = (me.by_target[boss] if boss is not None else me.damage) if me else 0
+    total = (enc.targets[boss] if boss is not None else enc.total) or 1
     return {"id": enc.id, "start": enc.start, "last": enc.last, "target": enc.main_target or "Pelea",
-            "label": enc.activity(group).label, "duration": enc.duration, "killed": enc.killed,
-            "damage": me.damage if me else 0, "dps": enc.dps(me) if me else 0,
-            "share": me.damage / max(1, enc.total) if me else 0, "players": len(enc.dealers()),
+            "label": enc.activity(group).label, "duration": enc.fight_time(group), "killed": enc.killed,
+            "damage": mine, "dps": mine / enc.fight_time(group), "share": mine / total, "players": len(enc.dealers()),
             "pinned": enc.pinned}
 
 
@@ -90,6 +93,7 @@ def dump(enc, group):
             "target_names": _ints(enc.target_names), "dead": list(enc.dead), "hp": _ints(enc.hp),
             "hp_start": _ints(enc.hp_start), "hp_at": _ints(enc.hp_at), "target_max_hp": _ints(enc.target_max_hp),
             "target_npc": _ints(enc.target_npc), "target_boss": _ints(enc.target_boss),
+            "first_hit": _ints(enc.first_hit), "last_hit": _ints(enc.last_hit), "died_at": _ints(enc.died_at),
             "side_targets": _ints(enc.side_targets),
             "group": sorted(group), "cp": {n: cp for n, cp in enc.cp.items() if n in group or n in
                                            {a.name for a in enc.actors.values() if a.is_self}}}
@@ -110,6 +114,9 @@ def load(data):
     enc.target_max_hp = keyed("target_max_hp")
     enc.target_npc = keyed("target_npc")
     enc.target_boss = keyed("target_boss")
+    enc.first_hit = keyed("first_hit")
+    enc.last_hit = keyed("last_hit")
+    enc.died_at = keyed("died_at")
     enc.side_targets = Counter(keyed("side_targets"))
     enc.group = set(data.get("group", []))
     enc.cp = dict(data.get("cp") or {})
