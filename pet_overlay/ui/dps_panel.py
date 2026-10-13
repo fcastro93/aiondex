@@ -91,6 +91,9 @@ class DpsPanel(QWidget):
         if self.mode == "history" and encounter is not None and not encounter.ended and \
                 encounter is not self._live_encounter:
             self.mode = "live"           # a new fight started: back to the meter
+        match = self.ctl.arena() if self.mode != "history" else None
+        if match is not None:
+            self._arena(match, compact)
         if self.mode == "history":
             self._history(compact)
         elif not ready:
@@ -259,11 +262,41 @@ class DpsPanel(QWidget):
         tid = status.instance_ticket(self.ctl.combat.map_id)
         return ((value.count, value.bonus) if value.known else None), (status.ticket(name, tid) if tid else None)
 
+    # --- the Arena -----------------------------------------------------------------------------------------
+    def _arena(self, match, compact):
+        """Your rivals in the Arena match (and your team in 5v5): class, CP, item level and arena rating, from their
+        official profile (loaded as the match starts, each from their own server)."""
+        f, ctl = self.fonts, self.ctl
+        me = ctl._me()
+        mine = match.me(me)
+        rivals, allies = match.rivals(me), match.allies(me)
+        head = label(f"Arena {match.size} · {'rival' if len(rivals) == 1 else f'{len(rivals)} rivales'}"
+                     + (f" · tu rating {mine.rating:,}" if mine and mine.rating else "") + "  ›", f.small, theme.ACCENT)
+        head.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        head.setCursor(Qt.PointingHandCursor)
+        head.setToolTip("Ver el perfil completo de cada uno (equipo, habilidades, Daevanion) y abrirlo en shugo.gg")
+        head.on_click = ctl.open_arena
+        head.setContentsMargins(f.px(4), 0, 0, 0)
+        self.content.addWidget(head)
+        own_server = mine.server if mine else None
+        shown = rivals if compact or not allies else rivals + allies
+        for p in shown[:5 if compact else 10]:
+            profile = ctl.armory.cached(p.name, p.server)
+            cls = CLASS_OF_JOB.get(p.job, "")
+            name = p.name + (f" [{p.server}]" if own_server and p.server != own_server else "")
+            il = profile.item_level if profile else None
+            middle = (f"IL {il:,}" if il else "cargando…" if ctl.armory.loading(p.name) else "")
+            self.content.addWidget(PartyRow(f, name, cls, self._class_icon(cls), profile.cp if profile else None,
+                                            middle, f"{p.rating:,}" if p.rating else "", 0, p in allies, compact))
+
     def _footer(self):
         row = QWidget()
         lay = QHBoxLayout(row)
         lay.setContentsMargins(0, self.fonts.px(4), 0, 0)
         lay.addStretch(1)
+        if self.ctl.arena() is not None:
+            lay.addWidget(Pill("Arena", self.fonts, self.ctl.open_arena, color=theme.GOLD,
+                               tip="Los jugadores de tu partida de Arena con su perfil oficial y su shugo.gg"))
         combat = self.ctl.combat
         if combat.group:
             lay.addWidget(Pill("Jugadores", self.fonts, self.ctl.open_players,

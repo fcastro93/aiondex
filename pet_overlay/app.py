@@ -41,6 +41,7 @@ from .mapdata import MapData
 from .contribution import OPCODES as CONTRIBUTION_OPCODES, CombatFeed
 from .gear import HIDDEN_POSITIONS, INVENTORY_OPCODE, GearDB, GearReader, own_faction
 from .inventory import UPDATE_OPCODE as ITEMS_UPDATE_OPCODE
+from .arena import ARENA_MAPS, ROSTER_OPCODE as ARENA_OPCODE, parse_roster
 from .armory import Armory
 from .paths import ASSETS_DIR
 from .sounds import SoundPlayer
@@ -111,6 +112,7 @@ OP_KIND = {SNAPSHOT_OPCODE: "collection", PROGRESS_OPCODE: "progress", LEVEL_OPC
            PRESETS_OPCODE: "bar", ROSTER_OPCODE: "roster", PARTY_INFO_OPCODE: "roster", FORCE_INFO_OPCODE: "roster",
            **{op: "roster" for op in MEMBER_OPCODES},
            COUNTERS_OPCODE: "status", COUNTER_OPCODE: "status", MISSIONS_OPCODE: "missions", MISSION_OPCODE: "missions",
+           ARENA_OPCODE: "arena",
            **{op: "combat" for op in DAMAGE_OPCODES}}
 
 SESSION_KEEP = 600       # seconds: a restart this short (an update) keeps your group and your entity id
@@ -140,6 +142,7 @@ class Bridge(QObject):
                                      # ("craft", id, recipe id, success)
     counters = Signal(object)        # ("list", time, [(id, count, bonus, ms)]) | ("update" | "spent", time, ticket)
     missions = Signal(object)        # ("list" | "update", time, [(id, count, ms, collected)]): season missions
+    arena = Signal(object)           # arena.ArenaMatch: who is in the match you are entering
     member_stats = Signal(object)    # {name: (level, item level, combat power)} of your group (and you)
     own_cp = Signal(int)             # your combat power
     revive_cast = Signal(object)     # (caster, skill, time) of a revive or a self revive
@@ -215,6 +218,10 @@ class Bridge(QObject):
             event = parse_craft(body)
             if event:
                 self.profession.emit(("craft", *event))
+        elif op == ARENA_OPCODE:
+            match = parse_roster(body)
+            if match:
+                self.arena.emit(match)
         elif op in (MISSIONS_OPCODE, MISSION_OPCODE):
             records = parse_missions(body)
             if records:
@@ -475,7 +482,9 @@ class Controller(QObject):
         self._armory_relay = _Relay()
         self.armory = Armory(self.data_dir, on_ready=self._armory_relay.ready.emit)
         self._armory_relay.ready.connect(self._profile_ready)
-        self.players_window = None
+        self.players_window = self.arena_window = None
+        self.arena_match = None             # arena.ArenaMatch of the match you are in (or just played)
+        self.bridge.arena.connect(self.on_arena)
         self.bridge.hp.connect(lambda update: self.combat.on_hp(*update))
         self.bridge.own_skill.connect(self.on_own_skill)
         self.gear_db = GearDB(self.data_dir / "gear_items.json")
@@ -1346,8 +1355,67 @@ class Controller(QObject):
         self.players_window.activateWindow()
 
     def _profile_ready(self, name):
-        if self.players_window is not None:
-            self.players_window.profile_ready(name)
+        for window in (self.players_window, self.arena_window):
+            if window is not None:
+                window.profile_ready(name)
+        if self.arena() and self.active_module.key == "dps" and not self._refreshing:
+            self.refresh()
+
+    # --- arena ---
+    def on_arena(self, match):
+        """The Arena's roster as you enter a match: load everyone's official profile (rivals first), each with
+        their own server."""
+        self.arena_match = match
+        me = self._me()
+        log.info("arena %s (mode %s): %s", match.size, match.mode,
+                 ", ".join(f"{p.name}@{p.server} team {p.team} rating {p.rating}" for p in match.players))
+        rivals, allies = match.rivals(me), match.allies(me)
+        for p in rivals + allies + [p for p in match.players if p.name == me]:
+            self.armory.want(p.name, p.server)
+        if rivals:
+            shown = ", ".join(f"{p.name} ({p.server}" + (f", rating {p.rating:,}" if p.rating else "") + ")"
+                              for p in rivals[:3]) + ("…" if len(rivals) > 3 else "")
+            self.notify("info", f"Arena {match.size}: contra {shown}",
+                        "Cargando sus perfiles oficiales (CP, item level, equipo). Clic en la tarjeta de la Arena "
+                        "del DPS para verlos.")
+        if self.arena_window and self.arena_window.isVisible():
+            self.arena_window.refresh()
+        self.refresh()
+
+    def server_name(self, server):
+        """A server's name from the profiles already read (the official API sends it), else None."""
+        for path in sorted((self.data_dir / "armory").glob(f"{server}-*.json"))[:5]:
+            profile = self.armory.cached(path.stem.split("-", 1)[1], server)
+            if profile and profile.server_name:
+                return profile.server_name
+        return "Zikel" if server == 2102 else None
+
+    def _me(self):
+        """Your character's name (the roster can come just before the game names you again: the last one then)."""
+        return self.character_name() or self.settings.get("last_character")
+
+    def arena(self):
+        """The match you are in or just played (in the Arena or before going back to the world), or None."""
+        m = self.arena_match
+        return m if m is not None and m.current() else None
+
+    def arena_members(self):
+        """[(name, server, job, on your team, is you)] of the current match: the players window's arena view."""
+        m = self.arena()
+        if m is None:
+            return []
+        me = self._me()
+        mine = m.me(me)
+        return [(p.name, p.server, p.job, mine is not None and p.team == mine.team, p.name == me) for p in m.players]
+
+    def open_arena(self):
+        from .ui.playerswindow import PlayersWindow
+        if self.arena_window is None:
+            self.arena_window = PlayersWindow(self, arena=True)
+        self.arena_window.refresh()
+        self.arena_window.show()
+        self.arena_window.raise_()
+        self.arena_window.activateWindow()
 
     def on_own_entity(self, eid):
         """Your entity id, learnt from your own skill presses before the game resent your character: the meter
@@ -1388,6 +1456,8 @@ class Controller(QObject):
         if open_world or game_map_faction(map_id) != self.location_faction():
             self.game_map = map_id
             self.current_zone, self.zone_from_npcs = None, False
+        if self.arena_match is not None and map_id not in ARENA_MAPS and not in_instance(map_id):
+            self.arena_match.at = min(self.arena_match.at, time.time() - 30 * 60)   # back in the world: kept 10 min
         log.info("map entry %s (seq %s, side %s)", map_id, seq, game_map_faction(map_id))
         self.refresh()
 
