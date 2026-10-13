@@ -6,8 +6,13 @@ shugo.gg shows; shugo.gg itself forbids automated access, so the app only links 
   never changes, so it is kept for good.
 - info: aion2.plaync.com/api/character/info -> profile (class, level, combatPower, title; the legion is
   "regionName"), stat.statList (the main stats, the gods' stats and ItemLevel), title, daevanion.boardList.
-- equipment: aion2.plaync.com/api/character/equipment -> equipmentList (+enchantLevel, exceedLevel, grade, slot),
-  skillList (name, category, skillLevel, equip), petwing.
+- equipment: aion2.plaync.com/api/character/equipment -> equipmentList (+enchantLevel, exceedLevel, grade, slot, icon),
+  skillList (name, category Active / Passive / Dp = stigma, skillLevel, equip, icon), petwing.
+- item: aion2.plaync.com/api/character/equipment/item?id&enchantLevel&characterId&serverId&slotPos -> one piece as
+  the game's tooltip shows it: mainStats (+extra from its enchant), soulBindRate and subStats, magicStoneStat
+  (manastones), godStoneStat (theostones), costumes. Asked when you click the piece (the official page does the same),
+  kept ITEM_MINUTES.
+- icons: the items' and skills' pictures, from NCSOFT's CDN (assets.playnccdn.com), kept on disk for good.
 Every request answers with the data as it is now (that is what "refresh" does on shugo.gg too). AionDex asks only
 when you open the players window or press Refrescar: one request at a time, at least REQUEST_GAP apart, a 429/5xx
 is retried a few times with a growing wait (Retry-After when the server gives one), and profiles are kept
@@ -31,6 +36,7 @@ API = "https://aion2.plaync.com/api/character/"
 UA = f"AionDex/{__version__} (+https://github.com/fcastro93/aiondex)"
 REQUEST_GAP = 1.0
 CACHE_MINUTES = 30
+ITEM_MINUTES = 30
 RETRIES = 4
 SUBREGIONS = {1: "nae", 2: "naw", 3: "eu", 4: "la", 5: "as"}      # global server ids: faction digit, region digit
 
@@ -75,6 +81,11 @@ class Profile:
         skills = (equipment.get("skill") or {}).get("skillList") or []
         self.skills = [(s.get("name") or "", s.get("category") or "", s.get("skillLevel") or 0)
                        for s in skills if s.get("acquired", 1) and s.get("skillLevel")]
+        # every piece and skill as the official page lists them (with their icons), for the inspect view
+        self.items = {e.get("slotPosName") or "": e for e in eq}
+        self.skill_list = skills
+        self.boards = boards
+        self.race = p.get("raceName") or ""
         pw = equipment.get("petwing") or {}
         self.pet = (pw.get("pet") or {}).get("name") if isinstance(pw.get("pet"), dict) else None
         self.wing = (pw.get("wing") or {}).get("name") if isinstance(pw.get("wing"), dict) else None
@@ -100,6 +111,9 @@ class Armory:
         self._lock = threading.Lock()
         self._thread = None
         self._last = 0.0
+        self._icon_queue = queue.Queue()
+        self._icons_wanted = set()
+        self._icon_thread = None
 
     # --- cache ---
     def _load(self, name, default):
@@ -109,7 +123,7 @@ class Armory:
             return default
 
     def _save(self, name, data):
-        self.dir.mkdir(parents=True, exist_ok=True)
+        (self.dir / name).parent.mkdir(parents=True, exist_ok=True)
         (self.dir / name).write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
     @staticmethod
@@ -140,13 +154,106 @@ class Armory:
                 return
             self._pending.add(name)
         self._queue.put((name, server))
+        self._start()
+
+    # --- one piece of gear, as its tooltip shows it ---
+    def _item_path(self, profile, slot):
+        import hashlib
+        item = profile.items.get(slot) or {}
+        key = hashlib.sha1(f"{profile.character_id}|{item.get('slotPos')}|{item.get('id')}|"
+                           f"{item.get('enchantLevel')}".encode()).hexdigest()[:20]
+        return self.dir / "items" / f"{key}.json"
+
+    def item(self, profile, slot):
+        """The piece's detail on disk (any age), or None."""
+        data = self._load(str(self._item_path(profile, slot).relative_to(self.dir)), None)
+        return data.get("item") if data else None
+
+    def want_item(self, profile, slot):
+        """Ask for a piece's detail in the background (skipped when a recent one is on disk)."""
+        item = profile.items.get(slot)
+        if not item or not profile.character_id:
+            return
+        path = self._item_path(profile, slot)
+        saved = self._load(str(path.relative_to(self.dir)), None)
+        if saved and time.time() - saved.get("at", 0) < ITEM_MINUTES * 60:
+            return
+        key = ("item", str(path))
+        with self._lock:
+            if key in self._pending:
+                return
+            self._pending.add(key)
+        self._queue.put(("item", profile, slot, path))
+        self._start()
+
+    def item_loading(self, profile, slot):
+        return ("item", str(self._item_path(profile, slot))) in self._pending
+
+    def item_error(self, profile, slot):
+        return self._errors.get(("item", str(self._item_path(profile, slot))))
+
+    def _fetch_item(self, profile, slot, path):
+        item = profile.items[slot]
+        q = urllib.parse.urlencode({"id": item.get("id"), "enchantLevel": item.get("enchantLevel") or 0,
+                                    "characterId": profile.character_id, "serverId": profile.server,
+                                    "slotPos": item.get("slotPos"), "lang": "en", "region": subregion(profile.server)})
+        data = self._get(f"{API}equipment/item?{q}")
+        self._save(str(path.relative_to(self.dir)), {"at": time.time(), "item": data})
+
+    # --- pictures of items and skills ---
+    def icon(self, url):
+        """The picture's file if it was downloaded, else None (and it is downloaded in the background)."""
+        if not url or not url.startswith("https://"):
+            return None
+        path = self.dir / "icons" / urllib.parse.urlparse(url).path.rsplit("/", 1)[-1]
+        if path.exists():
+            return path
+        with self._lock:
+            if url in self._icons_wanted:
+                return None
+            self._icons_wanted.add(url)
+        self._icon_queue.put((url, path))
+        if self._icon_thread is None:
+            self._icon_thread = threading.Thread(target=self._run_icons, name="armory-icons", daemon=True)
+            self._icon_thread.start()
+        return None
+
+    def _run_icons(self):
+        while True:
+            url, path = self._icon_queue.get()
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": UA})
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    data = resp.read()
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(data)
+            except (urllib.error.URLError, TimeoutError, OSError) as exc:
+                log.info("icon %s: %s", url, exc)
+            if self._icon_queue.empty():
+                self.on_ready("")                             # redraw once a batch is in
+            time.sleep(0.05)
+
+    def _start(self):
         if self._thread is None:
             self._thread = threading.Thread(target=self._run, name="armory", daemon=True)
             self._thread.start()
 
     def _run(self):
         while True:
-            name, server = self._queue.get()
+            job = self._queue.get()
+            if job[0] == "item":
+                _, profile, slot, path = job
+                try:
+                    self._fetch_item(profile, slot, path)
+                except Exception as exc:          # noqa: BLE001 - shown in the piece's tooltip
+                    log.warning("armory item %s %s: %s", profile.name, slot, exc)
+                    self._errors[("item", str(path))] = str(exc) or type(exc).__name__
+                finally:
+                    with self._lock:
+                        self._pending.discard(("item", str(path)))
+                    self.on_ready(profile.name)
+                continue
+            name, server = job
             try:
                 self._fetch(name, server)
                 self._errors.pop(name, None)

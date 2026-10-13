@@ -19,6 +19,7 @@ data/*
 !data/npc_db.json
 !data/missions_db.json
 !data/achievements_db.json
+!data/skill_info.json
 
 # Dev artifacts
 prototipos/

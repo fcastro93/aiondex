@@ -57,6 +57,8 @@ class PlayersWindow(QWidget):
         self.tab = "players"
         self.selected = None
         self._icons = {}
+        self.inspect_state = {"tab": "gear", "number": "cp"}     # the inspect card's tab and CP / item level
+        self._popup = None
         self.setObjectName("MapWindow")
         self.setWindowTitle(f"{APP_NAME} — " + ("Arena" if arena else "Jugadores de tu grupo"))
         self.setWindowIcon(ctl.app_icon)
@@ -162,6 +164,8 @@ class PlayersWindow(QWidget):
     def profile_ready(self, _name):
         if self.isVisible():
             self._redraw.start()
+        if self._popup is not None and self._popup.isVisible():
+            self._popup.reload()             # a piece's detail or an icon that just arrived
 
     def _filters_changed(self):
         conf = self.ctl.settings.setdefault("players", {})
@@ -388,55 +392,21 @@ class PlayersWindow(QWidget):
         self.body.parentWidget().parentWidget().parentWidget().verticalScrollBar().setValue(0)
 
     def _details(self, p):
-        f = self.fonts
-        self.body.addWidget(SectionTitle(f"{p.name} · {CLASS_ES.get(p.class_name, p.class_name)} · CP {p.cp:,}"
-                                         if p.cp is not None else p.name, f))
-        row = QHBoxLayout()
-        row.setSpacing(24)
-        gear = QVBoxLayout()
-        gear.setSpacing(1)
-        gear.addWidget(label("Equipo", f.name, theme.TEXT))
-        table = QGridLayout()
-        table.setHorizontalSpacing(10)
-        table.setVerticalSpacing(1)
-        for r, (slot, name, enchant, exceed, grade) in enumerate(p.gear):
-            table.addWidget(label(SLOT_ES.get(slot, slot), f.small, theme.MUTED), r, 0)
-            table.addWidget(label(f"{name} +{enchant}" + (f" ◆{exceed}" if exceed else ""), f.small,
-                                  QColor(GRADE_COLOR.get(grade, "#D6DAE3"))), r, 1)
-        table.setColumnStretch(1, 1)
-        gear.addLayout(table)
-        if p.pet or p.wing:
-            gear.addWidget(label(" · ".join(x for x in (f"Mascota {p.pet}" if p.pet else "",
-                                                         f"Alas {p.wing}" if p.wing else "") if x), f.small,
-                                 theme.MUTED))
-        gear.addStretch(1)
-        row.addLayout(gear, 3)
-        skills = QVBoxLayout()
-        skills.setSpacing(1)
-        skills.addWidget(label("Habilidades", f.name, theme.TEXT))
-        for name, cat, lvl in sorted(p.skills, key=lambda s: (s[1] != "Active", -s[2]))[:24]:
-            skills.addWidget(label(f"{name} · {lvl}" + ("" if cat == "Active" else f"  ({cat.lower()})"), f.small,
-                                   theme.TEXT if cat == "Active" else theme.MUTED))
-        skills.addStretch(1)
-        row.addLayout(skills, 3)
-        stats = QVBoxLayout()
-        stats.setSpacing(1)
-        stats.addWidget(label("Estadísticas", f.name, theme.TEXT))
-        for name, value in p.stats:
-            stats.addWidget(label(f"{name}: {value}", f.small, theme.TEXT))
-        if p.daevanion:
-            stats.addWidget(label("Daevanion", f.name, theme.TEXT))
-            for name, opened, total in p.daevanion:
-                stats.addWidget(label(f"{name}: {opened}/{total}", f.small, theme.MUTED))
-        if p.title:
-            stats.addWidget(label(f"Título: {p.title}", f.small, theme.MUTED))
-        stats.addStretch(1)
-        row.addLayout(stats, 2)
-        holder = QFrame()
-        holder.setObjectName("PartyCol")
-        holder.setLayout(row)
-        row.setContentsMargins(12, 10, 12, 10)
-        self.body.addWidget(holder)
+        """The selected player as the game's inspect window shows them (ui/inspect.py)."""
+        from .inspect import InspectView
+        cp, il = self.numbers(p.name, p)
+        self.body.addWidget(InspectView(self.ctl, p, self.fonts, self.inspect_state, self, cp, il))
+
+    def open_popup(self, kind, profile, key, anchor):
+        """A piece's or a skill's details next to it (one at a time)."""
+        if self._popup is not None:
+            self._popup.close()
+        self._popup = kind(self, profile, key, anchor)
+        self._popup.show()
+
+    def close_inspect(self):
+        self.selected = None
+        self.refresh()
 
     # --- organising the force ---
     def _plan(self, members, profiles):
