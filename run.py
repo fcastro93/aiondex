@@ -24,11 +24,13 @@ def main():
     parser.add_argument("--open-menu", action="store_true", help="(dev) open the app menu before --screenshot")
     parser.add_argument("--open-tuner", action="store_true", help="(dev) open the Afinador window")
     parser.add_argument("--diagnose", metavar="PROBLEM", help="(dev) open Diagnóstico and run a problem (or 'none')")
+    parser.add_argument("--restarted", action="store_true", help="started by AionDex itself: wait for the old one")
     args = parser.parse_args()
 
-    if not args.preview and not _single_instance():
+    if not args.preview and not _single_instance(wait=10.0 if args.restarted else 0.0):
         return
     seed_user_data()
+    _apply_ui_scale()
     logging.basicConfig(filename=DATA_DIR / "overlay.log", level=logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     _log_crashes()
@@ -128,18 +130,38 @@ def _log_crashes():
     threading.excepthook = lambda a: hook(a.exc_type, a.exc_value, a.exc_traceback)
 
 
-def _single_instance():
-    """Hold a named mutex for the process lifetime; False if another overlay already runs."""
+def _single_instance(wait=0.0):
+    """Hold a named mutex for the process lifetime; False if another overlay already runs (after waiting `wait`
+    seconds for it to close: a restart from AionDex itself)."""
     import ctypes
+    import time
     kernel32 = ctypes.windll.kernel32
     kernel32.CreateMutexW.restype = ctypes.c_void_p
     global _mutex
-    _mutex = kernel32.CreateMutexW(None, False, "Local\\AionDexOverlay")
-    if kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
-        ctypes.windll.user32.MessageBoxW(None, f"{APP_NAME} ya está abierto (mira el icono en la bandeja).",
-                                         APP_NAME, 0x40)
-        return False
-    return True
+    deadline = time.time() + wait
+    while True:
+        _mutex = kernel32.CreateMutexW(None, False, "Local\\AionDexOverlay")
+        if kernel32.GetLastError() != 183:  # ERROR_ALREADY_EXISTS
+            return True
+        if time.time() >= deadline:
+            break
+        kernel32.CloseHandle(ctypes.c_void_p(_mutex))
+        time.sleep(0.25)
+    ctypes.windll.user32.MessageBoxW(None, f"{APP_NAME} ya está abierto (mira el icono en la bandeja).", APP_NAME, 0x40)
+    return False
+
+
+def _apply_ui_scale():
+    """'Tamaño de todo' (Ajustes, for people who see little): Qt scales every window, text and icon by this factor.
+    It has to be set before the app starts, so a change applies on the next start."""
+    import json
+    import os
+    try:
+        value = float(json.loads((DATA_DIR / "settings.json").read_text(encoding="utf-8")).get("ui_scale", 1.0))
+    except (OSError, ValueError, TypeError):
+        value = 1.0
+    if 1.01 < value <= 3.0 and "QT_SCALE_FACTOR" not in os.environ:
+        os.environ["QT_SCALE_FACTOR"] = f"{value:g}"
 
 
 if __name__ == "__main__":

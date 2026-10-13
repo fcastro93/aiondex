@@ -82,6 +82,28 @@ class VolumeStep(QWidget):
         p.drawRoundedRect(r, 2, 2)
 
 
+UI_SCALES = (1.0, 1.5, 2.0, 2.5)
+
+
+class ScaleStep(QWidget):
+    """One step of the "Tamaño de todo" slider: a click picks that size (the ones up to it are filled)."""
+
+    def __init__(self, filled, fonts, on_click):
+        super().__init__()
+        self.filled = filled
+        self.on_click = on_click
+        self.setFixedSize(fonts.px(44), fonts.px(18))
+        self.setCursor(Qt.PointingHandCursor)
+
+    def paintEvent(self, _):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        r = QRectF(self.rect()).adjusted(1, 5, -1, -5)
+        p.setPen(Qt.NoPen)
+        p.setBrush(theme.ACCENT if self.filled else theme.BAR_BG)
+        p.drawRoundedRect(r, 3, 3)
+
+
 class SettingsPanel(QWidget):
     def __init__(self, ctl, fonts, parent=None):
         super().__init__(parent)
@@ -119,6 +141,8 @@ class SettingsPanel(QWidget):
             self.content.addWidget(label(f"Última búsqueda: {ago(up.last_check)}", f.small, theme.MUTED))
         self.content.addWidget(self._toggle("Actualizar automáticamente", "auto_update"))
 
+        self._ui_scale()
+
         self.content.addWidget(SectionTitle("Sonidos", f))
         for key, (text, _) in SOUNDS.items():
             self._sound_row(key, text)
@@ -134,6 +158,36 @@ class SettingsPanel(QWidget):
         credit.setWordWrap(True)
         self.content.addWidget(credit)
         self.adjustSize()
+
+    def _ui_scale(self):
+        """Accesibilidad: the size of everything (overlay, windows, texts), 100-250%."""
+        f = self.fonts
+        self.content.addWidget(SectionTitle("Accesibilidad", f))
+        chosen = float(self.ctl.settings.get("ui_scale", 1.0) or 1.0)
+        head = QHBoxLayout()
+        head.addWidget(label("Tamaño de todo", f.body, theme.TEXT), 1)
+        head.addWidget(label(f"{round(chosen * 100)}%", f.name, theme.TEXT))
+        self.content.addLayout(head)
+        row = QHBoxLayout()                    # the slider: one step per size, filled up to the chosen one
+        row.setSpacing(f.px(4))
+        for value in UI_SCALES:
+            step = ScaleStep(value <= chosen + 0.01, f, lambda v=value: self.ctl.set_ui_scale(v))
+            step.setToolTip(f"{round(value * 100)}%")
+            row.addWidget(step)
+        row.addSpacing(f.px(6))
+        if chosen >= UI_SCALES[-1] - 0.01:     # the slider at its end
+            row.addWidget(label("Modo Marvin", f.name, theme.GOLD))
+        row.addStretch(1)
+        self.content.addLayout(row)
+        if abs(chosen - self.ctl.ui_scale_active) > 0.01:
+            line = QHBoxLayout()
+            note = label("Se aplica al reiniciar AionDex", f.small, theme.WARN)
+            line.addWidget(note, 1)
+            line.addWidget(PillButton("Reiniciar ahora", f, self.ctl.restart_app, small=True))
+            self.content.addLayout(line)
+        else:
+            self.content.addWidget(label("Agranda el overlay, las ventanas, los textos y los iconos.", f.small,
+                                         theme.MUTED))
 
     def _sound_row(self, key, text):
         """Name and a test button, then the volume bar (click a segment), the % and the on/off switch."""

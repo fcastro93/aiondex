@@ -1,7 +1,9 @@
 """Wires capture, collection state, session stats, character/faction, tray, hotkeys, overlay and map."""
 import json
 import logging
+import os
 import queue
+import sys
 import threading
 import time
 from pathlib import Path
@@ -477,6 +479,8 @@ class Controller(QObject):
         self.bridge.counters.connect(self.on_counters)
 
         self.fonts = Fonts(self.settings["scale"])
+        if self.ui_scale_active > 1.01:
+            self._screen_fit = _ScreenFit(QApplication.instance())    # big sizes: no window larger than the screen
         self.notifications = NotificationCenter(self.data_dir / "notifications.json" if self.persist else None)
         self._refreshing = False
         self._last_zone_notice = {}     # zone slug -> time of the last "you are here" notice
@@ -1687,6 +1691,30 @@ class Controller(QObject):
         self._save_settings()
         self.window.update()
 
+    def set_ui_scale(self, value):
+        """'Tamaño de todo': saved now, applied when AionDex starts again (Reiniciar ahora)."""
+        self.settings["ui_scale"] = value
+        self._save_settings()
+        self.refresh()
+
+    @property
+    def ui_scale_active(self):
+        try:
+            return float(os.environ.get("QT_SCALE_FACTOR") or 1.0)
+        except ValueError:
+            return 1.0
+
+    def restart_app(self):
+        """Start AionDex again (it waits for this one to close) and close this one."""
+        from PySide6.QtCore import QProcess
+        if getattr(sys, "frozen", False):
+            program, args = sys.executable, ["--restarted"]
+        else:
+            program, args = sys.executable, [str(Path(sys.argv[0]).resolve()), "--restarted"]
+        log.info("restarting (%s %s)", program, args)
+        QProcess.startDetached(program, args)
+        self.quit()
+
     def set_scale(self, value):
         self.settings["scale"] = value
         self._save_settings()
@@ -1802,6 +1830,28 @@ def _submenu(parent, title):
     parent.addMenu(sub)
     return sub
 
+
+
+class _ScreenFit(QObject):
+    """With "Tamaño de todo" above 100% a window can come out larger than the screen: fit it in when it opens."""
+
+    def __init__(self, app):
+        super().__init__(app)
+        self._fitted = set()
+        app.installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        from PySide6.QtCore import QEvent
+        if event.type() == QEvent.Show and getattr(obj, "isWindow", None) and obj.isWindow() and id(obj) not in \
+                self._fitted and obj.objectName() == "MapWindow":
+            self._fitted.add(id(obj))
+            screen = obj.screen() or QApplication.primaryScreen()
+            area = screen.availableGeometry()
+            frame = obj.frameGeometry()
+            if frame.width() > area.width() or frame.height() > area.height():
+                obj.resize(min(obj.width(), area.width() - 20), min(obj.height(), area.height() - 50))
+                obj.move(area.left() + 10, area.top() + 10)
+        return False
 
 def _loxin_boss_names():
     """npc id -> boss name from LOXIN's local boss log, if that app is installed (read-only)."""
