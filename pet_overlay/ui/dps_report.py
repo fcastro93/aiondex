@@ -10,12 +10,13 @@ from PySide6.QtWidgets import (QApplication, QDialog, QFileDialog, QHBoxLayout, 
                                QVBoxLayout)
 
 from .. import APP_NAME, __version__
+from ..combat import aggro_counts
 from ..mvp import FORMULA, PARTS, scores
 from ..paths import ASSETS_DIR
 from .dps_panel import CLASS_ICON, mmss
 from .dps_party import CLASS_COLOR, OTHER_COLOR, compact_number, thousands
 
-WIDTH = 1440
+WIDTH = 1600
 PAD = 40
 BG = QColor("#0a1120")
 CARD = QColor("#111b31")
@@ -62,6 +63,7 @@ class Report:
         hp = enc.hp.get(enc.main_target_eid)
         self.max_hp = (hp[1] if hp else None) or enc.target_max_hp.get(enc.main_target_eid)
         self.seconds = enc.target_time(self.boss) if self.boss is not None else enc.duration
+        self.aggro = aggro_counts(enc)
 
     def cp(self, name):
         return self.enc.cp.get(name) or self.ctl.cp_of(name)
@@ -179,7 +181,7 @@ def _mvp(p, r, icons, y):
     # what made it: one bar per kind of contribution
     bx = rect.left() + 820
     bw = rect.right() - 30 - bx
-    parts = [(key, title, best.parts[key]) for key, title in PARTS if best.parts[key] > 0]
+    parts = [(key, title, best.parts.get(key, 0)) for key, title in PARTS if best.parts.get(key, 0) > 0]
     top = max((v for _, _, v in parts), default=1) or 1
     step = min(44.0, (rect.height() - 44) / max(1, len(parts)))
     by = rect.top() + 22 + (rect.height() - 44 - step * len(parts)) / 2
@@ -227,7 +229,8 @@ def _tiles(p, r, y):
 
 COLUMNS = [("#", 40, "l"), ("Jugador", 0, "l"), ("CP", 84, "r"), ("Daño", 96, "r"), ("DPS", 92, "r"),
            ("%", 76, "r"), ("Crít.", 64, "r"), ("Curación", 98, "r"), ("Escudos", 90, "r"),
-           ("Recibido", 96, "r"), ("Evitados", 86, "r"), ("Muertes", 78, "r"), ("Puntos MVP", 150, "r")]
+           ("Recibido", 96, "r"), ("Evitados", 86, "r"), ("Muertes", 78, "r"), ("Reviv.", 70, "r"),
+           ("Aggro", 70, "r"), ("Puntos MVP", 150, "r")]
 
 
 def _table(p, r, icons, y):
@@ -261,7 +264,8 @@ def _table(p, r, icons, y):
                   _pct(100 * dmg / r.basis) if dmg else "—", crit,
                   compact_number(a.healing) if a.healing else "—", compact_number(a.shielding) if a.shielding else "—",
                   compact_number(a.taken) if a.taken else "—", str(a.avoided_hits) if a.avoided_hits else "—",
-                  str(a.deaths) if a.deaths else "—", None]
+                  str(a.deaths) if a.deaths else "—", str(a.revives) if a.revives else "—",
+                  str(r.aggro.get(a.eid, 0) or "—"), None]
         body = _font(17, QFont.DemiBold if i == 1 else QFont.Normal)
         for (title, _, align), x, w, value in zip(COLUMNS, xs, widths, values):
             cell = QRectF(x, rect.top(), w - 8, rect.height())
@@ -308,21 +312,23 @@ def _footer(p, y, height):
           f"(o sobre el daño de la pelea)", _font(13), QColor(139, 149, 171, 170))
 
 
-class ReportDialog(QDialog):
-    """The report's preview with Copiar and Guardar."""
+class ImageDialog(QDialog):
+    """A report image's preview with Copiar and Guardar (saved in Pictures/AionDex by default)."""
 
-    def __init__(self, ctl, enc, parent=None):
+    def __init__(self, image, file_name, title, parent=None):
         super().__init__(parent)
-        self.ctl, self.enc = ctl, enc
-        self.image = render(ctl, enc)
-        self.setWindowTitle(f"{APP_NAME} — Informe de combate")
-        self.setStyleSheet(parent.styleSheet() if parent is not None else "")
-        self.resize(1040, 820)
+        self.image, self.file_name = image, file_name
+        self.setWindowTitle(f"{APP_NAME} — {title}")
+        from .mapwindow import STYLE
+        from .tunerwindow import EXTRA_STYLE
+        self.setObjectName("MapWindow")                    # the app's dark window style
+        self.setStyleSheet(STYLE + EXTRA_STYLE)
+        self.resize(1080, 840)
         col = QVBoxLayout(self)
         col.setContentsMargins(16, 14, 16, 14)
         preview = QLabel()
         preview.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
-        preview.setPixmap(QPixmap.fromImage(self.image).scaledToWidth(980, Qt.SmoothTransformation))
+        preview.setPixmap(QPixmap.fromImage(self.image).scaledToWidth(1020, Qt.SmoothTransformation))
         scroll = QScrollArea()
         scroll.setWidget(preview)
         scroll.setWidgetResizable(True)
@@ -350,8 +356,16 @@ class ReportDialog(QDialog):
             folder.mkdir(parents=True, exist_ok=True)
         except OSError:
             folder = Path.home()
-        name = f"informe-{_slug(self.enc.main_target or 'pelea')}-{time.strftime('%Y%m%d-%H%M', time.localtime(self.enc.last))}.png"
-        path, _ = QFileDialog.getSaveFileName(self, "Guardar informe", str(folder / name), "Imagen PNG (*.png)")
+        path, _ = QFileDialog.getSaveFileName(self, "Guardar informe", str(folder / self.file_name),
+                                              "Imagen PNG (*.png)")
         if path:
             self.image.save(path, "PNG")
             self.status.setText(f"Guardado en {path}")
+
+
+class ReportDialog(ImageDialog):
+    """The fight report's preview."""
+
+    def __init__(self, ctl, enc, parent=None):
+        name = f"informe-{_slug(enc.main_target or 'pelea')}-{time.strftime('%Y%m%d-%H%M', time.localtime(enc.last))}.png"
+        super().__init__(render(ctl, enc), name, "Informe de combate", parent)

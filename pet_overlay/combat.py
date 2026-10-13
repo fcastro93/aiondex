@@ -30,6 +30,30 @@ def in_instance(map_id):
     return map_id is not None and not 1000 <= map_id < 1200 and map_id not in ABYSS_MAPS
 
 
+# Revives (2026-10-12 captures): a dead player who gets up by themselves casts 8047 about 3 s after dying (dungeons);
+# a healer's revive is a cleric Salvation (1727xxxx, set beforehand: the player gets up at once) or Summon
+# Resurrection (1739xxxx), then the dead player acts again. The cast does not say whom it targets, so the revive
+# goes to the healer whose cast came last before the player got up.
+REVIVE_SKILLS = {1727: "Salvation", 1739: "Summon Resurrection"}      # skill // 10000
+SELF_REVIVE = 8047
+REVIVE_WINDOW = 30.0         # a revive cast this long before the player got up still counts
+SALVATION_WINDOW = 180.0     # Salvation is cast before the death: back within 2 s of dying, cast this long before
+
+
+def aggro_counts(enc):
+    """{player eid: enemies that hit this player the most}: who held each monster's attention. The areas a boss
+    leaves (2920000-2929999) do not count."""
+    holders = Counter()
+    for enemy in enc.enemy_damage:
+        npc = enc.target_npc.get(enemy)
+        if npc is not None and 2920000 <= npc < 2930000:
+            continue
+        best = max(enc.actors.values(), key=lambda a: a.taken_from.get(enemy, 0), default=None)
+        if best is not None and best.taken_from.get(enemy):
+            holders[best.eid] += 1
+    return holders
+
+
 CLASS_NAMES = {"11": "Gladiador", "12": "Templario", "13": "Asesino", "14": "Cazador", "15": "Hechicero",
                "16": "Invocador", "17": "Clérigo", "18": "Cantor"}
 
@@ -99,6 +123,8 @@ class ActorStats:
     # stagger gauge points taken off bosses (split per hit: the game does not say who)
     stagger: float = 0.0
     deaths: int = 0             # times this player died during the fight (048d)
+    revives: int = 0            # times this player (a healer) revived someone (the same person 3 times counts 3)
+    revived: int = 0            # times this player was revived by a healer
     stagger_skills: Counter = field(default_factory=Counter)
 
     @property
@@ -348,6 +374,8 @@ class CombatTracker:
         self.bosses = {}         # eid -> True boss / False not (from the monster database)
         self.rage = {}           # eid -> seconds from the start of the fight until that boss rages
         self.engaged = {}        # eid -> first hit between that monster and your side (kept across encounters)
+        self.down = {}           # player eid -> when they died (until they act again)
+        self.res_casts = deque(maxlen=50)    # (time, caster, skill base) of revive skills cast
         self.group = set()       # names of your party / force members (from the group roster)
         self.party = set()       # names of your own party (inside a force: only once the game says which it is)
         self.in_force = False
@@ -448,6 +476,8 @@ class CombatTracker:
         attacker = self.owners.get(hit.attacker, hit.attacker)
         if attacker not in self.players:
             return None          # (hits on players only come from enemies of the other faction: PvP)
+        if attacker in self.down:
+            self._back(attacker, hit.ts)
         enc, finished = self._encounter(hit.ts)
         actor = self._actor(enc, attacker)
         actor.damage += hit.amount
@@ -522,6 +552,8 @@ class CombatTracker:
         if not live:
             return None
         source = self.owners.get(hit.attacker, hit.attacker) if hit.attacker is not None else None
+        if source in self.down and hit.kind in ("heal", "absorb"):
+            self._back(source, hit.ts)
         if hit.kind == "heal":
             if source not in self.players:
                 return None
@@ -557,8 +589,38 @@ class CombatTracker:
             enc.died_at.setdefault(eid, max(enc.last, enc.last_hit.get(eid, 0)))
         elif enc and not enc.ended and eid in self.players and time.time() - enc.last <= IDLE_END:
             self._actor(enc, eid).deaths += 1       # a player of the fight died
+        if eid in self.players:
+            self.down[eid] = time.time()
         self.engaged.pop(eid, None)
         return None
+
+    def on_cast(self, caster, skill, ts):
+        """A cast that matters for revives: 8047 (got up by themselves) or a healer's revive skill."""
+        caster = self.owners.get(caster, caster)
+        if skill == SELF_REVIVE:
+            self.down.pop(caster, None)
+        elif skill // 10000 in REVIVE_SKILLS:
+            self.res_casts.append((ts, caster, skill // 10000))
+
+    def _back(self, eid, ts):
+        """A dead player acted again: revived. -> the healer credited, if a revive skill explains it."""
+        died = self.down.pop(eid, None)
+        if died is None:
+            return
+        reviver = None
+        for at, caster, base in reversed(self.res_casts):
+            if caster == eid:
+                continue
+            if died <= at <= ts and ts - at <= REVIVE_WINDOW:
+                reviver = caster
+                break
+            if base == 1727 and ts - died <= 2 and died - SALVATION_WINDOW <= at < died:
+                reviver = caster
+                break
+        enc = self.current
+        if reviver is not None and reviver in self.players and enc is not None and not enc.ended:
+            self._actor(enc, reviver).revives += 1
+            self._actor(enc, eid).revived += 1
 
     def tick(self, now=None):
         """End the current encounter once it has been idle long enough; returns it when it ends."""

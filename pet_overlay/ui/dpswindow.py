@@ -8,11 +8,12 @@ from dataclasses import dataclass, field
 
 from PySide6.QtCore import QRect, QRectF, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QPainter, QPixmap
-from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QFrame, QHBoxLayout, QHeaderView,
+from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDialog, QFrame, QHBoxLayout, QHeaderView,
                                QLineEdit, QPushButton, QSplitter, QStyledItemDelegate, QTableWidget, QTableWidgetItem,
                                QVBoxLayout, QWidget)
 
 from .. import APP_NAME
+from ..combat import aggro_counts
 from . import theme
 from .dps_panel import mmss, short_number
 from .mapwindow import STYLE, badge_label
@@ -126,6 +127,7 @@ METRICS = [
         ("%", _share),
         ("Curas", _hits("heal_hits")),
         ("Sobrecuración", _amount("overheal")),
+        ("Revividos", _hits("revives")),
     ], [("Habilidades", "heal_skills", "heal_skill_hits", "skill"), ("A quién", "heal_to", None, "player")],
         rate="HPS"),
     Metric("shields", "Escudos", "Escudos", "shielding", [
@@ -141,9 +143,11 @@ METRICS = [
         ("Golpes", _hits("taken_hits")),
         ("Mayor golpe", _amount("taken_max")),
         ("Muertes", _hits("deaths")),
+        ("Aggro", lambda a, v, enc, t: (str(aggro_counts(enc).get(a.eid, 0)), aggro_counts(enc).get(a.eid, 0))),
         ("Absorbido", _amount("absorbed")),
     ], [("De quién", "taken_from", None, "npc"), ("Habilidades enemigas", "taken_skills", None, "enemy_skill")],
-        note="«Absorbido»: daño que los escudos le quitaron antes de llegar a su vida."),
+        note="«Absorbido»: daño que los escudos le quitaron antes de llegar a su vida. «Aggro»: enemigos que le "
+             "pegaron a este jugador más que a nadie (los que aguantó)."),
     Metric("avoided", "Evitado", "Evitado", "avoided_hits", [
         ("Evitados", lambda a, v, enc, t: (str(v), v)),
         ("Parry", _hits("parries")),
@@ -329,6 +333,10 @@ class DpsDetailsWindow(QWidget):
         self.pin_button.setToolTip("Las peleas se guardan 48 horas; las marcadas con ★ se quedan hasta que las quites")
         self.pin_button.clicked.connect(self._toggle_pin)
         head.addWidget(self.pin_button)
+        sessions = QPushButton("Sesiones")
+        sessions.setToolTip("Comenzar o terminar una sesión (varios runs con la misma party) y ver sus informes")
+        sessions.clicked.connect(self._sessions)
+        head.addWidget(sessions)
         report = QPushButton("Informe")
         report.setProperty("primary", True)
         report.setToolTip("Una imagen con la pelea, los números de tu grupo y su MVP, para guardar o pegar")
@@ -506,6 +514,9 @@ class DpsDetailsWindow(QWidget):
             return
         from .dps_report import ReportDialog
         ReportDialog(self.ctl, enc, self).exec()
+
+    def _sessions(self):
+        SessionsDialog(self.ctl, self).exec()
 
     def _show_enemies(self):
         self.enemy_view = True
@@ -922,3 +933,89 @@ class DpsDetailsWindow(QWidget):
         if self.isVisible():
             enc = self.encounter()
             self._fill_breakdown(enc, enc.actors.get(self.selected) if enc else None)
+
+
+class SessionsDialog(QDialog):
+    """Start / end a session and the reports of the past ones."""
+
+    def __init__(self, ctl, parent=None):
+        super().__init__(parent)
+        self.ctl = ctl
+        self.setWindowTitle(f"{APP_NAME} — Sesiones")
+        self.setObjectName("MapWindow")                    # the app's dark window style
+        self.setStyleSheet(STYLE + EXTRA_STYLE + TABLE_STYLE)
+        self.resize(720, 520)
+        self.col = QVBoxLayout(self)
+        self.col.setContentsMargins(16, 14, 16, 14)
+        self.col.setSpacing(8)
+        self._fill()
+
+    def _clear(self, layout):
+        while layout.count():
+            item = layout.takeAt(0)
+            if item.widget() is not None:
+                item.widget().hide()
+                item.widget().deleteLater()
+            elif item.layout() is not None:
+                self._clear(item.layout())
+
+    def _fill(self):
+        self._clear(self.col)
+        f = Fonts(1.0)
+        active = self.ctl.sessions.active()
+        intro = label("Una sesión junta varios runs (de una mazmorra o de varias) con la misma party: cada pelea se "
+                      "guarda en ella y su informe trae cada run, el resumen y el MVP de toda la sesión.", f.small,
+                      theme.MUTED)
+        intro.setWordWrap(True)
+        self.col.addWidget(intro)
+        row = QHBoxLayout()
+        if active is None:
+            self.name = QLineEdit(time.strftime("Sesión %d/%m %H:%M"))
+            row.addWidget(self.name, 1)
+            start = QPushButton("Comenzar sesión")
+            start.setProperty("primary", True)
+            start.clicked.connect(self._start)
+            row.addWidget(start)
+        else:
+            row.addWidget(label(f"En marcha: {active['name']} · {len(active['fights'])} peleas · desde "
+                                f"{time.strftime('%H:%M', time.localtime(active['start']))}", f.name, theme.GOLD), 1)
+            end = QPushButton("Terminar sesión")
+            end.setProperty("primary", True)
+            end.clicked.connect(self._end)
+            row.addWidget(end)
+        self.col.addLayout(row)
+        self.col.addWidget(label("SESIONES", f.section, theme.MUTED))
+        sessions = self.ctl.sessions.newest_first()
+        if not sessions:
+            self.col.addWidget(label("Aún no hay sesiones.", f.body, theme.MUTED))
+        for s in sessions[:30]:
+            line = QHBoxLayout()
+            end = s.get("end")
+            when = time.strftime("%d/%m %H:%M", time.localtime(s["start"])) + (
+                time.strftime("–%H:%M", time.localtime(end)) if end else " · en marcha")
+            line.addWidget(label(s["name"], f.name, theme.TEXT, elide=True), 1)
+            line.addWidget(label(f"{when} · {len(s['fights'])} peleas", f.small, theme.MUTED))
+            report = QPushButton("Informe")
+            report.clicked.connect(lambda _=False, sid=s["id"]: self.ctl.open_session_report(sid))
+            line.addWidget(report)
+            remove = QPushButton("Borrar")
+            remove.setProperty("flat", True)
+            remove.clicked.connect(lambda _=False, sid=s["id"]: self._delete(sid))
+            line.addWidget(remove)
+            self.col.addLayout(line)
+        self.col.addStretch(1)
+
+    def _start(self):
+        self.ctl.start_session(self.name.text())
+        self._fill()
+
+    def _end(self):
+        self.ctl.end_session()
+        self._fill()
+
+    def _delete(self, sid):
+        from PySide6.QtWidgets import QMessageBox
+        if QMessageBox.question(self, "Borrar sesión", "¿Borrar esta sesión? Sus peleas siguen en el historial "
+                                "48 horas.") == QMessageBox.Yes:
+            self.ctl.sessions.delete(sid)
+            self._fill()

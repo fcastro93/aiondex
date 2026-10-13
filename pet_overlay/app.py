@@ -12,10 +12,12 @@ from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
 from .character import CHARACTER_OPCODE, COMBAT_POWER_OPCODE, parse_character, parse_combat_power
 from .world import MAP_ENTER_OPCODE, SPAWN_OPCODE, WorldTracker, game_map_faction, parse_spawn_full
-from .combat import PLAYER_SPAWN_OPCODE, CombatTracker, in_instance, parse_player
+from .combat import (PLAYER_SPAWN_OPCODE, REVIVE_SKILLS, SELF_REVIVE, CombatTracker, in_instance,
+                     parse_player)
 from .damage import (DAMAGE_OPCODES, DEATH_OPCODE, READY as DAMAGE_READY, STATS_OPCODE, parse_hp,
                      parse_mp, summon_owner)
-from .fightlog import FightLog, summary as fight_summary
+from .fightlog import SHORTEST, FightLog, summary as fight_summary
+from .sessions import SessionLog
 from .npcs import NpcDb
 from .roster import (FORCE_INFO_OPCODE, MEMBER_HINT_OPCODES, MEMBER_OPCODES, PARTY_INFO_OPCODE, ROSTER_OPCODE,
                      parse_member_ids,
@@ -125,6 +127,7 @@ class Bridge(QObject):
     counters = Signal(object)        # ("list", time, [(id, count, bonus, ms)]) | ("update" | "spent", time, ticket)
     member_stats = Signal(object)    # {name: (level, item level, combat power)} of your group (and you)
     own_cp = Signal(int)             # your combat power
+    revive_cast = Signal(object)     # (caster, skill, time) of a revive or a self revive
     member_seen = Signal(object)     # ("party" | "group", entity id): someone the game keeps telling you about
     items = Signal(object)           # ("list" | "update", time, body): your bag and storage (1156 / 1b56)
     own_skill = Signal(object)       # ("press", ts, skill, result) | ("cast", ts, skill, cooldown ms) |
@@ -252,6 +255,11 @@ class Bridge(QObject):
                 if self._self_stale:
                     self._found_self(self.finder.on_press(time.time(), *press))
         elif op == CAST_OPCODE:
+            caster, p = read_varint(body, 0)
+            if caster is not None and p + 5 <= len(body):
+                skill = int.from_bytes(body[p + 1:p + 5], "little")
+                if skill == SELF_REVIVE or skill // 10000 in REVIVE_SKILLS:
+                    self.revive_cast.emit((caster, skill, time.time()))
             if self._self_stale:
                 cast = parse_cast(body)
                 if cast:
@@ -420,6 +428,7 @@ class Controller(QObject):
         self.dps_ready = DAMAGE_READY
         self.bridge.player.connect(self.on_player)
         self.bridge.member_seen.connect(self.on_member_seen)
+        self.bridge.revive_cast.connect(lambda c: self.combat.on_cast(*c))
         self._hinted_eids = {}          # entity id -> "party" of party members not named yet (no spawn seen)
         self._placeholders = {}         # entity id -> "Compañero N" until the game sends that member's name
         self.bridge.npc.connect(self.on_npc)
@@ -433,8 +442,11 @@ class Controller(QObject):
         self.bridge.member_stats.connect(lambda stats: self.member_stats.update(stats))
         self.own_cp = None              # your combat power (5636)
         self.fights = FightLog(self.data_dir, enabled=self.persist)      # the last 48 hours of fights, and the pinned
+        self.sessions = SessionLog(self.data_dir, enabled=self.persist)   # runs with the same party, for one report
+        self.fights.keep = self.sessions.fight_ids
         self._pin_when_done = set()     # fights pinned while they were going on
-        self.bridge.own_cp.connect(lambda cp: setattr(self, "own_cp", cp))
+        self.bridge.own_cp.connect(self._on_own_cp)
+        self._own_cp_at = 0.0
         self._armory_relay = _Relay()
         self.armory = Armory(self.data_dir, on_ready=self._armory_relay.ready.emit)
         self._armory_relay.ready.connect(self._profile_ready)
@@ -857,6 +869,9 @@ class Controller(QObject):
             self.refresh()
 
     # --- saved fights (fightlog.py) -------------------------------------------------------------------
+    def _on_own_cp(self, cp):
+        self.own_cp, self._own_cp_at = cp, time.time()
+
     def cp_of(self, name):
         """Combat power of you or a member of your group, if the game sent it."""
         if self.character and name == self.character.name and self.own_cp:
@@ -873,7 +888,59 @@ class Controller(QObject):
         pin = enc.id in self._pin_when_done
         self._pin_when_done.discard(enc.id)
         enc.pinned = enc.pinned or pin
-        self.fights.save(enc, group, force=enc.pinned)
+        session = self.sessions.active()
+        in_session = session is not None and enc.duration >= SHORTEST     # a session keeps every fight of its runs
+        if self.fights.save(enc, group, force=enc.pinned or in_session) and in_session:
+            self.sessions.add_fight(enc.id)
+
+    # --- sessions ------------------------------------------------------------------------------------
+    def start_session(self, name):
+        session = self.sessions.start(name)
+        log.info("session started: %s", session["name"])
+        self.notify("info", f"Sesión «{session['name']}» en marcha",
+                    "Cada pelea se guarda en ella. Al terminarla verás el informe de toda la sesión.")
+        self.refresh()
+        return session
+
+    def end_session(self):
+        session = self.sessions.end()
+        if session is not None:
+            log.info("session ended: %s (%s fights)", session["name"], len(session["fights"]))
+            self.refresh()
+            self.open_session_report(session["id"])
+        return session
+
+    def session_fights(self, session):
+        """[(encounter, group)] of a session's fights that can still be read."""
+        out = []
+        for fid in session["fights"]:
+            enc = self.fight(fid)
+            if enc is not None:
+                out.append((enc, enc.group_names(self.combat.group)))
+        return out
+
+    def open_session_report(self, sid):
+        from .ui.session_report import SessionReportDialog
+        session = self.sessions.get(sid)
+        if session is None:
+            return
+        SessionReportDialog(self, session, self.dps_window).exec()
+
+    def ask_session(self):
+        """From the overlay: start a session (asks its name) or, if one goes on, end it."""
+        from PySide6.QtWidgets import QInputDialog, QMessageBox
+        session = self.sessions.active()
+        if session is None:
+            name, ok = QInputDialog.getText(None, "Comenzar sesión", "Nombre de la sesión (por ejemplo «Draupnir x3 con "
+                                            "la legión»):", text=time.strftime("Sesión %d/%m %H:%M"))
+            if ok:
+                self.start_session(name)
+            return
+        answer = QMessageBox.question(None, "Terminar sesión",
+                                      f"¿Terminar «{session['name']}»? Tiene {len(session['fights'])} peleas; luego "
+                                      f"verás su informe.")
+        if answer == QMessageBox.Yes:
+            self.end_session()
 
     def fight_list(self):
         """The fights to list, newest first: this session's (the one going on included) and the saved ones, as
@@ -949,6 +1016,8 @@ class Controller(QObject):
         if self.character is not None:          # a switch to another character: its own groups (the first one
             self._party_names, self._force_names = [], []   # read keeps the groups the lists already gave)
             self.combat.set_group([])
+            if time.time() - self._own_cp_at > 30:          # that CP was the other character's (5636 comes with
+                self.own_cp = None                          # the login, just before the character info)
         self.character = info
         self.crafting.character = info.name
         self.combat.set_self(info.entity_id, info.name)

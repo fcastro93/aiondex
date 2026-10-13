@@ -271,6 +271,15 @@ class DpsPanel(QWidget):
             lay.addWidget(Pill("Parties", self.fonts, lambda: self.ctl.open_players("plan"),
                                tip="Cómo repartir la force: sanadores y cantores por party, CP parejo, buffs que "
                                    "no se acumulan"))
+        session = self.ctl.sessions.active()
+        if session is None:
+            lay.addWidget(Pill("Sesión", self.fonts, self.ctl.ask_session,
+                               tip="Comenzar una sesión: varios runs con la misma party en un solo informe, con el MVP "
+                                   "de toda la sesión"))
+        else:
+            name = session["name"] if len(session["name"]) <= 16 else session["name"][:15] + "…"
+            lay.addWidget(Pill(f"● {name} ({len(session['fights'])})", self.fonts, self.ctl.ask_session,
+                               color=theme.GOLD, tip="Sesión en marcha: clic para terminarla y ver su informe"))
         lay.addWidget(Pill("Historial", self.fonts, self._open_history,
                            tip="Tus peleas de las últimas 48 horas (y las que marcaste con ★)"))
         self.content.addWidget(row)

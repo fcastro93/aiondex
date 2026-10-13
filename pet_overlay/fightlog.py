@@ -128,6 +128,7 @@ class FightLog:
         self.dir = Path(data_dir) / "fights"
         self.enabled = enabled
         self._cache = {}             # id -> Encounter loaded from disk
+        self.keep = lambda: set()    # ids never pruned (the fights of a session)
         self.index = self._read_index() if enabled else []
         self.prune()
 
@@ -200,7 +201,9 @@ class FightLog:
     def prune(self, now=None):
         """Forget the fights older than KEEP_HOURS that are not pinned."""
         now = now or time.time()
-        old = [e for e in self.index if not e.get("pinned") and now - e["last"] > KEEP_HOURS * 3600]
+        keep = self.keep()
+        old = [e for e in self.index if not e.get("pinned") and e["id"] not in keep
+               and now - e["last"] > KEEP_HOURS * 3600]
         if not old:
             return
         for e in old:
