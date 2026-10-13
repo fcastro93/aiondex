@@ -82,7 +82,7 @@ class VolumeStep(QWidget):
         p.drawRoundedRect(r, 2, 2)
 
 
-UI_SCALES = (1.0, 1.15, 1.3, 1.5)
+UI_SCALES = (1.0, 1.1, 1.2, 1.3, 1.4, 1.5)
 
 
 class ScaleStep(QWidget):
@@ -92,7 +92,7 @@ class ScaleStep(QWidget):
         super().__init__()
         self.filled = filled
         self.on_click = on_click
-        self.setFixedSize(fonts.px(44), fonts.px(18))
+        self.setFixedSize(fonts.px(30), fonts.px(18))
         self.setCursor(Qt.PointingHandCursor)
 
     def paintEvent(self, _):

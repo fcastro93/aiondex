@@ -7,7 +7,7 @@ DEFAULTS = {
     "pos": None,            # [x, y] of the window's top-left corner
     "opacity": 0.85,        # panel background only; text stays opaque
     "scale": 1.0,
-    "ui_scale": 1.0,        # "Tamaño de todo" (Ajustes): every window and text, 1.0 / 1.15 / 1.3 / 1.5 (next start)
+    "ui_scale": 1.0,        # "Tamaño de todo" (Ajustes): every window and text, 1.0 to 1.5 in steps of 0.1 (next start)
     "locked": False,        # locked = click-through, clicks go to the game
     "compact": True,
     "visible": True,
