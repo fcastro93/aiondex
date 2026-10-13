@@ -145,6 +145,10 @@ class DpsPanel(QWidget):
         self.content.addWidget(BossCard(f, seconds, energy, rewards, card))
 
         dealers = sorted((a for a in encounter.dealers() if value(a)), key=lambda a: -value(a))
+        contribution = encounter.contribution(group) if act.kind == "crowd" and act.boss else None
+        if contribution and contribution.hp_lost and contribution.seen < 0.2:
+            self._blind(encounter, contribution, dealers, value, seconds, compact)
+            return
         outsiders = [a for a in dealers if not (a.is_self or a.name in group)]
         party = combat.party if encounter.group is None else group
         if outsiders or combat.in_force:             # a choice to make: who to show
@@ -162,7 +166,6 @@ class DpsPanel(QWidget):
             shown = dealers
         alias = {a.eid: f"Jugador {i}" for i, a in enumerate(outsiders, 1)}   # nobody outside your group is named
         total = max(1, sum(value(a) for a in dealers))
-        contribution = encounter.contribution(group) if act.kind == "crowd" and act.boss else None
         if contribution:
             basis = contribution.total            # what the boss lost, not the few hits we see
         elif boss_view and max_hp:
@@ -171,29 +174,12 @@ class DpsPanel(QWidget):
             basis = total
         top = max((value(a) for a in shown), default=1) or 1
         limit = ROWS[compact]
-        # a world boss with a crowd: the game sends your hits but only the others' damage over time (Kaira,
-        # 2026-10-13: of the 224M it lost in 221 s, 3.0M were your hits and 0.35M the hits of 8 others). Their rows
-        # are then partial: faded, marked DoT, and below yours, with what the boss lost as the reference.
-        blind = bool(contribution and contribution.hp_lost and contribution.seen < 0.2)
-        if blind:
-            shown = [a for a in shown if a.is_self] + [a for a in shown if not a.is_self]
-            lost = contribution.hp_lost
-            self._note(f"El jefe perdió {compact_number(lost)} ({compact_number(lost / max(1, seconds))}/s) mientras "
-                       f"peleabas: es el daño de todos. Tus golpes llegan todos; del resto solo sus DoT.",
-                       theme.TEXT)
-        marked = False
         for a in shown[:limit]:
             cls = a.class_name or CLASS_OF_JOB.get(self._job(a.name), "")
-            partial = blind and not a.is_self
-            if partial and not marked:
-                self._note("Resto (solo su daño en el tiempo, no sus golpes):")
-                marked = True
-            self.content.addWidget(PartyRow(f, alias.get(a.eid, a.name) + (" · DoT" if partial else ""), cls,
-                                            self._class_icon(cls),
+            self.content.addWidget(PartyRow(f, alias.get(a.eid, a.name), cls, self._class_icon(cls),
                                             None if a.eid in alias else (encounter.cp.get(a.name) or ctl.cp_of(a.name)),
                                             f"{thousands(value(a) / seconds)}/s",
-                                            share_text(value(a) / basis), value(a) / top, a.is_self, compact,
-                                            dim=partial))
+                                            share_text(value(a) / basis), value(a) / top, a.is_self, compact))
         if len(shown) > limit:
             rest = shown[limit:]
             self._note(f"y {len(rest)} más · {share_text(sum(value(a) for a in rest) / basis)}")
@@ -206,19 +192,31 @@ class DpsPanel(QWidget):
         if not group and 1 <= len(outsiders) <= 4 and act.kind != "crowd":
             self._note("¿Vas en party? El juego envía tu party al entrar a un mapa o teletransportarte: hasta entonces "
                        "tus compañeros salen como «Jugador N».")
-        if act.kind == "crowd" and act.boss:
-            c = encounter.contribution(group)
-            if c:
-                if c.group_kind and c.hp_lost and c.seen < 0.2:
-                    # world bosses with a crowd: the game sends your own hits and only the damage-over-time ticks of
-                    # the others (Gartua, 2026-10-12: 0.14% of its 312M HP visible), so your group's share cannot be
-                    # measured; yours can (every hit of yours arrives)
-                    self._note(f"Tu aporte al jefe: {pct(c.share(c.me))} de lo que perdió · el resto de tu "
-                               f"{c.group_kind} no se puede medir: el juego no envía sus golpes en jefes con tanta "
-                               f"gente")
-                else:
-                    self._note(f"Tu aporte al jefe: {pct(c.share(c.me))}"
-                               + (f" · tu {c.group_kind}: {pct(c.share(c.group))}" if c.group_kind else ""))
+        if contribution:
+            c = contribution
+            self._note(f"Tu aporte al jefe: {pct(c.share(c.me))}"
+                       + (f" · tu {c.group_kind}: {pct(c.share(c.group))}" if c.group_kind else ""))
+        self._footer()
+
+    def _blind(self, encounter, c, dealers, value, seconds, compact):
+        """A world boss with a crowd: the game sends only your hits (and a few players' damage over time: of your
+        force of 20 on Silent Dartan, 2026-10-13, 17 sent nothing at all), so only what can be measured is shown:
+        what the boss lost (everyone's damage) and your part of it. No selector and no other rows."""
+        f, ctl = self.fonts, self.ctl
+        lost = c.hp_lost
+        self._note(f"El jefe perdió {compact_number(lost)} ({compact_number(lost / max(1, seconds))}/s) mientras "
+                   f"peleabas", theme.TEXT)
+        me = next((a for a in dealers if a.is_self), None)
+        if me is not None:
+            cls = me.class_name or CLASS_OF_JOB.get(self._job(me.name), "")
+            self.content.addWidget(PartyRow(f, me.name, cls, self._class_icon(cls),
+                                            encounter.cp.get(me.name) or ctl.cp_of(me.name),
+                                            f"{thousands(value(me) / seconds)}/s", share_text(value(me) / c.total), 1.0,
+                                            True, compact))
+            self._note(f"Tu aporte: {compact_number(value(me))} = {pct(c.share(c.me))} de lo que perdió. Con tanta "
+                       f"gente el juego solo envía tu daño, no el de tu force ni el del resto.")
+        else:
+            self._note("Aún sin daño tuyo a este jefe.")
         self._footer()
 
     def _selector(self, view):
