@@ -261,11 +261,13 @@ def parse(lines, width, known=()):
     """OCR lines of a market screenshot -> Screen. Each row is anchored on its number in the count column (list
     screen) or the price per item column (listings), so two-line names ("Fantasy Greatsword" / "Item Level 36") stay
     one row; a row whose price the OCR missed keeps price None (read_screen() reads that cell again)."""
-    item = _exact(lines, "Item") or _header(lines, "Item")
+    item = _exact(lines, "Item") or _header([ln for ln in lines if not re.search(r"per\s*item", ln.text, re.I)],
+                                            "Item")      # the column title, not a row's "27,997 per item"
     sales, lowest = _header(lines, "Sales List"), _header(lines, "Lowest Sale")
     per, time_left = _header(lines, "Sale Price Per"), _header(lines, "Time Left")
     if item is None:
-        return Screen("unknown")
+        columns = _settlement_columns(lines, width)
+        return _settlement(lines, width, known, *columns, width * 0.02) if columns else Screen("unknown")
     slack = width * 0.02
     left = width * 0.15                          # the category list on the left ends before this
     level = re.compile(r"^item level", re.I)
@@ -379,6 +381,29 @@ def _my_list(lines, width, known, item, price, status, slack):
             screen.info["listed"], screen.info["slots"] = int(m.group(1)), int(m.group(2))
     screen.info["total"] = _right_of(lines, _header(lines, "Total Sale Amount"))
     return screen
+
+
+def _settlement_columns(lines, width):
+    """A Settlement screenshot cut below its column titles (only the rows and the footer): (item, sale price,
+    settlement, sale time) header lines put back from the rows themselves. Each row has two "N per item" lines, the
+    sale price's on the left and the settlement's on the right, and the sale time on the far right; the footer
+    ("Completed Sale 4 Listing(s)", "Total Settlement Amount") says it is that tab. None if it does not look like it."""
+    footer = [ln for ln in lines if re.match(r"(completed sale|total (possible )?settlement)", ln.text.strip(), re.I)]
+    per = sorted((ln for ln in lines if re.search(r"per\s*item", ln.text, re.I)), key=lambda ln: ln.cx)
+    dates = [ln for ln in lines if re.search(r"\d{1,4}[/.]\d{1,2}[/.]\d{2,4}\s*\d{1,2}[:.]\d{2}", ln.text)]
+    if not footer or len(per) < 2 or not dates:
+        return None
+    gap, cut = max((b.cx - a.cx, i) for i, (a, b) in enumerate(zip(per, per[1:])))
+    if gap < width * 0.05:
+        return None
+    left, right = per[:cut + 1], per[cut + 1:]
+    h = sorted(ln.h for ln in per)[len(per) // 2]
+    top = min(ln.y for ln in lines) - h * 3                 # just above the first row
+    price = Line("Sale Price", min(ln.x0 for ln in left), top, max(ln.x1 for ln in left), h)
+    settled = Line("Settlement Amount", min(ln.x0 for ln in right), top, max(ln.x1 for ln in right), h)
+    sold_at = Line("Sale Time", min(ln.x0 for ln in dates), top, max(ln.x1 for ln in dates), h)
+    item = Line("Item", 0, top, price.x0 * 0.3, h)
+    return item, price, settled, sold_at
 
 
 def _settlement(lines, width, known, item, price, settled, sold_at, slack):
