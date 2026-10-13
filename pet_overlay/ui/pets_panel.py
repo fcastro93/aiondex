@@ -94,13 +94,18 @@ class PetsPanel(QWidget):
         for pid in state.flash_ids:
             if pid in self._rows:
                 self._rows[pid].flash()
-        link = label("Pets exclusivos de cada lado", self.fonts.name, theme.ACCENT)
-        link.setAttribute(Qt.WA_TransparentForMouseEvents, False)
-        link.setCursor(Qt.PointingHandCursor)
-        link.setToolTip("Los pets que solo se farmean en el lado Asmodian o en el Elyos, con tu progreso")
-        link.on_click = self.ctl.open_exclusive_pets      # the shell calls it on a plain click
-        link.setContentsMargins(self.fonts.px(4), self.fonts.px(4), 0, 0)
-        self.content.addWidget(link)
+        for text, tip, action in (("Ver toda la colección", "Todos los pets con tu progreso: subiendo, sin empezar y "
+                                                            "al máximo, con buscador", self.ctl.open_collection),
+                                  ("Pets exclusivos de cada lado", "Los pets que solo se farmean en el lado Asmodian "
+                                                                   "o en el Elyos, con tu progreso",
+                                   self.ctl.open_exclusive_pets)):
+            link = label(text, self.fonts.name, theme.ACCENT)
+            link.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+            link.setCursor(Qt.PointingHandCursor)
+            link.setToolTip(tip)
+            link.on_click = action                        # the shell calls it on a plain click
+            link.setContentsMargins(self.fonts.px(4), self.fonts.px(4), 0, 0)
+            self.content.addWidget(link)
         self.adjustSize()
 
     @staticmethod

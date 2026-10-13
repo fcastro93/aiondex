@@ -36,6 +36,7 @@ Overlay para **AION 2** que sigue tu colección de pets en tiempo real, te dice 
 | `Alt+Shift+M` | Mapa de pets |
 | `Alt+Shift+S` | Escanear el mercado (Crafting) |
 
+- **Pets → Ver toda la colección** (o «Colección de pets» en la bandeja): todos los pets con tu progreso, en pestañas **Todos / Subiendo / Sin empezar / Al máximo**, filtro por lado (solo Asmodian, solo Elyos, ambos) y buscador por pet, monstruo o zona; cada tarjeta dice dónde farmearlo y un clic lo abre en el mapa.
 - Clic en el **logo** de la cabecera: menú (**Pets**, **DPS**, **Afinador**, **Tracker**, **Crafting**, **Status**, **Notificaciones**, **Diagnóstico**, **Ajustes**, **Salir**).
 - **Ajustes → Accesibilidad → Tamaño de todo**: 100%, 150%, 200% o 250% («Modo Marvin»): agranda el overlay, las ventanas, los textos y los iconos para quien ve poco; se aplica al reiniciar (botón **Reiniciar ahora**).
 - Desbloqueado se puede arrastrar; clic en un pet abre el mapa; clic derecho lo fija como objetivo.

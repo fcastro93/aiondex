@@ -411,6 +411,7 @@ class Controller(QObject):
         self.zone_from_npcs = False
         self.map_window = None
         self.exclusive_window = None
+        self.collection_window = None
         self.capture_status = "Iniciando captura…"
         self.flash_ids = set()
         self.sniffer = None             # set by run.py (not in preview)
@@ -1473,6 +1474,17 @@ class Controller(QObject):
         self.map_window.raise_()
         self.map_window.activateWindow()
 
+    def open_collection(self):
+        """Every pet with your progress (leveling, not started, maxed), searchable."""
+        from .ui.exclusivewindow import CollectionWindow
+        if self.collection_window is None:
+            self.collection_window = CollectionWindow(self)
+        else:
+            self.collection_window.refresh()
+        self.collection_window.show()
+        self.collection_window.raise_()
+        self.collection_window.activateWindow()
+
     def open_exclusive_pets(self):
         """The pets only one side can farm: a tab for the Asmodian side and one for the Elyos side."""
         from .ui.exclusivewindow import ExclusivePetsWindow
@@ -1770,12 +1782,15 @@ class Controller(QObject):
             self.collection.save(self.state_path)
         if self.exclusive_window and self.exclusive_window.isVisible():
             self.exclusive_window.refresh()             # your progress changed
+        if self.collection_window and self.collection_window.isVisible():
+            self.collection_window.refresh()
 
     def _build_tray(self):
         self.tray = QSystemTrayIcon(self.app_icon, self)
         menu = styled_menu()
         hk = self.settings["hotkeys"]
         menu.addAction(f"Abrir mapa de pets\t{hk['toggle_map']}", self.open_map)
+        menu.addAction("Colección de pets", self.open_collection)
         menu.addAction("Pets exclusivos (Asmodian / Elyos)", self.open_exclusive_pets)
         menu.addAction("Jugadores de tu party / force", self.open_players)
         menu.addAction("Abrir Crafting", self.open_crafting)
