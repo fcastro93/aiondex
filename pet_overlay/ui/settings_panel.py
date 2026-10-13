@@ -82,7 +82,7 @@ class VolumeStep(QWidget):
         p.drawRoundedRect(r, 2, 2)
 
 
-UI_SCALES = (1.0, 1.5, 2.0, 2.5)
+UI_SCALES = (1.0, 1.15, 1.3, 1.5)
 
 
 class ScaleStep(QWidget):
@@ -164,7 +164,7 @@ class SettingsPanel(QWidget):
         """Accesibilidad: the size of everything (overlay, windows, texts), 100-250%."""
         f = self.fonts
         self.content.addWidget(SectionTitle("Accesibilidad", f))
-        chosen = float(self.ctl.settings.get("ui_scale", 1.0) or 1.0)
+        chosen = min(float(self.ctl.settings.get("ui_scale", 1.0) or 1.0), UI_SCALES[-1])
         head = QHBoxLayout()
         head.addWidget(label("Tamaño de todo", f.body, theme.TEXT), 1)
         head.addWidget(label(f"{round(chosen * 100)}%", f.name, theme.TEXT))

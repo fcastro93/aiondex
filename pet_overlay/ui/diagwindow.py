@@ -131,7 +131,13 @@ class DiagnosticsWindow(QWidget):
         super().hideEvent(event)
 
     # --- status ---------------------------------------------------------------------------------------
+    def rerun(self, key):
+        if self.isVisible() and self.problem and self.problem[0] == key:
+            self.run(self.problem)
+
     def refresh_status(self):
+        if self.problem and self.problem[0] == "blink" and self.ctl.blink_watch.active:
+            self._show(self.problem[2](self.ctl))           # the recording's countdown
         _clear(self.status_rows)
         for check in diagnostics.status(self.ctl):
             self.status_rows.addWidget(self._check_row(check))

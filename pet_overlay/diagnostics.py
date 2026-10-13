@@ -487,6 +487,30 @@ def diagnose_crash(ctl):
     return d
 
 
+def diagnose_blink(ctl):
+    """Records a minute of what happens to the overlay (blinkwatch.py), then shows the likely causes."""
+    from .blinkwatch import SECONDS
+    d = Diagnosis("El overlay parpadea")
+    w = ctl.blink_watch
+    if w.active:
+        d.checks.append(Check("Grabando", "info", f"Faltan {w.remaining()} s. Juega como cuando parpadea (por ejemplo "
+                                                  f"en una pelea con el DPS abierto); puedes cerrar esta ventana."))
+        d.actions.append(Action("Terminar ya", w.stop))
+        return d
+    if w.result is None:
+        w.start()
+        d.checks.append(Check("Grabando", "info", f"Empecé a grabar {SECONDS} s lo que le pasa al overlay en este PC. "
+                                                  f"Juega como cuando parpadea; te aviso al terminar."))
+        d.actions.append(Action("Terminar ya", w.stop))
+        return d
+    checks, todo, evidence = w.result
+    d.checks += checks
+    d.todo += todo
+    d.evidence = list(evidence)
+    d.actions.append(Action("Grabar otra vez", w.start))
+    return d
+
+
 PROBLEMS = [
     ("zone", "No detecta bien la zona", diagnose_zone),
     ("collection", "No aparece mi colección de pets", diagnose_collection),
@@ -494,6 +518,7 @@ PROBLEMS = [
     ("dps", "El DPS no aparece o no cuadra", diagnose_dps),
     ("tuner", "El Afinador no lee mis habilidades", diagnose_tuner),
     ("overlay", "No veo el overlay encima del juego", diagnose_overlay),
+    ("blink", "El overlay parpadea", diagnose_blink),
     ("capture", "AionDex no lee nada del juego", diagnose_capture),
     ("updates", "AionDex no se actualiza", diagnose_updates),
     ("crash", "Se cerró solo o da errores", diagnose_crash),

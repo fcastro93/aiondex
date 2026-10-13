@@ -488,6 +488,9 @@ class Controller(QObject):
         self._synced_for = None         # character the last collection-sync notice was for
         self.window = OverlayWindow(self, self.fonts)
         self.window.setWindowIcon(self.app_icon)
+        from .blinkwatch import BlinkWatch
+        self.blink_watch = BlinkWatch(self)          # Diagnóstico → "El overlay parpadea"
+        self.blink_watch.finished.connect(self._blink_done)
         self.toasts = ToastManager(self.notifications, self.window, self.fonts, self.icons_dir,
                                    enabled=lambda: self.settings["toasts"])
         self.window.moved.connect(lambda: self.toasts.relayout(animate=False))
@@ -1450,6 +1453,7 @@ class Controller(QObject):
         """Redraw the overlay. The panel's widgets are rebuilt and the window resized with painting off, then it is
         painted once: no half-built frame on screen (some PCs showed it as a blink every second in fights)."""
         self._refreshing = True
+        started = time.perf_counter()
         self.window.setUpdatesEnabled(False)
         try:
             view = self.active_module.render(self.settings["compact"])
@@ -1457,6 +1461,9 @@ class Controller(QObject):
         finally:
             self.window.setUpdatesEnabled(True)
             self._refreshing = False
+            watch = getattr(self, "blink_watch", None)
+            if watch is not None and watch.active:
+                watch.on_refresh(1000 * (time.perf_counter() - started), self.active_module.key)
         self.flash_ids.clear()
         self.tray.setToolTip(f"{self.app_name} — {view.status or self.active_module.title}")
         if self.map_window and self.map_window.isVisible():
@@ -1706,6 +1713,12 @@ class Controller(QObject):
         self.settings["opacity"] = value
         self._save_settings()
         self.window.update()
+
+    def _blink_done(self):
+        self.notify("info", "Diagnóstico de parpadeo listo",
+                    "Abre Diagnóstico → «El overlay parpadea» para ver lo que encontré y copiar el informe.")
+        if self.diag_window is not None:
+            self.diag_window.rerun("blink")
 
     def set_ui_scale(self, value):
         """'Tamaño de todo': saved now, applied when AionDex starts again (Reiniciar ahora)."""

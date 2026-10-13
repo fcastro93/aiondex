@@ -161,7 +161,8 @@ def _apply_ui_scale():
     except (OSError, ValueError, TypeError):
         value = 1.0
     # always the chosen one: a restart from AionDex inherits the previous run's factor (1.36.1 kept it forever)
-    if 1.01 < value <= 3.0:
+    value = min(value, 1.5)                    # the largest size (Modo Marvin); 1.36.1-1.36.4 went up to 2.5
+    if value > 1.01:
         os.environ["QT_SCALE_FACTOR"] = f"{value:g}"
     else:
         os.environ.pop("QT_SCALE_FACTOR", None)

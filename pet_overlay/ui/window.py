@@ -1,6 +1,6 @@
 """Overlay shell: translucent panel with the app menu button, lock/compact controls, the active module's
 panel, a banner for notices and a footer. Feature content lives in pet_overlay/modules."""
-from PySide6.QtCore import QPoint, QRectF, Qt, Signal
+from PySide6.QtCore import QPoint, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QGuiApplication, QPainter, QPen
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
@@ -126,6 +126,8 @@ class OverlayWindow(QWidget):
         self.footer.setWordWrap(True)
         self.footer.setContentsMargins(fonts.px(3), 0, 0, 0)
         root.addWidget(self.footer)
+        root.addStretch(1)                       # room left while the window waits to shrink (see _fit)
+        self._shrink = QTimer(self, singleShot=True, interval=1500, timeout=self._shrink_now)
 
     # --- modules ------------------------------------------------------------------------
     def add_panel(self, panel):
@@ -146,7 +148,20 @@ class OverlayWindow(QWidget):
         self.btn_compact.setText(theme.GLYPH_EXPAND if compact else theme.GLYPH_COLLAPSE)
         self.footer.setText(view.footer)
         self.footer.setVisible(bool(view.footer))
-        self.adjustSize()
+        self._fit()
+
+    def _fit(self):
+        """Grow at once, shrink only after 1.5 s of being smaller: a panel whose height changes every second (the DPS
+        in a fight) no longer resizes the window each time (on some PCs a resize of a see-through window blinks)."""
+        want = self.sizeHint().height()
+        if want >= self.height() or not self.isVisible():
+            self._shrink.stop()
+            self.resize(self.width(), want)
+        elif not self._shrink.isActive():
+            self._shrink.start()
+
+    def _shrink_now(self):
+        self.resize(self.width(), self.sizeHint().height())
 
     def set_unread(self, count):
         self.unread.setText(str(count) if count else "")
@@ -211,6 +226,9 @@ class OverlayWindow(QWidget):
             widget.on_click()
 
     def nativeEvent(self, event_type, message):
+        watch = getattr(self.ctl, "blink_watch", None)
+        if watch is not None and watch.active and event_type == b"windows_generic_MSG":
+            watch.on_native(message)
         hotkey = winapi.hotkey_id_from_native(event_type, message)
         if hotkey is not None:
             self.ctl.on_hotkey(hotkey)
