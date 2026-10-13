@@ -1,0 +1,1255 @@
+{
+ "source": "metabot.gg achievements (Season 1) + the game's ids (8356 / 8456)",
+ "credit": {
+  "text": "Misiones de temporada: metabot.gg",
+  "url": "https://metabot.gg/en/aion-2/achievements"
+ },
+ "built": "2026-10-12",
+ "season": {
+  "name": "Season 1",
+  "start": "2026-09-30",
+  "end": "2026-12-16T08:00:00Z"
+ },
+ "tabs": {
+  "abyss": "Abismo",
+  "arena": "Arena",
+  "transcendence": "Trascendencia",
+  "nightmare": "Pesadilla",
+  "challenge": "Desafío"
+ },
+ "missions": [
+  {
+   "id": 240111000,
+   "tab": "abyss",
+   "period": "season",
+   "name": "Peering into the Abyss",
+   "desc": "Spend 10 hours in Abyss",
+   "steps": [
+    600,
+    1800,
+    3600
+   ],
+   "unit": "min",
+   "where": [
+    "abyss"
+   ],
+   "rewards": "2,940× Oath Coin 5,280× Abyss Points 6× Lower Abyss Rift Stone (Bound)"
+  },
+  {
+   "id": 240111100,
+   "tab": "abyss",
+   "period": "season",
+   "name": "All I Have Is Two Wings",
+   "desc": "Fly for 60 minutes in total",
+   "steps": [
+    60,
+    180
+   ],
+   "unit": "min",
+   "where": [
+    "abyss"
+   ],
+   "rewards": "2,020× Oath Coin 3,600× Abyss Points"
+  },
+  {
+   "id": 240111200,
+   "tab": "abyss",
+   "period": "season",
+   "name": "Wandering Wraith of the Floating Island",
+   "desc": "Hunt 2,000 monsters in Reshanta",
+   "steps": [
+    2000,
+    5000,
+    10000
+   ],
+   "unit": "",
+   "where": [
+    "abyss"
+   ],
+   "rewards": "4,710× Oath Coin 8,400× Abyss Points"
+  },
+  {
+   "id": 240111300,
+   "tab": "abyss",
+   "period": "season",
+   "name": "Street Fighter",
+   "desc": "Kill 50 opposing camp players",
+   "steps": [
+    50,
+    100,
+    200,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [
+    "abyss"
+   ],
+   "rewards": "16,800× Oath Coin 33,600× Abyss Points 10× Soul Codex (Bound) 5× Soul Codex: Reset (Bound)"
+  },
+  {
+   "id": 240111400,
+   "tab": "abyss",
+   "period": "season",
+   "name": "Scars of Glory",
+   "desc": "Be killed by an opposing camp player 10 times",
+   "steps": [
+    10,
+    30
+   ],
+   "unit": "",
+   "where": [
+    "abyss"
+   ],
+   "rewards": "1,340× Oath Coin 2,400× Abyss Points"
+  },
+  {
+   "id": 240111500,
+   "tab": "abyss",
+   "period": "season",
+   "name": "Coins to Make Me Shine",
+   "desc": "Collect 50,000 Abyss Points",
+   "steps": [
+    50000,
+    200000,
+    500000,
+    1000000
+   ],
+   "unit": "",
+   "where": [
+    "abyss"
+   ],
+   "rewards": "4,910× Oath Coin 9,820× Abyss Points"
+  },
+  {
+   "id": 240111600,
+   "tab": "abyss",
+   "period": "season",
+   "name": "No Time to Rest",
+   "desc": "Participate in Artifact Siege 5 times by its end",
+   "steps": [
+    5,
+    10,
+    15
+   ],
+   "unit": "",
+   "where": [
+    "abyss"
+   ],
+   "rewards": "4,200× Oath Coin 8,400× Abyss Points 15× Silver Medal of Merit"
+  },
+  {
+   "id": 240111700,
+   "tab": "abyss",
+   "period": "season",
+   "name": "Artifact Assault",
+   "desc": "Win Artifact Siege 3 times",
+   "steps": [
+    3,
+    6,
+    10
+   ],
+   "unit": "",
+   "where": [
+    "abyss"
+   ],
+   "rewards": "6,300× Oath Coin 12,600× Abyss Points 15× Amplify Stone (Unique) (Bound)"
+  },
+  {
+   "id": 240210900,
+   "tab": "abyss",
+   "period": "weekly",
+   "name": "Hometown of My Heart",
+   "desc": "Spend 1 hours in Abyss",
+   "steps": [
+    60
+   ],
+   "unit": "min",
+   "where": [
+    "abyss"
+   ],
+   "rewards": "300× Oath Coin 450× Abyss Points"
+  },
+  {
+   "id": 240211000,
+   "tab": "abyss",
+   "period": "weekly",
+   "name": "Bare Minimum Morality",
+   "desc": "Kill 5 opposing camp players",
+   "steps": [
+    5,
+    10,
+    20
+   ],
+   "unit": "",
+   "where": [
+    "abyss"
+   ],
+   "rewards": "1,680× Oath Coin 2,520× Abyss Points"
+  },
+  {
+   "id": 240211100,
+   "tab": "abyss",
+   "period": "weekly",
+   "name": "Purify Reshanta",
+   "desc": "Hunt 200 monsters in Abyss",
+   "steps": [
+    200,
+    400,
+    600,
+    800,
+    1000,
+    1200,
+    1400,
+    1600,
+    1800,
+    2000
+   ],
+   "unit": "",
+   "where": [
+    "abyss"
+   ],
+   "rewards": "5,780× Oath Coin 10,190× Abyss Points 9× Silver Medal of Merit Resurrection Spiritstone (Bound)"
+  },
+  {
+   "id": 240211200,
+   "tab": "abyss",
+   "period": "weekly",
+   "name": "Watcher Kaira",
+   "desc": "Defeat the boss Watcher Kaira 1 time",
+   "steps": [
+    1,
+    5,
+    10
+   ],
+   "unit": "",
+   "where": [
+    "abyss"
+   ],
+   "rewards": "1,340× Oath Coin 2,010× Abyss Points"
+  },
+  {
+   "id": 240211300,
+   "tab": "abyss",
+   "period": "weekly",
+   "name": "Argo, the Spirit King",
+   "desc": "Defeat the boss Argo, the Spirit King 1 time",
+   "steps": [
+    1,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "abyss"
+   ],
+   "rewards": "620× Oath Coin 930× Abyss Points"
+  },
+  {
+   "id": 240211400,
+   "tab": "abyss",
+   "period": "weekly",
+   "name": "Guardian Lord Nahma",
+   "desc": "Defeat the boss Guardian Lord Nahma 1 time",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "abyss"
+   ],
+   "rewards": "400× Oath Coin 600× Abyss Points"
+  },
+  {
+   "id": 240211500,
+   "tab": "abyss",
+   "period": "weekly",
+   "name": "Land Grabs",
+   "desc": "Participate in Artifact Siege 1 time by its end",
+   "steps": [
+    1,
+    2
+   ],
+   "unit": "",
+   "where": [
+    "abyss"
+   ],
+   "rewards": "530× Oath Coin 930× Abyss Points Silver Medal of Merit Superior Abyssal Manastone (Bound)"
+  },
+  {
+   "id": 240211600,
+   "tab": "abyss",
+   "period": "weekly",
+   "name": "Down to the Last One",
+   "desc": "Win Artifact Siege 1 time",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "abyss"
+   ],
+   "rewards": "260× Oath Coin 450× Abyss Points Silver Medal of Merit"
+  },
+  {
+   "id": 240211700,
+   "tab": "abyss",
+   "period": "weekly",
+   "name": "Dominator of Lower Abyss",
+   "desc": "Defeat 1 Dominator of Lower Abyss after Artifact Siege",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "abyss"
+   ],
+   "rewards": "270× Oath Coin 480× Abyss Points"
+  },
+  {
+   "id": 241111400,
+   "tab": "arena",
+   "period": "season",
+   "name": "Gambler's Path",
+   "desc": "Participate in Arena 30 times",
+   "steps": [
+    30,
+    70,
+    150
+   ],
+   "unit": "",
+   "where": [
+    "arena"
+   ],
+   "rewards": "2,100× Oath Coin 4,200× Abyss Points"
+  },
+  {
+   "id": 241111500,
+   "tab": "arena",
+   "period": "season",
+   "name": "Reaper of the Arena",
+   "desc": "Win 20 times in Arena",
+   "steps": [
+    20,
+    50,
+    100
+   ],
+   "unit": "",
+   "where": [
+    "arena"
+   ],
+   "rewards": "4,200× Oath Coin 8,400× Abyss Points 2× Soul Codex: Reset (Bound) 5× Soul Codex (Bound)"
+  },
+  {
+   "id": 241111600,
+   "tab": "arena",
+   "period": "season",
+   "name": "Piercing the Enemy's Heart",
+   "desc": "Defeat an opponent 50 times in Arena",
+   "steps": [
+    50,
+    100,
+    200,
+    300
+   ],
+   "unit": "",
+   "where": [
+    "arena"
+   ],
+   "rewards": "5,500× Oath Coin 9,820× Abyss Points 710× Soul Crystal (Bound)"
+  },
+  {
+   "id": 241111700,
+   "tab": "arena",
+   "period": "season",
+   "name": "Missed by a Hair",
+   "desc": "Secure 10 assists in Arena of Cooperation",
+   "steps": [
+    10,
+    30,
+    50
+   ],
+   "unit": "",
+   "where": [
+    "arena"
+   ],
+   "rewards": "2,940× Oath Coin 5,280× Abyss Points"
+  },
+  {
+   "id": 241111800,
+   "tab": "arena",
+   "period": "season",
+   "name": "I Don't Fear Death",
+   "desc": "Die 20 times in Arena",
+   "steps": [
+    20
+   ],
+   "unit": "",
+   "where": [
+    "arena"
+   ],
+   "rewards": "420× Oath Coin 760× Abyss Points"
+  },
+  {
+   "id": 241210800,
+   "tab": "arena",
+   "period": "weekly",
+   "name": "Steady Efforts",
+   "desc": "Participate in Arena 3 times",
+   "steps": [
+    3,
+    7,
+    10
+   ],
+   "unit": "",
+   "where": [
+    "arena"
+   ],
+   "rewards": "1,080× Oath Coin 1,890× Abyss Points 70× Soul Crystal (Bound) Battle Enhance Scroll (Bound)"
+  },
+  {
+   "id": 241210900,
+   "tab": "arena",
+   "period": "weekly",
+   "name": "Me, Beyond Myself",
+   "desc": "Win 1 time in Arena",
+   "steps": [
+    1,
+    3,
+    5
+   ],
+   "unit": "",
+   "where": [
+    "arena"
+   ],
+   "rewards": "2,140× Oath Coin 3,780× Abyss Points Resurrection Spiritstone (Bound) 2× Mana Potion (Bound)"
+  },
+  {
+   "id": 242112700,
+   "tab": "transcendence",
+   "period": "season",
+   "name": "Deus Research Base Stage 1",
+   "desc": "Clear Deus Research Base Stage 1",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "transcendence"
+   ],
+   "rewards": "1,460× Oath Coin 4× Lesser Training Arcana (Bound) Intermediate Training Arcana (Bound)"
+  },
+  {
+   "id": 242112800,
+   "tab": "transcendence",
+   "period": "season",
+   "name": "Deus Research Base Stage 2",
+   "desc": "Clear Deus Research Base Stage 2",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "transcendence"
+   ],
+   "rewards": "2,510× Oath Coin 4× Lesser Training Arcana (Bound) Intermediate Training Arcana (Bound)"
+  },
+  {
+   "id": 242112900,
+   "tab": "transcendence",
+   "period": "season",
+   "name": "Deus Research Base Stage 3",
+   "desc": "Clear Deus Research Base Stage 3",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "transcendence"
+   ],
+   "rewards": "4,080× Oath Coin 2× Lesser Training Arcana (Bound) 2× Intermediate Training Arcana (Bound)"
+  },
+  {
+   "id": 242113000,
+   "tab": "transcendence",
+   "period": "season",
+   "name": "Deus Research Base Stage 4",
+   "desc": "Clear Deus Research Base Stage 4",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "transcendence"
+   ],
+   "rewards": "5,660× Oath Coin 2× Lesser Training Arcana (Bound) Intermediate Training Arcana (Bound) Superior Training Arcana (Bound)"
+  },
+  {
+   "id": 242113100,
+   "tab": "transcendence",
+   "period": "season",
+   "name": "Shattered Arkanis Stage 1",
+   "desc": "Clear Shattered Arkanis Stage 1",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "transcendence"
+   ],
+   "rewards": "1,460× Oath Coin 4× Lesser Training Arcana (Bound) Intermediate Training Arcana (Bound)"
+  },
+  {
+   "id": 242113200,
+   "tab": "transcendence",
+   "period": "season",
+   "name": "Shattered Arkanis Stage 2",
+   "desc": "Clear Shattered Arkanis Stage 2",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "transcendence"
+   ],
+   "rewards": "2,510× Oath Coin 4× Lesser Training Arcana (Bound) Intermediate Training Arcana (Bound)"
+  },
+  {
+   "id": 242113300,
+   "tab": "transcendence",
+   "period": "season",
+   "name": "Shattered Arkanis Stage 3",
+   "desc": "Clear Shattered Arkanis Stage 3",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "transcendence"
+   ],
+   "rewards": "4,080× Oath Coin 2× Lesser Training Arcana (Bound) 2× Intermediate Training Arcana (Bound)"
+  },
+  {
+   "id": 242113400,
+   "tab": "transcendence",
+   "period": "season",
+   "name": "Shattered Arkanis Stage 4",
+   "desc": "Clear Shattered Arkanis Stage 4",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "transcendence"
+   ],
+   "rewards": "5,660× Oath Coin 2× Lesser Training Arcana (Bound) Intermediate Training Arcana (Bound) Superior Training Arcana (Bound)"
+  },
+  {
+   "id": 242210900,
+   "tab": "transcendence",
+   "period": "weekly",
+   "name": "Way of the Transcended",
+   "desc": "Clear Transcendence Dungeon 3 times",
+   "steps": [
+    3,
+    6,
+    10
+   ],
+   "unit": "",
+   "where": [
+    "transcendence"
+   ],
+   "rewards": "5,700× Oath Coin Small Odyle Energy (Bound)"
+  },
+  {
+   "id": 242211000,
+   "tab": "transcendence",
+   "period": "weekly",
+   "name": "Transforms Upon Death",
+   "desc": "Clear Transcendence Dungeon 1 time without dying",
+   "steps": [
+    1,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "transcendence"
+   ],
+   "rewards": "1,640× Oath Coin"
+  },
+  {
+   "id": 242211100,
+   "tab": "transcendence",
+   "period": "weekly",
+   "name": "Transcendence Speed Run",
+   "desc": "Clear Transcendence Dungeon within 15 minutes",
+   "steps": [
+    1,
+    2
+   ],
+   "unit": "",
+   "where": [
+    "transcendence"
+   ],
+   "rewards": "1,640× Oath Coin 960× Enhance Stone"
+  },
+  {
+   "id": 242211200,
+   "tab": "transcendence",
+   "period": "weekly",
+   "name": "Time to Go Home",
+   "desc": "Defeat 10 Mini-Bosses in Transcendence Dungeon",
+   "steps": [
+    10
+   ],
+   "unit": "",
+   "where": [
+    "transcendence"
+   ],
+   "rewards": "1,020× Oath Coin Resurrection Spiritstone (Bound)"
+  },
+  {
+   "id": 242211300,
+   "tab": "transcendence",
+   "period": "weekly",
+   "name": "Toward Greater Power",
+   "desc": "Extract 10 Arcana",
+   "steps": [
+    1,
+    2
+   ],
+   "unit": "",
+   "where": [
+    "transcendence"
+   ],
+   "rewards": "1,300× Oath Coin"
+  },
+  {
+   "id": 243110800,
+   "tab": "nightmare",
+   "period": "season",
+   "name": "Gatekeeper Pinopi",
+   "desc": "Clear Gatekeeper Pinopi Level 1",
+   "steps": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+   ],
+   "unit": "",
+   "where": [
+    "nightmare"
+   ],
+   "rewards": "7,690× Oath Coin 6,750× Enhance Stone Resurrection Spiritstone (Bound)"
+  },
+  {
+   "id": 243110900,
+   "tab": "nightmare",
+   "period": "season",
+   "name": "Furious Feruk",
+   "desc": "Clear Furious Feruk Level 1",
+   "steps": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+   ],
+   "unit": "",
+   "where": [
+    "nightmare"
+   ],
+   "rewards": "7,690× Oath Coin 6,750× Enhance Stone Resurrection Spiritstone (Bound)"
+  },
+  {
+   "id": 243111000,
+   "tab": "nightmare",
+   "period": "season",
+   "name": "Fafnir's Poison Blood",
+   "desc": "Clear Fafnir's Poison Blood Level 1",
+   "steps": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+   ],
+   "unit": "",
+   "where": [
+    "nightmare"
+   ],
+   "rewards": "7,690× Oath Coin 6,750× Enhance Stone Resurrection Spiritstone (Bound)"
+  },
+  {
+   "id": 243111100,
+   "tab": "nightmare",
+   "period": "season",
+   "name": "Wraith Giselle",
+   "desc": "Clear Wraith Giselle Level 1",
+   "steps": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+   ],
+   "unit": "",
+   "where": [
+    "nightmare"
+   ],
+   "rewards": "7,690× Oath Coin 6,750× Enhance Stone Resurrection Spiritstone (Bound)"
+  },
+  {
+   "id": 243111200,
+   "tab": "nightmare",
+   "period": "season",
+   "name": "Fortress Guardian Notun",
+   "desc": "Clear Fortress Guardian Notun Level 1",
+   "steps": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+   ],
+   "unit": "",
+   "where": [
+    "nightmare"
+   ],
+   "rewards": "10,770× Oath Coin 45× Soul Codex (Bound) 2× Soul Codex: Reset (Bound)"
+  },
+  {
+   "id": 243111300,
+   "tab": "nightmare",
+   "period": "season",
+   "name": "Mutated Gerod",
+   "desc": "Clear Mutated Gerod Level 1",
+   "steps": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+   ],
+   "unit": "",
+   "where": [
+    "nightmare"
+   ],
+   "rewards": "10,770× Oath Coin 45× Soul Codex (Bound) 2× Soul Codex: Reset (Bound)"
+  },
+  {
+   "id": 243111400,
+   "tab": "nightmare",
+   "period": "season",
+   "name": "Zikel's Apparition",
+   "desc": "Clear Zikel's Apparition Level 1",
+   "steps": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+   ],
+   "unit": "",
+   "where": [
+    "nightmare"
+   ],
+   "rewards": "15,150× Oath Coin 45× Soul Codex (Bound) 2× Soul Codex: Reset (Bound)"
+  },
+  {
+   "id": 243210700,
+   "tab": "nightmare",
+   "period": "weekly",
+   "name": "Friends With a Story",
+   "desc": "Defeat Nightmare Boss 5 times",
+   "steps": [
+    5,
+    10
+   ],
+   "unit": "",
+   "where": [
+    "nightmare"
+   ],
+   "rewards": "1,240× Oath Coin Resurrection Spiritstone (Bound) Small Odyle Energy (Bound)"
+  },
+  {
+   "id": 243210800,
+   "tab": "nightmare",
+   "period": "weekly",
+   "name": "Collecting Dream Shards",
+   "desc": "Obtain 1,000 Phantasmal Fragments",
+   "steps": [
+    1000,
+    3000
+   ],
+   "unit": "",
+   "where": [
+    "nightmare"
+   ],
+   "rewards": "480× Oath Coin"
+  },
+  {
+   "id": 243210900,
+   "tab": "nightmare",
+   "period": "weekly",
+   "name": "3 Minutes of Nightmare",
+   "desc": "Defeat Nightmare Boss within 3 minutes",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "nightmare"
+   ],
+   "rewards": "200× Oath Coin"
+  },
+  {
+   "id": 243211000,
+   "tab": "nightmare",
+   "period": "weekly",
+   "name": "Nightmare Buster",
+   "desc": "Defeat Nightmare Boss within 2 minutes",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "nightmare"
+   ],
+   "rewards": "420× Oath Coin"
+  },
+  {
+   "id": 243211100,
+   "tab": "nightmare",
+   "period": "weekly",
+   "name": "Eternal Rest",
+   "desc": "Defeat Nightmare Boss within 1 minute",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "nightmare"
+   ],
+   "rewards": "720× Oath Coin"
+  },
+  {
+   "id": 244111200,
+   "tab": "challenge",
+   "period": "season",
+   "name": "Tribulation of Aponos",
+   "desc": "[Ascension Trial] Clear Nightmare Altar 3 times",
+   "steps": [
+    3,
+    7,
+    10
+   ],
+   "unit": "",
+   "where": [
+    "ascension"
+   ],
+   "rewards": "2,940× Oath Coin 15× Silentium (Bound)"
+  },
+  {
+   "id": 244111300,
+   "tab": "challenge",
+   "period": "season",
+   "name": "Tribulation of Duduri and Dodori",
+   "desc": "[Ascension Trial] Clear Sanctum of Loathing 3 times",
+   "steps": [
+    3,
+    7,
+    10
+   ],
+   "unit": "",
+   "where": [
+    "ascension"
+   ],
+   "rewards": "2,940× Oath Coin 15× Silentium (Bound)"
+  },
+  {
+   "id": 244111400,
+   "tab": "challenge",
+   "period": "season",
+   "name": "Tower of Trials",
+   "desc": "Achieve a final score of 200 in Ascension Trial",
+   "steps": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "unit": "",
+   "where": [
+    "ascension"
+   ],
+   "rewards": "12,660× Oath Coin Intermediate Training Arcana (Bound) 2× Superior Training Arcana (Bound) 5× Mysterious Crystal (Bound)"
+  },
+  {
+   "id": 244111500,
+   "tab": "challenge",
+   "period": "season",
+   "name": "Waltzing with Asmodian Commanders",
+   "desc": "Kill Asmodian [Commander, Supreme Commander] 2 times",
+   "steps": [
+    2,
+    5
+   ],
+   "unit": "",
+   "where": [
+    "pvp",
+    "abyss"
+   ],
+   "rewards": "5,600× Oath Coin 40,000× Abyss Points 18× Silver Medal of Merit",
+   "asmodian": {
+    "name": "Waltzing with Elyos Commanders",
+    "desc": "Kill Elyos [Commander, Supreme Commander] 2 times",
+    "where": [
+     "pvp",
+     "abyss"
+    ]
+   }
+  },
+  {
+   "id": 244111600,
+   "tab": "challenge",
+   "period": "season",
+   "name": "Waltzing with Asmodian Generals",
+   "desc": "Kill Asmodian [General, Marshal] 3 times",
+   "steps": [
+    3,
+    6,
+    10
+   ],
+   "unit": "",
+   "where": [
+    "pvp",
+    "abyss"
+   ],
+   "rewards": "5,400× Oath Coin 30,000× Abyss Points 18× Silver Medal of Merit",
+   "asmodian": {
+    "name": "Waltzing with Elyos Generals",
+    "desc": "Kill Elyos [General, Marshal] 3 times",
+    "where": [
+     "pvp",
+     "abyss"
+    ]
+   }
+  },
+  {
+   "id": 244111700,
+   "tab": "challenge",
+   "period": "season",
+   "name": "Waltzing with Asmodian Officers",
+   "desc": "Kill Asmodian [1-5 Star Officer] 10 times",
+   "steps": [
+    10,
+    20,
+    30
+   ],
+   "unit": "",
+   "where": [
+    "pvp",
+    "abyss"
+   ],
+   "rewards": "4,230× Oath Coin 15,000× Abyss Points 9× Silver Medal of Merit",
+   "asmodian": {
+    "name": "Waltzing with Elyos Officers",
+    "desc": "Kill Elyos [1-5 Star Officer] 10 times",
+    "where": [
+     "pvp",
+     "abyss"
+    ]
+   }
+  },
+  {
+   "id": 244111800,
+   "tab": "challenge",
+   "period": "season",
+   "name": "Hand-To-Hand Combat",
+   "desc": "Kill [First-Class to Ninth-Class Soldier] 50 times",
+   "steps": [
+    50,
+    100,
+    150,
+    200,
+    250
+   ],
+   "unit": "",
+   "where": [
+    "pvp",
+    "abyss"
+   ],
+   "rewards": "7,590× Oath Coin 10,000× Abyss Points 20× Silver Medal of Merit"
+  },
+  {
+   "id": 244210800,
+   "tab": "challenge",
+   "period": "weekly",
+   "name": "Hatched Bird",
+   "desc": "Clear Ascension Trial 1 time",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "ascension"
+   ],
+   "rewards": "1,260× Oath Coin 4× Silentium (Bound)"
+  },
+  {
+   "id": 244210900,
+   "tab": "challenge",
+   "period": "weekly",
+   "name": "Shooting for the Stars",
+   "desc": "Kill Asmodian [1-5 Star Officer] 2 times",
+   "steps": [
+    2,
+    4,
+    6,
+    8,
+    10,
+    12,
+    14,
+    16,
+    18,
+    20
+   ],
+   "unit": "",
+   "where": [
+    "pvp",
+    "abyss"
+   ],
+   "rewards": "4,460× Oath Coin 4,000× Abyss Points 500× Silver Fragment of Merit (Bound)",
+   "asmodian": {
+    "desc": "Kill Elyos [1-5 Star Officer] 2 times"
+   }
+  },
+  {
+   "id": 244211000,
+   "tab": "challenge",
+   "period": "weekly",
+   "name": "Baptism of Fire",
+   "desc": "Kill Asmodian [First-Class to Ninth-Class Soldier] 6 times",
+   "steps": [
+    6,
+    12,
+    18,
+    24,
+    30,
+    36,
+    42,
+    48,
+    54,
+    60
+   ],
+   "unit": "",
+   "where": [
+    "pvp",
+    "abyss"
+   ],
+   "rewards": "3,460× Oath Coin 2,000× Abyss Points",
+   "asmodian": {
+    "desc": "Kill Elyos [First-Class to Ninth-Class Soldier] 6 times"
+   }
+  },
+  {
+   "id": 244211100,
+   "tab": "challenge",
+   "period": "weekly",
+   "name": "Pride of Elysea",
+   "desc": "Kill 5 Asmodian players in Altgard",
+   "steps": [
+    5,
+    10,
+    15,
+    20,
+    25,
+    30,
+    35,
+    40,
+    45,
+    50
+   ],
+   "unit": "",
+   "where": [
+    "pvp",
+    "region:Altgard"
+   ],
+   "rewards": "3,960× Oath Coin 20,000× Abyss Points 450× Silver Fragment of Merit (Bound) Silver Medal of Merit",
+   "asmodian": {
+    "name": "Pride of Asmodae",
+    "desc": "Kill 5 Elyos players in Verteron",
+    "where": [
+     "pvp",
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 244211200,
+   "tab": "challenge",
+   "period": "weekly",
+   "name": "Marching Beneath the Elyos Banner",
+   "desc": "Kill 5 Asmodian players in Verteron",
+   "steps": [
+    5,
+    10,
+    15,
+    20,
+    25,
+    30,
+    35,
+    40,
+    45,
+    50
+   ],
+   "unit": "",
+   "where": [
+    "pvp",
+    "region:Verteron"
+   ],
+   "rewards": "3,960× Oath Coin 20,000× Abyss Points 450× Silver Fragment of Merit (Bound) Silver Medal of Merit",
+   "asmodian": {
+    "name": "Marching Beneath the Asmodian Banner",
+    "desc": "Kill 5 Elyos players in Altgard",
+    "where": [
+     "pvp",
+     "region:Altgard"
+    ]
+   }
+  },
+  {
+   "id": 244211300,
+   "tab": "challenge",
+   "period": "weekly",
+   "name": "Daeva of Enduring Deeds",
+   "desc": "Gather 10 Odyle in Abyss",
+   "steps": [
+    10,
+    20,
+    30
+   ],
+   "unit": "",
+   "where": [
+    "abyss"
+   ],
+   "rewards": "820× Oath Coin 6,000× Abyss Points 3× Silver Medal of Merit"
+  },
+  {
+   "id": 244211400,
+   "tab": "challenge",
+   "period": "weekly",
+   "name": "Daeva of Glorious Deeds",
+   "desc": "Complete 3 Abyss commands",
+   "steps": [
+    3,
+    6,
+    10
+   ],
+   "unit": "",
+   "where": [
+    "abyss"
+   ],
+   "rewards": "820× Oath Coin 6,000× Abyss Points 3× Silver Medal of Merit"
+  },
+  {
+   "id": 244211500,
+   "tab": "challenge",
+   "period": "weekly",
+   "name": "Daeva of Extraordinary Deeds",
+   "desc": "Defeat 1 Abyss boss monster",
+   "steps": [
+    1,
+    3,
+    5
+   ],
+   "unit": "",
+   "where": [
+    "abyss"
+   ],
+   "rewards": "820× Oath Coin 6,000× Abyss Points 3× Silver Medal of Merit"
+  },
+  {
+   "id": 244211600,
+   "tab": "challenge",
+   "period": "weekly",
+   "name": "Daeva's Book",
+   "desc": "Participate in Battlefield 1 time",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "battlefield"
+   ],
+   "rewards": "820× Oath Coin 6,000× Abyss Points 3× Silver Medal of Merit"
+  }
+ ]
+}

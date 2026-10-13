@@ -14,7 +14,7 @@ from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
 from .character import CHARACTER_OPCODE, COMBAT_POWER_OPCODE, parse_character, parse_combat_power
 from .world import MAP_ENTER_OPCODE, SPAWN_OPCODE, WorldTracker, game_map_faction, parse_spawn_full
-from .combat import (PLAYER_SPAWN_OPCODE, REVIVE_SKILLS, SELF_REVIVE, CombatTracker, in_instance,
+from .combat import (ABYSS_MAPS, PLAYER_SPAWN_OPCODE, REVIVE_SKILLS, SELF_REVIVE, CombatTracker, in_instance,
                      parse_player)
 from .damage import (DAMAGE_OPCODES, DEATH_OPCODE, READY as DAMAGE_READY, STATS_OPCODE, parse_hp,
                      parse_mp, summon_owner)
@@ -34,6 +34,8 @@ from .professions import CRAFT_OPCODE, EXP_OPCODE, level_text, parse_craft, pars
 from .status import (ALERTS as STATUS_ALERTS, LIST_OPCODE as COUNTERS_OPCODE, UPDATE_OPCODE as COUNTER_OPCODE, Status,
                      SPENT, alert_text, is_dungeon_reward, parse_change, parse_list as parse_counters)
 from .protocol import read_varint
+from .missions import LIST_OPCODE as MISSIONS_OPCODE, UPDATE_OPCODE as MISSION_OPCODE, Missions, \
+    parse_records as parse_missions
 from .health import Health
 from .mapdata import MapData
 from .contribution import OPCODES as CONTRIBUTION_OPCODES, CombatFeed
@@ -58,6 +60,7 @@ from .modules.diagnostics import DiagnosticsModule, open_problems
 from .modules.tracker import TrackerModule
 from .modules.crafting import CraftingModule
 from .modules.status import StatusModule
+from .modules.missions import MissionsModule
 from .afinador import STORE_DELAY, Afinador
 from .update_controller import UpdateController
 from .notifications import NotificationCenter
@@ -107,7 +110,7 @@ OP_KIND = {SNAPSHOT_OPCODE: "collection", PROGRESS_OPCODE: "progress", LEVEL_OPC
            MAP_ENTER_OPCODE: "map", SPAWN_OPCODE: "spawn", REQUEST_OPCODE: "press", SKILL_LIST_OPCODE: "skills",
            PRESETS_OPCODE: "bar", ROSTER_OPCODE: "roster", PARTY_INFO_OPCODE: "roster", FORCE_INFO_OPCODE: "roster",
            **{op: "roster" for op in MEMBER_OPCODES},
-           COUNTERS_OPCODE: "status", COUNTER_OPCODE: "status",
+           COUNTERS_OPCODE: "status", COUNTER_OPCODE: "status", MISSIONS_OPCODE: "missions", MISSION_OPCODE: "missions",
            **{op: "combat" for op in DAMAGE_OPCODES}}
 
 SESSION_KEEP = 600       # seconds: a restart this short (an update) keeps your group and your entity id
@@ -134,6 +137,7 @@ class Bridge(QObject):
     profession = Signal(object)      # ("levels", name, {id: (level, exp)}) | ("exp", id, exp, gained) |
                                      # ("craft", id, recipe id, success)
     counters = Signal(object)        # ("list", time, [(id, count, bonus, ms)]) | ("update" | "spent", time, ticket)
+    missions = Signal(object)        # ("list" | "update", time, [(id, count, ms, collected)]): season missions
     member_stats = Signal(object)    # {name: (level, item level, combat power)} of your group (and you)
     own_cp = Signal(int)             # your combat power
     revive_cast = Signal(object)     # (caster, skill, time) of a revive or a self revive
@@ -209,6 +213,10 @@ class Bridge(QObject):
             event = parse_craft(body)
             if event:
                 self.profession.emit(("craft", *event))
+        elif op in (MISSIONS_OPCODE, MISSION_OPCODE):
+            records = parse_missions(body)
+            if records:
+                self.missions.emit(("list" if op == MISSIONS_OPCODE else "update", time.time(), records))
         elif op == COUNTERS_OPCODE:
             tickets = parse_counters(body)
             if tickets:
@@ -496,6 +504,9 @@ class Controller(QObject):
         self.status = Status(self.settings, self._save_settings)
         self.status_window = None
         self.bridge.counters.connect(self.on_counters)
+        self.missions = Missions(self.data_dir, self.data_dir / "missions_db.json", persist=self.persist)
+        self.missions_window = None
+        self.bridge.missions.connect(self.on_missions)
 
         self.fonts = Fonts(self.settings["scale"])
         if self.ui_scale_active > 1.01:
@@ -522,7 +533,8 @@ class Controller(QObject):
         self.dps_window = None
         self._restore_session()
         self.modules = [PetsModule(self), DpsModule(self), TunerModule(self), TrackerModule(self),
-                        CraftingModule(self), StatusModule(self), NotificationsModule(self), DiagnosticsModule(self),
+                        CraftingModule(self), StatusModule(self), MissionsModule(self), NotificationsModule(self),
+                        DiagnosticsModule(self),
                         SettingsModule(self)]
         for module in self.modules:
             self.window.add_panel(module.create_panel(self.fonts))
@@ -900,6 +912,53 @@ class Controller(QObject):
         elif self.status.on_update(at, payload, self.character_name()):
             self.status_changed()
 
+    # --- season missions ---
+    def on_missions(self, event):
+        """Your season missions from the game: the whole list (before the game names your character) or what moved."""
+        kind, at, records = event
+        if kind == "list":
+            self.missions.on_list(at, records)
+            return
+        name = self.character.name if self.character else None
+        map_id = self.combat.map_id if in_instance(self.combat.map_id) else None
+        faction = self.crafting_faction()
+        for mission, before, now in self.missions.on_update(at, records, name, map_id):
+            if now.ready > before.ready:
+                mission_name = mission.view(faction)[0]
+                self.notify("info", f"Misión lista: {mission_name}",
+                            f"Paso {now.reached}/{now.total} hecho ({mission.view(faction)[1]}). Recoge la recompensa "
+                            f"en la ventana Season Mission del juego.")
+        self.missions_changed()
+
+    def missions_changed(self):
+        if self.missions_window and self.missions_window.isVisible():
+            self.missions_window.refresh()
+        if self.active_module.key == "missions" and not self._refreshing:
+            self.refresh()
+
+    def missions_character(self):
+        """Whose missions the overlay shows: the character you play, else the last one read."""
+        playing = self.character.name if self.character else None
+        names = self.missions.names(current=playing)
+        return playing if playing in names else (names[0] if names else None)
+
+    def missions_place(self):
+        """(title, where tags) of where you are, for the missions you can push there."""
+        map_id = self.combat.map_id
+        zone = self.mapdata.zones.get(self.current_zone) if self.current_zone else None
+        region = zone.get("region") if zone and 1000 <= (map_id or 0) < 1200 else None
+        return self.missions.context(map_id, map_id in ABYSS_MAPS, region)
+
+    def open_missions(self):
+        from .ui.missionswindow import MissionsWindow
+        if self.missions_window is None:
+            self.missions_window = MissionsWindow(self)
+        else:
+            self.missions_window.refresh()
+        self.missions_window.show()
+        self.missions_window.raise_()
+        self.missions_window.activateWindow()
+
     def status_changed(self):
         if self.status_window and self.status_window.isVisible():
             self.status_window.refresh()
@@ -1068,6 +1127,8 @@ class Controller(QObject):
                     f"({short_number(mine)} de daño).{group}")
 
     def on_character(self, info):
+        if self.missions.claim(info.name, time.time()):   # ... and so is the season missions' list
+            QTimer.singleShot(0, self.missions_changed)
         if self.status.claim(info.name, time.time()):     # the ticket list read just before is this character's
             QTimer.singleShot(0, self.status_changed)
         if self.crafting.inventory.claim(info.name, time.time()):       # ... and so is the item list
@@ -1883,6 +1944,7 @@ class Controller(QObject):
         menu.addAction("Abrir Crafting", self.open_crafting)
         menu.addAction(f"Escanear el mercado (Crafting)\t{hk.get('crafting_scan', '')}", self.crafting_scan)
         menu.addAction("Abrir Status de tus personajes", self.open_status)
+        menu.addAction("Misiones de temporada", self.open_missions)
         menu.addSeparator()
         menu.addAction(f"Mostrar / ocultar\t{hk['toggle_visible']}", self.toggle_visible)
         menu.addAction(f"Bloquear / desbloquear\t{hk['toggle_lock']}", self.toggle_lock)
