@@ -263,8 +263,10 @@ class PartyRow(QWidget):
     """One player: class colour bar (as long as their damage against the top one), class icon, name, combat power,
     DPS and their share."""
 
-    def __init__(self, fonts, name, class_name, icon, cp, dps, share, ratio, is_self=False, compact=False):
+    def __init__(self, fonts, name, class_name, icon, cp, dps, share, ratio, is_self=False, compact=False,
+                 dim=False):
         super().__init__()
+        self.dim = dim                   # partial numbers (only their damage over time reached us): drawn faded
         self.fonts, self.name, self.icon, self.cp, self.dps, self.share, self.ratio = (fonts, name, icon, cp, dps,
                                                                                        share, ratio)
         self.color = QColor(CLASS_COLOR.get(class_name, OTHER_COLOR))
@@ -278,6 +280,8 @@ class PartyRow(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         p.setRenderHint(QPainter.SmoothPixmapTransform)
+        if self.dim:
+            p.setOpacity(0.5)
         r = QRectF(self.rect()).adjusted(0.5, 1.5, -0.5, -1.5)
         radius = r.height() / 2
         p.setPen(Qt.NoPen)

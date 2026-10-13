@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 from ..combat import in_instance
 from ..gear import CLASS_OF_JOB
 from . import theme
-from .dps_party import BossCard, PartyRow, thousands
+from .dps_party import BossCard, PartyRow, compact_number, thousands
 from .notifications_panel import ago
 from .widgets import label
 
@@ -171,12 +171,29 @@ class DpsPanel(QWidget):
             basis = total
         top = max((value(a) for a in shown), default=1) or 1
         limit = ROWS[compact]
+        # a world boss with a crowd: the game sends your hits but only the others' damage over time (Kaira,
+        # 2026-10-13: of the 224M it lost in 221 s, 3.0M were your hits and 0.35M the hits of 8 others). Their rows
+        # are then partial: faded, marked DoT, and below yours, with what the boss lost as the reference.
+        blind = bool(contribution and contribution.hp_lost and contribution.seen < 0.2)
+        if blind:
+            shown = [a for a in shown if a.is_self] + [a for a in shown if not a.is_self]
+            lost = contribution.hp_lost
+            self._note(f"El jefe perdió {compact_number(lost)} ({compact_number(lost / max(1, seconds))}/s) mientras "
+                       f"peleabas: es el daño de todos. Tus golpes llegan todos; del resto solo sus DoT.",
+                       theme.TEXT)
+        marked = False
         for a in shown[:limit]:
             cls = a.class_name or CLASS_OF_JOB.get(self._job(a.name), "")
-            self.content.addWidget(PartyRow(f, alias.get(a.eid, a.name), cls, self._class_icon(cls),
+            partial = blind and not a.is_self
+            if partial and not marked:
+                self._note("Resto (solo su daño en el tiempo, no sus golpes):")
+                marked = True
+            self.content.addWidget(PartyRow(f, alias.get(a.eid, a.name) + (" · DoT" if partial else ""), cls,
+                                            self._class_icon(cls),
                                             None if a.eid in alias else (encounter.cp.get(a.name) or ctl.cp_of(a.name)),
                                             f"{thousands(value(a) / seconds)}/s",
-                                            share_text(value(a) / basis), value(a) / top, a.is_self, compact))
+                                            share_text(value(a) / basis), value(a) / top, a.is_self, compact,
+                                            dim=partial))
         if len(shown) > limit:
             rest = shown[limit:]
             self._note(f"y {len(rest)} más · {share_text(sum(value(a) for a in rest) / basis)}")
@@ -196,8 +213,9 @@ class DpsPanel(QWidget):
                     # world bosses with a crowd: the game sends your own hits and only the damage-over-time ticks of
                     # the others (Gartua, 2026-10-12: 0.14% of its 312M HP visible), so your group's share cannot be
                     # measured; yours can (every hit of yours arrives)
-                    self._note(f"Tu aporte al jefe: {pct(c.share(c.me))} · el juego no envía el daño del resto de tu "
-                               f"{c.group_kind} en jefes con tanta gente")
+                    self._note(f"Tu aporte al jefe: {pct(c.share(c.me))} de lo que perdió · el resto de tu "
+                               f"{c.group_kind} no se puede medir: el juego no envía sus golpes en jefes con tanta "
+                               f"gente")
                 else:
                     self._note(f"Tu aporte al jefe: {pct(c.share(c.me))}"
                                + (f" · tu {c.group_kind}: {pct(c.share(c.group))}" if c.group_kind else ""))
@@ -380,8 +398,8 @@ class DpsPanel(QWidget):
             self._icons[slug] = pix
         return self._icons[slug]
 
-    def _note(self, text):
-        note = label(text, self.fonts.small, theme.MUTED)
+    def _note(self, text, color=None):
+        note = label(text, self.fonts.small, color or theme.MUTED)
         note.setWordWrap(True)
         note.setContentsMargins(self.fonts.px(4), self.fonts.px(2), 0, self.fonts.px(2))
         self.content.addWidget(note)
