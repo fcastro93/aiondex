@@ -73,8 +73,9 @@ class PlayersWindow(QWidget):
         titles.setSpacing(0)
         self.title = label("", f.name_big, theme.TEXT)
         titles.addWidget(self.title)
-        titles.addWidget(label("Perfiles oficiales de NCSOFT (los mismos datos que shugo.gg): se piden al abrir y con "
-                               "Refrescar, de uno en uno.", f.small, theme.MUTED))
+        titles.addWidget(label("CP e item level: los envía el juego con la lista de tu party / force (al momento). El "
+                               "perfil completo (equipo, habilidades, Daevanion) es el oficial de NCSOFT, el mismo de "
+                               "shugo.gg: se pide al abrir y con Refrescar, de uno en uno.", f.small, theme.MUTED))
         head.addLayout(titles, 1)
         refresh = QPushButton("Refrescar todos")
         refresh.setToolTip("Vuelve a pedir el perfil de cada jugador (los datos de ahora mismo)")
@@ -157,14 +158,22 @@ class PlayersWindow(QWidget):
         self.ctl.settings.save()
         self.refresh()
 
-    def failing(self, profile):
+    def numbers(self, name, profile):
+        """(CP, item level) of a player: what the game sent with the group list (live, for the whole force at once),
+        else their official profile."""
+        game = self.ctl.member_stats.get(name)
+        cp = self.ctl.cp_of(name) or (profile.cp if profile else None)
+        il = (game[1] if game else None) or (profile.item_level if profile else None)
+        return cp, il
+
+    def failing(self, name, profile):
         """What a player is missing for the filters ("CP 53,932 < 60,000"), or [] (unknown counts as not failing)."""
+        cp, il = self.numbers(name, profile)
         out = []
-        if profile and self.min_cp.value() and profile.cp is not None and profile.cp < self.min_cp.value():
-            out.append(f"CP {profile.cp:,} < {self.min_cp.value():,}")
-        if profile and self.min_ilvl.value() and profile.item_level is not None and \
-                profile.item_level < self.min_ilvl.value():
-            out.append(f"item level {profile.item_level:,} < {self.min_ilvl.value():,}")
+        if self.min_cp.value() and cp is not None and cp < self.min_cp.value():
+            out.append(f"CP {cp:,} < {self.min_cp.value():,}")
+        if self.min_ilvl.value() and il is not None and il < self.min_ilvl.value():
+            out.append(f"item level {il:,} < {self.min_ilvl.value():,}")
         return out
 
     def show_tab(self, key):
@@ -193,9 +202,18 @@ class PlayersWindow(QWidget):
             self.body.addStretch(1)
             return
         profiles = {name: self.armory.cached(name, server) for name, server, *_ in members}
-        failing = [name for name in profiles if self.failing(profiles[name])]
+        failing = [name for name in profiles if self.failing(name, profiles[name])]
         loading = sum(1 for name, *_ in members if self.armory.loading(name))
+        numbers = [self.numbers(name, profiles[name]) for name, *_ in members]
+        cps = [cp for cp, _ in numbers if cp]
+        ils = [il for _, il in numbers if il]
         bits = []
+        if cps:
+            bits.append(f"CP medio {sum(cps) / len(cps):,.0f} (de {min(cps):,} a {max(cps):,})")
+        if ils:
+            bits.append(f"item level medio {sum(ils) / len(ils):,.0f}")
+        if len(cps) < len(members):
+            bits.append(f"{len(members) - len(cps)} sin CP aún")
         if self.min_cp.value() or self.min_ilvl.value():
             bits.append(f"{len(failing)} de {len(members)} no cumplen" if failing else "todos cumplen")
         if loading:
@@ -222,7 +240,7 @@ class PlayersWindow(QWidget):
                 self.body.addWidget(SectionTitle(title, f))
             grid = QGridLayout()
             grid.setSpacing(10)
-            ordered = sorted(group, key=lambda m: -((profiles[m[0]].cp or 0) if profiles[m[0]] else 0))
+            ordered = sorted(group, key=lambda m: -(self.numbers(m[0], profiles[m[0]])[0] or 0))
             for i, m in enumerate(ordered):
                 grid.addWidget(self._card(m, profiles[m[0]]), i // COLUMNS, i % COLUMNS)
             for c in range(COLUMNS):
@@ -260,7 +278,8 @@ class PlayersWindow(QWidget):
         f = self.fonts
         name, server, job, _, me = member
         cls = class_of(profile, job)
-        fails = self.failing(profile)
+        fails = self.failing(name, profile)
+        cp, il = self.numbers(name, profile)
         card = QFrame()
         card.setObjectName("PCard")
         card.setProperty("selected", name == self.selected)
@@ -279,10 +298,8 @@ class PlayersWindow(QWidget):
         right.addWidget(label(f"{cls or 'clase ?'}" + (f" · {role}" if role else "") +
                               (f" · Nv {profile.level}" if profile and profile.level else ""), f.small,
                               theme.MUTED, elide=True))
-        if profile:
-            right.addWidget(label(f"{profile.cp:,}" if profile.cp is not None else "CP ?", f.name_big, theme.GOLD))
-            right.addWidget(label(f"CP · item level {profile.item_level:,}" if profile.item_level else "CP", f.small,
-                                  theme.MUTED))
+        right.addWidget(label(f"{cp:,}" if cp is not None else "CP ?", f.name_big, theme.GOLD))
+        right.addWidget(label(f"CP · item level {il:,}" if il else "CP", f.small, theme.MUTED))
         right.addStretch(1)
         top.addLayout(right, 1)
         lay.addLayout(top)
@@ -301,13 +318,17 @@ class PlayersWindow(QWidget):
             best = sorted(profile.skills, key=lambda s: -s[2])[:3]
             if best:
                 lay.addWidget(label(" · ".join(f"{s[0]} {s[2]}" for s in best), f.small, theme.MUTED, elide=True))
-        status = ("cargando…" if self.armory.loading(name) else
-                  f"sin datos: {self.armory.error(name)}" if not profile and self.armory.error(name) else
-                  "sin datos todavía" if not profile else
-                  f"leído {_ago(profile.at)}")
+        status = ("perfil: cargando…" if self.armory.loading(name) else
+                  f"perfil sin datos: {self.armory.error(name)}" if not profile and self.armory.error(name) else
+                  "perfil sin datos todavía" if not profile else
+                  f"perfil leído {_ago(profile.at)}")
+        if not profile and cp is not None:
+            status = "CP e item level del juego · " + status
         if fails:
-            lay.addWidget(label("No cumple: " + ", ".join(fails), f.small, QColor("#ff7a7a")))
-        lay.addWidget(label(status, f.small, theme.MUTED))
+            lay.addWidget(label("No cumple: " + ", ".join(fails), f.small, QColor("#ff7a7a"), elide=True))
+        state = label(status, f.small, theme.MUTED, elide=True)
+        state.setToolTip(status)
+        lay.addWidget(state)
         links = QHBoxLayout()
         shugo = QPushButton("shugo.gg")
         shugo.setProperty("flat", True)
@@ -386,7 +407,7 @@ class PlayersWindow(QWidget):
     # --- organising the force ---
     def _plan(self, members, profiles):
         f = self.fonts
-        roster = [Member(name, class_of(profiles[name], job), profiles[name].cp if profiles[name] else None)
+        roster = [Member(name, class_of(profiles[name], job), self.numbers(name, profiles[name])[0])
                   for name, server, job, *_ in members]
         parties, advice = plan(roster)
         intro = label("Propuesta: un Clérigo y un Cantor por party mientras haya (sus curas y buffs solo llegan a su "

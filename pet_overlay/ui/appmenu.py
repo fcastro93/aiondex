@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QMenu
 from . import theme
 
 GLYPH_EXIT = ""
+GLYPH_PEOPLE = ""       # People in Segoe MDL2 / Fluent
 
 MENU_STYLE = f"""
 QMenu {{ background: #0d1628; border: 1px solid #24345a; border-radius: 9px; padding: 5px;
@@ -56,7 +57,7 @@ def glyph_icon(glyph, color, family, size=64):
 
 
 def build_app_menu(ctl, fonts, parent=None):
-    """Modules (exclusive, the active one highlighted) and Salir."""
+    """Modules (exclusive, the active one highlighted), the players of your group and Salir."""
     menu = styled_menu(parent)
     group = QActionGroup(menu)
     group.setExclusive(True)
@@ -67,5 +68,7 @@ def build_app_menu(ctl, fonts, parent=None):
         group.addAction(act)
         menu.addAction(act)
     menu.addSeparator()
+    menu.addAction(glyph_icon(GLYPH_PEOPLE, theme.ACCENT, fonts.icons_family), "Jugadores de tu party / force",
+                   ctl.open_players)
     menu.addAction(glyph_icon(GLYPH_EXIT, theme.MUTED, fonts.icons_family), "Salir", ctl.quit)
     return menu
