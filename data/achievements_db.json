@@ -4,7 +4,7 @@
   "text": "Logros: metabot.gg",
   "url": "https://metabot.gg/en/aion-2/achievements"
  },
- "generated_at": 1791870826.125761,
+ "generated_at": 1791871684.182812,
  "tabs": {
   "progress": "Progreso",
   "challenge": "Desafío",
@@ -2388,7 +2388,7 @@
     "name": "Safe Haven",
     "desc": "Activate [Safe Haven] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2412,7 +2412,7 @@
     "name": "Galorik's Inspection Area",
     "desc": "Activate [Galorik's Inspection Area] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2436,7 +2436,7 @@
     "name": "Temporary Investigation Base",
     "desc": "Activate [Temporary Investigation Base] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2460,7 +2460,7 @@
     "name": "Creion Campsite",
     "desc": "Activate [Creion Camp] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2484,7 +2484,7 @@
     "name": "Quai Campsite",
     "desc": "Activate [Quai Campsite] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2508,7 +2508,7 @@
     "name": "Gravekeeper Camp",
     "desc": "Activate [Gravekeeper Camp] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2532,7 +2532,7 @@
     "name": "Neglected Crematorium",
     "desc": "Activate [Neglected Crematorium] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2556,7 +2556,7 @@
     "name": "Mire Campsite",
     "desc": "Activate [Mire Campsite] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2580,7 +2580,7 @@
     "name": "Fang Hideout",
     "desc": "Activate [Fang Hideout] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2604,7 +2604,7 @@
     "name": "Temporary Retreat",
     "desc": "Activate [Temporary Retreat] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2628,7 +2628,7 @@
     "name": "Watcher's Tent",
     "desc": "Activate [Watcher's Tent] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2652,7 +2652,7 @@
     "name": "Odar's Shade",
     "desc": "Activate [Odar's Shade] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2676,7 +2676,7 @@
     "name": "Collapsed Chasm",
     "desc": "Activate [Collapsed Chasm] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2700,7 +2700,7 @@
     "name": "Elim's Rest",
     "desc": "Activate [Elim's Rest] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2724,7 +2724,7 @@
     "name": "Forest Hideout",
     "desc": "Activate [Forest Hideout] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2748,7 +2748,7 @@
     "name": "Abandoned Site",
     "desc": "Activate [Abandoned Site] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2772,7 +2772,7 @@
     "name": "Minushan Site",
     "desc": "Activate [Minushan Site] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2796,7 +2796,7 @@
     "name": "Victorious Daeva's Statue",
     "desc": "Activate [Victorious Daeva's Statue] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2820,7 +2820,7 @@
     "name": "Nornir Assembly",
     "desc": "Activate [Nornir Assembly] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2844,7 +2844,7 @@
     "name": "Guide Rest Stop",
     "desc": "Activate [Guide Rest Stop] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2868,7 +2868,7 @@
     "name": "Faded Stump",
     "desc": "Activate [Faded Stump] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2892,7 +2892,7 @@
     "name": "Healing Spring",
     "desc": "Activate [Healing Spring] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2916,7 +2916,7 @@
     "name": "Briskwind Shelter",
     "desc": "Activate [Briskwind Shelter] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2940,7 +2940,7 @@
     "name": "Hidden Cave",
     "desc": "Activate [Hidden Cave] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2964,7 +2964,7 @@
     "name": "Basfelt Waterfall",
     "desc": "Activate [Basfelt Waterfall] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -2988,7 +2988,7 @@
     "name": "Graverobber Campsite",
     "desc": "Activate [Graverobber Campsite] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3012,7 +3012,7 @@
     "name": "Fissure Cave",
     "desc": "Activate [Fissure Cave] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3036,7 +3036,7 @@
     "name": "Shulak Street Stall",
     "desc": "Activate [Shulak Street Stall] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3060,7 +3060,7 @@
     "name": "Mahindel Cliff",
     "desc": "Activate [Mahindel Cliff] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3084,7 +3084,7 @@
     "name": "Steel Hammer Merchants HQ",
     "desc": "Activate [Steel Hammer Merchants HQ] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3108,7 +3108,7 @@
     "name": "Steel Hammer Workcamp",
     "desc": "Activate [Steel Hammer Workcamp] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3132,7 +3132,7 @@
     "name": "Abandoned Campsite",
     "desc": "Activate [Abandoned Campsite] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3156,7 +3156,7 @@
     "name": "Amunta's Hideout",
     "desc": "Activate [Amunta's Hideout] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3180,7 +3180,7 @@
     "name": "Steel Hammer Temporary Trading Post",
     "desc": "Activate [Steel Hammer Temporary Trading Post] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3204,7 +3204,7 @@
     "name": "Outskirts Stall",
     "desc": "Activate [Outskirts Stall] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3228,7 +3228,7 @@
     "name": "Idun's Lake",
     "desc": "Activate [Idun's Lake] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3252,7 +3252,7 @@
     "name": "Zemurru's Tomb",
     "desc": "Activate [Zemurru's Tomb] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3276,7 +3276,7 @@
     "name": "Secret Rendezvous Point",
     "desc": "Activate [Secret Rendezvous Point] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3300,7 +3300,7 @@
     "name": "Kumrica's Cellar",
     "desc": "Activate [Kumrica's Cellar] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3324,7 +3324,7 @@
     "name": "Collapsed Hall Of Fame",
     "desc": "Activate [Collapsed Hall of Fame] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3348,7 +3348,7 @@
     "name": "Guide's Dwelling",
     "desc": "Activate [Guide's Dwelling] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3372,7 +3372,7 @@
     "name": "Silent Hill Mushroom Rock",
     "desc": "Activate Silent Hill [Mushroom Rock] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3396,7 +3396,7 @@
     "name": "Sanctum Outpost Sky Island",
     "desc": "Activate [Sanctum Outpost Sky Island] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3420,7 +3420,7 @@
     "name": "Silent Hill Coastal Cliff",
     "desc": "Activate [Silent Hill Coastal Cliff] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3444,7 +3444,7 @@
     "name": "Moslan Forest Dry Shade",
     "desc": "Activate [Moslan Forest Dry Shade] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3468,7 +3468,7 @@
     "name": "Safe Haven Cliff",
     "desc": "Activate [Safe Haven Cliff] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3492,7 +3492,7 @@
     "name": "Remote Island",
     "desc": "Activate [Remote Island] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3516,7 +3516,7 @@
     "name": "Wave-Swept Cliff",
     "desc": "Activate [Wave-Swept Cliff] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3540,7 +3540,7 @@
     "name": "Basfelt Waterfall Arch Zone",
     "desc": "Activate [Basfelt Waterfall Arch Zone] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3564,7 +3564,7 @@
     "name": "Basfelt Ruins Cliff",
     "desc": "Activate [Basfelt Ruins Cliff] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3588,7 +3588,7 @@
     "name": "Moslan Forest Cliff",
     "desc": "Activate [Moslan Forest Cliff] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3612,7 +3612,7 @@
     "name": "Purifying Forest Sunny Hill",
     "desc": "Activate [Purifying Forest Sunny Hill] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3636,7 +3636,7 @@
     "name": "Gribade Highland Crossroad",
     "desc": "Activate [Gribade Highland Crossroad] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3660,7 +3660,7 @@
     "name": "Battlescar Mound Clifftop",
     "desc": "Activate [Battlescar Mound Clifftop] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3684,7 +3684,7 @@
     "name": "Purifying Forest Coastal Cliff",
     "desc": "Activate [Purifying Forest Coastal Cliff] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3708,7 +3708,7 @@
     "name": "Dranactus Shore",
     "desc": "Activate [Dranactus Shore] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3732,7 +3732,7 @@
     "name": "Eastern Gribade Highland Cliff",
     "desc": "Activate [Eastern Gribade Highland Cliff] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3756,7 +3756,7 @@
     "name": "Beneath the Tranein Highland Bridge",
     "desc": "Activate [Beneath Tranein Highland Bridge] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3780,7 +3780,7 @@
     "name": "Eastern Gribade Highland Tail Island",
     "desc": "Activate [Eastern Gribade Highland Tail Island] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3804,7 +3804,7 @@
     "name": "Impetusium Lower Path",
     "desc": "Activate [Impetusium Lower Path] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3828,7 +3828,7 @@
     "name": "Impetusium Cliff",
     "desc": "Activate [Impetusium Cliff] Kibelisk",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },
@@ -3852,7 +3852,7 @@
     "name": "Altgard Binding Veteran",
     "desc": "Activate all Kibelisks in Altgard",
     "where": [
-     "region:Verteron"
+     "region:Altgard"
     ]
    }
   },

@@ -115,6 +115,8 @@ OP_KIND = {SNAPSHOT_OPCODE: "collection", PROGRESS_OPCODE: "progress", LEVEL_OPC
 
 SESSION_KEEP = 600       # seconds: a restart this short (an update) keeps your group and your entity id
 JUST_MAXED = 300         # seconds a pet that reached max level stays in "Cerca de ti" (shown as MAX)
+WORLD_REGIONS = {1010: "Verteron", 1110: "Altgard"}      # open-world map ids (2136)
+SEAL_REGIONS = {310: "Verteron", 320: "Altgard"}         # sealed dungeons: Seal_Verteron 3100NN, Seal_Altgard 3200NN
 
 
 class Bridge(QObject):
@@ -954,6 +956,11 @@ class Controller(QObject):
         map_id = self.combat.map_id
         zone = self.mapdata.zones.get(self.current_zone) if self.current_zone else None
         region = zone.get("region") if zone and 1000 <= (map_id or 0) < 1200 else None
+        region = region or WORLD_REGIONS.get(map_id)          # before the zone is known (no monster seen yet)
+        if region is None and map_id is not None:
+            region = SEAL_REGIONS.get(map_id // 1000)          # a sealed dungeon counts for its region's
+            if region:
+                return f"En una mazmorra sellada de {region}", {f"region:{region}"}
         return (model or self.missions).context(map_id, map_id in ABYSS_MAPS, region)
 
     def open_missions(self):

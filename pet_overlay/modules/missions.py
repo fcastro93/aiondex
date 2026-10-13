@@ -62,10 +62,12 @@ class ProgressPanel(QWidget):
                 self.content.addWidget(self._row(m, p, faction))
             if len(here) > ROWS[compact]:
                 self._line(f"y {len(here) - ROWS[compact]} más aquí (expande o abre la ventana)", theme.MUTED)
-            if not here:
-                tips = ms.recommend(name, faction, now)[:TIPS[compact]]
-                self._line("Aquí no avanza nada que te falte. Fáciles desde cualquier lado:" if tags else
-                           "Fáciles desde cualquier lado (o en una instancia a la que entras tú):", theme.MUTED)
+            if len(here) < 2:                    # little or nothing here: the easy ones from anywhere too
+                tips = ms.recommend(name, faction, now, skip={m.id for m, _ in here})[:TIPS[compact]]
+                if tips:
+                    self._line("Aquí no avanza nada que te falte. Fáciles desde cualquier lado:" if tags and not here
+                               else "También, fáciles desde cualquier lado:" if here else
+                               "Fáciles desde cualquier lado (o en una instancia a la que entras tú):", theme.MUTED)
                 for m, p in tips:
                     self.content.addWidget(self._row(m, p, faction))
             ready = ms.ready(name, now)

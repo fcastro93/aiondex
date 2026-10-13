@@ -121,7 +121,7 @@ def pair_up(key, rows, n):
     return [tuple(p) for p in out]
 
 
-def catalog(key, row):
+def catalog(key, row, side="elyos"):
     """(where, easy) of an achievement: where it moves, and 0-5 how easy it is to push from anywhere."""
     n, d = row["name"], row["desc"]
     low = d.lower()
@@ -176,8 +176,8 @@ def catalog(key, row):
         if "Dimensional Invasion" in d:
             return ["event"], 2
         return [], 1
-    if key == "kibelisks":
-        return ["region:Verteron"], 0
+    if key == "kibelisks":                   # the first half are Verteron's, the Asmodian half Altgard's
+        return ["region:Altgard" if side == "asmodian" else "region:Verteron"], 0
     if key == "shugo-festival":
         return ["event"], 4 if "Shugo Festival 3" in d else 2 if "Centuryroot" in d else 3
     if key in ("sealed-dungeons", "strongholds"):
@@ -223,7 +223,7 @@ def build(cache):
                      "name": base["name"], "desc": base["desc"], "steps": base["steps"], "unit": unit(base),
                      "where": where, "easy": easy, "rewards": base["rewards"]}
             if asmo is not None:
-                a_where, a_easy = catalog(key, asmo)
+                a_where, a_easy = catalog(key, asmo, "asmodian")
                 entry["asmodian"] = {"name": asmo["name"], "desc": asmo["desc"], "where": a_where}
             elif to_asmodian(base["desc"]) != base["desc"] and not any(r["desc"] == to_asmodian(base["desc"])
                                                                         for r in rows):

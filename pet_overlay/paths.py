@@ -27,13 +27,25 @@ def seed_user_data():
         return
     for name in SEED_FILES:
         src, dst = SEED_DIR / name, DATA_DIR / name
-        if src.exists() and (not dst.exists() or _generated_at(src) > _generated_at(dst)):
+        if src.exists() and (not dst.exists() or _newer(src, dst)):
             shutil.copy2(src, dst)
 
 
+def _newer(src, dst):
+    """Is the bundled file newer? By generated_at when the files carry it: a bundled file that has it beats one
+    without it (1.38.0's missions_db.json had none and its install time won over 1.39.0's, so it was never
+    replaced); pets_db.json has none, so the file times decide."""
+    a, b = _generated_at(src), _generated_at(dst)
+    if a is not None and b is not None:
+        return a > b
+    if a is not None:
+        return True
+    return src.stat().st_mtime > dst.stat().st_mtime
+
+
 def _generated_at(path):
-    """map_db.json carries generated_at; pets_db.json has none, so fall back to the file time."""
     try:
-        return json.loads(path.read_text(encoding="utf-8")).get("generated_at") or path.stat().st_mtime
+        value = json.loads(path.read_text(encoding="utf-8")).get("generated_at")
     except (OSError, ValueError, AttributeError):
-        return path.stat().st_mtime if path.exists() else 0
+        return None
+    return value if isinstance(value, (int, float)) else None
