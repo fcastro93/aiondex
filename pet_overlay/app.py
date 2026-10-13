@@ -17,7 +17,8 @@ from .damage import (DAMAGE_OPCODES, DEATH_OPCODE, READY as DAMAGE_READY, STATS_
                      parse_mp, summon_owner)
 from .fightlog import FightLog, summary as fight_summary
 from .npcs import NpcDb
-from .roster import (FORCE_INFO_OPCODE, MEMBER_OPCODES, PARTY_INFO_OPCODE, ROSTER_OPCODE, parse_member_ids,
+from .roster import (FORCE_INFO_OPCODE, MEMBER_HINT_OPCODES, MEMBER_OPCODES, PARTY_INFO_OPCODE, ROSTER_OPCODE,
+                     parse_member_ids,
                      parse_member_stats, parse_party_info, parse_roster)
 from .skills import (CAST_OPCODE, PRESETS_OPCODE, REQUEST_OPCODE, SKILL_LIST_OPCODE, OwnEntityFinder, caster_of,
                      parse_cast, parse_presets, parse_request, parse_skill_list)
@@ -100,6 +101,8 @@ OP_KIND = {SNAPSHOT_OPCODE: "collection", PROGRESS_OPCODE: "progress", CHARACTER
            COUNTERS_OPCODE: "status", COUNTER_OPCODE: "status",
            **{op: "combat" for op in DAMAGE_OPCODES}}
 
+SESSION_KEEP = 600       # seconds: a restart this short (an update) keeps your group and your entity id
+
 
 class Bridge(QObject):
     """Moves parsed game messages from the capture thread to the UI thread."""
@@ -122,6 +125,7 @@ class Bridge(QObject):
     counters = Signal(object)        # ("list", time, [(id, count, bonus, ms)]) | ("update" | "spent", time, ticket)
     member_stats = Signal(object)    # {name: (level, item level, combat power)} of your group (and you)
     own_cp = Signal(int)             # your combat power
+    member_seen = Signal(object)     # ("party" | "group", entity id): someone the game keeps telling you about
     items = Signal(object)           # ("list" | "update", time, body): your bag and storage (1156 / 1b56)
     own_skill = Signal(object)       # ("press", ts, skill, result) | ("cast", ts, skill, cooldown ms) |
                                      # ("skills", {base: OwnSkill}) | ("bar", [QuickSlot])
@@ -138,6 +142,7 @@ class Bridge(QObject):
         self.gear_reader = GearReader()  # your equipped gear (login list + the visible slots of each 3336)
         self.finder = OwnEntityFinder()  # who you are until the game resends your character (and after teleports)
         self._self_stale = True          # the entity id may be unknown or old (start, map change) until a 3336
+        self._hinted = set()             # (kind, entity id) of the group hints already passed on
 
     def take_hits(self):
         with self._hits_lock:
@@ -166,6 +171,12 @@ class Bridge(QObject):
                 owner = self.feed.owners.get(eid)     # summons (traps, spirits...), as the combat feed resolved them
                 self.npc.emit((eid, npc_id, owner if owner is not None else
                                summon_owner(body) if owner_name else None, max_hp))
+        elif op in MEMBER_HINT_OPCODES:
+            eid, _ = read_varint(body, 0)
+            key = (MEMBER_HINT_OPCODES[op], eid)
+            if eid and key not in self._hinted:
+                self._hinted.add(key)
+                self.member_seen.emit(key)
         elif op == COMBAT_POWER_OPCODE:
             cp = parse_combat_power(body)
             if cp:
@@ -403,7 +414,9 @@ class Controller(QObject):
         self.npc_db = NpcDb(self.data_dir)
         self.member_stats = {}          # name -> (level, item level, combat power) from the group lists
         self.dps_ready = DAMAGE_READY
-        self.bridge.player.connect(lambda p: self.combat.add_player(p[0], p[1]))
+        self.bridge.player.connect(self.on_player)
+        self.bridge.member_seen.connect(self.on_member_seen)
+        self._hinted_eids = {}          # entity id -> "party" | "group" of members not named yet (no spawn seen)
         self.bridge.npc.connect(self.on_npc)
         self.bridge.hits.connect(self.on_hits)          # simulated fights (preview) still emit directly
         self._hits_drain = QTimer(self, interval=200, timeout=lambda: self.on_hits(self.bridge.take_hits()))
@@ -464,6 +477,7 @@ class Controller(QObject):
         self.tuner_window = None
         self.diag_window = None
         self.dps_window = None
+        self._restore_session()
         self.modules = [PetsModule(self), DpsModule(self), TunerModule(self), TrackerModule(self),
                         CraftingModule(self), StatusModule(self), NotificationsModule(self), DiagnosticsModule(self),
                         SettingsModule(self)]
@@ -543,7 +557,7 @@ class Controller(QObject):
         slug = self.mapdata.db.get("npcs", {}).get(str(npc_id))
         name = (self.mapdata.monsters.get(slug, {}).get("name") if slug else None) or self.npc_db.name(npc_id)
         self.combat.add_npc(eid, name or self.boss_names.get(npc_id), max_hp, rage=self.npc_db.rage(npc_id),
-                            npc_id=npc_id)
+                            npc_id=npc_id, boss=self.npc_db.is_boss(npc_id))
 
     def on_hits(self, hits):
         me = self.combat.self_eid
@@ -939,6 +953,7 @@ class Controller(QObject):
         entry.update({"server": info.server, "job": info.job, "level": info.level})
         self._save_settings()
         log.info("character %s (server %s, job %s, level %s)", info.name, info.server, info.job, info.level)
+        self._save_session()
         self.refresh()
 
     def on_roster(self, event):
@@ -958,6 +973,86 @@ class Controller(QObject):
         self.combat.set_group(self._force_names or self._party_names,
                               party=self._party_names if self._force_names else None)
         log.info("group: party %s, force %s", len(self._party_names), len(self._force_names))
+        self._save_session()
+
+    # --- what the game said about you and your group, across a restart (an update) ---------------------------
+    def _save_session(self):
+        """Your group (with its members' entity ids, CP and item level) and your entity id: the game sends them only
+        on map entries, so a restart (each update is one) would forget them until the next teleport."""
+        if not self.persist:
+            return
+        group = set(self._force_names or self._party_names)
+        me = self.combat.players.get(self.combat.self_eid) if self.combat.self_eid is not None else None
+        self.settings["session"] = {
+            "at": time.time(), "self_eid": self.combat.self_eid, "self_name": me, "map_id": self.combat.map_id,
+            "party": list(self._party_names), "force": list(self._force_names),
+            "roster": {n: list(v) for n, v in self._roster_info.items() if n in group},
+            "stats": {n: list(v) for n, v in self.member_stats.items() if n in group or n == me},
+            "eids": {str(e): n for e, n in self.combat.players.items() if n in group and e != self.combat.self_eid},
+            "own_cp": self.own_cp}
+        self._save_settings()
+
+    def _restore_session(self):
+        session = self.settings.get("session") or {}
+        if not self.persist or not session:
+            return
+        age = time.time() - session.get("at", 0)
+        if age > SESSION_KEEP:
+            self.settings.pop("session", None)
+            return
+        eid, name = session.get("self_eid"), session.get("self_name")
+        if eid is not None and name:
+            self.combat.set_self(eid, name)      # until the game (or your next skills) says otherwise
+            self.bridge.self_eid = eid
+            self.bridge.feed.set_self(eid)
+        if session.get("map_id") is not None:
+            self.combat.on_map(session["map_id"])
+        self._party_names, self._force_names = list(session.get("party", [])), list(session.get("force", []))
+        self._roster_info.update({n: tuple(v) for n, v in session.get("roster", {}).items()})
+        self.member_stats.update({n: tuple(v) for n, v in session.get("stats", {}).items()})
+        for member_eid, member in session.get("eids", {}).items():
+            self.bridge.feed.players[int(member_eid)] = member
+            self.combat.add_player(int(member_eid), member)
+        self.bridge.feed.group |= set(self._force_names or self._party_names)
+        self.combat.set_group(self._force_names or self._party_names,
+                              party=self._party_names if self._force_names else None)
+        self.own_cp = session.get("own_cp") or self.own_cp
+        log.info("restored the game session of %.0f s ago: you %s (%s), party %s, force %s", age, name, eid,
+                 len(self._party_names), len(self._force_names))
+
+    def on_player(self, player):
+        eid, name = player[0], player[1]
+        self.combat.add_player(eid, name)
+        kind = self._hinted_eids.pop(eid, None)
+        if kind:
+            self._add_hinted(kind, name)
+
+    def on_member_seen(self, event):
+        """The game keeps sending this player's HP or buffs to you: a member of your group (party for 0e92 / 1a92).
+        Added to the group when the lists did not arrive (AionDex started mid-session) or missed them."""
+        kind, eid = event
+        if eid == self.combat.self_eid:
+            return
+        name = self.combat.players.get(eid)
+        if name is None:
+            self._hinted_eids[eid] = kind          # named when its spawn arrives
+            return
+        self._add_hinted(kind, name)
+
+    def _add_hinted(self, kind, name):
+        me = self.combat.players.get(self.combat.self_eid) if self.combat.self_eid is not None else None
+        if name == me or name in self._party_names or (kind == "group" and name in self._force_names):
+            return
+        if kind == "party" or not self._force_names:
+            self._party_names.extend(n for n in (me, name) if n and n not in self._party_names)
+        if self._force_names:
+            self._force_names.extend(n for n in (me, name) if n and n not in self._force_names)
+        self.bridge.feed.group |= {name}
+        self.combat.set_group(self._force_names or self._party_names,
+                              party=self._party_names if self._force_names else None)
+        log.info("group member from the game's updates (%s): %s -> party %s, force %s", kind, name,
+                 len(self._party_names), len(self._force_names))
+        self._save_session()
 
     def group_members(self):
         """[(name, server, job, in your party, is you)] of your force, else your party."""
@@ -992,6 +1087,7 @@ class Controller(QObject):
         name = self.character.name if self.character else self.settings.get("last_character") or "Tú"
         self.combat.set_self(eid, name)
         log.info("own entity %s found from your skill presses (%s)", eid, name)
+        self._save_session()
 
     def on_gear(self, event):
         """Save the character's equipped gear (for the Tracker's "is this drop an upgrade for me?")."""
@@ -1512,6 +1608,7 @@ class Controller(QObject):
 
     def quit(self):
         log.info("AionDex closing")
+        self._save_session()
         self.remember_position(self.window.pos())
         hwnd = int(self.window.winId())
         for i in range(1, len(HOTKEY_ACTIONS) + 1):

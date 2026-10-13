@@ -16,7 +16,8 @@ DEFAULTS = {
     "toast_progress": True, # a bubble for every +N of pet progress (merged while it is on screen)
     "dps_only_me": False,   # before 1.21: DPS meter shows only your own bar (now dps_view "me")
     "dps_view": None,       # players shown in the DPS panel: "me" | "group" (party or force) | "all"
-    "dps_boss_only": True,  # in boss fights, the DPS bars count only the damage to the boss (like LOXIN)
+    "dps_boss_only": True,
+    "session": {},          # your group and entity id when AionDex closed (kept 10 min: an update's restart)  # in boss fights, the DPS bars count only the damage to the boss (like LOXIN)
     "pinned": None,         # pet id to always show in the focus card
     "rows": 6,              # rows in "closest to next level" when expanded
     "map_faction": "auto",  # auto (character's) | elyos | asmodian | all

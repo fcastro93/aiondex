@@ -157,7 +157,7 @@ class DpsPanel(QWidget):
             shown = dealers
         alias = {a.eid: f"Jugador {i}" for i, a in enumerate(outsiders, 1)}   # nobody outside your group is named
         total = max(1, sum(value(a) for a in dealers))
-        contribution = encounter.contribution(group) if act.kind == "crowd" else None
+        contribution = encounter.contribution(group) if act.kind == "crowd" and act.boss else None
         if contribution:
             basis = contribution.total            # what the boss lost, not the few hits we see
         elif boss_view and max_hp:
@@ -176,11 +176,15 @@ class DpsPanel(QWidget):
             rest = shown[limit:]
             self._note(f"y {len(rest)} más · {share_text(sum(value(a) for a in rest) / basis)}")
         if not shown:
-            self._note("Aún sin daño en esta vista.")
+            if view == "me" and not any(a.is_self for a in encounter.actors.values()):
+                self._note("AionDex aún no sabe cuál eres tú (pasa justo tras abrirlo): lo sabrá con tus próximas "
+                           "habilidades o al cambiar de mapa. Mientras, mira Todos.")
+            else:
+                self._note("Aún sin daño en esta vista.")
         if not group and 1 <= len(outsiders) <= 4 and act.kind != "crowd":
             self._note("¿Vas en party? El juego envía tu party al entrar a un mapa o teletransportarte: hasta entonces "
                        "tus compañeros salen como «Jugador N».")
-        if act.kind == "crowd":
+        if act.kind == "crowd" and act.boss:
             c = encounter.contribution(group)
             if c:
                 if c.group_kind and c.hp_lost and c.seen < 0.2:

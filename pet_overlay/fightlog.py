@@ -89,7 +89,8 @@ def dump(enc, group):
             "targets": _ints(enc.targets), "enemy_damage": _ints(enc.enemy_damage),
             "target_names": _ints(enc.target_names), "dead": list(enc.dead), "hp": _ints(enc.hp),
             "hp_start": _ints(enc.hp_start), "hp_at": _ints(enc.hp_at), "target_max_hp": _ints(enc.target_max_hp),
-            "target_npc": _ints(enc.target_npc),
+            "target_npc": _ints(enc.target_npc), "target_boss": _ints(enc.target_boss),
+            "side_targets": _ints(enc.side_targets),
             "group": sorted(group), "cp": {n: cp for n, cp in enc.cp.items() if n in group or n in
                                            {a.name for a in enc.actors.values() if a.is_self}}}
 
@@ -108,6 +109,8 @@ def load(data):
     enc.hp_at = keyed("hp_at")
     enc.target_max_hp = keyed("target_max_hp")
     enc.target_npc = keyed("target_npc")
+    enc.target_boss = keyed("target_boss")
+    enc.side_targets = Counter(keyed("side_targets"))
     enc.group = set(data.get("group", []))
     enc.cp = dict(data.get("cp") or {})
     return enc

@@ -152,6 +152,7 @@ class Encounter:
     last: float
     actors: dict = field(default_factory=dict)       # eid -> ActorStats
     targets: Counter = field(default_factory=Counter)  # target eid -> damage taken
+    side_targets: Counter = field(default_factory=Counter)  # target eid -> damage from you and your group
     enemy_damage: Counter = field(default_factory=Counter)  # enemy eid -> damage it dealt to players
     target_names: dict = field(default_factory=dict)
     dead: set = field(default_factory=set)            # targets that died during the encounter
@@ -160,6 +161,7 @@ class Encounter:
     hp_at: dict = field(default_factory=dict)         # target eid -> time of that first hp
     target_max_hp: dict = field(default_factory=dict)  # target eid -> max hp from its spawn
     target_npc: dict = field(default_factory=dict)    # enemy eid -> its npc id (its kind)
+    target_boss: dict = field(default_factory=dict)   # enemy eid -> True boss / False normal or elite (when known)
     map_id: int | None = None                         # game map where the fight happened
     killed: bool = False
     ended: bool = False
@@ -201,7 +203,9 @@ class Encounter:
                  "mundo" if self.map_id is None or 1000 <= self.map_id < 1200 else "instancia")
         boss_eid = self.main_target_eid
         boss_hp = self.target_max_hp.get(boss_eid) or self.hp.get(boss_eid, [0, 0])[1] or 0
-        boss = boss_hp >= BOSS_HP
+        # the monster's rank when the database knows it (Abyss elites have 168K HP and are no bosses), else its HP
+        known = self.target_boss.get(boss_eid)
+        boss = known if known is not None else boss_hp >= BOSS_HP
         others = [a for a in self.dealers() if not a.is_self]
         outsiders = [a for a in others if a.name not in group_names]
         if len(outsiders) >= CROWD or boss_hp >= WORLD_BOSS_HP:
@@ -255,6 +259,10 @@ class Encounter:
 
     @property
     def main_target_eid(self):
+        """The enemy you and your group hit the most (in a crowd, the one everyone hits may not be yours), else the
+        most hit one."""
+        if self.side_targets:
+            return self.side_targets.most_common(1)[0][0]
         return self.targets.most_common(1)[0][0] if self.targets else None
 
     @property
@@ -267,9 +275,8 @@ class Encounter:
 
     @property
     def main_target(self):
-        if not self.targets:
-            return None
-        return self.target_names.get(self.targets.most_common(1)[0][0])
+        eid = self.main_target_eid
+        return None if eid is None else self.target_names.get(eid)
 
     def dps(self, actor):
         return actor.damage / self.duration
@@ -318,6 +325,7 @@ class CombatTracker:
         self.npc_names = {}      # eid -> monster name
         self.max_hp = {}         # eid -> max hp from the spawn
         self.npc_ids = {}        # eid -> npc id (the kind of monster)
+        self.bosses = {}         # eid -> True boss / False not (from the monster database)
         self.rage = {}           # eid -> seconds from the start of the fight until that boss rages
         self.engaged = {}        # eid -> first hit between that monster and your side (kept across encounters)
         self.group = set()       # names of your party / force members (from the group roster)
@@ -344,7 +352,7 @@ class CombatTracker:
     def add_summon(self, eid, owner):
         self.owners[eid] = owner
 
-    def add_npc(self, eid, name, max_hp=None, rage=None, npc_id=None):
+    def add_npc(self, eid, name, max_hp=None, rage=None, npc_id=None, boss=None):
         """A monster came into view. Without a name (a variant no database lists) it is called by its HP, which
         tells the kinds apart; monsters that were around before AionDex listened have no spawn at all: "Enemigo"."""
         if not name and npc_id is not None and 2920000 <= npc_id < 2930000:
@@ -354,6 +362,8 @@ class CombatTracker:
                     f"Enemigo ({max_hp // 1000}K HP)" if max_hp and max_hp >= 1000 else "Enemigo")
         if npc_id is not None:
             self.npc_ids[eid] = npc_id
+        if boss is not None:
+            self.bosses[eid] = boss
         self.npc_names[eid] = name
         if max_hp:
             self.max_hp[eid] = max_hp
@@ -425,13 +435,19 @@ class CombatTracker:
         actor.skill_hits[hit.skill] += 1
         actor.by_target[hit.target] += hit.amount
         enc.targets[hit.target] += hit.amount
+        if actor.is_self or actor.name in self.group:
+            enc.side_targets[hit.target] += hit.amount
         self.engaged.setdefault(hit.target, hit.ts)
         if hit.target in self.npc_names:
             enc.target_names[hit.target] = self.npc_names[hit.target]
+        elif hit.target in self.players:          # the other side's players (Abyss, PvP): never named
+            enc.target_names.setdefault(hit.target, "Jugador enemigo")
         if hit.target in self.max_hp:
             enc.target_max_hp[hit.target] = self.max_hp[hit.target]
         if hit.target in self.npc_ids:
             enc.target_npc[hit.target] = self.npc_ids[hit.target]
+        if hit.target in self.bosses:
+            enc.target_boss[hit.target] = self.bosses[hit.target]
         return finished
 
     def _on_support(self, hit):
@@ -461,6 +477,8 @@ class CombatTracker:
                 enc.target_max_hp.setdefault(enemy, self.max_hp[enemy])
             if enemy in self.npc_ids:
                 enc.target_npc.setdefault(enemy, self.npc_ids[enemy])
+            if enemy in self.bosses:
+                enc.target_boss.setdefault(enemy, self.bosses[enemy])
             actor.taken_max = max(actor.taken_max, hit.amount)
             actor.taken_from[self.owners.get(hit.attacker, hit.attacker)] += hit.amount
             actor.taken_skills[hit.skill] += hit.amount

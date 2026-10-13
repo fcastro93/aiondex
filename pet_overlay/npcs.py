@@ -22,6 +22,11 @@ class NpcDb:
         row = self._row(npc_id)
         return row[0] if row else None
 
+    def is_boss(self, npc_id):
+        """True for the Hero / Legend monsters (the bosses), False for normal and elite ones, None if unknown."""
+        row = self._row(npc_id)
+        return bool(row[2]) if row else None
+
     def rage(self, npc_id):
         """Seconds from the start of the fight until this boss rages, or None when it never does."""
         row = self._row(npc_id)

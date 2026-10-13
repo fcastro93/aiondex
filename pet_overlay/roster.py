@@ -29,6 +29,11 @@ import re
 import struct
 
 ROSTER_OPCODE = bytes.fromhex("0297")
+# Messages the game keeps sending (every few seconds) only about the members of your group, each starting with the
+# member's varint entity id (2026-10-12, an Abyss "Random" force of 5 and the Gartua force): 2b96 = a member's HP
+# (everyone of your party / force but you), 0e92 / 1a92 = your own party (you included). They give the group when
+# AionDex starts (or updates) in the middle of a session, before the next server change sends the lists.
+MEMBER_HINT_OPCODES = {bytes.fromhex("2b96"): "group", bytes.fromhex("0e92"): "party", bytes.fromhex("1a92"): "party"}
 PARTY_INFO_OPCODE = bytes.fromhex("0092")
 FORCE_INFO_OPCODE = bytes.fromhex("0296")
 MEMBER_OPCODES = (bytes.fromhex("1b96"), bytes.fromhex("2292"))
