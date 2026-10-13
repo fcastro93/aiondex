@@ -32,7 +32,7 @@ from .market_share import SYNC_SECONDS as SHARE_SYNC_SECONDS, MarketShare
 from .gathering import Gathering
 from .professions import CRAFT_OPCODE, EXP_OPCODE, level_text, parse_craft, parse_exp, parse_levels
 from .status import (ALERTS as STATUS_ALERTS, LIST_OPCODE as COUNTERS_OPCODE, UPDATE_OPCODE as COUNTER_OPCODE, Status,
-                     SPENT, alert_text, is_dungeon_reward, parse_change, parse_list as parse_counters)
+                     SPENT, alert_text, countdown, is_dungeon_reward, parse_change, parse_list as parse_counters)
 from .protocol import read_varint
 from .missions import LIST_OPCODE as MISSIONS_OPCODE, UPDATE_OPCODE as MISSION_OPCODE, Missions, \
     parse_records as parse_missions
@@ -60,7 +60,7 @@ from .modules.diagnostics import DiagnosticsModule, open_problems
 from .modules.tracker import TrackerModule
 from .modules.crafting import CraftingModule
 from .modules.status import StatusModule
-from .modules.missions import MissionsModule
+from .modules.missions import AchievementsModule, MissionsModule
 from .afinador import STORE_DELAY, Afinador
 from .update_controller import UpdateController
 from .notifications import NotificationCenter
@@ -505,7 +505,9 @@ class Controller(QObject):
         self.status_window = None
         self.bridge.counters.connect(self.on_counters)
         self.missions = Missions(self.data_dir, self.data_dir / "missions_db.json", persist=self.persist)
-        self.missions_window = None
+        self.achievements = Missions(self.data_dir, self.data_dir / "achievements_db.json", persist=self.persist,
+                                     save_name="achievements.json")
+        self.missions_window = self.achievements_window = None
         self.bridge.missions.connect(self.on_missions)
 
         self.fonts = Fonts(self.settings["scale"])
@@ -533,8 +535,8 @@ class Controller(QObject):
         self.dps_window = None
         self._restore_session()
         self.modules = [PetsModule(self), DpsModule(self), TunerModule(self), TrackerModule(self),
-                        CraftingModule(self), StatusModule(self), MissionsModule(self), NotificationsModule(self),
-                        DiagnosticsModule(self),
+                        CraftingModule(self), StatusModule(self), MissionsModule(self), AchievementsModule(self),
+                        NotificationsModule(self), DiagnosticsModule(self),
                         SettingsModule(self)]
         for module in self.modules:
             self.window.add_panel(module.create_panel(self.fonts))
@@ -916,48 +918,68 @@ class Controller(QObject):
     def on_missions(self, event):
         """Your season missions from the game: the whole list (before the game names your character) or what moved."""
         kind, at, records = event
+        models = ((self.missions, "Misión lista", "Season Mission"), (self.achievements, "Logro listo", "Achievements"))
         if kind == "list":
-            self.missions.on_list(at, records)
+            for model, _, _ in models:
+                model.on_list(at, records)
             return
         name = self.character.name if self.character else None
         map_id = self.combat.map_id if in_instance(self.combat.map_id) else None
         faction = self.crafting_faction()
-        for mission, before, now in self.missions.on_update(at, records, name, map_id):
-            if now.ready > before.ready:
-                mission_name = mission.view(faction)[0]
-                self.notify("info", f"Misión lista: {mission_name}",
-                            f"Paso {now.reached}/{now.total} hecho ({mission.view(faction)[1]}). Recoge la recompensa "
-                            f"en la ventana Season Mission del juego.")
+        for model, title, window in models:
+            for mission, before, now in model.on_update(at, records, name, map_id):
+                if now.ready > before.ready:
+                    mission_name, text, _ = mission.view(faction)
+                    self.notify("info", f"{title}: {mission_name}",
+                                f"Paso {now.reached}/{now.total} hecho ({text}). Recoge la recompensa en la ventana "
+                                f"{window} del juego.", keep=True)
         self.missions_changed()
 
     def missions_changed(self):
-        if self.missions_window and self.missions_window.isVisible():
-            self.missions_window.refresh()
-        if self.active_module.key == "missions" and not self._refreshing:
+        for window in (self.missions_window, self.achievements_window):
+            if window and window.isVisible():
+                window.refresh()
+        if self.active_module.key in ("missions", "achievements") and not self._refreshing:
             self.refresh()
 
-    def missions_character(self):
-        """Whose missions the overlay shows: the character you play, else the last one read."""
+    def missions_character(self, model=None):
+        """Whose missions / achievements the overlay shows: the character you play, else the last one read."""
+        model = model or self.missions
         playing = self.character.name if self.character else None
-        names = self.missions.names(current=playing)
+        names = model.names(current=playing)
         return playing if playing in names else (names[0] if names else None)
 
-    def missions_place(self):
-        """(title, where tags) of where you are, for the missions you can push there."""
+    def missions_place(self, model=None):
+        """(title, where tags) of where you are, for what you can push there."""
         map_id = self.combat.map_id
         zone = self.mapdata.zones.get(self.current_zone) if self.current_zone else None
         region = zone.get("region") if zone and 1000 <= (map_id or 0) < 1200 else None
-        return self.missions.context(map_id, map_id in ABYSS_MAPS, region)
+        return (model or self.missions).context(map_id, map_id in ABYSS_MAPS, region)
 
     def open_missions(self):
         from .ui.missionswindow import MissionsWindow
         if self.missions_window is None:
-            self.missions_window = MissionsWindow(self)
-        else:
-            self.missions_window.refresh()
-        self.missions_window.show()
-        self.missions_window.raise_()
-        self.missions_window.activateWindow()
+            self.missions_window = MissionsWindow(
+                self, self.missions, "Season Missions",
+                "AionDex lee tu progreso del juego al entrar y en cada avance. Las semanales vuelven a cero el "
+                "miércoles; las de temporada, al acabar la temporada.")
+        self._show_window(self.missions_window)
+
+    def open_achievements(self):
+        from .ui.missionswindow import MissionsWindow
+        if self.achievements_window is None:
+            self.achievements_window = MissionsWindow(
+                self, self.achievements, "Logros",
+                "Los logros del juego (ventana Achievements) con tu progreso, leído del juego al entrar y en cada "
+                "avance.")
+        self._show_window(self.achievements_window)
+
+    @staticmethod
+    def _show_window(window):
+        window.refresh()
+        window.show()
+        window.raise_()
+        window.activateWindow()
 
     def status_changed(self):
         if self.status_window and self.status_window.isVisible():
@@ -966,8 +988,21 @@ class Controller(QObject):
             self.refresh()
         self._on_status_tick(refresh=False)
 
+    def _missions_expiring(self):
+        """Season missions about to restart with something started or a reward waiting: a notice 24 h and 3 h
+        before."""
+        for name, left, items in self.missions.expiry_due():
+            ready = sum(1 for _, p, _ in items if p.ready)
+            faction = self.crafting_faction()
+            shown = ", ".join(m.view(faction)[0] for m, _, _ in items[:3]) + ("…" if len(items) > 3 else "")
+            self.notify("status", f"Season M.: expiran en {countdown(left)}",
+                        f"{name}: {len(items)} sin terminar ({shown})"
+                        + (f"; {ready} con la recompensa esperando, recógela antes" if ready else "") + ".",
+                        keep=True)
+
     def _on_status_tick(self, refresh=True):
         """The alerts whose bell is on: a notice (and sound) when one starts holding, then every hour."""
+        self._missions_expiring()
         due = self.status.due()
         for key, chars in due:
             self.notify("status", f"Status: {STATUS_ALERTS[key][0].lower()}", alert_text(self.status, key, chars))
@@ -1127,7 +1162,8 @@ class Controller(QObject):
                     f"({short_number(mine)} de daño).{group}")
 
     def on_character(self, info):
-        if self.missions.claim(info.name, time.time()):   # ... and so is the season missions' list
+        claimed = [m.claim(info.name, time.time()) for m in (self.missions, self.achievements)]
+        if any(claimed):                                  # ... and so is the season missions' / achievements' list
             QTimer.singleShot(0, self.missions_changed)
         if self.status.claim(info.name, time.time()):     # the ticket list read just before is this character's
             QTimer.singleShot(0, self.status_changed)
@@ -1393,7 +1429,8 @@ class Controller(QObject):
                             f"Ya está en tu colección (nivel 1). {_next_step(pet)}", pet_id=pet.pet_id)
             else:
                 self.notify("levelup", f"¡{name} subió a nivel {pet.level}!",
-                            "Llegó al nivel máximo." if pet.is_max else _next_step(pet), pet_id=pet.pet_id)
+                            "Llegó al nivel máximo." if pet.is_max else _next_step(pet), pet_id=pet.pet_id,
+                            keep=pet.is_max)
             self.sounds.play("pet_level_up")
         elif self.settings["toast_progress"]:
             self.notify("progress", "", _progress_sentence(pet), pet_id=pet.pet_id, key=f"progress:{pet.pet_id}",
@@ -1944,7 +1981,8 @@ class Controller(QObject):
         menu.addAction("Abrir Crafting", self.open_crafting)
         menu.addAction(f"Escanear el mercado (Crafting)\t{hk.get('crafting_scan', '')}", self.crafting_scan)
         menu.addAction("Abrir Status de tus personajes", self.open_status)
-        menu.addAction("Misiones de temporada", self.open_missions)
+        menu.addAction("Season Missions", self.open_missions)
+        menu.addAction("Logros", self.open_achievements)
         menu.addSeparator()
         menu.addAction(f"Mostrar / ocultar\t{hk['toggle_visible']}", self.toggle_visible)
         menu.addAction(f"Bloquear / desbloquear\t{hk['toggle_lock']}", self.toggle_lock)
@@ -1980,6 +2018,7 @@ class Controller(QObject):
         notices.addAction("Ver historial", lambda: self.switch_module("notifications"))
         menu.addAction("Actualizar base de datos", self.update_database)
         menu.addSeparator()
+        menu.addAction("Reiniciar AionDex", self.restart_app)
         menu.addAction("Salir", self.quit)
         self.tray.setContextMenu(menu)
         self.tray.activated.connect(

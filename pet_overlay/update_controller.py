@@ -118,14 +118,14 @@ class UpdateController(QObject):
         if not self.can_install:
             self._set("available", f"Hay una versión nueva: v{release.version} (instálala desde GitHub)")
             if manual:
-                self.ctl.notify("info", f"Versión {release.version} disponible", "Ejecutando desde el código")
+                self.ctl.notify("info", f"Versión {release.version} disponible", "Ejecutando desde el código", keep=True)
             return
         self._set("ready", f"v{release.version} lista para instalar")
         if self._install_when_ready:
             self.install_now()
         else:
             self.ctl.notify("info", f"{self.ctl.app_name} {release.version} disponible",
-                            "Se instalará al reiniciar la app, o ahora desde Ajustes")
+                            "Se instalará al reiniciar la app, o ahora desde Ajustes", keep=True)
 
     def _set(self, state, detail):
         self.state, self.detail = state, detail

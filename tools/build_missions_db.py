@@ -39,6 +39,19 @@ MIRROR = {"Waltzing with Asmodian Commanders": "Waltzing with Elyos Commanders",
           "Pride of Elysea": "Pride of Asmodae",
           "Marching Beneath the Elyos Banner": "Marching Beneath the Asmodian Banner"}
 SEASON = {"name": "Season 1", "start": "2026-09-30", "end": "2026-12-16T08:00:00Z"}   # the game's countdown
+# how easy each one is to push without being in an open-world place (0 none - 5 very easy; set by hand): when nothing
+# moves where you are, AionDex recommends these. The Abyss and PvP ones are 0 (they show where they move).
+EASY = {"Steady Efforts": 5, "Me, Beyond Myself": 4, "Gambler's Path": 3, "Missed by a Hair": 2,
+        "I Don't Fear Death": 2, "Reaper of the Arena": 1, "Piercing the Enemy's Heart": 1,
+        "Toward Greater Power": 5, "Way of the Transcended": 4, "Time to Go Home": 4, "Transforms Upon Death": 3,
+        "Transcendence Speed Run": 2, "Deus Research Base Stage 1": 3, "Shattered Arkanis Stage 1": 3,
+        "Deus Research Base Stage 2": 2, "Shattered Arkanis Stage 2": 2, "Deus Research Base Stage 3": 1,
+        "Shattered Arkanis Stage 3": 1, "Deus Research Base Stage 4": 1, "Shattered Arkanis Stage 4": 1,
+        "Friends With a Story": 5, "Collecting Dream Shards": 4, "3 Minutes of Nightmare": 3, "Nightmare Buster": 2,
+        "Eternal Rest": 1, "Gatekeeper Pinopi": 3, "Furious Feruk": 3, "Fafnir's Poison Blood": 3,
+        "Wraith Giselle": 3, "Fortress Guardian Notun": 3, "Mutated Gerod": 3, "Zikel's Apparition": 3,
+        "Daeva's Book": 4, "Hatched Bird": 4, "Tribulation of Aponos": 2, "Tribulation of Duduri and Dodori": 2,
+        "Tower of Trials": 1}
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AionDex-build (+https://github.com/fcastro93/aiondex)"
 ROW = re.compile(r'<tr><th scope="row"><span>(.*?)</span></th><td[^>]*>(.*?)</td><td>(.*?)</td></tr>', re.S)
 
@@ -104,8 +117,9 @@ def build(cache):
                 listed = [m for m in listed if m["name"] not in MIRROR.values()]
             first = BLOCKS[(tab, period)]
             for i, m in enumerate(listed):
-                entry = {"id": first + 100 * i, "tab": tab, "period": period, "name": m["name"], "desc": m["desc"],
-                         "steps": m["steps"], "unit": unit(m), "where": where(tab, m), "rewards": m["rewards"]}
+                entry = {"id": first + 100 * i, "tab": tab, "sub": period, "period": period, "name": m["name"],
+                         "desc": m["desc"], "steps": m["steps"], "unit": unit(m), "where": where(tab, m),
+                         "easy": EASY.get(m["name"], 0), "rewards": m["rewards"]}
                 other = next((o for o in found if o["name"] == MIRROR.get(m["name"])), None)
                 if other is not None:
                     entry["asmodian"] = {"name": other["name"], "desc": other["desc"], "where": where(tab, other)}
@@ -114,7 +128,8 @@ def build(cache):
                 missions.append(entry)
     return {"source": "metabot.gg achievements (Season 1) + the game's ids (8356 / 8456)",
             "credit": {"text": "Misiones de temporada: metabot.gg", "url": "https://metabot.gg/en/aion-2/achievements"},
-            "generated_at": time.time(), "season": SEASON, "tabs": TABS, "missions": missions}
+            "generated_at": time.time(), "season": SEASON, "tabs": TABS,
+            "subs": {tab: [["weekly", "Semanales"], ["season", "Temporada"]] for tab in TABS}, "missions": missions}
 
 
 if __name__ == "__main__":

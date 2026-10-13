@@ -1,5 +1,5 @@
-"""Season missions (the game's Season Mission window): each character's progress, read from the game, and which ones
-you can push where you are.
+"""Season missions and achievements (the game's Season Mission and Achievements windows): each character's progress,
+read from the game, which ones you can push where you are, the easy ones to push from anywhere, and the totals.
 
 What the game sends (2026-10-12; 5 kills in Lower Reshanta took Charfire's "Purify Reshanta" from 0 to 5/200 in the
 game's window and in the traffic):
@@ -11,6 +11,10 @@ game's window and in the traffic):
 - The season missions are 24 C P 1 NN 00 (C the tab, P 1 season / 2 weekly); data/missions_db.json has them with their
   names and steps (tools/build_missions_db.py). Weekly ones restart at the weekly reset (Wednesday 07:00 UTC), the
   others at the season's end.
+- The achievements are 4 T S 10 NN 00 in the same list (T the tab, S the subcategory); data/achievements_db.json
+  (tools/build_achievements_db.py). They never restart.
+- Each one says where it moves ("where") and how easy it is to push without being in an open-world place ("easy",
+  0-5, set by hand in the build tools): with nothing to push where you are, the easy ones are recommended.
 """
 import calendar
 import json
@@ -29,6 +33,12 @@ UPDATE_OPCODE = bytes.fromhex("8456")
 RECORD = 17
 TAB_ORDER = ("abyss", "arena", "transcendence", "nightmare", "challenge")
 INSTANCE_TAGS = ("transcendence", "nightmare", "ascension", "arena", "battlefield")
+OPEN_WORLD = ("abyss", "pvp", "fieldboss", "region:")      # where tags of a place you have to be in
+WEEKLY_BONUS = 2             # weekly ones restart on Wednesday: they weigh this much more than long-term ones
+EXPIRE_HOURS = 48            # "Expiran pronto": weekly ones in the last hours before the reset ...
+SEASON_EXPIRE_DAYS = 7       # ... and season ones in the season's last days
+NOTIFY_HOURS = (3, 24)       # a notice this many hours before (once each)
+NOTIFY_CHARACTERS_DAYS = 8   # for the characters read this recently
 KEEP_DAYS = 30
 
 
@@ -49,7 +59,7 @@ def parse_records(body):
 class Mission:
     id: int
     tab: str
-    period: str                  # "weekly" | "season"
+    period: str                  # "weekly" | "season" | "permanent" (achievements)
     name: str
     desc: str
     steps: list
@@ -57,6 +67,11 @@ class Mission:
     where: list = field(default_factory=list)
     rewards: str = ""
     asmodian: dict = None        # the Asmodian side's name / text / where when it differs
+    sub: str = ""                # the window's second row: weekly / season, or the achievement's subcategory
+    easy: int = 0                # 0-5: how easy to push from anywhere (recommended when nothing moves where you are)
+
+    def __post_init__(self):
+        self.sub = self.sub or self.period
 
     def view(self, faction):
         """(name, text, where) as the game shows it to that side."""
@@ -95,18 +110,20 @@ class Progress:
 
 
 class Missions:
-    def __init__(self, data_dir, db_path, persist=True):
-        self.path = Path(data_dir) / "missions.json"
+    def __init__(self, data_dir, db_path, persist=True, save_name="missions.json"):
+        self.path = Path(data_dir) / save_name
         self.persist = persist
         db = _load(Path(db_path), {})
         self.credit = db.get("credit")
         self.tabs = db.get("tabs", {})
+        self.subs = {tab: [tuple(s) for s in subs] for tab, subs in db.get("subs", {}).items()}
         self.season = db.get("season", {})
         self.db = {m["id"]: Mission(**{k: m.get(k) for k in Mission.__dataclass_fields__ if k in m})
                    for m in db.get("missions", [])}
         state = _load(self.path, {}) if persist else {}
         self.characters = state.get("characters", {})       # name -> {"at", "records": {id: [count, ms, collected]}}
-        self.maps = state.get("maps", {})                   # instance map id -> where tags learnt there
+        self.maps = {**db.get("maps", {}), **state.get("maps", {})}   # instance map id -> where tags played there
+        self.notified = set(state.get("notified", []))      # "expiring" notices given: character:deadline:hours
         self._pending = None
 
     @property
@@ -154,7 +171,7 @@ class Missions:
 
     def _learn(self, map_id, mission):
         """A mission moved inside an instance: that kind of content is played there."""
-        tags = [t for t in mission.where if t in INSTANCE_TAGS]
+        tags = [t for t in mission.where if t in INSTANCE_TAGS or t.startswith("dungeon:")]
         if tags and set(tags) - set(self.maps.get(str(map_id), [])):
             self.maps[str(map_id)] = sorted(set(self.maps.get(str(map_id), [])) | set(tags))
 
@@ -191,8 +208,7 @@ class Missions:
         if abyss:
             return "En el Abismo", {"abyss", "pvp"}
         if map_id is not None and not 1000 <= map_id < 1200:
-            learnt = set(self.maps.get(str(map_id), []))
-            return "En esta instancia", learnt or set(INSTANCE_TAGS)
+            return "En esta instancia", set(self.maps.get(str(map_id), []))
         return (f"En {region}" if region else "En el mundo"), ({f"region:{region}"} if region else set())
 
     def for_place(self, name, faction, tags, now=None):
@@ -204,8 +220,78 @@ class Missions:
             p = self.progress(name, m.id, now)
             if not p.done:
                 out.append((m, p))
-        out.sort(key=lambda e: (-e[1].ready, e[0].period != "weekly", -e[1].ratio, TAB_ORDER.index(e[0].tab)))
+        out.sort(key=lambda e: (-e[1].ready, e[0].period != "weekly", -e[1].ratio, self._tab_index(e[0].tab)))
         return out
+
+    def recommend(self, name, faction, now=None, skip=()):
+        """Not finished and easy to push from anywhere (or in an instance you enter on purpose, like Nightmare):
+        rewards waiting first, then by weight (how easy, more for this week's), then the closest."""
+        out = []
+        for m in self.db.values():
+            if m.easy <= 0 or m.id in skip or any(t.startswith(OPEN_WORLD) for t in m.view(faction)[2]):
+                continue
+            p = self.progress(name, m.id, now)
+            if not p.done:
+                out.append((m, p))
+        out.sort(key=lambda e: (-e[1].ready, -(e[0].easy + (WEEKLY_BONUS if e[0].period == "weekly" else 0)),
+                                -e[1].ratio))
+        return out
+
+    def expiring(self, name, now=None):
+        """[(mission, progress, deadline)] not finished that restart soon: weekly ones in the last EXPIRE_HOURS before
+        the weekly reset, season ones in the season's last days. Rewards waiting first, then the closest."""
+        now = now or time.time()
+        week_left, end = next_weekly(now) - now, self.season_end()
+        out = []
+        for m in self.db.values():
+            if m.period == "weekly" and week_left <= EXPIRE_HOURS * 3600:
+                deadline = now + week_left
+            elif m.period == "season" and end and 0 < end - now <= SEASON_EXPIRE_DAYS * 86400:
+                deadline = end
+            else:
+                continue
+            p = self.progress(name, m.id, now)
+            if not p.done:
+                out.append((m, p, deadline))
+        out.sort(key=lambda e: (-e[1].ready, e[2], -e[1].ratio))
+        return out
+
+    def expiry_due(self, now=None):
+        """[(character, seconds left, [(mission, progress, deadline)])] to tell now: once NOTIFY_HOURS before the
+        restart, for the characters read lately that have something started or a reward waiting."""
+        now = now or time.time()
+        out = []
+        for name in self.names(now):
+            if now - self.characters[name].get("at", 0) > NOTIFY_CHARACTERS_DAYS * 86400:
+                continue
+            items = [e for e in self.expiring(name, now) if e[1].ready or e[1].count or e[1].collected]
+            if not items:
+                continue
+            deadline = min(d for _, _, d in items)
+            left = deadline - now
+            for hours in NOTIFY_HOURS:
+                key = f"{name}:{int(deadline)}:{hours}"
+                if left <= hours * 3600 and key not in self.notified:
+                    self.notified |= {f"{name}:{int(deadline)}:{h}" for h in NOTIFY_HOURS if h >= hours}
+                    out.append((name, left, items))
+                    break
+        if out:
+            self.notified = {k for k in self.notified if float(k.split(":")[-2]) > now - 86400}
+            self._save()
+        return out
+
+    def stats(self, name, now=None):
+        """{(tab, sub): Totals} and the total of everything, for the summary."""
+        groups, total = {}, Totals()
+        for m in self.db.values():
+            p = self.progress(name, m.id, now)
+            for t in (groups.setdefault((m.tab, m.sub), Totals()), groups.setdefault((m.tab, None), Totals()), total):
+                t.add(p)
+        return groups, total
+
+    def _tab_index(self, tab):
+        order = list(self.tabs) or list(TAB_ORDER)
+        return order.index(tab) if tab in order else len(order)
 
     def season_end(self):
         try:
@@ -218,9 +304,37 @@ class Missions:
             return
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            self.path.write_text(json.dumps({"characters": self.characters, "maps": self.maps}), encoding="utf-8")
+            self.path.write_text(json.dumps({"characters": self.characters, "maps": self.maps,
+                                             "notified": sorted(self.notified)}), encoding="utf-8")
         except OSError as e:
             log.warning("missions: could not save (%s)", e)
+
+
+@dataclass
+class Totals:
+    count: int = 0               # missions / achievements
+    done: int = 0                # every step collected
+    active: int = 0              # started, not done
+    new: int = 0                 # not started
+    ready: int = 0               # with a reward waiting
+    steps: int = 0               # steps collected ...
+    steps_total: int = 0         # ... of all their steps
+
+    def add(self, p):
+        self.count += 1
+        self.done += p.done
+        self.active += (not p.done) and (p.count > 0 or p.collected > 0)
+        self.new += (not p.done) and p.count == 0 and p.collected == 0
+        self.ready += p.ready > 0
+        self.steps += min(p.collected, p.total)
+        self.steps_total += p.total
+
+    def pct(self, n):
+        return 100 * n / self.count if self.count else 0
+
+    @property
+    def steps_pct(self):
+        return 100 * self.steps / self.steps_total if self.steps_total else 0
 
 
 def amount(m, n):

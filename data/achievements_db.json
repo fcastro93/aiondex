@@ -1,0 +1,7033 @@
+{
+ "source": "metabot.gg achievements + the game's ids (8356 / 8456)",
+ "credit": {
+  "text": "Logros: metabot.gg",
+  "url": "https://metabot.gg/en/aion-2/achievements"
+ },
+ "generated_at": 1791870826.125761,
+ "tabs": {
+  "progress": "Progreso",
+  "challenge": "Desafío",
+  "exploration": "Exploración",
+  "dungeon": "Mazmorras",
+  "resource": "Recursos"
+ },
+ "subs": {
+  "progress": [
+   [
+    "quests",
+    "Misiones"
+   ],
+   [
+    "milestones",
+    "Hitos"
+   ],
+   [
+    "social",
+    "Social y pets"
+   ]
+  ],
+  "challenge": [
+   [
+    "combat",
+    "Combate"
+   ],
+   [
+    "hunting",
+    "Caza"
+   ],
+   [
+    "bosses",
+    "Jefes"
+   ]
+  ],
+  "exploration": [
+   [
+    "exploration",
+    "Exploración"
+   ],
+   [
+    "kibelisks",
+    "Kibelisks"
+   ],
+   [
+    "shugo-festival",
+    "Shugo Festival"
+   ],
+   [
+    "sealed-dungeons",
+    "Mazmorras selladas"
+   ],
+   [
+    "strongholds",
+    "Fortalezas"
+   ]
+  ],
+  "dungeon": [
+   [
+    "krao-cave",
+    "Krao"
+   ],
+   [
+    "draupnir-cave",
+    "Draupnir"
+   ],
+   [
+    "urugugu",
+    "Urugugu"
+   ],
+   [
+    "vakron",
+    "Vakron"
+   ],
+   [
+    "fire-temple",
+    "Fire Temple"
+   ],
+   [
+    "horn-den",
+    "Horn Den"
+   ],
+   [
+    "sanctuary",
+    "Santuario"
+   ]
+  ],
+  "resource": [
+   [
+    "gear-collection",
+    "Colección"
+   ],
+   [
+    "consumables",
+    "Consumibles"
+   ],
+   [
+    "enhancement",
+    "Mejora"
+   ],
+   [
+    "gathering",
+    "Recolección"
+   ],
+   [
+    "crafting",
+    "Crafteo"
+   ]
+  ]
+ },
+ "maps": {
+  "600022": [
+   "dungeon:fire-temple"
+  ],
+  "600032": [
+   "dungeon:draupnir-cave"
+  ]
+ },
+ "missions": [
+  {
+   "id": 400100100,
+   "tab": "progress",
+   "sub": "quests",
+   "period": "permanent",
+   "name": "Island of Death, Poeta",
+   "desc": "Complete Episode Quest 1",
+   "steps": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 2,
+   "rewards": "Title: Island of Death, Poeta , Dreaming of Paradise , Searching for High Priestess Reda , The Past Behind the Sealed Barrier , Two-Faced , Encountering Kaisinel's Core 36,000× Kina (Bound) 5× Life Crystal (Bound)",
+   "asmodian": {
+    "name": "Betrayer and Survivor",
+    "desc": "Complete Episode Quest 1",
+    "where": []
+   }
+  },
+  {
+   "id": 400100200,
+   "tab": "progress",
+   "sub": "quests",
+   "period": "permanent",
+   "name": "Stories of the People",
+   "desc": "Complete 1 Regional Quest in Verteron",
+   "steps": [
+    1,
+    5,
+    10,
+    20,
+    30,
+    40,
+    50
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "Title: Verteron Expert , Verteron Troubleshooter 7× Key: Hidden Cube (Bound) 46,000× Kina (Bound)",
+   "asmodian": {
+    "desc": "Complete 1 Regional Quest in Altgard",
+    "where": [
+     "region:Altgard"
+    ]
+   }
+  },
+  {
+   "id": 400100300,
+   "tab": "progress",
+   "sub": "quests",
+   "period": "permanent",
+   "name": "Five Veiled Fates",
+   "desc": "Complete Duty Quest: Mission 3 times",
+   "steps": [
+    3,
+    10,
+    30,
+    50,
+    100,
+    150,
+    200
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 5,
+   "rewards": "Title: Protector of Atreia 3,710× Enhance Stone 104,000× Kina (Bound)"
+  },
+  {
+   "id": 400100400,
+   "tab": "progress",
+   "sub": "quests",
+   "period": "permanent",
+   "name": "Herald of Hope",
+   "desc": "Complete Duty Quest: Command 3 times",
+   "steps": [
+    3,
+    10,
+    30,
+    50,
+    100,
+    150,
+    200
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 4,
+   "rewards": "Title: Messenger of Atreia 3,710× Enhance Stone 104,000× Kina (Bound)"
+  },
+  {
+   "id": 400100500,
+   "tab": "progress",
+   "sub": "quests",
+   "period": "permanent",
+   "name": "Supply Request: Emergency",
+   "desc": "Complete 5 requests in the Supply Request: Emergency tab",
+   "steps": [
+    5,
+    20,
+    50,
+    100,
+    150,
+    200,
+    300
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 4,
+   "rewards": "3,800× Enhance Stone 46,000× Kina (Bound)"
+  },
+  {
+   "id": 400100600,
+   "tab": "progress",
+   "sub": "quests",
+   "period": "permanent",
+   "name": "Supply Request: Weekly",
+   "desc": "Complete 5 requests in the Supply Request: Weekly tab",
+   "steps": [
+    5,
+    20,
+    50,
+    100,
+    150,
+    200,
+    300
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 4,
+   "rewards": "10× Soul Codex (Bound) 67,000× Kina (Bound)"
+  },
+  {
+   "id": 400100700,
+   "tab": "progress",
+   "sub": "quests",
+   "period": "permanent",
+   "name": "Devoted Friend",
+   "desc": "Deliver 5 Rare Items in Supply Request",
+   "steps": [
+    5,
+    20,
+    50,
+    100,
+    150,
+    200,
+    300
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 3,
+   "rewards": "67,000× Kina (Bound)"
+  },
+  {
+   "id": 400100800,
+   "tab": "progress",
+   "sub": "quests",
+   "period": "permanent",
+   "name": "Price of Self-Sacrifice",
+   "desc": "Deliver 5 Epic Items in Supply Request",
+   "steps": [
+    5,
+    10,
+    30,
+    60,
+    100
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 2,
+   "rewards": "51,000× Kina (Bound)"
+  },
+  {
+   "id": 400100900,
+   "tab": "progress",
+   "sub": "quests",
+   "period": "permanent",
+   "name": "Brought the Leftovers",
+   "desc": "Deliver 5 Rare Gear Items in Supply Request",
+   "steps": [
+    5,
+    20,
+    50,
+    100,
+    150,
+    200,
+    300
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 3,
+   "rewards": "67,000× Kina (Bound)"
+  },
+  {
+   "id": 400101000,
+   "tab": "progress",
+   "sub": "quests",
+   "period": "permanent",
+   "name": "Brought From Nature",
+   "desc": "Deliver 5 Gathered Materials in Supply Request",
+   "steps": [
+    5,
+    30,
+    60,
+    100,
+    150,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 3,
+   "rewards": "6× Odyle (Bound) 46,000× Kina (Bound) 7× Fine Odyle (Bound) 6× Pure Odyle (Bound) 2× Radiant Odyle (Bound)"
+  },
+  {
+   "id": 401100100,
+   "tab": "progress",
+   "sub": "milestones",
+   "period": "permanent",
+   "name": "This Is Just the Beginning",
+   "desc": "Reach Level 10",
+   "steps": [
+    10,
+    15,
+    20,
+    25,
+    30,
+    35,
+    40,
+    45
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 0,
+   "rewards": "55,000× Kina (Bound) 7× Resurrection Spiritstone (Bound)",
+   "asmodian": {
+    "name": "This is Just the Beginning",
+    "desc": "Reach Level 10",
+    "where": []
+   }
+  },
+  {
+   "id": 401100200,
+   "tab": "progress",
+   "sub": "milestones",
+   "period": "permanent",
+   "name": "Frequent Visitor to Atreia",
+   "desc": "Log in 10 times",
+   "steps": [
+    10,
+    50,
+    100,
+    200,
+    300,
+    500,
+    700,
+    1000
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 0,
+   "rewards": "6,390× Enhance Stone 57,000× Kina (Bound)"
+  },
+  {
+   "id": 401100300,
+   "tab": "progress",
+   "sub": "milestones",
+   "period": "permanent",
+   "name": "Citizen of Atreia",
+   "desc": "Accumulate 3 hours of playtime",
+   "steps": [
+    180,
+    300,
+    600,
+    1200,
+    1800,
+    3000,
+    6000
+   ],
+   "unit": "min",
+   "where": [],
+   "easy": 0,
+   "rewards": "2× Life Crystal (Bound) 46,000× Kina (Bound) 5× Soul Codex (Bound)"
+  },
+  {
+   "id": 401100400,
+   "tab": "progress",
+   "sub": "milestones",
+   "period": "permanent",
+   "name": "Only as Good as One's Gear",
+   "desc": "Reach Character Item Level 50",
+   "steps": [
+    50,
+    100,
+    300,
+    500,
+    1000,
+    1500,
+    2000,
+    3000
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 0,
+   "rewards": "Title: One Step at a Time , Designer Drip 57,000× Kina (Bound) 3× Soul Codex (Bound) 2× Soul Codex: Reset (Bound)"
+  },
+  {
+   "id": 401100500,
+   "tab": "progress",
+   "sub": "milestones",
+   "period": "permanent",
+   "name": "Benediction of Justice",
+   "desc": "Obtain 20 Daevanion: Nezekan Nodes",
+   "steps": [
+    20,
+    40,
+    60,
+    80
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 0,
+   "rewards": "14,000× Kina (Bound) 10× Lesser Manastone (Bound)"
+  },
+  {
+   "id": 401100600,
+   "tab": "progress",
+   "sub": "milestones",
+   "period": "permanent",
+   "name": "Benediction of Destruction",
+   "desc": "Obtain 20 Daevanion: Zikel Nodes",
+   "steps": [
+    20,
+    40,
+    60,
+    80
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 0,
+   "rewards": "13× Lesser Soulstone (Bound) 14,000× Kina (Bound)"
+  },
+  {
+   "id": 401100700,
+   "tab": "progress",
+   "sub": "milestones",
+   "period": "permanent",
+   "name": "Benediction of Freedom",
+   "desc": "Obtain 20 Daevanion: Vaizel Nodes",
+   "steps": [
+    20,
+    40,
+    60,
+    80
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 0,
+   "rewards": "4× Superior Manastone (Bound) 20,000× Kina (Bound)"
+  },
+  {
+   "id": 401100800,
+   "tab": "progress",
+   "sub": "milestones",
+   "period": "permanent",
+   "name": "Benediction of Death",
+   "desc": "Obtain 20 Daevanion: Triniel Nodes",
+   "steps": [
+    20,
+    40,
+    60,
+    80,
+    100
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 0,
+   "rewards": "7× Superior Soulstone (Bound) 43,000× Kina (Bound)"
+  },
+  {
+   "id": 401101000,
+   "tab": "progress",
+   "sub": "milestones",
+   "period": "permanent",
+   "name": "Benediction of Darkness",
+   "desc": "Obtain 20 Daevanion: Azphel Nodes",
+   "steps": [
+    20,
+    40,
+    60,
+    80,
+    100,
+    130
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 0,
+   "rewards": "9× Mana Potion (Bound) 72,000× Kina (Bound)"
+  },
+  {
+   "id": 401101100,
+   "tab": "progress",
+   "sub": "milestones",
+   "period": "permanent",
+   "name": "Honed Skills",
+   "desc": "Obtain 5 Rare Nodes on Daevanion Boards",
+   "steps": [
+    5,
+    10,
+    20,
+    40,
+    60
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 0,
+   "rewards": "4,400× Power Shard (Bound) 25,000× Kina (Bound)"
+  },
+  {
+   "id": 401101200,
+   "tab": "progress",
+   "sub": "milestones",
+   "period": "permanent",
+   "name": "Innate Talent",
+   "desc": "Obtain 5 Epic Nodes on Daevanion Boards",
+   "steps": [
+    5,
+    10,
+    20,
+    40,
+    60
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 0,
+   "rewards": "6× Soul Codex (Bound) 37,000× Kina (Bound)"
+  },
+  {
+   "id": 401101300,
+   "tab": "progress",
+   "sub": "milestones",
+   "period": "permanent",
+   "name": "Unrivaled Talent",
+   "desc": "Obtain 4 Unique Nodes on Daevanion Boards",
+   "steps": [
+    4,
+    8,
+    12,
+    20
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 0,
+   "rewards": "5× Battle Enhance Scroll (Bound) 27,000× Kina (Bound)"
+  },
+  {
+   "id": 403100100,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "The More the Merrier",
+   "desc": "Join a Legion",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 5,
+   "rewards": "Title: There's No \"I\" in Team 3,000× Kina (Bound)"
+  },
+  {
+   "id": 403100200,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "Back to Innocence",
+   "desc": "Make a friend",
+   "steps": [
+    1,
+    3,
+    5,
+    10,
+    15,
+    20
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 4,
+   "rewards": "Title: Co-op Society 36,000× Kina (Bound)"
+  },
+  {
+   "id": 403100300,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "My Reliable Friends",
+   "desc": "Collect 3 pets",
+   "steps": [
+    3,
+    10,
+    30,
+    50,
+    100,
+    150,
+    200
+   ],
+   "unit": "",
+   "where": [
+    "pets"
+   ],
+   "easy": 2,
+   "rewards": "Title: Tamed , Ride All Creation , Bond with All Creation , Rule All Creation 46,000× Kina (Bound) Pet Chest: Cogni (Bound) Pet Chest: Fera (Bound) Pet Chest: Natura (Bound) Pet Chest: Varian (Bound)"
+  },
+  {
+   "id": 403100400,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "All of the Cogni Power Combined",
+   "desc": "Reach Level 2 with 3 Cogni Pets",
+   "steps": [
+    3,
+    7,
+    10,
+    20,
+    30,
+    40,
+    50
+   ],
+   "unit": "",
+   "where": [
+    "pets"
+   ],
+   "easy": 2,
+   "rewards": "90× Soul Crystal (Bound) 46,000× Kina (Bound)"
+  },
+  {
+   "id": 403100500,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "Brain Master",
+   "desc": "Reach Level 3 with 1 Cogni Pet",
+   "steps": [
+    1,
+    3,
+    5,
+    10,
+    15,
+    20
+   ],
+   "unit": "",
+   "where": [
+    "pets"
+   ],
+   "easy": 2,
+   "rewards": "80× Soul Crystal (Bound) 53,000× Kina (Bound)"
+  },
+  {
+   "id": 403100600,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "Animal Sound",
+   "desc": "Reach Level 2 with 3 Fera Pets",
+   "steps": [
+    3,
+    7,
+    10,
+    20,
+    30,
+    40,
+    50
+   ],
+   "unit": "",
+   "where": [
+    "pets"
+   ],
+   "easy": 2,
+   "rewards": "90× Soul Crystal (Bound) 46,000× Kina (Bound)"
+  },
+  {
+   "id": 403100700,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "Wild Played Straight",
+   "desc": "Reach Level 3 with 1 Fera Pet",
+   "steps": [
+    1,
+    3,
+    5,
+    10,
+    15,
+    20
+   ],
+   "unit": "",
+   "where": [
+    "pets"
+   ],
+   "easy": 2,
+   "rewards": "80× Soul Crystal (Bound) 53,000× Kina (Bound)"
+  },
+  {
+   "id": 403100800,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "Chronicler of the Forest",
+   "desc": "Reach Level 2 with 3 Natura Pets",
+   "steps": [
+    3,
+    7,
+    10,
+    20,
+    30,
+    40,
+    50
+   ],
+   "unit": "",
+   "where": [
+    "pets"
+   ],
+   "easy": 2,
+   "rewards": "90× Soul Crystal (Bound) 46,000× Kina (Bound)"
+  },
+  {
+   "id": 403100900,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "Eco-Friendly Guardian",
+   "desc": "Reach Level 3 with 1 Natura Pet",
+   "steps": [
+    1,
+    3,
+    5,
+    10,
+    15,
+    20
+   ],
+   "unit": "",
+   "where": [
+    "pets"
+   ],
+   "easy": 2,
+   "rewards": "80× Soul Crystal (Bound) 53,000× Kina (Bound)"
+  },
+  {
+   "id": 403101000,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "Beginning of Change",
+   "desc": "Reach Level 2 with 3 Varian Pets",
+   "steps": [
+    3,
+    7,
+    10,
+    20,
+    30,
+    40,
+    50
+   ],
+   "unit": "",
+   "where": [
+    "pets"
+   ],
+   "easy": 2,
+   "rewards": "90× Soul Crystal (Bound) 46,000× Kina (Bound)"
+  },
+  {
+   "id": 403101100,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "Beauty of Difference",
+   "desc": "Reach Level 3 with 1 Varian Pet",
+   "steps": [
+    1,
+    3,
+    5,
+    10,
+    15,
+    20
+   ],
+   "unit": "",
+   "where": [
+    "pets"
+   ],
+   "easy": 2,
+   "rewards": "80× Soul Crystal (Bound) 53,000× Kina (Bound)"
+  },
+  {
+   "id": 403101200,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "A Clever Pet",
+   "desc": "Reach Cogni Insight Level 3",
+   "steps": [
+    3,
+    5,
+    7,
+    10
+   ],
+   "unit": "",
+   "where": [
+    "pets"
+   ],
+   "easy": 1,
+   "rewards": "Title: Cogni to the Bone 36,000× Kina (Bound)"
+  },
+  {
+   "id": 403101300,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "An Imposing Pet",
+   "desc": "Reach Fera Insight Level 3",
+   "steps": [
+    3,
+    5,
+    7,
+    10
+   ],
+   "unit": "",
+   "where": [
+    "pets"
+   ],
+   "easy": 1,
+   "rewards": "Title: Fera to the Bone 36,000× Kina (Bound)"
+  },
+  {
+   "id": 403101400,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "A Fresh Pet",
+   "desc": "Reach Natura Insight Level 3",
+   "steps": [
+    3,
+    5,
+    7,
+    10
+   ],
+   "unit": "",
+   "where": [
+    "pets"
+   ],
+   "easy": 1,
+   "rewards": "Title: Natura to the Bone 36,000× Kina (Bound)"
+  },
+  {
+   "id": 403101500,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "A Strange Pet",
+   "desc": "Reach Varian Insight Level 3",
+   "steps": [
+    3,
+    5,
+    7,
+    10
+   ],
+   "unit": "",
+   "where": [
+    "pets"
+   ],
+   "easy": 1,
+   "rewards": "Title: Varian to the Bone 36,000× Kina (Bound)"
+  },
+  {
+   "id": 403101600,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "A Special Pet",
+   "desc": "Reach Special Insight Level 3",
+   "steps": [
+    3,
+    5,
+    7,
+    10
+   ],
+   "unit": "",
+   "where": [
+    "pets"
+   ],
+   "easy": 1,
+   "rewards": "Title: Special to the Bone 36,000× Kina (Bound)"
+  },
+  {
+   "id": 403101700,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "Genus Genius",
+   "desc": "Reach All Genus Insights Level 10",
+   "steps": [
+    5
+   ],
+   "unit": "",
+   "where": [
+    "pets"
+   ],
+   "easy": 1,
+   "rewards": "Title: Unbound by Genus 20,000× Kina (Bound)"
+  },
+  {
+   "id": 403101800,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "The More You Know: Cogni Pets",
+   "desc": "Perform Cogni Insight Analysis 5 times",
+   "steps": [
+    5,
+    30,
+    60,
+    100,
+    150,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [
+    "pets"
+   ],
+   "easy": 3,
+   "rewards": "90× Soul Crystal (Bound) 46,000× Kina (Bound)"
+  },
+  {
+   "id": 403101900,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "The More You Know: Fera Pets",
+   "desc": "Perform Fera Insight Analysis 5 times",
+   "steps": [
+    5,
+    30,
+    60,
+    100,
+    150,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [
+    "pets"
+   ],
+   "easy": 3,
+   "rewards": "90× Soul Crystal (Bound) 46,000× Kina (Bound)"
+  },
+  {
+   "id": 403102000,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "The More You Know: Natura Pets",
+   "desc": "Perform Natura Insight Analysis 5 times",
+   "steps": [
+    5,
+    30,
+    60,
+    100,
+    150,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [
+    "pets"
+   ],
+   "easy": 3,
+   "rewards": "90× Soul Crystal (Bound) 46,000× Kina (Bound)"
+  },
+  {
+   "id": 403102100,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "The More You Know: Varian Pets",
+   "desc": "Perform Varian Insight Analysis 5 times",
+   "steps": [
+    5,
+    30,
+    60,
+    100,
+    150,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [
+    "pets"
+   ],
+   "easy": 3,
+   "rewards": "90× Soul Crystal (Bound) 46,000× Kina (Bound)"
+  },
+  {
+   "id": 403102200,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "The More You Know: Special Pets",
+   "desc": "Perform Special Insight Analysis 5 times",
+   "steps": [
+    5,
+    30,
+    60,
+    100,
+    150,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [
+    "pets"
+   ],
+   "easy": 3,
+   "rewards": "90× Soul Crystal (Bound) 46,000× Kina (Bound)"
+  },
+  {
+   "id": 403103300,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "★★★★★",
+   "desc": "Give 1 Commendation",
+   "steps": [
+    1,
+    10,
+    50,
+    100,
+    300
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 5,
+   "rewards": "27,000× Kina (Bound)"
+  },
+  {
+   "id": 403103800,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "I Have Exceptional Skill",
+   "desc": "Receive 1 Exceptional Skill Commendation",
+   "steps": [
+    1,
+    10,
+    50,
+    100,
+    300
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: Has Exceptional Skill , Divine Skill 40,000× Kina (Bound)"
+  },
+  {
+   "id": 403103900,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "I'm a Reliable Guardian",
+   "desc": "Receive 1 Reliable Guardian Commendation",
+   "steps": [
+    1,
+    10,
+    50,
+    100,
+    300
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: Reliable Guardian , Unyielding Bulwark 40,000× Kina (Bound)"
+  },
+  {
+   "id": 403104000,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "I Provide Dedicated Support",
+   "desc": "Receive 1 Dedicated Support Commendation",
+   "steps": [
+    1,
+    10,
+    50,
+    100,
+    300
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: Dedicated Supporter , Whisper of Unity 40,000× Kina (Bound)"
+  },
+  {
+   "id": 403104100,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "I Have Great Leadership",
+   "desc": "Receive 1 Great Leadership Commendation",
+   "steps": [
+    1,
+    10,
+    50,
+    100,
+    300
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: Great Leader , Banner of the Vanguard 40,000× Kina (Bound)"
+  },
+  {
+   "id": 403104200,
+   "tab": "progress",
+   "sub": "social",
+   "period": "permanent",
+   "name": "I'm a Helpful Mentor",
+   "desc": "Receive 1 Helpful Mentor Commendation",
+   "steps": [
+    1,
+    10,
+    50,
+    100,
+    300
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: Helpful Mentor , Guiding Light 40,000× Kina (Bound)"
+  },
+  {
+   "id": 410100100,
+   "tab": "challenge",
+   "sub": "combat",
+   "period": "permanent",
+   "name": "Critical Strike",
+   "desc": "Finish 10 monsters with a Critical Hit",
+   "steps": [
+    10,
+    30,
+    100,
+    200,
+    400,
+    700,
+    1000
+   ],
+   "unit": "",
+   "where": [
+    "hunt"
+   ],
+   "easy": 3,
+   "rewards": "46,000× Kina (Bound)"
+  },
+  {
+   "id": 410100200,
+   "tab": "challenge",
+   "sub": "combat",
+   "period": "permanent",
+   "name": "Stance Toward the Strong",
+   "desc": "Finish 5 Boss Monsters with a Critical Hit",
+   "steps": [
+    5,
+    10,
+    30,
+    60,
+    100
+   ],
+   "unit": "",
+   "where": [
+    "boss"
+   ],
+   "easy": 2,
+   "rewards": "2,350× Enhance Stone 40,000× Kina (Bound)"
+  },
+  {
+   "id": 410100600,
+   "tab": "challenge",
+   "sub": "combat",
+   "period": "permanent",
+   "name": "A Dance with Death",
+   "desc": "Get killed by a Boss Monster 5 times",
+   "steps": [
+    5,
+    30,
+    60,
+    100,
+    150,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [
+    "boss"
+   ],
+   "easy": 2,
+   "rewards": "Title: Reckless Challenge 7× Resurrection Spiritstone (Bound) 46,000× Kina (Bound)"
+  },
+  {
+   "id": 410100900,
+   "tab": "challenge",
+   "sub": "combat",
+   "period": "permanent",
+   "name": "Nothing Personal, Kid",
+   "desc": "Kill 5 players",
+   "steps": [
+    5,
+    20,
+    50,
+    100,
+    150,
+    200,
+    300
+   ],
+   "unit": "",
+   "where": [
+    "pvp"
+   ],
+   "easy": 0,
+   "rewards": "Title: Novice Asmodian Hunter , Intermediate Asmodian Hunter , Veteran Asmodian Hunter , Deathbringer , Overtaking Black Wings , Treading on Black Wings 23× Courage Scroll (Bound) 86,000× Kina (Bound)"
+  },
+  {
+   "id": 410101000,
+   "tab": "challenge",
+   "sub": "combat",
+   "period": "permanent",
+   "name": "You'll Regret This",
+   "desc": "Be killed by a player 5 times",
+   "steps": [
+    5,
+    20,
+    50,
+    100,
+    150,
+    200,
+    300
+   ],
+   "unit": "",
+   "where": [
+    "pvp"
+   ],
+   "easy": 0,
+   "rewards": "Title: Just Getting Started , Evading the Grim Reaper 10× Life Crystal (Bound) 67,000× Kina (Bound)"
+  },
+  {
+   "id": 411100100,
+   "tab": "challenge",
+   "sub": "hunting",
+   "period": "permanent",
+   "name": "They Just Keep Coming!",
+   "desc": "Defeat 100 monsters",
+   "steps": [
+    100,
+    300,
+    1000,
+    2000,
+    3000,
+    5000,
+    30000,
+    100000
+   ],
+   "unit": "",
+   "where": [
+    "hunt"
+   ],
+   "easy": 3,
+   "rewards": "Title: Ecosystem Eradicator 5,080× Enhance Stone 57,000× Kina (Bound)"
+  },
+  {
+   "id": 411100200,
+   "tab": "challenge",
+   "sub": "hunting",
+   "period": "permanent",
+   "name": "Cogni Killer",
+   "desc": "Defeat 100 Cogni Monsters",
+   "steps": [
+    100,
+    300,
+    1000,
+    2000,
+    3000,
+    5000,
+    30000,
+    100000
+   ],
+   "unit": "",
+   "where": [
+    "hunt"
+   ],
+   "easy": 3,
+   "rewards": "Title: Cogni Executioner 57,000× Kina (Bound) 7× Soul Codex (Bound)"
+  },
+  {
+   "id": 411100300,
+   "tab": "challenge",
+   "sub": "hunting",
+   "period": "permanent",
+   "name": "Driving Beasts Out",
+   "desc": "Defeat 100 Fera Monsters",
+   "steps": [
+    100,
+    300,
+    1000,
+    2000,
+    3000,
+    5000,
+    30000,
+    100000
+   ],
+   "unit": "",
+   "where": [
+    "hunt"
+   ],
+   "easy": 3,
+   "rewards": "Title: Fera Executioner 57,000× Kina (Bound) 7× Soul Codex (Bound)"
+  },
+  {
+   "id": 411100400,
+   "tab": "challenge",
+   "sub": "hunting",
+   "period": "permanent",
+   "name": "Insect Eradication",
+   "desc": "Defeat 100 Natura Monsters",
+   "steps": [
+    100,
+    300,
+    1000,
+    2000,
+    3000,
+    5000,
+    30000,
+    100000
+   ],
+   "unit": "",
+   "where": [
+    "hunt"
+   ],
+   "easy": 3,
+   "rewards": "Title: Natura Executioner 57,000× Kina (Bound) 7× Soul Codex (Bound)"
+  },
+  {
+   "id": 411100500,
+   "tab": "challenge",
+   "sub": "hunting",
+   "period": "permanent",
+   "name": "Destroy All Varian",
+   "desc": "Defeat 100 Varian Monsters",
+   "steps": [
+    100,
+    300,
+    1000,
+    2000,
+    3000,
+    5000,
+    30000,
+    100000
+   ],
+   "unit": "",
+   "where": [
+    "hunt"
+   ],
+   "easy": 3,
+   "rewards": "Title: Varian Executioner 57,000× Kina (Bound) 7× Soul Codex (Bound)"
+  },
+  {
+   "id": 411100600,
+   "tab": "challenge",
+   "sub": "hunting",
+   "period": "permanent",
+   "name": "War on Crime",
+   "desc": "Defeat 100 Special Monsters",
+   "steps": [
+    100,
+    300,
+    1000,
+    2000,
+    3000,
+    5000,
+    30000,
+    100000
+   ],
+   "unit": "",
+   "where": [
+    "hunt"
+   ],
+   "easy": 3,
+   "rewards": "Title: Special Executioner 57,000× Kina (Bound) 7× Soul Codex (Bound)"
+  },
+  {
+   "id": 411100700,
+   "tab": "challenge",
+   "sub": "hunting",
+   "period": "permanent",
+   "name": "Doing You a Favor",
+   "desc": "Defeat 50 monsters in Altgard",
+   "steps": [
+    50,
+    100,
+    300,
+    500,
+    1000,
+    1500,
+    2000,
+    3000
+   ],
+   "unit": "",
+   "where": [
+    "region:Altgard"
+   ],
+   "easy": 0,
+   "rewards": "Title: Holding on by a Thread 106,000× Kina (Bound)"
+  },
+  {
+   "id": 411100800,
+   "tab": "challenge",
+   "sub": "hunting",
+   "period": "permanent",
+   "name": "Windstream to Eternity",
+   "desc": "Defeat 100 monsters on Eternal Isle",
+   "steps": [
+    100,
+    300,
+    1000,
+    2000,
+    3000
+   ],
+   "unit": "",
+   "where": [
+    "abyss"
+   ],
+   "easy": 0,
+   "rewards": "Title: Eternal Isle Wanderer 5× Soul Codex (Bound) 51,000× Kina (Bound) Soul Codex: Reset (Bound)",
+   "asmodian": {
+    "name": "Windstream to Immortality",
+    "desc": "Defeat 100 monsters on Immortal Isle",
+    "where": [
+     "abyss"
+    ]
+   }
+  },
+  {
+   "id": 411100900,
+   "tab": "challenge",
+   "sub": "hunting",
+   "period": "permanent",
+   "name": "Windstream to Crimson",
+   "desc": "Defeat 100 monsters on Crimson Isle",
+   "steps": [
+    100,
+    300,
+    1000,
+    2000,
+    3000
+   ],
+   "unit": "",
+   "where": [
+    "abyss"
+   ],
+   "easy": 0,
+   "rewards": "75× Soul Crystal (Bound) 51,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Windstream to Spirit",
+    "desc": "Defeat 100 monsters on Spirit Isle",
+    "where": [
+     "abyss"
+    ]
+   }
+  },
+  {
+   "id": 412100100,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "Kernon of the West",
+   "desc": "Defeat Unique Field Monster Kernon of the West",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "fieldboss"
+   ],
+   "easy": 1,
+   "rewards": "Title: Executioner of Kernon of the West Superior Life Serum (Bound) 4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Melted Danar",
+    "desc": "Defeat Unique Field Monster Melted Danar",
+    "where": [
+     "fieldboss"
+    ]
+   }
+  },
+  {
+   "id": 412100200,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "Neikel of the East",
+   "desc": "Defeat Unique Field Monster Neikel of the East",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "fieldboss"
+   ],
+   "easy": 1,
+   "rewards": "Title: Executioner of Neikel of the East Superior Life Serum (Bound) 4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Black Warrior Aed",
+    "desc": "Defeat Unique Field Monster Black Warrior Aed",
+    "where": [
+     "fieldboss"
+    ]
+   }
+  },
+  {
+   "id": 412100300,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "Rotten Kutar",
+   "desc": "Defeat Unique Field Monster Rotten Kutar",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "fieldboss"
+   ],
+   "easy": 1,
+   "rewards": "Title: Executioner of Rotten Kutar Superior Wind Serum (Bound) 4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Faithful Rajit",
+    "desc": "Defeat Unique Field Monster Faithful Rajit",
+    "where": [
+     "fieldboss"
+    ]
+   }
+  },
+  {
+   "id": 412100400,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "Blooming Korin",
+   "desc": "Defeat Unique Field Monster Blooming Korin",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "fieldboss"
+   ],
+   "easy": 1,
+   "rewards": "Title: Executioner of Blooming Korin 2× Superior Speed Scroll (Bound) 4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Berserker Vargor",
+    "desc": "Defeat Unique Field Monster Berserker Vargor",
+    "where": [
+     "fieldboss"
+    ]
+   }
+  },
+  {
+   "id": 412100500,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "Bodyguard Teegant",
+   "desc": "Defeat Unique Field Monster Bodyguard Teegant",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "fieldboss"
+   ],
+   "easy": 1,
+   "rewards": "Title: Executioner of Bodyguard Teegant Superior Life Serum (Bound) 4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Blood Warrior Lannar",
+    "desc": "Defeat Unique Field Monster Blood Warrior Lannar",
+    "where": [
+     "fieldboss"
+    ]
+   }
+  },
+  {
+   "id": 412100600,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "Kusan the Mad Gladiator",
+   "desc": "Defeat Unique Field Monster Kusan the Mad Gladiator",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "fieldboss"
+   ],
+   "easy": 1,
+   "rewards": "Title: Executioner of Kusan the Mad Gladiator 2× Superior Courage Scroll (Bound) 5,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Predator Garsan",
+    "desc": "Defeat Unique Field Monster Predator Garsan",
+    "where": [
+     "fieldboss"
+    ]
+   }
+  },
+  {
+   "id": 412100700,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "Ritualist Garshim",
+   "desc": "Defeat Unique Field Monster Ritualist Garshim",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "fieldboss"
+   ],
+   "easy": 1,
+   "rewards": "Title: Executioner of Ritualist Garshim Life Crystal (Bound) 5,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Deceiver Trid",
+    "desc": "Defeat Unique Field Monster Deceiver Trid",
+    "where": [
+     "fieldboss"
+    ]
+   }
+  },
+  {
+   "id": 412100800,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "Bloodfang Pnyn",
+   "desc": "Defeat Unique Field Monster Bloodfang Pnyn",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "fieldboss"
+   ],
+   "easy": 1,
+   "rewards": "Title: Executioner of Bloodfang Pnyn Superior Wind Serum (Bound) 5,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Blue Wave Kelpina",
+    "desc": "Defeat Unique Field Monster Blue Wave Kelpina",
+    "where": [
+     "fieldboss"
+    ]
+   }
+  },
+  {
+   "id": 412100900,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "Furious Saursus",
+   "desc": "Defeat Unique Field Monster Furious Saursus",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "fieldboss"
+   ],
+   "easy": 1,
+   "rewards": "Title: Executioner of Furious Saursus Superior Life Serum (Bound) 5,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Advisor Resana",
+    "desc": "Defeat Unique Field Monster Advisor Resana",
+    "where": [
+     "fieldboss"
+    ]
+   }
+  },
+  {
+   "id": 412101000,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "Scholar Aulla",
+   "desc": "Defeat Unique Field Monster Scholar Aulla",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "fieldboss"
+   ],
+   "easy": 1,
+   "rewards": "Title: Executioner of Scholar Aulla 2× Courage Scroll (Bound) 5,000× Kina (Bound)",
+   "asmodian": {
+    "name": "High Overseer Nutah",
+    "desc": "Defeat Unique Field Monster High Overseer Nutah",
+    "where": [
+     "fieldboss"
+    ]
+   }
+  },
+  {
+   "id": 412101100,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "Chaser Taulo",
+   "desc": "Defeat Unique Field Monster Chaser Taulo",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "fieldboss"
+   ],
+   "easy": 1,
+   "rewards": "Title: Executioner of Chaser Taulo Superior Life Serum (Bound) 5,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Special Operations Leader Linx",
+    "desc": "Defeat Unique Field Monster Special Operations Leader Linx",
+    "where": [
+     "fieldboss"
+    ]
+   }
+  },
+  {
+   "id": 412101200,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "Forest Warrior Aullamu",
+   "desc": "Defeat Unique Field Monster Forest Warrior Aullamu",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "fieldboss"
+   ],
+   "easy": 1,
+   "rewards": "Title: Executioner of Forest Warrior Aullamu Life Crystal (Bound) 5,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Desecrator Newbold",
+    "desc": "Defeat Unique Field Monster Desecrator Newbold",
+    "where": [
+     "fieldboss"
+    ]
+   }
+  },
+  {
+   "id": 412101300,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "Heretic Layla",
+   "desc": "Defeat Unique Field Monster Heretic Layla",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "fieldboss"
+   ],
+   "easy": 1,
+   "rewards": "Title: Executioner of Heretic Layla 2× Superior Benediction Scroll (Bound) 5,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Specter Archon Axios",
+    "desc": "Defeat Unique Field Monster Specter Archon Axios",
+    "where": [
+     "fieldboss"
+    ]
+   }
+  },
+  {
+   "id": 412101400,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "Black Tentacle Lawa",
+   "desc": "Defeat Unique Field Monster Black Tentacle Lawa",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "fieldboss"
+   ],
+   "easy": 1,
+   "rewards": "Title: Executioner of Black Tentacle Lawa Superior Life Serum (Bound) 5,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Addicted Hardirun",
+    "desc": "Defeat Unique Field Monster Addicted Hardirun",
+    "where": [
+     "fieldboss"
+    ]
+   }
+  },
+  {
+   "id": 412101500,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "Centurion Demiros",
+   "desc": "Defeat Unique Field Monster Centurion Demiros",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "fieldboss"
+   ],
+   "easy": 1,
+   "rewards": "Title: Executioner of Centurion Demiros 2× Status Effect Resist Scroll (Bound) 5,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Executioner Barthien",
+    "desc": "Defeat Unique Field Monster Executioner Barthien",
+    "where": [
+     "fieldboss"
+    ]
+   }
+  },
+  {
+   "id": 412101600,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "Divine Ansas",
+   "desc": "Defeat Unique Field Monster Divine Ansas",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "fieldboss"
+   ],
+   "easy": 1,
+   "rewards": "Title: Executioner of Divine Ansas 2× Superior Courage Scroll (Bound) 5,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Drakan Battalion Weapon Guruta",
+    "desc": "Defeat Unique Field Monster Drakan Battalion Weapon Guruta",
+    "where": [
+     "fieldboss"
+    ]
+   }
+  },
+  {
+   "id": 412101700,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "Harvest Manager Moshav",
+   "desc": "Defeat Unique Field Monster Harvest Manager Moshav",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "fieldboss"
+   ],
+   "easy": 1,
+   "rewards": "Title: Executioner of Harvest Manager Moshav Life Crystal (Bound) 5,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Veteran Shujakan",
+    "desc": "Defeat Unique Field Monster Veteran Shujakan",
+    "where": [
+     "fieldboss"
+    ]
+   }
+  },
+  {
+   "id": 412101800,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "Sentinel K'nash",
+   "desc": "Defeat Unique Field Monster Sentinel K'nash",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "fieldboss"
+   ],
+   "easy": 1,
+   "rewards": "Title: Executioner of Sentinel K'nash Superior Wind Serum (Bound) 5,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Visionary Karuka",
+    "desc": "Defeat Unique Field Monster Visionary Karuka",
+    "where": [
+     "fieldboss"
+    ]
+   }
+  },
+  {
+   "id": 412101900,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "Researcher Setram",
+   "desc": "Defeat Unique Field Monster Researcher Setram",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "fieldboss"
+   ],
+   "easy": 1,
+   "rewards": "Title: Executioner of Researcher Setram 2× Courage Scroll (Bound) 5,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Dark Shadow Vishwada",
+    "desc": "Defeat Unique Field Monster Dark Shadow Vishwada",
+    "where": [
+     "fieldboss"
+    ]
+   }
+  },
+  {
+   "id": 412102000,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "Phantasm Kasia",
+   "desc": "Defeat Unique Field Monster Phantasm Kasia",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "fieldboss"
+   ],
+   "easy": 1,
+   "rewards": "Title: Executioner of Phantasm Kasia Battle Enhance Scroll (Bound) 5,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Sharp Shylak",
+    "desc": "Defeat Unique Field Monster Sharp Shylak",
+    "where": [
+     "fieldboss"
+    ]
+   }
+  },
+  {
+   "id": 412102100,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "Silent Dartan",
+   "desc": "Defeat Field Boss Silent Dartan",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "fieldboss"
+   ],
+   "easy": 1,
+   "rewards": "Title: Executioner of Silent Dartan Superior Manastone (Bound) 7,000× Kina (Bound)"
+  },
+  {
+   "id": 412102200,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "Soul Ruler Kashapa",
+   "desc": "Defeat Field Boss Soul Ruler Kashapa",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "fieldboss"
+   ],
+   "easy": 1,
+   "rewards": "Title: Executioner of Soul Ruler Kashapa Superior Manastone (Bound) 7,000× Kina (Bound)"
+  },
+  {
+   "id": 412102300,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "High Commander Lagta",
+   "desc": "Defeat Field Boss High Commander Lagta",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "fieldboss"
+   ],
+   "easy": 1,
+   "rewards": "Title: Executioner of High Commander Lagta Superior Manastone (Bound) 7,000× Kina (Bound)"
+  },
+  {
+   "id": 412102500,
+   "tab": "challenge",
+   "sub": "bosses",
+   "period": "permanent",
+   "name": "[Immortal Isle] Immortal Gartua",
+   "desc": "Defeat Field Boss Immortal Gartua",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "abyss"
+   ],
+   "easy": 0,
+   "rewards": "Title: Executioner of Immortal Gartua 2× Amplify Stone Fragment (Unique) (Bound) 9,000× Kina (Bound)"
+  },
+  {
+   "id": 420100100,
+   "tab": "exploration",
+   "sub": "exploration",
+   "period": "permanent",
+   "name": "Bonds of the White Wings",
+   "desc": "Visit all villages in Verteron",
+   "steps": [
+    2
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "Title: Verteron Cartographer Resurrection Spiritstone (Bound) 4,000× Kina (Bound)"
+  },
+  {
+   "id": 420100200,
+   "tab": "exploration",
+   "sub": "exploration",
+   "period": "permanent",
+   "name": "Bonds of the Black Wings",
+   "desc": "Visit all villages in Altgard",
+   "steps": [
+    2
+   ],
+   "unit": "",
+   "where": [
+    "region:Altgard"
+   ],
+   "easy": 0,
+   "rewards": "Title: Altgard Cartographer Resurrection Spiritstone (Bound) 4,000× Kina (Bound)"
+  },
+  {
+   "id": 420100400,
+   "tab": "exploration",
+   "sub": "exploration",
+   "period": "permanent",
+   "name": "Who Brought the Chest?",
+   "desc": "Open 3 Hidden Cubes",
+   "steps": [
+    3,
+    10,
+    30,
+    50,
+    100,
+    150,
+    200
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: BLEEP BLOOP BLEEP BLOOP , It's Okay to Be Imperfect 7× Key: Hidden Cube (Bound) 67,000× Kina (Bound)"
+  },
+  {
+   "id": 420100600,
+   "tab": "exploration",
+   "sub": "exploration",
+   "period": "permanent",
+   "name": "Verteron Monolith",
+   "desc": "Reach Verteron Monolith Level 5",
+   "steps": [
+    5,
+    10,
+    15,
+    20,
+    25,
+    30
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "3× Resurrection Spiritstone (Bound) 14,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Altgard Monolith",
+    "desc": "Reach Altgard Monolith Level 5",
+    "where": [
+     "region:Altgard"
+    ]
+   }
+  },
+  {
+   "id": 420100700,
+   "tab": "exploration",
+   "sub": "exploration",
+   "period": "permanent",
+   "name": "Traces Left in Verteron",
+   "desc": "Collect Empyrean Trace: Verteron 5 times",
+   "steps": [
+    5,
+    30,
+    60,
+    100,
+    150,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "10,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Traces Left in Altgard",
+    "desc": "Collect Empyrean Trace: Altgard 5 times",
+    "where": [
+     "region:Altgard"
+    ]
+   }
+  },
+  {
+   "id": 420100800,
+   "tab": "exploration",
+   "sub": "exploration",
+   "period": "permanent",
+   "name": "Ereshkigal's Monolith",
+   "desc": "Reach Ereshkigal's Monolith Level 3",
+   "steps": [
+    3,
+    5,
+    10,
+    15,
+    20
+   ],
+   "unit": "",
+   "where": [
+    "abyss"
+   ],
+   "easy": 0,
+   "rewards": "11,000× Kina (Bound) 2× Lower Abyss Rift Stone (Bound)"
+  },
+  {
+   "id": 420100900,
+   "tab": "exploration",
+   "sub": "exploration",
+   "period": "permanent",
+   "name": "Traces Left in the Abyss",
+   "desc": "Collect Empyrean Trace: Reshanta 5 times",
+   "steps": [
+    5,
+    20,
+    50,
+    100,
+    150,
+    200,
+    300
+   ],
+   "unit": "",
+   "where": [
+    "abyss"
+   ],
+   "easy": 0,
+   "rewards": "10,000× Kina (Bound)"
+  },
+  {
+   "id": 420101000,
+   "tab": "exploration",
+   "sub": "exploration",
+   "period": "permanent",
+   "name": "Soaring the Skies",
+   "desc": "Use Updraft 5 times",
+   "steps": [
+    5,
+    20,
+    50,
+    100,
+    150,
+    200,
+    300
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 4,
+   "rewards": "Title: Shattered into Teeny, Tiny Pieces 6× Odyle (Bound) 46,000× Kina (Bound) 7× Fine Odyle (Bound) 6× Pure Odyle (Bound) 2× Radiant Odyle (Bound)"
+  },
+  {
+   "id": 420101100,
+   "tab": "exploration",
+   "sub": "exploration",
+   "period": "permanent",
+   "name": "Riding the Winds",
+   "desc": "Use Windstream 5 times",
+   "steps": [
+    5,
+    20,
+    50,
+    100,
+    150,
+    200,
+    300
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 4,
+   "rewards": "Title: Gone with the Wind 6× Odyle (Bound) 46,000× Kina (Bound) 7× Fine Odyle (Bound) 6× Pure Odyle (Bound) 2× Radiant Odyle (Bound)"
+  },
+  {
+   "id": 420101200,
+   "tab": "exploration",
+   "sub": "exploration",
+   "period": "permanent",
+   "name": "Sovereign of the Skies",
+   "desc": "Fly for 10 minutes in total",
+   "steps": [
+    10,
+    30,
+    60,
+    120,
+    180,
+    300
+   ],
+   "unit": "min",
+   "where": [],
+   "easy": 4,
+   "rewards": "7× Wind Serum (Bound) 53,000× Kina (Bound) 6× Superior Wind Serum (Bound)"
+  },
+  {
+   "id": 420101300,
+   "tab": "exploration",
+   "sub": "exploration",
+   "period": "permanent",
+   "name": "Here to Swim",
+   "desc": "Swim for 10 minutes in total",
+   "steps": [
+    10,
+    30,
+    60,
+    120,
+    180,
+    300
+   ],
+   "unit": "min",
+   "where": [],
+   "easy": 4,
+   "rewards": "53,000× Kina (Bound)"
+  },
+  {
+   "id": 420101400,
+   "tab": "exploration",
+   "sub": "exploration",
+   "period": "permanent",
+   "name": "Ride the Wind",
+   "desc": "Glide for 10 minutes in total",
+   "steps": [
+    10,
+    30,
+    60,
+    120,
+    180,
+    300
+   ],
+   "unit": "min",
+   "where": [],
+   "easy": 4,
+   "rewards": "7× Life Serum (Bound) 53,000× Kina (Bound) 6× Superior Life Serum (Bound)"
+  },
+  {
+   "id": 420101600,
+   "tab": "exploration",
+   "sub": "exploration",
+   "period": "permanent",
+   "name": "Uncertain Path",
+   "desc": "Use Verteron's Spacetime Rift 3 times",
+   "steps": [
+    3,
+    10,
+    30,
+    50,
+    100,
+    150,
+    200
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "Title: Hello There , Nice to Meet You 10× Battle Enhance Scroll (Bound) 67,000× Kina (Bound)",
+   "asmodian": {
+    "desc": "Use Altgard's Spacetime Rift 3 times",
+    "where": [
+     "region:Altgard"
+    ]
+   }
+  },
+  {
+   "id": 420101700,
+   "tab": "exploration",
+   "sub": "exploration",
+   "period": "permanent",
+   "name": "Dimension Defender",
+   "desc": "Participate in Dimensional Invasion 3 times",
+   "steps": [
+    3,
+    10,
+    30,
+    60,
+    100,
+    150,
+    200,
+    300
+   ],
+   "unit": "",
+   "where": [
+    "event"
+   ],
+   "easy": 2,
+   "rewards": "Title: Welcome , Alien 4,700× Enhance Stone 57,000× Kina (Bound)"
+  },
+  {
+   "id": 421100100,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Dawn Legion Base",
+   "desc": "Activate [Dawn Legion Base] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "2,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Safe Haven",
+    "desc": "Activate [Safe Haven] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421100200,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Valley Outpost",
+   "desc": "Activate [Cantas Valley Outpost] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "2,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Galorik's Inspection Area",
+    "desc": "Activate [Galorik's Inspection Area] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421100300,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Western Cantas Valley Camp",
+   "desc": "Activate [Western Cantas Valley Camp] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "2,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Temporary Investigation Base",
+    "desc": "Activate [Temporary Investigation Base] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421100400,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Coastal Camp",
+   "desc": "Activate [Coastal Camp] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "2,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Creion Campsite",
+    "desc": "Activate [Creion Camp] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421100500,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Eastern Cantas Valley Campsite",
+   "desc": "Activate [Eastern Cantas Valley Camp] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "2,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Quai Campsite",
+    "desc": "Activate [Quai Campsite] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421100600,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Marsh Outpost",
+   "desc": "Activate [Marsh Outpost] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "2,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Gravekeeper Camp",
+    "desc": "Activate [Gravekeeper Camp] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421100700,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Collapsed Verteron Barrier Tower",
+   "desc": "Activate [Collapsed Verteron Barrier Tower] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "2,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Neglected Crematorium",
+    "desc": "Activate [Neglected Crematorium] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421100800,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Spirit's Rest",
+   "desc": "Activate [Spirit's Rest] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "2,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Mire Campsite",
+    "desc": "Activate [Mire Campsite] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421100900,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Illusion Cavaliers' Campsite",
+   "desc": "Activate [Illusion Cavaliers' Campsite] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "2,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Fang Hideout",
+    "desc": "Activate [Fang Hideout] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421101000,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Ruin Exploration Campsite",
+   "desc": "Activate [Ruin Exploration Campsite] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "2,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Temporary Retreat",
+    "desc": "Activate [Temporary Retreat] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421101100,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Hideout in Front of the Ruins",
+   "desc": "Activate [Hideout in Front of the Ruins] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "2,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Watcher's Tent",
+    "desc": "Activate [Watcher's Tent] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421101200,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Collapsed Pillar",
+   "desc": "Activate [Collapsed Pillar] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "2,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Odar's Shade",
+    "desc": "Activate [Odar's Shade] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421101300,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Dawn Legion Temporary Outpost",
+   "desc": "Activate [Dawn Legion Temporary Outpost] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "2,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Collapsed Chasm",
+    "desc": "Activate [Collapsed Chasm] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421101400,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Wind Breeze Merchants HQ",
+   "desc": "Activate [Wind Breeze Merchants HQ] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "2,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Elim's Rest",
+    "desc": "Activate [Elim's Rest] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421101500,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Southern Shugo Station",
+   "desc": "Activate [Southern Shugo Station] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "2,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Forest Hideout",
+    "desc": "Activate [Forest Hideout] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421101600,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Tolbas Forest Outskirts",
+   "desc": "Activate [Tolbas Forest Outskirts] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "2,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Abandoned Site",
+    "desc": "Activate [Abandoned Site] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421101700,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Astin Mercenaries Base",
+   "desc": "Activate [Astin Mercenaries Base] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "2,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Minushan Site",
+    "desc": "Activate [Minushan Site] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421101800,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Eastern Shugo Station",
+   "desc": "Activate [Eastern Shugo Station] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "2,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Victorious Daeva's Statue",
+    "desc": "Activate [Victorious Daeva's Statue] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421101900,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Aullaeu Village Border",
+   "desc": "Activate [Aullaeu Village Border] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "2,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Nornir Assembly",
+    "desc": "Activate [Nornir Assembly] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421102000,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Abandoned Wind Breeze Office",
+   "desc": "Activate [Abandoned Wind Breeze Office] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "2,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Guide Rest Stop",
+    "desc": "Activate [Guide Rest Stop] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421102100,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Zumion Village",
+   "desc": "Activate [Zumion Village] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "3,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Faded Stump",
+    "desc": "Activate [Faded Stump] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421102200,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Rock Hill Outpost",
+   "desc": "Activate [Rock Hill Outpost] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "3,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Healing Spring",
+    "desc": "Activate [Healing Spring] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421102300,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Canyon Campsite",
+   "desc": "Activate [Canyon Campsite] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "3,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Briskwind Shelter",
+    "desc": "Activate [Briskwind Shelter] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421102400,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Alert Observation Post",
+   "desc": "Activate [Alert Observation Post] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "3,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Hidden Cave",
+    "desc": "Activate [Hidden Cave] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421102500,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Hill of Purification",
+   "desc": "Activate [Hill of Purification] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "3,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Basfelt Waterfall",
+    "desc": "Activate [Basfelt Waterfall] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421102600,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Notos Legion Outpost",
+   "desc": "Activate [Notos Legion Outpost] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "3,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Graverobber Campsite",
+    "desc": "Activate [Graverobber Campsite] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421102700,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Laborer's Rest Stop",
+   "desc": "Activate [Laborer's Rest Stop] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "3,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Fissure Cave",
+    "desc": "Activate [Fissure Cave] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421102800,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Drana Transport Hub",
+   "desc": "Activate [Drana Transport Hub] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "3,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Shulak Street Stall",
+    "desc": "Activate [Shulak Street Stall] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421102900,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Beast Hunter Campsite",
+   "desc": "Activate [Beast Hunter Campsite] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "3,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Mahindel Cliff",
+    "desc": "Activate [Mahindel Cliff] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421103000,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Pilgrim's Rest",
+   "desc": "Activate [Pilgrim's Rest] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "3,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Steel Hammer Merchants HQ",
+    "desc": "Activate [Steel Hammer Merchants HQ] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421103100,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Scarlet Forest Observation Site",
+   "desc": "Activate [Scarlet Forest Observation Site] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "3,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Steel Hammer Workcamp",
+    "desc": "Activate [Steel Hammer Workcamp] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421103200,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Nahid Disposal Plant",
+   "desc": "Activate [Nahid Disposal Plant] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "3,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Abandoned Campsite",
+    "desc": "Activate [Abandoned Campsite] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421103300,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Crimson Isle Outpost",
+   "desc": "Activate [Crimson Isle Outpost] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "3,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Amunta's Hideout",
+    "desc": "Activate [Amunta's Hideout] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421103400,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Kraka Footpath Wastewater Downstream",
+   "desc": "Activate [Kraka Footpath Wastewater Downstream] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "3,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Steel Hammer Temporary Trading Post",
+    "desc": "Activate [Steel Hammer Temporary Trading Post] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421103500,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Ellun River Midstream Pamos Farm",
+   "desc": "Activate [Ellun River Midstream Pamos Farm] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "3,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Outskirts Stall",
+    "desc": "Activate [Outskirts Stall] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421103600,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Cantas Valley Mushroom Tree Peak",
+   "desc": "Activate [Cantas Valley Mushroom Tree Peak] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "3,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Idun's Lake",
+    "desc": "Activate [Idun's Lake] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421103700,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Illusion Oratory Entrance",
+   "desc": "Activate [Illusion Oratory Entrance] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "3,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Zemurru's Tomb",
+    "desc": "Activate [Zemurru's Tomb] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421103800,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Ellun River Midstream Pond",
+   "desc": "Activate [Ellun River Midstream Pond] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "3,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Secret Rendezvous Point",
+    "desc": "Activate [Secret Rendezvous Point] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421103900,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Forest of Exiles",
+   "desc": "Activate [Forest of Exiles] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "3,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Kumrica's Cellar",
+    "desc": "Activate [Kumrica's Cellar] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421104000,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Aullaeu Funeral Island",
+   "desc": "Activate [Aullaeu Funeral Island] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Collapsed Hall Of Fame",
+    "desc": "Activate [Collapsed Hall of Fame] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421104100,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Highland's End Campsite",
+   "desc": "Activate [Highland's End Campsite] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Guide's Dwelling",
+    "desc": "Activate [Guide's Dwelling] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421104200,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Cantas Valley Sky Island",
+   "desc": "Activate [Cantas Valley Sky Island] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Silent Hill Mushroom Rock",
+    "desc": "Activate Silent Hill [Mushroom Rock] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421104300,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Cantas Valley Mushroom Tree Peak",
+   "desc": "Activate [Cantas Valley Mushroom Tree Peak] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Sanctum Outpost Sky Island",
+    "desc": "Activate [Sanctum Outpost Sky Island] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421104400,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Ellun River Marsh Cliff",
+   "desc": "Activate [Ellun River Marsh Cliff] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Silent Hill Coastal Cliff",
+    "desc": "Activate [Silent Hill Coastal Cliff] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421104500,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Ellun River Midstream Highland",
+   "desc": "Activate [Ellun River Midstream Highland] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Moslan Forest Dry Shade",
+    "desc": "Activate [Moslan Forest Dry Shade] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421104600,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Verteron Fortress Valley",
+   "desc": "Activate [Verteron Fortress Valley] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Safe Haven Cliff",
+    "desc": "Activate [Safe Haven Cliff] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421104700,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Aullaeu Village Sky Island",
+   "desc": "Activate [Aullaeu Village Sky Island] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Remote Island",
+    "desc": "Activate [Remote Island] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421104800,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Aullaeu Village Valley",
+   "desc": "Activate [Aullaeu Village Valley] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Wave-Swept Cliff",
+    "desc": "Activate [Wave-Swept Cliff] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421104900,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Zumion Statue",
+   "desc": "Activate [Zumion Statue] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Basfelt Waterfall Arch Zone",
+    "desc": "Activate [Basfelt Waterfall Arch Zone] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421105000,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Zumion Temple Pilgrimage Path",
+   "desc": "Activate [Zumion Temple Pilgrimage Path] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Basfelt Ruins Cliff",
+    "desc": "Activate [Basfelt Ruins Cliff] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421105100,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Altamia Highland Ruins",
+   "desc": "Activate [Altamia Highland Ruins] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Moslan Forest Cliff",
+    "desc": "Activate [Moslan Forest Cliff] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421105200,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Ancient Zumion Temple Site",
+   "desc": "Activate [Ancient Zumion Temple Site] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Purifying Forest Sunny Hill",
+    "desc": "Activate [Purifying Forest Sunny Hill] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421105300,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Canyon Sky Island",
+   "desc": "Activate [Canyon Sky Island] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Gribade Highland Crossroad",
+    "desc": "Activate [Gribade Highland Crossroad] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421105400,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Scar of the Wind",
+   "desc": "Activate [Scar of the Wind] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Battlescar Mound Clifftop",
+    "desc": "Activate [Battlescar Mound Clifftop] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421105500,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Southern Altamia Coastal Cliffs",
+   "desc": "Activate [Southern Altamia Coastal Cliffs] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Purifying Forest Coastal Cliff",
+    "desc": "Activate [Purifying Forest Coastal Cliff] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421105600,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Kraka Footpath Campsite",
+   "desc": "Activate [Kraka Footpath Campsite] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Dranactus Shore",
+    "desc": "Activate [Dranactus Shore] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421105700,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Kraka Uphill Path",
+   "desc": "Activate [Kraka Uphill Path] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Eastern Gribade Highland Cliff",
+    "desc": "Activate [Eastern Gribade Highland Cliff] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421105800,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Nahid Brigade Fortress Hill",
+   "desc": "Activate [Nahid Brigade Fortress Hill] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Beneath the Tranein Highland Bridge",
+    "desc": "Activate [Beneath Tranein Highland Bridge] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421105900,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Red Maple Forest",
+   "desc": "Activate [Red Maple Forest] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Eastern Gribade Highland Tail Island",
+    "desc": "Activate [Eastern Gribade Highland Tail Island] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421106000,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Garden of the Illusion God West Observatory",
+   "desc": "Activate [Garden of the Illusion God West Observatory] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Impetusium Lower Path",
+    "desc": "Activate [Impetusium Lower Path] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421106100,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Garden of the Illusion God East Observatory",
+   "desc": "Activate [Garden of the Illusion God East Observatory] Kibelisk",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "4,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Impetusium Cliff",
+    "desc": "Activate [Impetusium Cliff] Kibelisk",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 421106200,
+   "tab": "exploration",
+   "sub": "kibelisks",
+   "period": "permanent",
+   "name": "Verteron Binding Master",
+   "desc": "Activate all Kibelisks in Verteron",
+   "steps": [
+    61
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "Title: Teleportation Specialist 9,000× Kina (Bound) Statue: Kibelisk (Bound)",
+   "asmodian": {
+    "name": "Altgard Binding Veteran",
+    "desc": "Activate all Kibelisks in Altgard",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 422100100,
+   "tab": "exploration",
+   "sub": "shugo-festival",
+   "period": "permanent",
+   "name": "Shugo Festival Regular",
+   "desc": "Participate in Shugo Festival 3 times",
+   "steps": [
+    3,
+    10,
+    30,
+    60,
+    100,
+    150,
+    200,
+    300
+   ],
+   "unit": "",
+   "where": [
+    "event"
+   ],
+   "easy": 4,
+   "rewards": "Title: Shugo Festival Rookie , Shugo Festival Expert 105× Soul Crystal (Bound) 590× Centuryroot Token"
+  },
+  {
+   "id": 422100200,
+   "tab": "exploration",
+   "sub": "shugo-festival",
+   "period": "permanent",
+   "name": "Odyle Flight Frenzy",
+   "desc": "Participate in [Odyle Flight Frenzy] 1 time",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "event"
+   ],
+   "easy": 3,
+   "rewards": "Title: Odyle Drops Keep Fallin' on My Head 14,000× Kina (Bound) 145× Centuryroot Token"
+  },
+  {
+   "id": 422100300,
+   "tab": "exploration",
+   "sub": "shugo-festival",
+   "period": "permanent",
+   "name": "Up! Up! Up!",
+   "desc": "Participate in [Up! Up! Up!] 1 time",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "event"
+   ],
+   "easy": 3,
+   "rewards": "Title: Up, Up, and Up Again! 14,000× Kina (Bound) 145× Centuryroot Token"
+  },
+  {
+   "id": 422100400,
+   "tab": "exploration",
+   "sub": "shugo-festival",
+   "period": "permanent",
+   "name": "Mysterious Track",
+   "desc": "Participate in [Mysterious Track] 1 time",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "event"
+   ],
+   "easy": 3,
+   "rewards": "Title: Mysterious Racer 14,000× Kina (Bound) 145× Centuryroot Token"
+  },
+  {
+   "id": 422100500,
+   "tab": "exploration",
+   "sub": "shugo-festival",
+   "period": "permanent",
+   "name": "Defend Shugo Merchants",
+   "desc": "Participate in [Defend Shugo Merchants] 1 time",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "event"
+   ],
+   "easy": 3,
+   "rewards": "Title: Standing on My Own Two Feet 14,000× Kina (Bound) 145× Centuryroot Token"
+  },
+  {
+   "id": 422100600,
+   "tab": "exploration",
+   "sub": "shugo-festival",
+   "period": "permanent",
+   "name": "Jump Jump",
+   "desc": "Participate in [Jump Jump] 1 time",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "event"
+   ],
+   "easy": 3,
+   "rewards": "Title: Ruuuuun!! 14,000× Kina (Bound) 145× Centuryroot Token"
+  },
+  {
+   "id": 422100700,
+   "tab": "exploration",
+   "sub": "shugo-festival",
+   "period": "permanent",
+   "name": "Hidden Lugi",
+   "desc": "Participate in [Hidden Lugi] 1 time",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "event"
+   ],
+   "easy": 3,
+   "rewards": "Title: Catch Me If You Can 14,000× Kina (Bound) 145× Centuryroot Token"
+  },
+  {
+   "id": 422100800,
+   "tab": "exploration",
+   "sub": "shugo-festival",
+   "period": "permanent",
+   "name": "Not This Tile?",
+   "desc": "Participate in [Not This Tile?] 1 time",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "event"
+   ],
+   "easy": 3,
+   "rewards": "Title: Tile Discerner 14,000× Kina (Bound) 145× Centuryroot Token"
+  },
+  {
+   "id": 422100900,
+   "tab": "exploration",
+   "sub": "shugo-festival",
+   "period": "permanent",
+   "name": "Wraith Evasion",
+   "desc": "Participate in [Wraith Evasion] 1 time",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "event"
+   ],
+   "easy": 3,
+   "rewards": "Title: Lady of the Lake 14,000× Kina (Bound) 145× Centuryroot Token"
+  },
+  {
+   "id": 422101000,
+   "tab": "exploration",
+   "sub": "shugo-festival",
+   "period": "permanent",
+   "name": "Goldrin's Treasure",
+   "desc": "Participate in [Goldrin's Treasure] 1 time",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "event"
+   ],
+   "easy": 3,
+   "rewards": "Title: Arr! Where's Me Treasure? 14,000× Kina (Bound) 145× Centuryroot Token"
+  },
+  {
+   "id": 422101100,
+   "tab": "exploration",
+   "sub": "shugo-festival",
+   "period": "permanent",
+   "name": "Centuryroot's Heart",
+   "desc": "Collect 100 Centuryroot Tokens",
+   "steps": [
+    100,
+    300,
+    1000,
+    2000,
+    3000,
+    5000,
+    30000,
+    100000
+   ],
+   "unit": "",
+   "where": [
+    "event"
+   ],
+   "easy": 2,
+   "rewards": "57,000× Kina (Bound)"
+  },
+  {
+   "id": 423100100,
+   "tab": "exploration",
+   "sub": "sealed-dungeons",
+   "period": "permanent",
+   "name": "The Broken Seal of Verteron",
+   "desc": "Clear 3 Sealed Dungeons in Verteron",
+   "steps": [
+    3,
+    7,
+    10,
+    20,
+    30,
+    40,
+    50
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "Title: Verteron Seal Breaker 5× Life Crystal (Bound) 46,000× Kina (Bound) 2× Key: Hidden Cube (Bound)"
+  },
+  {
+   "id": 423100200,
+   "tab": "exploration",
+   "sub": "sealed-dungeons",
+   "period": "permanent",
+   "name": "The Broken Seal of Altgard",
+   "desc": "Clear 3 Sealed Dungeons in Altgard",
+   "steps": [
+    3,
+    7,
+    10,
+    20,
+    30,
+    40,
+    50
+   ],
+   "unit": "",
+   "where": [
+    "region:Altgard"
+   ],
+   "easy": 0,
+   "rewards": "Title: Altgard Seal Breaker 11× Wind Serum (Bound) 67,000× Kina (Bound) Resurrection Spiritstone (Bound) 6× Superior Wind Serum (Bound)"
+  },
+  {
+   "id": 423100300,
+   "tab": "exploration",
+   "sub": "sealed-dungeons",
+   "period": "permanent",
+   "name": "Radiant Shadow",
+   "desc": "Collect Kaisinel's Shadow Vol. 1-3 in Sealed Dungeons",
+   "steps": [
+    3
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "Resurrection Spiritstone (Bound) 5,000× Kina (Bound)",
+   "asmodian": {
+    "name": "Darkness Within Darkness",
+    "desc": "Collect Zikel of Destruction Vol. 1-3 in Sealed Dungeons",
+    "where": [
+     "region:Verteron"
+    ]
+   }
+  },
+  {
+   "id": 423100400,
+   "tab": "exploration",
+   "sub": "sealed-dungeons",
+   "period": "permanent",
+   "name": "The Desperate History of the Bulwark",
+   "desc": "Collect Book of the Bulwark Vol. 1-3 in Sealed Dungeons",
+   "steps": [
+    3
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "Resurrection Spiritstone (Bound) 5,000× Kina (Bound)"
+  },
+  {
+   "id": 423100500,
+   "tab": "exploration",
+   "sub": "sealed-dungeons",
+   "period": "permanent",
+   "name": "City of Legend",
+   "desc": "Collect Exploring the Ancient City of Ru Vol. 1-3 in Sealed Dungeons",
+   "steps": [
+    3
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "Resurrection Spiritstone (Bound) 5,000× Kina (Bound)"
+  },
+  {
+   "id": 423100600,
+   "tab": "exploration",
+   "sub": "sealed-dungeons",
+   "period": "permanent",
+   "name": "What, Here Too?",
+   "desc": "Collect Exploring the Ancient City of Ru Vol. 1-3 in Altgard Sealed Dungeons",
+   "steps": [
+    3
+   ],
+   "unit": "",
+   "where": [
+    "region:Altgard"
+   ],
+   "easy": 0,
+   "rewards": "Resurrection Spiritstone (Bound) 7,000× Kina (Bound)"
+  },
+  {
+   "id": 423100700,
+   "tab": "exploration",
+   "sub": "sealed-dungeons",
+   "period": "permanent",
+   "name": "Hidden Monster Hunt",
+   "desc": "Defeat 5 monsters in Sealed Dungeons",
+   "steps": [
+    5,
+    30,
+    60,
+    100,
+    150,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "46,000× Kina (Bound)"
+  },
+  {
+   "id": 424100100,
+   "tab": "exploration",
+   "sub": "strongholds",
+   "period": "permanent",
+   "name": "Verteron Stronghold Sweep",
+   "desc": "Clear 1 Stronghold in Verteron",
+   "steps": [
+    1,
+    3,
+    5,
+    7,
+    10,
+    15
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "Title: Knock Knock Who's There 1,230× Enhance Stone 36,000× Kina (Bound) Resurrection Spiritstone (Bound)"
+  },
+  {
+   "id": 424100200,
+   "tab": "exploration",
+   "sub": "strongholds",
+   "period": "permanent",
+   "name": "Altgard Stronghold Sweep",
+   "desc": "Clear 1 Stronghold in Altgard",
+   "steps": [
+    1,
+    3,
+    5,
+    7,
+    10,
+    15
+   ],
+   "unit": "",
+   "where": [
+    "region:Altgard"
+   ],
+   "easy": 0,
+   "rewards": "Title: Housekeeping Open Up 1,720× Enhance Stone 53,000× Kina (Bound) Resurrection Spiritstone (Bound)"
+  },
+  {
+   "id": 424100300,
+   "tab": "exploration",
+   "sub": "strongholds",
+   "period": "permanent",
+   "name": "Dojo Conquest",
+   "desc": "Defeat 5 monsters in Strongholds",
+   "steps": [
+    5,
+    30,
+    60,
+    100,
+    150,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [
+    "region:Verteron"
+   ],
+   "easy": 0,
+   "rewards": "46,000× Kina (Bound)"
+  },
+  {
+   "id": 430100100,
+   "tab": "dungeon",
+   "sub": "krao-cave",
+   "period": "permanent",
+   "name": "Krao Cave Exploration Clear",
+   "desc": "Clear Krao Cave Exploration 1 time",
+   "steps": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:krao-cave"
+   ],
+   "easy": 4,
+   "rewards": "Title: Krao Cave Sightseer 1,360× Enhance Stone 21,000× Kina (Bound) 3× Lesser Manastone (Bound) 3× Lesser Soulstone (Bound)"
+  },
+  {
+   "id": 430100200,
+   "tab": "dungeon",
+   "sub": "krao-cave",
+   "period": "permanent",
+   "name": "Krao Cave Conquest Clear",
+   "desc": "Clear Krao Cave Conquest on Normal 1 time",
+   "steps": [
+    1,
+    3,
+    5,
+    10,
+    15,
+    20
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:krao-cave"
+   ],
+   "easy": 3,
+   "rewards": "Title: Krao Cave Tour Guide 2,480× Enhance Stone 53,000× Kina (Bound)"
+  },
+  {
+   "id": 430100300,
+   "tab": "dungeon",
+   "sub": "krao-cave",
+   "period": "permanent",
+   "name": "Krao Cave Exploration Speedrun",
+   "desc": "Clear Krao Cave Exploration within 20 minutes",
+   "steps": [
+    1,
+    2
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:krao-cave"
+   ],
+   "easy": 2,
+   "rewards": "2× Resurrection Spiritstone (Bound) 7,000× Kina (Bound)"
+  },
+  {
+   "id": 430100400,
+   "tab": "dungeon",
+   "sub": "krao-cave",
+   "period": "permanent",
+   "name": "Krao Cave Conquest Speedrun",
+   "desc": "Clear Krao Cave Conquest on Normal within 20 minutes",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:krao-cave"
+   ],
+   "easy": 2,
+   "rewards": "3× Resurrection Spiritstone (Bound) 23,000× Kina (Bound)"
+  },
+  {
+   "id": 430100500,
+   "tab": "dungeon",
+   "sub": "krao-cave",
+   "period": "permanent",
+   "name": "Krao Cave Exploration Perfect Clear",
+   "desc": "Clear Krao Cave Exploration without dying",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:krao-cave"
+   ],
+   "easy": 2,
+   "rewards": "Soul Codex (Bound) 5,000× Kina (Bound)"
+  },
+  {
+   "id": 430100600,
+   "tab": "dungeon",
+   "sub": "krao-cave",
+   "period": "permanent",
+   "name": "Krao Cave Conquest Perfect Clear",
+   "desc": "Clear Krao Cave Conquest on Normal without dying",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:krao-cave"
+   ],
+   "easy": 2,
+   "rewards": "Soul Codex: Reset (Bound) 7,000× Kina (Bound)"
+  },
+  {
+   "id": 430100700,
+   "tab": "dungeon",
+   "sub": "krao-cave",
+   "period": "permanent",
+   "name": "Krao Cave Exploration Solo Clear",
+   "desc": "Clear Krao Cave Exploration solo",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:krao-cave"
+   ],
+   "easy": 1,
+   "rewards": "4,000× Kina (Bound)"
+  },
+  {
+   "id": 430100800,
+   "tab": "dungeon",
+   "sub": "krao-cave",
+   "period": "permanent",
+   "name": "Krao Cave Conquest Solo Clear",
+   "desc": "Clear Krao Cave Conquest on Normal solo",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:krao-cave"
+   ],
+   "easy": 1,
+   "rewards": "7,000× Kina (Bound)"
+  },
+  {
+   "id": 430101100,
+   "tab": "dungeon",
+   "sub": "krao-cave",
+   "period": "permanent",
+   "name": "I'm Pulling This",
+   "desc": "Defeat Enhanced Harcon and Neglected Gadioton in Krao Cave 5 times",
+   "steps": [
+    5,
+    10,
+    15,
+    20
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:krao-cave"
+   ],
+   "easy": 3,
+   "rewards": "28,000× Kina (Bound)"
+  },
+  {
+   "id": 430101200,
+   "tab": "dungeon",
+   "sub": "krao-cave",
+   "period": "permanent",
+   "name": "Snipers First",
+   "desc": "Defeat 20 Sniping Crokas in Krao Cave",
+   "steps": [
+    20
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:krao-cave"
+   ],
+   "easy": 3,
+   "rewards": "Title: One Step Ahead 3,000× Kina (Bound)"
+  },
+  {
+   "id": 431100100,
+   "tab": "dungeon",
+   "sub": "draupnir-cave",
+   "period": "permanent",
+   "name": "Draupnir Exploration Clear",
+   "desc": "Clear Draupnir Exploration 1 time",
+   "steps": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:draupnir-cave"
+   ],
+   "easy": 4,
+   "rewards": "Title: Draupnir Sightseer 1,600× Enhance Stone 25,000× Kina (Bound) 5× Lesser Manastone (Bound) 5× Lesser Soulstone (Bound)"
+  },
+  {
+   "id": 431100200,
+   "tab": "dungeon",
+   "sub": "draupnir-cave",
+   "period": "permanent",
+   "name": "Draupnir Conquest Clear",
+   "desc": "Clear Draupnir Conquest on Normal 1 time",
+   "steps": [
+    1,
+    3,
+    5,
+    10,
+    15,
+    20
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:draupnir-cave"
+   ],
+   "easy": 3,
+   "rewards": "Title: Draupnir Tour Guide 2,480× Enhance Stone 53,000× Kina (Bound) Statue: Transcendent Bakarma (Bound)"
+  },
+  {
+   "id": 431100300,
+   "tab": "dungeon",
+   "sub": "draupnir-cave",
+   "period": "permanent",
+   "name": "Draupnir Exploration Speedrun",
+   "desc": "Clear Draupnir Exploration within 20 minutes",
+   "steps": [
+    1,
+    2
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:draupnir-cave"
+   ],
+   "easy": 2,
+   "rewards": "2× Resurrection Spiritstone (Bound) 7,000× Kina (Bound)"
+  },
+  {
+   "id": 431100400,
+   "tab": "dungeon",
+   "sub": "draupnir-cave",
+   "period": "permanent",
+   "name": "Draupnir Conquest Speedrun",
+   "desc": "Clear Draupnir Conquest on Normal within 20 minutes",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:draupnir-cave"
+   ],
+   "easy": 2,
+   "rewards": "3× Resurrection Spiritstone (Bound) 23,000× Kina (Bound)"
+  },
+  {
+   "id": 431100500,
+   "tab": "dungeon",
+   "sub": "draupnir-cave",
+   "period": "permanent",
+   "name": "Draupnir Exploration Perfect Clear",
+   "desc": "Clear Draupnir Exploration without dying",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:draupnir-cave"
+   ],
+   "easy": 2,
+   "rewards": "Soul Codex (Bound) 5,000× Kina (Bound)"
+  },
+  {
+   "id": 431100600,
+   "tab": "dungeon",
+   "sub": "draupnir-cave",
+   "period": "permanent",
+   "name": "Draupnir Conquest Perfect Clear",
+   "desc": "Clear Draupnir Conquest on Normal without dying",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:draupnir-cave"
+   ],
+   "easy": 2,
+   "rewards": "Soul Codex: Reset (Bound) 7,000× Kina (Bound)"
+  },
+  {
+   "id": 431100700,
+   "tab": "dungeon",
+   "sub": "draupnir-cave",
+   "period": "permanent",
+   "name": "Draupnir Exploration Solo Clear",
+   "desc": "Clear Draupnir Exploration solo",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:draupnir-cave"
+   ],
+   "easy": 1,
+   "rewards": "4,000× Kina (Bound)"
+  },
+  {
+   "id": 431100800,
+   "tab": "dungeon",
+   "sub": "draupnir-cave",
+   "period": "permanent",
+   "name": "Draupnir Conquest Solo Clear",
+   "desc": "Clear Draupnir Conquest on Normal solo",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:draupnir-cave"
+   ],
+   "easy": 1,
+   "rewards": "7,000× Kina (Bound)"
+  },
+  {
+   "id": 431101100,
+   "tab": "dungeon",
+   "sub": "draupnir-cave",
+   "period": "permanent",
+   "name": "I'm Pulling This",
+   "desc": "Defeat Phantasmal Lakshmi and Predator Saraswati in Draupnir 5 times",
+   "steps": [
+    5,
+    10,
+    15,
+    20
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:draupnir-cave"
+   ],
+   "easy": 3,
+   "rewards": "28,000× Kina (Bound)"
+  },
+  {
+   "id": 431101200,
+   "tab": "dungeon",
+   "sub": "draupnir-cave",
+   "period": "permanent",
+   "name": "Being Creepy Is a Crime",
+   "desc": "Kill 20 Hungry Void Insectoids in Draupnir",
+   "steps": [
+    20
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:draupnir-cave"
+   ],
+   "easy": 3,
+   "rewards": "3,000× Kina (Bound)"
+  },
+  {
+   "id": 431101300,
+   "tab": "dungeon",
+   "sub": "draupnir-cave",
+   "period": "permanent",
+   "name": "Enemy-Supplied Shortcut",
+   "desc": "Operate the Windstream Control Device in Draupnir 10 times",
+   "steps": [
+    10
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:draupnir-cave"
+   ],
+   "easy": 3,
+   "rewards": "Title: Pathfinder Superior Wind Serum (Bound) 3,000× Kina (Bound)"
+  },
+  {
+   "id": 432100100,
+   "tab": "dungeon",
+   "sub": "urugugu",
+   "period": "permanent",
+   "name": "Urugugu Canyon Exploration Clear",
+   "desc": "Clear Urugugu Canyon Exploration 1 time",
+   "steps": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:urugugu"
+   ],
+   "easy": 4,
+   "rewards": "Title: Urugugu Canyon Sightseer 1,600× Enhance Stone 25,000× Kina (Bound) 3× Lesser Manastone (Bound) 3× Lesser Soulstone (Bound)"
+  },
+  {
+   "id": 432100200,
+   "tab": "dungeon",
+   "sub": "urugugu",
+   "period": "permanent",
+   "name": "Urugugu Canyon Conquest Clear",
+   "desc": "Clear Urugugu Canyon Conquest on Normal 1 time",
+   "steps": [
+    1,
+    3,
+    5,
+    10,
+    15,
+    20
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:urugugu"
+   ],
+   "easy": 3,
+   "rewards": "Title: Urugugu Canyon Tour Guide 2,480× Enhance Stone 53,000× Kina (Bound)"
+  },
+  {
+   "id": 432100300,
+   "tab": "dungeon",
+   "sub": "urugugu",
+   "period": "permanent",
+   "name": "Urugugu Canyon Exploration Speedrun",
+   "desc": "Clear Urugugu Canyon Exploration within 20 minutes",
+   "steps": [
+    1,
+    2
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:urugugu"
+   ],
+   "easy": 2,
+   "rewards": "2× Resurrection Spiritstone (Bound) 7,000× Kina (Bound)"
+  },
+  {
+   "id": 432100400,
+   "tab": "dungeon",
+   "sub": "urugugu",
+   "period": "permanent",
+   "name": "Urugugu Canyon Conquest Speedrun",
+   "desc": "Clear Urugugu Canyon Conquest on Normal within 20 minutes",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:urugugu"
+   ],
+   "easy": 2,
+   "rewards": "3× Resurrection Spiritstone (Bound) 23,000× Kina (Bound)"
+  },
+  {
+   "id": 432100500,
+   "tab": "dungeon",
+   "sub": "urugugu",
+   "period": "permanent",
+   "name": "Urugugu Canyon Exploration Perfect Clear",
+   "desc": "Clear Urugugu Canyon Exploration without dying",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:urugugu"
+   ],
+   "easy": 2,
+   "rewards": "Soul Codex (Bound) 5,000× Kina (Bound)"
+  },
+  {
+   "id": 432100600,
+   "tab": "dungeon",
+   "sub": "urugugu",
+   "period": "permanent",
+   "name": "Urugugu Canyon Conquest Perfect Clear",
+   "desc": "Clear Urugugu Canyon Conquest on Normal without dying",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:urugugu"
+   ],
+   "easy": 2,
+   "rewards": "Soul Codex: Reset (Bound) 7,000× Kina (Bound)"
+  },
+  {
+   "id": 432100700,
+   "tab": "dungeon",
+   "sub": "urugugu",
+   "period": "permanent",
+   "name": "Urugugu Canyon Exploration Solo Clear",
+   "desc": "Clear Urugugu Canyon Exploration solo",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:urugugu"
+   ],
+   "easy": 1,
+   "rewards": "4,000× Kina (Bound)"
+  },
+  {
+   "id": 432100800,
+   "tab": "dungeon",
+   "sub": "urugugu",
+   "period": "permanent",
+   "name": "Urugugu Canyon Conquest Solo Clear",
+   "desc": "Clear Urugugu Canyon Conquest on Normal solo",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:urugugu"
+   ],
+   "easy": 1,
+   "rewards": "7,000× Kina (Bound)"
+  },
+  {
+   "id": 432101100,
+   "tab": "dungeon",
+   "sub": "urugugu",
+   "period": "permanent",
+   "name": "I'm Pulling This",
+   "desc": "Defeat Guardian Captain Raur and Judge Urahum in Urugugu Canyon 5 times",
+   "steps": [
+    5,
+    10,
+    15,
+    20
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:urugugu"
+   ],
+   "easy": 3,
+   "rewards": "28,000× Kina (Bound)"
+  },
+  {
+   "id": 432101200,
+   "tab": "dungeon",
+   "sub": "urugugu",
+   "period": "permanent",
+   "name": "Totem Destroyer",
+   "desc": "Destroy 20 Healing/Blazing Totems in Urugugu Canyon",
+   "steps": [
+    20
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:urugugu"
+   ],
+   "easy": 3,
+   "rewards": "Title: Totem Destroyer 2× Superior Benediction Scroll (Bound) 3,000× Kina (Bound)"
+  },
+  {
+   "id": 433100100,
+   "tab": "dungeon",
+   "sub": "vakron",
+   "period": "permanent",
+   "name": "Vakron Sky Island Exploration Clear",
+   "desc": "Clear Vakron Sky Island Exploration 1 time",
+   "steps": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:vakron"
+   ],
+   "easy": 4,
+   "rewards": "Title: Vakron Sky Island Sightseer 1,600× Enhance Stone 25,000× Kina (Bound)"
+  },
+  {
+   "id": 433100200,
+   "tab": "dungeon",
+   "sub": "vakron",
+   "period": "permanent",
+   "name": "Vakron Sky Island Conquest Clear",
+   "desc": "Clear Vakron Sky Island Conquest on Normal 1 time",
+   "steps": [
+    1,
+    3,
+    5,
+    10,
+    15,
+    20
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:vakron"
+   ],
+   "easy": 3,
+   "rewards": "Title: Vakron Sky Island Tour Guide 2,480× Enhance Stone 53,000× Kina (Bound)"
+  },
+  {
+   "id": 433100300,
+   "tab": "dungeon",
+   "sub": "vakron",
+   "period": "permanent",
+   "name": "Vakron Sky Island Exploration Speedrun",
+   "desc": "Clear Vakron Sky Island Exploration within 20 minutes",
+   "steps": [
+    1,
+    2
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:vakron"
+   ],
+   "easy": 2,
+   "rewards": "2× Resurrection Spiritstone (Bound) 7,000× Kina (Bound)"
+  },
+  {
+   "id": 433100400,
+   "tab": "dungeon",
+   "sub": "vakron",
+   "period": "permanent",
+   "name": "Vakron Sky Island Conquest Speedrun",
+   "desc": "Clear Vakron Sky Island Conquest on Normal within 20 minutes",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:vakron"
+   ],
+   "easy": 2,
+   "rewards": "3× Resurrection Spiritstone (Bound) 23,000× Kina (Bound)"
+  },
+  {
+   "id": 433100500,
+   "tab": "dungeon",
+   "sub": "vakron",
+   "period": "permanent",
+   "name": "Vakron Sky Island Exploration Perfect Clear",
+   "desc": "Clear Vakron Sky Island Exploration without dying",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:vakron"
+   ],
+   "easy": 2,
+   "rewards": "Soul Codex (Bound) 5,000× Kina (Bound)"
+  },
+  {
+   "id": 433100600,
+   "tab": "dungeon",
+   "sub": "vakron",
+   "period": "permanent",
+   "name": "Vakron Sky Island Conquest Perfect Clear",
+   "desc": "Clear Vakron Sky Island Conquest on Normal without dying",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:vakron"
+   ],
+   "easy": 2,
+   "rewards": "Soul Codex: Reset (Bound) 7,000× Kina (Bound)"
+  },
+  {
+   "id": 433100700,
+   "tab": "dungeon",
+   "sub": "vakron",
+   "period": "permanent",
+   "name": "Vakron Sky Island Exploration Solo Clear",
+   "desc": "Clear Vakron Sky Island Exploration solo",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:vakron"
+   ],
+   "easy": 1,
+   "rewards": "4,000× Kina (Bound)"
+  },
+  {
+   "id": 433100800,
+   "tab": "dungeon",
+   "sub": "vakron",
+   "period": "permanent",
+   "name": "Vakron Sky Island Conquest Solo Clear",
+   "desc": "Clear Vakron Sky Island Conquest on Normal solo",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:vakron"
+   ],
+   "easy": 1,
+   "rewards": "7,000× Kina (Bound)"
+  },
+  {
+   "id": 433101100,
+   "tab": "dungeon",
+   "sub": "vakron",
+   "period": "permanent",
+   "name": "I'm Pulling This",
+   "desc": "Defeat Tiere and Thamon 5 times in Vakron Sky Island",
+   "steps": [
+    5,
+    10,
+    15,
+    20
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:vakron"
+   ],
+   "easy": 3,
+   "rewards": "28,000× Kina (Bound)"
+  },
+  {
+   "id": 433101200,
+   "tab": "dungeon",
+   "sub": "vakron",
+   "period": "permanent",
+   "name": "Trampled Dream",
+   "desc": "Defeat 20 Island Guardian Archers in Vakron Sky Island",
+   "steps": [
+    20
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:vakron"
+   ],
+   "easy": 3,
+   "rewards": "Title: Good-for-Nothing 3,000× Kina (Bound)"
+  },
+  {
+   "id": 434100100,
+   "tab": "dungeon",
+   "sub": "fire-temple",
+   "period": "permanent",
+   "name": "Fire Temple Exploration Clear",
+   "desc": "Clear Fire Temple Exploration 1 time",
+   "steps": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:fire-temple"
+   ],
+   "easy": 4,
+   "rewards": "Title: Fire Temple Sightseer 1,600× Enhance Stone 25,000× Kina (Bound) 5× Lesser Manastone (Bound) 5× Lesser Soulstone (Bound)"
+  },
+  {
+   "id": 434100200,
+   "tab": "dungeon",
+   "sub": "fire-temple",
+   "period": "permanent",
+   "name": "Fire Temple Conquest Clear",
+   "desc": "Clear Fire Temple Conquest on Normal 1 time",
+   "steps": [
+    1,
+    3,
+    5,
+    10,
+    15,
+    20
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:fire-temple"
+   ],
+   "easy": 3,
+   "rewards": "Title: Fire Temple Tour Guide 2,480× Enhance Stone 53,000× Kina (Bound) Statue: Mirror of Desire (Bound)"
+  },
+  {
+   "id": 434100300,
+   "tab": "dungeon",
+   "sub": "fire-temple",
+   "period": "permanent",
+   "name": "Fire Temple Exploration Speedrun",
+   "desc": "Clear Fire Temple Exploration within 20 minutes",
+   "steps": [
+    1,
+    2
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:fire-temple"
+   ],
+   "easy": 2,
+   "rewards": "2× Resurrection Spiritstone (Bound) 7,000× Kina (Bound)"
+  },
+  {
+   "id": 434100400,
+   "tab": "dungeon",
+   "sub": "fire-temple",
+   "period": "permanent",
+   "name": "Fire Temple Conquest Speedrun",
+   "desc": "Clear Fire Temple Conquest on Normal within 20 minutes",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:fire-temple"
+   ],
+   "easy": 2,
+   "rewards": "3× Resurrection Spiritstone (Bound) 23,000× Kina (Bound)"
+  },
+  {
+   "id": 434100500,
+   "tab": "dungeon",
+   "sub": "fire-temple",
+   "period": "permanent",
+   "name": "Fire Temple Exploration Perfect Clear",
+   "desc": "Clear Fire Temple Exploration without dying",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:fire-temple"
+   ],
+   "easy": 2,
+   "rewards": "Soul Codex (Bound) 5,000× Kina (Bound)"
+  },
+  {
+   "id": 434100600,
+   "tab": "dungeon",
+   "sub": "fire-temple",
+   "period": "permanent",
+   "name": "Fire Temple Conquest Perfect Clear",
+   "desc": "Clear Fire Temple Conquest on Normal without dying",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:fire-temple"
+   ],
+   "easy": 2,
+   "rewards": "Soul Codex: Reset (Bound) 7,000× Kina (Bound)"
+  },
+  {
+   "id": 434100700,
+   "tab": "dungeon",
+   "sub": "fire-temple",
+   "period": "permanent",
+   "name": "Fire Temple Exploration Solo Clear",
+   "desc": "Clear Fire Temple Exploration solo",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:fire-temple"
+   ],
+   "easy": 1,
+   "rewards": "4,000× Kina (Bound)"
+  },
+  {
+   "id": 434100800,
+   "tab": "dungeon",
+   "sub": "fire-temple",
+   "period": "permanent",
+   "name": "Fire Temple Conquest Solo Clear",
+   "desc": "Clear Fire Temple Conquest on Normal solo",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:fire-temple"
+   ],
+   "easy": 1,
+   "rewards": "7,000× Kina (Bound)"
+  },
+  {
+   "id": 434101100,
+   "tab": "dungeon",
+   "sub": "fire-temple",
+   "period": "permanent",
+   "name": "I'm Pulling This",
+   "desc": "Defeat Red Spark Ignus and Black Smoke Murute in the Fire Temple 5 times",
+   "steps": [
+    5,
+    10,
+    15,
+    20
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:fire-temple"
+   ],
+   "easy": 3,
+   "rewards": "28,000× Kina (Bound)"
+  },
+  {
+   "id": 434101200,
+   "tab": "dungeon",
+   "sub": "fire-temple",
+   "period": "permanent",
+   "name": "First Taste of Fire",
+   "desc": "Defeat 5 Silver Blade Rotans in the Fire Temple",
+   "steps": [
+    5
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:fire-temple"
+   ],
+   "easy": 3,
+   "rewards": "3,000× Kina (Bound)"
+  },
+  {
+   "id": 434101300,
+   "tab": "dungeon",
+   "sub": "fire-temple",
+   "period": "permanent",
+   "name": "Sauna",
+   "desc": "Lie down in the Fire Temple Conquest Boss Room",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:fire-temple"
+   ],
+   "easy": 3,
+   "rewards": "Title: Kromede Will Remember That 3,000× Kina (Bound)"
+  },
+  {
+   "id": 434101400,
+   "tab": "dungeon",
+   "sub": "fire-temple",
+   "period": "permanent",
+   "name": "The Cold Never Bothered Me Anyway!",
+   "desc": "Operate the Coolant Console in the Fire Temple 10 times",
+   "steps": [
+    10
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:fire-temple"
+   ],
+   "easy": 3,
+   "rewards": "Mana Potion (Bound) 4,000× Kina (Bound)"
+  },
+  {
+   "id": 435100100,
+   "tab": "dungeon",
+   "sub": "horn-den",
+   "period": "permanent",
+   "name": "Ferocious Horn Den Exploration Clear",
+   "desc": "Clear Ferocious Horn Den Exploration 1 time",
+   "steps": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:horn-den"
+   ],
+   "easy": 4,
+   "rewards": "Title: Ferocious Horn Den Sightseer 1,600× Enhance Stone 25,000× Kina (Bound)"
+  },
+  {
+   "id": 435100200,
+   "tab": "dungeon",
+   "sub": "horn-den",
+   "period": "permanent",
+   "name": "Ferocious Horn Den Conquest Clear",
+   "desc": "Clear Ferocious Horn Den Conquest on Normal 1 time",
+   "steps": [
+    1,
+    3,
+    5,
+    10,
+    15,
+    20
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:horn-den"
+   ],
+   "easy": 3,
+   "rewards": "Title: Ferocious Horn Den Tour Guide 2,480× Enhance Stone 53,000× Kina (Bound)"
+  },
+  {
+   "id": 435100300,
+   "tab": "dungeon",
+   "sub": "horn-den",
+   "period": "permanent",
+   "name": "Ferocious Horn Den Exploration Speedrun",
+   "desc": "Clear Ferocious Horn Den Exploration within 20 minutes",
+   "steps": [
+    1,
+    2
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:horn-den"
+   ],
+   "easy": 2,
+   "rewards": "2× Resurrection Spiritstone (Bound) 7,000× Kina (Bound)"
+  },
+  {
+   "id": 435100400,
+   "tab": "dungeon",
+   "sub": "horn-den",
+   "period": "permanent",
+   "name": "Ferocious Horn Den Conquest Speedrun",
+   "desc": "Clear Ferocious Horn Den Conquest on Normal within 20 minutes",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:horn-den"
+   ],
+   "easy": 2,
+   "rewards": "3× Resurrection Spiritstone (Bound) 23,000× Kina (Bound)"
+  },
+  {
+   "id": 435100500,
+   "tab": "dungeon",
+   "sub": "horn-den",
+   "period": "permanent",
+   "name": "Ferocious Horn Den Exploration Perfect Clear",
+   "desc": "Clear Ferocious Horn Den Exploration without dying",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:horn-den"
+   ],
+   "easy": 2,
+   "rewards": "Soul Codex (Bound) 5,000× Kina (Bound)"
+  },
+  {
+   "id": 435100600,
+   "tab": "dungeon",
+   "sub": "horn-den",
+   "period": "permanent",
+   "name": "Ferocious Horn Den Conquest Perfect Clear",
+   "desc": "Clear Ferocious Horn Den Conquest on Normal without dying",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:horn-den"
+   ],
+   "easy": 2,
+   "rewards": "Soul Codex: Reset (Bound) 7,000× Kina (Bound)"
+  },
+  {
+   "id": 435100700,
+   "tab": "dungeon",
+   "sub": "horn-den",
+   "period": "permanent",
+   "name": "Ferocious Horn Den Exploration Solo Clear",
+   "desc": "Clear Ferocious Horn Den Exploration solo",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:horn-den"
+   ],
+   "easy": 1,
+   "rewards": "4,000× Kina (Bound)"
+  },
+  {
+   "id": 435100800,
+   "tab": "dungeon",
+   "sub": "horn-den",
+   "period": "permanent",
+   "name": "Ferocious Horn Den Conquest Solo Clear",
+   "desc": "Clear Ferocious Horn Den Conquest on Normal solo",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:horn-den"
+   ],
+   "easy": 1,
+   "rewards": "7,000× Kina (Bound)"
+  },
+  {
+   "id": 435101100,
+   "tab": "dungeon",
+   "sub": "horn-den",
+   "period": "permanent",
+   "name": "I'm Pulling This",
+   "desc": "Defeat Watchdog Kwapo and Necromancer Duanka in Ferocious Horn Den 5 times",
+   "steps": [
+    5,
+    10,
+    15,
+    20
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:horn-den"
+   ],
+   "easy": 3,
+   "rewards": "28,000× Kina (Bound)"
+  },
+  {
+   "id": 435101200,
+   "tab": "dungeon",
+   "sub": "horn-den",
+   "period": "permanent",
+   "name": "Faith in the Totem",
+   "desc": "Destroy 20 Mau/Fafnite Totems in Ferocious Horn Den",
+   "steps": [
+    20
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:horn-den"
+   ],
+   "easy": 3,
+   "rewards": "Title: Hey! I'm Walkin' Here! Battle Enhance Scroll (Bound) 3,000× Kina (Bound)"
+  },
+  {
+   "id": 436100100,
+   "tab": "dungeon",
+   "sub": "sanctuary",
+   "period": "permanent",
+   "name": "Abyssal Forge: Ludra Clear",
+   "desc": "Clear Abyssal Forge: Ludra 1 time",
+   "steps": [
+    1,
+    2,
+    3,
+    5,
+    8,
+    10
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:sanctuary"
+   ],
+   "easy": 2,
+   "rewards": "3,530× Enhance Stone 53,000× Kina (Bound) Artwork: Abyssal Ludra (Bound)"
+  },
+  {
+   "id": 436100200,
+   "tab": "dungeon",
+   "sub": "sanctuary",
+   "period": "permanent",
+   "name": "Abyssal Forge: Ludra Speedrun",
+   "desc": "Clear Abyssal Forge: Ludra within 40 minutes",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:sanctuary"
+   ],
+   "easy": 1,
+   "rewards": "3× Resurrection Spiritstone (Bound) 23,000× Kina (Bound)"
+  },
+  {
+   "id": 436100300,
+   "tab": "dungeon",
+   "sub": "sanctuary",
+   "period": "permanent",
+   "name": "Abyssal Forge: Ludra Perfect Clear",
+   "desc": "Clear Abyssal Forge: Ludra without dying",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:sanctuary"
+   ],
+   "easy": 2,
+   "rewards": "Soul Codex: Reset (Bound) 7,000× Kina (Bound)"
+  },
+  {
+   "id": 436100500,
+   "tab": "dungeon",
+   "sub": "sanctuary",
+   "period": "permanent",
+   "name": "From the Bottom Up",
+   "desc": "Defeat 100 Ludra Followers in Abyssal Forge: Ludra",
+   "steps": [
+    100,
+    300,
+    1000,
+    2000,
+    3000
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:sanctuary"
+   ],
+   "easy": 2,
+   "rewards": "6× Soul Codex (Bound) 40,000× Kina (Bound)"
+  },
+  {
+   "id": 436100600,
+   "tab": "dungeon",
+   "sub": "sanctuary",
+   "period": "permanent",
+   "name": "Who's Next?",
+   "desc": "Defeat Isolation Specialist Rahu and Abyssal Wings Ketu in Abyssal Forge: Ludra 5 times",
+   "steps": [
+    5,
+    10,
+    15,
+    20
+   ],
+   "unit": "",
+   "where": [
+    "dungeon:sanctuary"
+   ],
+   "easy": 2,
+   "rewards": "8× Amplify Stone Fragment (Unique) (Bound) 36,000× Kina (Bound)"
+  },
+  {
+   "id": 440100400,
+   "tab": "resource",
+   "sub": "gear-collection",
+   "period": "permanent",
+   "name": "Decent Gear",
+   "desc": "Obtain 5 pieces of Common Gear",
+   "steps": [
+    5,
+    30,
+    60,
+    100,
+    150,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "46,000× Kina (Bound)"
+  },
+  {
+   "id": 440100500,
+   "tab": "resource",
+   "sub": "gear-collection",
+   "period": "permanent",
+   "name": "Rare Gear",
+   "desc": "Obtain 5 pieces of Rare Gear",
+   "steps": [
+    5,
+    30,
+    60,
+    100,
+    150,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "1,910× Enhance Stone 46,000× Kina (Bound)"
+  },
+  {
+   "id": 440100600,
+   "tab": "resource",
+   "sub": "gear-collection",
+   "period": "permanent",
+   "name": "Legendary Gear",
+   "desc": "Obtain 5 pieces of Epic Gear",
+   "steps": [
+    5,
+    20,
+    50,
+    100,
+    150,
+    200,
+    300
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "2,450× Enhance Stone 48,000× Kina (Bound)"
+  },
+  {
+   "id": 440100700,
+   "tab": "resource",
+   "sub": "gear-collection",
+   "period": "permanent",
+   "name": "One-of-a-Kind Gear",
+   "desc": "Obtain 3 pieces of Unique Gear",
+   "steps": [
+    3,
+    10,
+    30,
+    50,
+    100,
+    150,
+    200
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "3,210× Enhance Stone 53,000× Kina (Bound)"
+  },
+  {
+   "id": 440100800,
+   "tab": "resource",
+   "sub": "gear-collection",
+   "period": "permanent",
+   "name": "Fashionista",
+   "desc": "Collect 10 Skins",
+   "steps": [
+    10,
+    50,
+    100,
+    200,
+    300,
+    500,
+    700,
+    1000
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: Fashionista , Fashion Forward , Empty Closet 83,000× Kina (Bound) 5× Lucky Aura (Bound) 4× Lucky Aura: Rare (Bound) Lucky Aura: Epic (Bound)"
+  },
+  {
+   "id": 440100900,
+   "tab": "resource",
+   "sub": "gear-collection",
+   "period": "permanent",
+   "name": "Boss Imitator",
+   "desc": "Collect 30 Unique Field Monster, Boss Armor Skins",
+   "steps": [
+    30,
+    60,
+    90,
+    120,
+    150,
+    200,
+    250,
+    300
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "6× Lucky Aura (Bound) 83,000× Kina (Bound) 6× Lucky Aura: Rare (Bound)"
+  },
+  {
+   "id": 440101000,
+   "tab": "resource",
+   "sub": "gear-collection",
+   "period": "permanent",
+   "name": "Tastes Found in Danger",
+   "desc": "Collect 10 Expedition Conquest Skins",
+   "steps": [
+    10,
+    20,
+    30,
+    50,
+    70
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "3× Lucky Aura (Bound) 27,000× Kina (Bound) 2× Lucky Aura: Rare (Bound)"
+  },
+  {
+   "id": 440101200,
+   "tab": "resource",
+   "sub": "gear-collection",
+   "period": "permanent",
+   "name": "Poko's Friend",
+   "desc": "Collect 7 Poko's Bundle Armor Skins",
+   "steps": [
+    7,
+    15,
+    26
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "2× Lucky Aura (Bound) 18,000× Kina (Bound) Lucky Aura: Rare (Bound)"
+  },
+  {
+   "id": 440101300,
+   "tab": "resource",
+   "sub": "gear-collection",
+   "period": "permanent",
+   "name": "Au Naturel Orichalcum",
+   "desc": "Collect 10 Crafted Armor Skins",
+   "steps": [
+    10,
+    25,
+    49
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "2× Lucky Aura (Bound) 18,000× Kina (Bound) Lucky Aura: Rare (Bound)"
+  },
+  {
+   "id": 440101400,
+   "tab": "resource",
+   "sub": "gear-collection",
+   "period": "permanent",
+   "name": "Veteran Wing Collector",
+   "desc": "Collect 3 Wings",
+   "steps": [
+    3,
+    7,
+    12,
+    18,
+    25
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: Shaking Off the World's Shackles , Dominator of Dimensions 5× Key: Hidden Cube (Bound) 40,000× Kina (Bound)"
+  },
+  {
+   "id": 440101600,
+   "tab": "resource",
+   "sub": "gear-collection",
+   "period": "permanent",
+   "name": "Joyful Wings",
+   "desc": "Collect 3 Shugo Festival Wings",
+   "steps": [
+    3
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "7,000× Kina (Bound) 65× Centuryroot Token"
+  },
+  {
+   "id": 440101700,
+   "tab": "resource",
+   "sub": "gear-collection",
+   "period": "permanent",
+   "name": "Poko's Wings",
+   "desc": "Collect 3 Poko's Bundle Wings",
+   "steps": [
+    3
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "2× Radiant Odyle (Bound) 7,000× Kina (Bound)"
+  },
+  {
+   "id": 440101800,
+   "tab": "resource",
+   "sub": "gear-collection",
+   "period": "permanent",
+   "name": "Transformation Whizz",
+   "desc": "Collect 5 Titles",
+   "steps": [
+    5,
+    20,
+    50,
+    100,
+    150,
+    200,
+    250
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: Going Around in Circles , Transformation Whizz 46,000× Kina (Bound)"
+  },
+  {
+   "id": 440102300,
+   "tab": "resource",
+   "sub": "gear-collection",
+   "period": "permanent",
+   "name": "Shugo Collection",
+   "desc": "Collect 1 Unique Shugo Festival Artwork",
+   "steps": [
+    1,
+    3,
+    5,
+    7,
+    9,
+    10
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: Scenery Collector , Click 3× Shugo Festival Reward Key (Bound) 60,000× Kina (Bound) 3× Key: Hidden Cube (Bound)"
+  },
+  {
+   "id": 440102400,
+   "tab": "resource",
+   "sub": "gear-collection",
+   "period": "permanent",
+   "name": "Conquering Boots Artwork",
+   "desc": "Collect 1 Unique Expedition Artwork",
+   "steps": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: At Your Own Pace , Steps on the Journey 6× Fine Odyle (Bound) 60,000× Kina (Bound) 6× Pure Odyle (Bound) 4× Radiant Odyle (Bound)"
+  },
+  {
+   "id": 440102500,
+   "tab": "resource",
+   "sub": "gear-collection",
+   "period": "permanent",
+   "name": "Nightmare Statue",
+   "desc": "Collect 1 Unique Nightmare Statue",
+   "steps": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: Ferocious Statue , Twinkling Eyes 3× Nightmare Dungeon Challenge Ticket (Bound) 60,000× Kina (Bound) 3× Resurrection Spiritstone (Bound)"
+  },
+  {
+   "id": 440102600,
+   "tab": "resource",
+   "sub": "gear-collection",
+   "period": "permanent",
+   "name": "Boss Loot",
+   "desc": "Collect 1 Unique Field Monster, Boss Artwork",
+   "steps": [
+    1,
+    3,
+    5,
+    7,
+    9,
+    11,
+    13
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: Keen Eye , Genuine Masterpiece 10× Refining Stone (Bound) 85,000× Kina (Bound) 8× Expert's Refining Stone (Bound) 6× Artisan's Refining Stone (Bound) 2× Artisan's Ultimate Refining Stone (Bound)"
+  },
+  {
+   "id": 441100200,
+   "tab": "resource",
+   "sub": "consumables",
+   "period": "permanent",
+   "name": "Foodie",
+   "desc": "Use a Food Item 10 times",
+   "steps": [
+    10,
+    30,
+    100,
+    200,
+    400,
+    700,
+    1000
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 5,
+   "rewards": "46,000× Kina (Bound) 6× Life Crystal (Bound)"
+  },
+  {
+   "id": 441100300,
+   "tab": "resource",
+   "sub": "consumables",
+   "period": "permanent",
+   "name": "Sweet Tooth",
+   "desc": "Use a Transformation Candy 1 time",
+   "steps": [
+    1,
+    5,
+    10,
+    30,
+    50
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 5,
+   "rewards": "27,000× Kina (Bound)"
+  },
+  {
+   "id": 441100500,
+   "tab": "resource",
+   "sub": "consumables",
+   "period": "permanent",
+   "name": "Kisk Installer",
+   "desc": "Install a Kisk 5 times",
+   "steps": [
+    5,
+    10,
+    30,
+    60,
+    100
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 4,
+   "rewards": "13× Status Effect Resist Scroll (Bound) 40,000× Kina (Bound)"
+  },
+  {
+   "id": 441100600,
+   "tab": "resource",
+   "sub": "consumables",
+   "period": "permanent",
+   "name": "Kisk User",
+   "desc": "Register a Kisk installed by another player 5 times",
+   "steps": [
+    5,
+    10,
+    30,
+    60,
+    100
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 3,
+   "rewards": "12× Courage Scroll (Bound) 27,000× Kina (Bound)"
+  },
+  {
+   "id": 441100700,
+   "tab": "resource",
+   "sub": "consumables",
+   "period": "permanent",
+   "name": "The Joy of Spending",
+   "desc": "Spend 100,000 Kina at Merchants",
+   "steps": [
+    100000,
+    500000,
+    1000000,
+    5000000,
+    10000000,
+    50000000
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 3,
+   "rewards": "Title: High Roller 36,000× Kina (Bound)"
+  },
+  {
+   "id": 441100800,
+   "tab": "resource",
+   "sub": "consumables",
+   "period": "permanent",
+   "name": "Black Cloud Merchants Regular",
+   "desc": "Purchase 5 items at Black Cloud Merchants",
+   "steps": [
+    5,
+    10,
+    30,
+    60,
+    100
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 3,
+   "rewards": "Title: Big Spender 27,000× Kina (Bound)"
+  },
+  {
+   "id": 441100900,
+   "tab": "resource",
+   "sub": "consumables",
+   "period": "permanent",
+   "name": "Storage Keeper",
+   "desc": "Store items in the Storage 5 times",
+   "steps": [
+    5,
+    20,
+    50,
+    100,
+    150,
+    200,
+    300
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 5,
+   "rewards": "Title: No Heavy Lifting! 46,000× Kina (Bound)"
+  },
+  {
+   "id": 443100100,
+   "tab": "resource",
+   "sub": "enhancement",
+   "period": "permanent",
+   "name": "Common and Beyond",
+   "desc": "Enhance Common Gear to +5",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: Splendent Glow Soul Codex (Bound) 2,000× Kina (Bound)"
+  },
+  {
+   "id": 443100200,
+   "tab": "resource",
+   "sub": "enhancement",
+   "period": "permanent",
+   "name": "Rare and Beyond I",
+   "desc": "Enhance Rare Gear to +5",
+   "steps": [
+    1
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: Green Glow Soul Codex (Bound) 3,000× Kina (Bound)"
+  },
+  {
+   "id": 443100300,
+   "tab": "resource",
+   "sub": "enhancement",
+   "period": "permanent",
+   "name": "Legendary Gambler's Challenge",
+   "desc": "Enhance Epic Gear to +5",
+   "steps": [
+    1,
+    2,
+    3
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: Azure Glow 3× Soul Codex (Bound) 18,000× Kina (Bound)"
+  },
+  {
+   "id": 443100400,
+   "tab": "resource",
+   "sub": "enhancement",
+   "period": "permanent",
+   "name": "Tailor-Made",
+   "desc": "Enhance Unique Gear to +5",
+   "steps": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: Golden Glow 7× Soul Codex (Bound) 51,000× Kina (Bound)"
+  },
+  {
+   "id": 443100600,
+   "tab": "resource",
+   "sub": "enhancement",
+   "period": "permanent",
+   "name": "Power of Steady Enhancement",
+   "desc": "Enhance gear 10 times",
+   "steps": [
+    10,
+    50,
+    100,
+    200,
+    300,
+    500,
+    700,
+    1000
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 4,
+   "rewards": "Title: Pouring Water into a Sieve 4,110× Enhance Stone 57,000× Kina (Bound)"
+  },
+  {
+   "id": 443100700,
+   "tab": "resource",
+   "sub": "enhancement",
+   "period": "permanent",
+   "name": "Minimum Standards",
+   "desc": "Enhance 5 pieces of gear to +10 or higher",
+   "steps": [
+    5,
+    20,
+    50,
+    100,
+    150,
+    200,
+    300
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "67,000× Kina (Bound)"
+  },
+  {
+   "id": 443100800,
+   "tab": "resource",
+   "sub": "enhancement",
+   "period": "permanent",
+   "name": "Filled with Manastone",
+   "desc": "Bind Manastone and Soulstone to gear 5 times",
+   "steps": [
+    5,
+    30,
+    60,
+    100,
+    150,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 4,
+   "rewards": "6× Lesser Manastone (Bound) 46,000× Kina (Bound) 5× Intermediate Manastone (Bound) 3× Superior Manastone (Bound)"
+  },
+  {
+   "id": 443100900,
+   "tab": "resource",
+   "sub": "enhancement",
+   "period": "permanent",
+   "name": "Filled with Abyssal Manastone",
+   "desc": "Bind Manastones and Soulstones of Ultimate grade or greater to gear 5 times",
+   "steps": [
+    5,
+    20,
+    50,
+    100,
+    150,
+    200,
+    300
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "4× Lesser Abyssal Manastone (Bound) 67,000× Kina (Bound) 2× Intermediate Abyssal Manastone (Bound) 6× Superior Abyssal Manastone (Bound)"
+  },
+  {
+   "id": 443101000,
+   "tab": "resource",
+   "sub": "enhancement",
+   "period": "permanent",
+   "name": "Rare Divine Stone",
+   "desc": "Bind Rare Theostones to gear 3 times",
+   "steps": [
+    3,
+    5,
+    7,
+    10
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "19,000× Kina (Bound)"
+  },
+  {
+   "id": 443101100,
+   "tab": "resource",
+   "sub": "enhancement",
+   "period": "permanent",
+   "name": "Legendary Divine Stone",
+   "desc": "Bind Epic Theostones to gear 3 times",
+   "steps": [
+    3,
+    5,
+    7,
+    10
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "28,000× Kina (Bound)"
+  },
+  {
+   "id": 443101200,
+   "tab": "resource",
+   "sub": "enhancement",
+   "period": "permanent",
+   "name": "Unique Divine Stone",
+   "desc": "Bind Unique Theostones to gear 3 times",
+   "steps": [
+    3,
+    5,
+    7,
+    10
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "44,000× Kina (Bound)"
+  },
+  {
+   "id": 443101300,
+   "tab": "resource",
+   "sub": "enhancement",
+   "period": "permanent",
+   "name": "Aiming Higher: Epic",
+   "desc": "Obtain 5 Epic Theostones by combining Rare Theostones",
+   "steps": [
+    5,
+    10,
+    30,
+    60,
+    100
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "40,000× Kina (Bound)"
+  },
+  {
+   "id": 443101400,
+   "tab": "resource",
+   "sub": "enhancement",
+   "period": "permanent",
+   "name": "Aiming Higher: Unique",
+   "desc": "Obtain 1 Unique Theostone by combining Epic Theostones",
+   "steps": [
+    1,
+    5,
+    10,
+    30,
+    50
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "51,000× Kina (Bound)"
+  },
+  {
+   "id": 443101500,
+   "tab": "resource",
+   "sub": "enhancement",
+   "period": "permanent",
+   "name": "Fulfilled Soul",
+   "desc": "Achieve 100% Soul Binding on 1 piece of gear",
+   "steps": [
+    1,
+    5,
+    10,
+    20,
+    30,
+    40,
+    50
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: Perfectionist 80× Enhance Stone 65,000× Kina (Bound) 9× Soul Codex (Bound)"
+  },
+  {
+   "id": 443101600,
+   "tab": "resource",
+   "sub": "enhancement",
+   "period": "permanent",
+   "name": "Soulful Rare Gear",
+   "desc": "Perform Soul Binding on Rare Gear 5 times",
+   "steps": [
+    5,
+    10,
+    30,
+    60,
+    100
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 3,
+   "rewards": "27,000× Kina (Bound)"
+  },
+  {
+   "id": 443101700,
+   "tab": "resource",
+   "sub": "enhancement",
+   "period": "permanent",
+   "name": "Soulful Legendary Gear",
+   "desc": "Perform Soul Binding on Epic Gear 5 times",
+   "steps": [
+    5,
+    10,
+    30,
+    60,
+    100
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 3,
+   "rewards": "40,000× Kina (Bound)"
+  },
+  {
+   "id": 443101800,
+   "tab": "resource",
+   "sub": "enhancement",
+   "period": "permanent",
+   "name": "Soulful Unique Gear",
+   "desc": "Perform Soul Binding on Unique Gear 5 times",
+   "steps": [
+    5,
+    10,
+    30,
+    60,
+    100
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "51,000× Kina (Bound)"
+  },
+  {
+   "id": 443101900,
+   "tab": "resource",
+   "sub": "enhancement",
+   "period": "permanent",
+   "name": "Rare Extraction",
+   "desc": "Extract Rare Gear 5 times",
+   "steps": [
+    5,
+    20,
+    50,
+    100,
+    150,
+    200,
+    300
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 4,
+   "rewards": "46,000× Kina (Bound)"
+  },
+  {
+   "id": 443102000,
+   "tab": "resource",
+   "sub": "enhancement",
+   "period": "permanent",
+   "name": "Epic Extraction",
+   "desc": "Extract Epic Gear 5 times",
+   "steps": [
+    5,
+    20,
+    50,
+    100,
+    150,
+    200,
+    300
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 4,
+   "rewards": "67,000× Kina (Bound)"
+  },
+  {
+   "id": 443102100,
+   "tab": "resource",
+   "sub": "enhancement",
+   "period": "permanent",
+   "name": "Unique Extraction",
+   "desc": "Extract Unique Gear 5 times",
+   "steps": [
+    5,
+    20,
+    50,
+    100,
+    150,
+    200,
+    300
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "86,000× Kina (Bound)"
+  },
+  {
+   "id": 443102200,
+   "tab": "resource",
+   "sub": "enhancement",
+   "period": "permanent",
+   "name": "Shaky Extraction",
+   "desc": "Extract +10 or higher gear 5 times",
+   "steps": [
+    5,
+    10,
+    30,
+    60,
+    100
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: Extractor 40,000× Kina (Bound)"
+  },
+  {
+   "id": 444100100,
+   "tab": "resource",
+   "sub": "gathering",
+   "period": "permanent",
+   "name": "Essence Extraction Specialist",
+   "desc": "Reach Novice Essence Extraction Proficiency Level 50",
+   "steps": [
+    50,
+    100
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: Professional Extractor , The World Is My Resource 2× Key: Hidden Cube (Bound) 21,000× Kina (Bound)"
+  },
+  {
+   "id": 444100200,
+   "tab": "resource",
+   "sub": "gathering",
+   "period": "permanent",
+   "name": "Ore Collector",
+   "desc": "Successfully gather 10 Ore",
+   "steps": [
+    10,
+    50,
+    100,
+    200,
+    300,
+    500,
+    700,
+    1000
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 4,
+   "rewards": "9× Refining Stone (Bound) 57,000× Kina (Bound) 8× Expert's Refining Stone (Bound) 6× Artisan's Refining Stone (Bound) 2× Artisan's Ultimate Refining Stone (Bound)"
+  },
+  {
+   "id": 444100300,
+   "tab": "resource",
+   "sub": "gathering",
+   "period": "permanent",
+   "name": "Gem Collector",
+   "desc": "Successfully gather 10 Gems",
+   "steps": [
+    10,
+    50,
+    100,
+    200,
+    300,
+    500,
+    700,
+    1000
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 4,
+   "rewards": "11× Refining Stone (Bound) 83,000× Kina (Bound) 9× Expert's Refining Stone (Bound) 7× Artisan's Refining Stone (Bound) 2× Artisan's Ultimate Refining Stone (Bound)"
+  },
+  {
+   "id": 444100400,
+   "tab": "resource",
+   "sub": "gathering",
+   "period": "permanent",
+   "name": "Log Collector",
+   "desc": "Successfully gather 10 Logs",
+   "steps": [
+    10,
+    50,
+    100,
+    200,
+    300,
+    500,
+    700,
+    1000
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 4,
+   "rewards": "9× Refining Stone (Bound) 57,000× Kina (Bound) 8× Expert's Refining Stone (Bound) 6× Artisan's Refining Stone (Bound) 2× Artisan's Ultimate Refining Stone (Bound)"
+  },
+  {
+   "id": 444100500,
+   "tab": "resource",
+   "sub": "gathering",
+   "period": "permanent",
+   "name": "Herb Collector",
+   "desc": "Successfully gather 10 Herbs",
+   "steps": [
+    10,
+    50,
+    100,
+    200,
+    300,
+    500,
+    700,
+    1000
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 4,
+   "rewards": "9× Refining Stone (Bound) 57,000× Kina (Bound) 8× Expert's Refining Stone (Bound) 6× Artisan's Refining Stone (Bound) 2× Artisan's Ultimate Refining Stone (Bound)"
+  },
+  {
+   "id": 444100600,
+   "tab": "resource",
+   "sub": "gathering",
+   "period": "permanent",
+   "name": "Searching for Cooking Ingredients",
+   "desc": "Successfully gather 10 Cooking Ingredients",
+   "steps": [
+    10,
+    50,
+    100,
+    200,
+    300,
+    500,
+    700,
+    1000
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 4,
+   "rewards": "9× Refining Stone (Bound) 57,000× Kina (Bound) 8× Expert's Refining Stone (Bound) 6× Artisan's Refining Stone (Bound) 2× Artisan's Ultimate Refining Stone (Bound)"
+  },
+  {
+   "id": 444100700,
+   "tab": "resource",
+   "sub": "gathering",
+   "period": "permanent",
+   "name": "Skybound Treasure",
+   "desc": "Successfully gather 5 Odyle",
+   "steps": [
+    5,
+    30,
+    60,
+    100,
+    150,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [
+    "abyss"
+   ],
+   "easy": 0,
+   "rewards": "Title: Extracting in My Sleep 7× Refining Stone (Bound) 67,000× Kina (Bound) 8× Expert's Refining Stone (Bound) 6× Artisan's Refining Stone (Bound) 2× Artisan's Ultimate Refining Stone (Bound)"
+  },
+  {
+   "id": 444100800,
+   "tab": "resource",
+   "sub": "gathering",
+   "period": "permanent",
+   "name": "Lucky Gatherer",
+   "desc": "Trigger Critical Surge during Essence Extraction 5 times",
+   "steps": [
+    5,
+    20,
+    50,
+    100,
+    150,
+    200,
+    300
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 3,
+   "rewards": "46,000× Kina (Bound)"
+  },
+  {
+   "id": 444101300,
+   "tab": "resource",
+   "sub": "gathering",
+   "period": "permanent",
+   "name": "Transmutation Magic",
+   "desc": "Obtain 5 Gathered Materials through Substance Morph",
+   "steps": [
+    5,
+    10,
+    30,
+    60,
+    100
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 3,
+   "rewards": "6× Wind Serum (Bound) 27,000× Kina (Bound) 3× Superior Wind Serum (Bound)"
+  },
+  {
+   "id": 444101400,
+   "tab": "resource",
+   "sub": "gathering",
+   "period": "permanent",
+   "name": "Pursuit of Fine Materials",
+   "desc": "Obtain 5 Fine Gathered Materials through Substance Morph",
+   "steps": [
+    5,
+    10,
+    30,
+    60,
+    100
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 3,
+   "rewards": "6× Wind Serum (Bound) 27,000× Kina (Bound) 3× Superior Wind Serum (Bound)"
+  },
+  {
+   "id": 444101500,
+   "tab": "resource",
+   "sub": "gathering",
+   "period": "permanent",
+   "name": "Purifying Materials",
+   "desc": "Obtain a Pure Gathered Material through Substance Morph",
+   "steps": [
+    1,
+    5,
+    10,
+    30,
+    50
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 3,
+   "rewards": "7× Wind Serum (Bound) 40,000× Kina (Bound) 4× Superior Wind Serum (Bound)"
+  },
+  {
+   "id": 444101600,
+   "tab": "resource",
+   "sub": "gathering",
+   "period": "permanent",
+   "name": "Radiantly Splendent Essence",
+   "desc": "Obtain a Radiant Gathered Material through Substance Morph",
+   "steps": [
+    1,
+    5,
+    10,
+    30,
+    50
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 3,
+   "rewards": "7× Wind Serum (Bound) 51,000× Kina (Bound) 5× Superior Wind Serum (Bound)"
+  },
+  {
+   "id": 445100100,
+   "tab": "resource",
+   "sub": "crafting",
+   "period": "permanent",
+   "name": "Blacksmithing Specialist",
+   "desc": "Reach Crafting: Novice Blacksmithing Proficiency Level 50",
+   "steps": [
+    50,
+    100
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: Artisan Blacksmith , Blacksmithing Is Life 2× Artisan's Refining Stone (Bound) 21,000× Kina (Bound) 2× Artisan's Ultimate Refining Stone (Bound)"
+  },
+  {
+   "id": 445100200,
+   "tab": "resource",
+   "sub": "crafting",
+   "period": "permanent",
+   "name": "Endless Hammering",
+   "desc": "Succeed in Crafting: Blacksmithing 5 times",
+   "steps": [
+    5,
+    30,
+    60,
+    100,
+    150,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 4,
+   "rewards": "Title: Iron Arm 6× Odyle (Bound) 46,000× Kina (Bound) 7× Fine Odyle (Bound) 6× Pure Odyle (Bound) 2× Radiant Odyle (Bound)"
+  },
+  {
+   "id": 445100300,
+   "tab": "resource",
+   "sub": "crafting",
+   "period": "permanent",
+   "name": "Lucky Weapon",
+   "desc": "Succeed in Crafting: Blacksmithing Combo 5 times",
+   "steps": [
+    5,
+    10,
+    30,
+    60,
+    100
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 3,
+   "rewards": "40,000× Kina (Bound)"
+  },
+  {
+   "id": 445100400,
+   "tab": "resource",
+   "sub": "crafting",
+   "period": "permanent",
+   "name": "Armorsmithing Specialist",
+   "desc": "Reach Crafting: Novice Armorsmithing Proficiency Level 50",
+   "steps": [
+    50,
+    100
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: Artisan Armorsmith , Warriors' Idol 2× Artisan's Refining Stone (Bound) 21,000× Kina (Bound) 2× Artisan's Ultimate Refining Stone (Bound)"
+  },
+  {
+   "id": 445100500,
+   "tab": "resource",
+   "sub": "crafting",
+   "period": "permanent",
+   "name": "Resilient Armor",
+   "desc": "Succeed in Crafting: Armorsmithing 5 times",
+   "steps": [
+    5,
+    30,
+    60,
+    100,
+    150,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 4,
+   "rewards": "Title: Reliable Ally 6× Odyle (Bound) 46,000× Kina (Bound) 7× Fine Odyle (Bound) 6× Pure Odyle (Bound) 2× Radiant Odyle (Bound)"
+  },
+  {
+   "id": 445100600,
+   "tab": "resource",
+   "sub": "crafting",
+   "period": "permanent",
+   "name": "Lucky Armor",
+   "desc": "Succeed in Crafting: Armorsmithing Combo 5 times",
+   "steps": [
+    5,
+    10,
+    30,
+    60,
+    100
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 3,
+   "rewards": "40,000× Kina (Bound)"
+  },
+  {
+   "id": 445100700,
+   "tab": "resource",
+   "sub": "crafting",
+   "period": "permanent",
+   "name": "Handicrafting Specialist",
+   "desc": "Reach Crafting: Novice Handicrafting Proficiency Level 50",
+   "steps": [
+    50,
+    100
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: Artisan Handicrafter , You're My Gem 2× Artisan's Refining Stone (Bound) 21,000× Kina (Bound) 2× Artisan's Ultimate Refining Stone (Bound)"
+  },
+  {
+   "id": 445100800,
+   "tab": "resource",
+   "sub": "crafting",
+   "period": "permanent",
+   "name": "Detail Oriented",
+   "desc": "Succeed in Crafting: Handicrafting 5 times",
+   "steps": [
+    5,
+    30,
+    60,
+    100,
+    150,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 4,
+   "rewards": "Title: Extreme Detailing 6× Odyle (Bound) 46,000× Kina (Bound) 7× Fine Odyle (Bound) 6× Pure Odyle (Bound) 2× Radiant Odyle (Bound)"
+  },
+  {
+   "id": 445100900,
+   "tab": "resource",
+   "sub": "crafting",
+   "period": "permanent",
+   "name": "Lucky Gem",
+   "desc": "Succeed in Crafting: Handicrafting Combo 5 times",
+   "steps": [
+    5,
+    10,
+    30,
+    60,
+    100
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 3,
+   "rewards": "40,000× Kina (Bound)"
+  },
+  {
+   "id": 445101000,
+   "tab": "resource",
+   "sub": "crafting",
+   "period": "permanent",
+   "name": "Alchemy Specialist",
+   "desc": "Reach Crafting: Novice Alchemy Proficiency Level 50",
+   "steps": [
+    50,
+    100
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: Artisan Alchemist , Something from Nothing 2× Artisan's Refining Stone (Bound) 21,000× Kina (Bound) 2× Artisan's Ultimate Refining Stone (Bound)"
+  },
+  {
+   "id": 445101100,
+   "tab": "resource",
+   "sub": "crafting",
+   "period": "permanent",
+   "name": "Astonishing Alchemy",
+   "desc": "Succeed in Crafting: Alchemy 5 times",
+   "steps": [
+    5,
+    30,
+    60,
+    100,
+    150,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 4,
+   "rewards": "Title: Seeker of Truths 6× Odyle (Bound) 46,000× Kina (Bound) 7× Fine Odyle (Bound) 6× Pure Odyle (Bound) 2× Radiant Odyle (Bound)"
+  },
+  {
+   "id": 445101200,
+   "tab": "resource",
+   "sub": "crafting",
+   "period": "permanent",
+   "name": "Lucky Magical Item",
+   "desc": "Succeed in Crafting: Alchemy Combo 5 times",
+   "steps": [
+    5,
+    10,
+    30,
+    60,
+    100
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 3,
+   "rewards": "40,000× Kina (Bound)"
+  },
+  {
+   "id": 445101300,
+   "tab": "resource",
+   "sub": "crafting",
+   "period": "permanent",
+   "name": "Cooking Specialist",
+   "desc": "Reach Crafting: Novice Cooking Proficiency Level 50",
+   "steps": [
+    50,
+    100
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 1,
+   "rewards": "Title: Artisan Chef , ★★★ Chef 2× Pure Odyle (Bound) 16,000× Kina (Bound) 2× Radiant Odyle (Bound)"
+  },
+  {
+   "id": 445101400,
+   "tab": "resource",
+   "sub": "crafting",
+   "period": "permanent",
+   "name": "3 Minute Cook",
+   "desc": "Succeed in Crafting: Cooking 5 times",
+   "steps": [
+    5,
+    30,
+    60,
+    100,
+    150,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 4,
+   "rewards": "Title: Flavors and Flair 46,000× Kina (Bound)"
+  },
+  {
+   "id": 445101500,
+   "tab": "resource",
+   "sub": "crafting",
+   "period": "permanent",
+   "name": "Lucky Dish",
+   "desc": "Succeed in Crafting: Cooking Combo 5 times",
+   "steps": [
+    5,
+    10,
+    30,
+    60,
+    100
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 3,
+   "rewards": "27,000× Kina (Bound)"
+  },
+  {
+   "id": 445101600,
+   "tab": "resource",
+   "sub": "crafting",
+   "period": "permanent",
+   "name": "Beginning of Crafting",
+   "desc": "Craft Expert Gear 5 times",
+   "steps": [
+    5,
+    30,
+    60,
+    100,
+    150,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 3,
+   "rewards": "3,800× Enhance Stone 46,000× Kina (Bound)"
+  },
+  {
+   "id": 445101700,
+   "tab": "resource",
+   "sub": "crafting",
+   "period": "permanent",
+   "name": "Soaked in Crafting",
+   "desc": "Craft Artisan Gear 5 times",
+   "steps": [
+    5,
+    30,
+    60,
+    100,
+    150,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 2,
+   "rewards": "Title: Artisan Crafter 10× Soul Codex (Bound) 67,000× Kina (Bound)"
+  },
+  {
+   "id": 445102100,
+   "tab": "resource",
+   "sub": "crafting",
+   "period": "permanent",
+   "name": "Power of Good Food",
+   "desc": "Cook Artisan Food 5 times",
+   "steps": [
+    5,
+    30,
+    60,
+    100,
+    150,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 3,
+   "rewards": "46,000× Kina (Bound)"
+  },
+  {
+   "id": 445102200,
+   "tab": "resource",
+   "sub": "crafting",
+   "period": "permanent",
+   "name": "Draconic Chef",
+   "desc": "Cook Draconic Food 5 times",
+   "steps": [
+    5,
+    30,
+    60,
+    100,
+    150,
+    300,
+    500
+   ],
+   "unit": "",
+   "where": [],
+   "easy": 2,
+   "rewards": "67,000× Kina (Bound)"
+  }
+ ]
+}
