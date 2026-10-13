@@ -160,8 +160,11 @@ def _apply_ui_scale():
         value = float(json.loads((DATA_DIR / "settings.json").read_text(encoding="utf-8")).get("ui_scale", 1.0))
     except (OSError, ValueError, TypeError):
         value = 1.0
-    if 1.01 < value <= 3.0 and "QT_SCALE_FACTOR" not in os.environ:
+    # always the chosen one: a restart from AionDex inherits the previous run's factor (1.36.1 kept it forever)
+    if 1.01 < value <= 3.0:
         os.environ["QT_SCALE_FACTOR"] = f"{value:g}"
+    else:
+        os.environ.pop("QT_SCALE_FACTOR", None)
 
 
 if __name__ == "__main__":

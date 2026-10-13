@@ -29,6 +29,7 @@ class DiagnosticsPanel(QWidget):
         while self.content.count():
             item = self.content.takeAt(0)
             if item.widget():
+                item.widget().hide()            # gone at once, not when the deferred delete runs: no blink
                 item.widget().deleteLater()
         f = self.fonts
         if problems:

@@ -1447,11 +1447,15 @@ class Controller(QObject):
         return " · ".join(parts)
 
     def refresh(self):
+        """Redraw the overlay. The panel's widgets are rebuilt and the window resized with painting off, then it is
+        painted once: no half-built frame on screen (some PCs showed it as a blink every second in fights)."""
         self._refreshing = True
+        self.window.setUpdatesEnabled(False)
         try:
             view = self.active_module.render(self.settings["compact"])
             self.window.update_view(view, self.settings["compact"])
         finally:
+            self.window.setUpdatesEnabled(True)
             self._refreshing = False
         self.flash_ids.clear()
         self.tray.setToolTip(f"{self.app_name} — {view.status or self.active_module.title}")
@@ -1718,13 +1722,19 @@ class Controller(QObject):
 
     def restart_app(self):
         """Start AionDex again (it waits for this one to close) and close this one."""
-        from PySide6.QtCore import QProcess
+        from PySide6.QtCore import QProcess, QProcessEnvironment
         if getattr(sys, "frozen", False):
             program, args = sys.executable, ["--restarted"]
         else:
             program, args = sys.executable, [str(Path(sys.argv[0]).resolve()), "--restarted"]
         log.info("restarting (%s %s)", program, args)
-        QProcess.startDetached(program, args)
+        env = QProcessEnvironment.systemEnvironment()
+        env.remove("QT_SCALE_FACTOR")            # the new one reads the size chosen in Ajustes, not this one's
+        process = QProcess()
+        process.setProgram(program)
+        process.setArguments(args)
+        process.setProcessEnvironment(env)
+        process.startDetached()
         self.quit()
 
     def set_scale(self, value):
