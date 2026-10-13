@@ -1,12 +1,13 @@
-"""Status module: in the overlay, each character's energy, Nightmare, Shugo keys and daily dungeon with a red / green
-light; the full review and the alert bells live in their own window."""
+"""Status module: in the overlay, each character's energy and Nightmare, and your account's Shugo keys and daily
+dungeon (shared by your characters on a server), with a red / green light; the full review and the alert bells live in
+their own window."""
 import time
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 
 from . import Module, ModuleView
-from ..status import OVERLAY_KINDS, SHORT, amount, countdown, next_daily, next_weekly
+from ..status import KIND, OVERLAY_KINDS, SHORT, amount, countdown, next_daily, next_weekly
 from ..ui import theme
 from ..ui.appmenu import glyph_icon
 from ..ui.widgets import LED_COLORS, Led, SectionTitle, label
@@ -50,28 +51,12 @@ class StatusPanel(QWidget):
                        "Shugo y la mazmorra diaria, con una luz roja cuando algo esté por llenarse.", theme.MUTED)
         else:
             self.content.addWidget(SectionTitle("Tus personajes", f))
+            own = [k for k in OVERLAY_KINDS if not KIND[k].account]
+            shared = [k for k in OVERLAY_KINDS if KIND[k].account]
             for name in names[:ROWS[compact]]:
-                red = any(st.lit(name, k, now) == "red" for k in OVERLAY_KINDS)     # the light of what it shows
-                head = QWidget()
-                lay = QHBoxLayout(head)
-                lay.setContentsMargins(f.px(4), 0, f.px(2), 0)
-                lay.setSpacing(f.px(6))
-                lay.addWidget(Led("red" if red else "green", f.px(12)))
-                lay.addWidget(label(name, f.name, theme.TEXT, elide=True), 1)
-                lay.addWidget(label("en juego" if name == playing else ago(st.read_at(name), now), f.small,
-                                    theme.MUTED))
-                self.content.addWidget(head)
-                for pair in (OVERLAY_KINDS[:2], OVERLAY_KINDS[2:]):
-                    parts = []
-                    for key in pair:
-                        v = st.value(name, key, now)
-                        if not v.known:
-                            continue
-                        color = LED_COLORS["red"] if st.lit(name, key, now) == "red" else theme.TEXT
-                        parts.append(f"<span style='color:{theme.MUTED.name()}'>{SHORT[key]}</span> "
-                                     f"<span style='color:{color.name()}'>{amount(v)}</span>")
-                    if parts:
-                        self._line(" · ".join(parts), theme.TEXT, indent=22)
+                self._who(name, "en juego" if name == playing else ago(st.read_at(name), now), own, now)
+            for account, _ in st.accounts(now, playing):
+                self._who(account, ago(st.read_at(account), now), shared, now)
         self._line(f"Reinicio diario en {countdown(next_daily(now) - now)} · semanal (miércoles) en "
                    f"{countdown(next_weekly(now) - now)}", theme.MUTED)
         link = label("Abrir Status", f.name, theme.ACCENT)
@@ -81,6 +66,29 @@ class StatusPanel(QWidget):
         link.setContentsMargins(f.px(4), f.px(4), 0, 0)
         self.content.addWidget(link)
         self.adjustSize()
+
+    def _who(self, name, when, keys, now):
+        """A character (their own counters) or your account (the shared ones): light, name and values."""
+        f, st = self.fonts, self.ctl.status
+        values = [(key, st.value(name, key, now)) for key in keys]
+        values = [(key, v) for key, v in values if v.known]
+        if not values:
+            return
+        red = any(st.lit(name, key, now) == "red" for key, _ in values)       # the light of what it shows
+        head = QWidget()
+        lay = QHBoxLayout(head)
+        lay.setContentsMargins(f.px(4), 0, f.px(2), 0)
+        lay.setSpacing(f.px(6))
+        lay.addWidget(Led("red" if red else "green", f.px(12)))
+        lay.addWidget(label(name, f.name, theme.TEXT, elide=True), 1)
+        lay.addWidget(label(when, f.small, theme.MUTED))
+        self.content.addWidget(head)
+        parts = []
+        for key, v in values:
+            color = LED_COLORS["red"] if st.lit(name, key, now) == "red" else theme.TEXT
+            parts.append(f"<span style='color:{theme.MUTED.name()}'>{SHORT[key]}</span> "
+                         f"<span style='color:{color.name()}'>{amount(v)}</span>")
+        self._line(" · ".join(parts), theme.TEXT, indent=22)
 
     def _line(self, text, color, indent=4):
         lbl = label(text, self.fonts.small, color)
@@ -103,5 +111,8 @@ class StatusModule(Module):
     def render(self, compact):
         self.panel.render(compact)
         st, now = self.ctl.status, time.time()
-        red = sum(1 for n in st.names(now) if any(st.lit(n, k, now) == "red" for k in OVERLAY_KINDS))
+        own = [k for k in OVERLAY_KINDS if not KIND[k].account]
+        shared = [k for k in OVERLAY_KINDS if KIND[k].account]
+        red = sum(1 for n in st.names(now) if any(st.lit(n, k, now) == "red" for k in own)) + \
+            sum(1 for a, _ in st.accounts(now) if any(st.lit(a, k, now) == "red" for k in shared))
         return ModuleView(summary=f"{red} en rojo" if red else "")

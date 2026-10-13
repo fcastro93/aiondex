@@ -19,6 +19,11 @@ Attempt Count 0/14, Shugo Festival Reward Key 3/21, Unknown Fissure Attempt Coun
 - Recharges: energy +15 every 3 h counted from the daily reset (07:00 UTC = 16:00 KST; seen 30 -> 75 over three),
   daily tickets at 07:00 UTC, weekly ones on Wednesday at 07:00 UTC, Conquest rewards every 8 h from the daily reset
   (one arrived at 23:00 UTC). Characters you are not playing are worked out from these.
+- Account counters: some are shared by your characters on the same server, one value for all. Shugo Festival keys (1)
+  moved together across 26 logins of 3 characters (5 -> 4 on Agame, 4 on Charfire a minute later...), and aion2data
+  counts the festival keys and Duty missions per server; the daily dungeon's entries (101) are shared too. Those are
+  read from whichever of your characters on that server was read last and shown once, under "Tu cuenta". Energy,
+  Nightmare, Conquest rewards and Abyss hours differ between characters (per character).
 """
 import math
 import struct
@@ -38,6 +43,7 @@ ENERGY_ID = 60000001
 ENERGY_CAP, ENERGY_CAP_MEMBER = 560, 840
 SPENT = 3                                 # 0c61 reason: the ticket was spent
 CLAIM_SECONDS = 30                        # a list belongs to the character the game names within this time
+ACCOUNT = "Tu cuenta"                     # the counters your characters on a server share
 REPEAT = HOUR                             # an alert that still holds sounds again after this
 KEEP_DAYS = 30                            # characters not seen for longer are left out
 EXPLORATION_IDS = (60001101, 60002101, 60003101, 60004101, 60007101, 60009101, 60012101, 60013101, 60014101,
@@ -55,14 +61,16 @@ class Kind:
     alert: str = None            # the alert this counter lights up
     near: int = 0                # near-cap alerts: from cap - near
     hours: bool = False          # a time allowance (milliseconds left)
+    account: bool = False        # shared by your characters on the same server: one value for all of them
 
 
 KINDS = [
     Kind("energy", "Energía de Odyle", (ENERGY_ID,), (ENERGY_CAP_MEMBER,), "energy", 15, "energy", 45),
     Kind("nightmare", "Nightmare", (4,), (14,), "daily", 2, "nightmare", 2),
-    Kind("shugo", "Llaves del Shugo Festival", (1,), (21,), "daily", 3, "shugo", 3),
+    Kind("shugo", "Llaves del Shugo Festival", (1,), (21,), "daily", 3, "shugo", 3, account=True),
     Kind("conquest", "Recompensas de Conquista", (60000006,), (21,), "every8h", 1, "conquest", 3),
-    Kind("fissure", "Fisura desconocida (mazmorra diaria)", (101,), (14,), "weekly", alert="weekly"),
+    Kind("fissure", "Fisura desconocida (mazmorra diaria)", (101,), (14,), "weekly", alert="weekly",
+         account=True),
     Kind("sanctuary", "Santuarios: jefes con recompensa", (90000002, 90000004, 90000006), (1, 2, 2), "weekly",
          alert="weekly"),
     Kind("exploration", "Exploración: recompensas", EXPLORATION_IDS, (7,) * len(EXPLORATION_IDS), "weekly"),
@@ -183,6 +191,7 @@ class Status:
         self.save = save
         self._pending = None             # (time, [tickets]) of a list waiting for the character it belongs to
         self._notified = {}              # alert key -> (time, characters) of the last notice
+        self._labels = {}                # account label -> the characters sharing it (see accounts())
 
     @property
     def config(self):
@@ -274,13 +283,55 @@ class Status:
         return sorted(names, key=lambda n: (n != current, -chars[n].get("at", 0)))
 
     def read_at(self, name):
+        if self.is_account(name):
+            return max((self._characters()[n].get("at", 0) for n in self._labels[name]), default=None)
         return self._characters().get(name, {}).get("at")
+
+    # --- your account ---
+    def server_of(self, name):
+        return (self.settings.get("characters", {}).get(name) or {}).get("server")
+
+    def accounts(self, now=None, current=None):
+        """[(label, characters)]: one per server you have characters on, with the counters they share."""
+        groups = {}
+        for name in self.names(now, current):
+            groups.setdefault(self.server_of(name), []).append(name)
+        many = len(groups) > 1
+        out = [(ACCOUNT + (f" · servidor {server}" if many and server else ""), chars)
+               for server, chars in groups.items()]
+        self._labels = dict(out)
+        return out
+
+    def is_account(self, name):
+        if name not in self._labels and name not in self._characters():
+            self.accounts()
+        return name in self._labels
+
+    def _sharing(self, name):
+        """The characters whose readings give the account counters of this character (or account label)."""
+        if self.is_account(name):
+            return self._labels[name]
+        server = self.server_of(name)
+        return [n for n in self._characters() if n == name or (server and self.server_of(n) == server)]
+
+    def targets(self, alert, now=None, current=None):
+        """Who an alert holds for now: characters (their own counters) and accounts (the shared ones)."""
+        now = now or time.time()
+        return [n for n in self.names(now, current) if self.active(alert, n, now)] + \
+            [label for label, _ in self.accounts(now, current) if self.active(alert, label, now)]
 
     # --- values ---
     def value(self, name, key, now=None):
         now = now or time.time()
         kind = KIND[key]
-        tickets = self._characters().get(name, {}).get("tickets", {})
+        if kind.account:                 # the newest reading of any character sharing it
+            tickets = {}
+            for other in self._sharing(name):
+                for tid, row in self._characters().get(other, {}).get("tickets", {}).items():
+                    if int(tid) in kind.ids and (tid not in tickets or row[3] > tickets[tid][3]):
+                        tickets[tid] = row
+        else:
+            tickets = self._characters().get(name, {}).get("tickets", {})
         count = bonus = cap = 0
         full_at, known = None, False
         for tid, base_cap in zip(kind.ids, kind.caps):
@@ -301,14 +352,17 @@ class Status:
         return Value(kind, count, bonus, cap, full_at, known)
 
     def active(self, alert, name, now=None):
-        """Is this alert's condition true for this character?"""
+        """Is this alert's condition true for this character (their own counters) or account (the shared ones)?"""
         now = now or time.time()
+        account = self.is_account(name)
         if alert == "weekly":
             if next_weekly(now) - now > WEEKLY_WARN:
                 return False
             return any(v.known and v.count > 0 for v in (self.value(name, k.key, now) for k in KINDS
-                                                           if k.alert == "weekly"))
+                                                           if k.alert == "weekly" and k.account == account))
         kind = next(k for k in KINDS if k.alert == alert)
+        if kind.account != account:
+            return False
         v = self.value(name, kind.key, now)
         return v.known and v.count >= v.cap - kind.near
 
@@ -325,7 +379,7 @@ class Status:
 
     def red_count(self, now=None, current=None):
         now = now or time.time()
-        return sum(1 for n in self.names(now, current) for a in ALERTS if self.active(a, n, now))
+        return sum(len(self.targets(a, now, current)) for a in ALERTS)
 
     # --- alerts ---
     def due(self, now=None):
@@ -336,7 +390,7 @@ class Status:
         for key in ALERTS:
             if not self.alert_on(key):
                 continue
-            chars = [n for n in self.names(now) if self.active(key, n, now)]
+            chars = self.targets(key, now)
             if not chars:
                 self._notified.pop(key, None)
                 continue
@@ -388,7 +442,8 @@ def alert_text(status, key, chars, now=None):
         parts = []
         for name in chars:
             left = [f"{KIND[k].name.split(' (')[0].split(':')[0]} {status.value(name, k, now).count}"
-                    for k in ("fissure", "sanctuary") if status.value(name, k, now).count > 0]
+                    for k in ("fissure", "sanctuary")
+                    if KIND[k].account == status.is_account(name) and status.value(name, k, now).count > 0]
             parts.append(f"{name}: {', '.join(left)}")
         return f"El reinicio semanal es en {countdown(next_weekly(now) - now)}. " + " · ".join(parts) + "."
     kind = next(k for k in KINDS if k.alert == key)

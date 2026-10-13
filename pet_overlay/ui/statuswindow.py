@@ -113,8 +113,23 @@ class StatusWindow(QWidget):
         lay.setContentsMargins(12, 8, 12, 8)
         lay.setSpacing(6)
         for key, (title, when) in ALERTS.items():
-            lay.addWidget(self._alert_row(key, title, when, [n for n in names if st.active(key, n, now)]))
+            lay.addWidget(self._alert_row(key, title, when, st.targets(key, now, playing)))
         self.body.addWidget(alerts)
+
+        accounts = st.accounts(now, playing)
+        if accounts:
+            self.body.addWidget(SectionTitle("Tu cuenta", f))
+            hint = label("Lo que comparten tus personajes del mismo servidor: un solo valor para todos (el de la "
+                         "última lectura de cualquiera de ellos).", f.small, theme.MUTED)
+            hint.setWordWrap(True)
+            self.body.addWidget(hint)
+            grid = QGridLayout()
+            grid.setSpacing(10)
+            for i, (account, chars) in enumerate(accounts):
+                grid.addWidget(self._card(account, False, now, chars), i // CARD_COLUMNS, i % CARD_COLUMNS)
+            for c in range(CARD_COLUMNS):
+                grid.setColumnStretch(c, 1)
+            self.body.addLayout(grid)
 
         self.body.addWidget(SectionTitle("Personajes", f))
         if not names:
@@ -144,7 +159,7 @@ class StatusWindow(QWidget):
         desc = label(when, f.small, theme.MUTED)
         desc.setWordWrap(True)
         text.addWidget(desc)
-        now_text = (f"Ahora: {', '.join(chars)}" if chars else "Ahora: ningún personaje")
+        now_text = (f"Ahora: {', '.join(chars)}" if chars else "Ahora: nadie")
         text.addWidget(label(now_text, f.small, LED_COLORS["red"] if chars else LED_COLORS["green"]))
         lay.addLayout(text, 1)
         on = self.status.alert_on(key)
@@ -164,7 +179,8 @@ class StatusWindow(QWidget):
         self.status.set_alert(key, on)
         self.ctl.status_changed()
 
-    def _card(self, name, playing, now):
+    def _card(self, name, playing, now, shared_by=None):
+        """A character's own counters, or (shared_by: its characters) an account's shared ones."""
         f, st = self.fonts, self.status
         card = QFrame()
         card.setObjectName("Card")
@@ -178,11 +194,15 @@ class StatusWindow(QWidget):
         red = any(st.active(a, name, now) for a in ALERTS)
         hl.addWidget(Led("red" if red else "green", LED + 4))
         hl.addWidget(label(name, f.name_big, theme.TEXT), 1)
-        level = self.ctl.settings.get("characters", {}).get(name, {}).get("level")
-        when = "en juego ahora" if playing else f"leído {ago(st.read_at(name), now)} · calculado desde entonces"
-        hl.addWidget(label((f"Nivel {level} · " if level else "") + when, f.small, theme.MUTED))
+        if shared_by is not None:
+            when = f"de {', '.join(shared_by)} · leído {ago(st.read_at(name), now)}"
+            hl.addWidget(label(when, f.small, theme.MUTED))
+        else:
+            level = self.ctl.settings.get("characters", {}).get(name, {}).get("level")
+            when = "en juego ahora" if playing else f"leído {ago(st.read_at(name), now)} · calculado desde entonces"
+            hl.addWidget(label((f"Nivel {level} · " if level else "") + when, f.small, theme.MUTED))
         lay.addWidget(head)
-        for kind in KINDS:
+        for kind in [k for k in KINDS if k.account == (shared_by is not None)]:
             v = st.value(name, kind.key, now)
             row = QWidget()
             rl = QHBoxLayout(row)
