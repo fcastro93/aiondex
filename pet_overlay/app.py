@@ -226,7 +226,11 @@ class Bridge(QObject):
             update = parse_hp(body)
             if update:
                 self.hp.emit(update)
-            mp = parse_mp(body) if self.self_eid is not None else None
+            mp = parse_mp(body)
+            if mp and (self.self_eid is None or self._self_stale) and mp[0] != self.self_eid:
+                # MP updates come only for the character you play (2026-10-12: 85 of 85 in the Abyss, and after a
+                # relog they moved to the new entity): you, seconds after AionDex starts or after a map change
+                self._found_self(mp[0])
             if mp and mp[0] == self.self_eid:
                 self.own_skill.emit(("mp", time.time(), mp[1], mp[2]))
         elif op == DEATH_OPCODE:
@@ -416,7 +420,8 @@ class Controller(QObject):
         self.dps_ready = DAMAGE_READY
         self.bridge.player.connect(self.on_player)
         self.bridge.member_seen.connect(self.on_member_seen)
-        self._hinted_eids = {}          # entity id -> "party" | "group" of members not named yet (no spawn seen)
+        self._hinted_eids = {}          # entity id -> "party" of party members not named yet (no spawn seen)
+        self._placeholders = {}         # entity id -> "Compañero N" until the game sends that member's name
         self.bridge.npc.connect(self.on_npc)
         self.bridge.hits.connect(self.on_hits)          # simulated fights (preview) still emit directly
         self._hits_drain = QTimer(self, interval=200, timeout=lambda: self.on_hits(self.bridge.take_hits()))
@@ -1022,6 +1027,18 @@ class Controller(QObject):
 
     def on_player(self, player):
         eid, name = player[0], player[1]
+        old = self._placeholders.pop(eid, None)
+        if old and old != name:                  # a member known only by entity: now with its name
+            self._party_names = [name if n == old else n for n in self._party_names]
+            self._force_names = [name if n == old else n for n in self._force_names]
+            self.combat.rename_player(eid, name)
+            self.bridge.feed.players[eid] = name
+            self.bridge.feed.group = (self.bridge.feed.group - {old}) | {name}
+            self.combat.set_group(self._force_names or self._party_names,
+                                  party=self._party_names if self._force_names else None)
+            log.info("group member %s is %s", old, name)
+            self._save_session()
+            return
         self.combat.add_player(eid, name)
         kind = self._hinted_eids.pop(eid, None)
         if kind:
@@ -1031,12 +1048,19 @@ class Controller(QObject):
         """The game keeps sending this player's HP or buffs to you: a member of your group (party for 0e92 / 1a92).
         Added to the group when the lists did not arrive (AionDex started mid-session) or missed them."""
         kind, eid = event
-        if eid == self.combat.self_eid:
+        if eid == self.combat.self_eid or eid in self._placeholders:
             return
         name = self.combat.players.get(eid)
         if name is None:
-            self._hinted_eids[eid] = kind          # named when its spawn arrives
-            return
+            if kind == "party":                    # 0e92 / 1a92 include you: wait for its name
+                self._hinted_eids[eid] = kind
+                return
+            # 2b96 never includes you: a member whose spawn came before AionDex listened (it was already near you).
+            # It counts from now on, named "Compañero N" until the game sends its name.
+            name = f"Compañero {len(self._placeholders) + 1}"
+            self._placeholders[eid] = name
+            self.combat.add_player(eid, name)
+            self.bridge.feed.players[eid] = name
         self._add_hinted(kind, name)
 
     def _add_hinted(self, kind, name):
@@ -1086,7 +1110,15 @@ class Controller(QObject):
         counts your damage from now on (named after the character you last played until the info arrives)."""
         name = self.character.name if self.character else self.settings.get("last_character") or "Tú"
         self.combat.set_self(eid, name)
-        log.info("own entity %s found from your skill presses (%s)", eid, name)
+        log.info("own entity %s found (%s)", eid, name)
+        old = self._placeholders.pop(eid, None)     # (2b96 skips you, so this should not happen)
+        if old:
+            self._party_names = [n for n in self._party_names if n != old]
+            self._force_names = [n for n in self._force_names if n != old]
+        if self._party_names and name not in self._party_names:
+            self._party_names.append(name)       # the group from the game's updates did not know you yet
+            self.combat.set_group(self._force_names or self._party_names,
+                                  party=self._party_names if self._force_names else None)
         self._save_session()
 
     def on_gear(self, event):

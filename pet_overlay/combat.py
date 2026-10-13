@@ -349,6 +349,13 @@ class CombatTracker:
     def add_player(self, eid, name):
         self.players[eid] = name
 
+    def rename_player(self, eid, name):
+        """A player first known by entity only ("Compañero 2") got its name: the fights so far too."""
+        self.players[eid] = name
+        for enc in (self.current, *self.recent):
+            if enc is not None and eid in enc.actors:
+                enc.actors[eid].name = name
+
     def add_summon(self, eid, owner):
         self.owners[eid] = owner
 
