@@ -657,9 +657,10 @@ class Controller(QObject):
             self.combat.add_summon(eid, owner)
             return
         slug = self.mapdata.db.get("npcs", {}).get(str(npc_id))
-        name = (self.mapdata.monsters.get(slug, {}).get("name") if slug else None) or self.npc_db.name(npc_id)
+        tracked = self.tracker.by_npc.get(npc_id)      # field bosses the Tracker knows (Silent Dartan 2400855)
+        name = (self.mapdata.monsters.get(slug, {}).get("name") if slug else None) or self.npc_db.name(npc_id) or             (tracked.name if tracked else None)
         self.combat.add_npc(eid, name or self.boss_names.get(npc_id), max_hp, rage=self.npc_db.rage(npc_id),
-                            npc_id=npc_id, boss=self.npc_db.is_boss(npc_id))
+                            npc_id=npc_id, boss=True if tracked else self.npc_db.is_boss(npc_id))
 
     def on_hits(self, hits):
         me = self.combat.self_eid

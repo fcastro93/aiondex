@@ -25,6 +25,11 @@ ABYSS_MAPS = {20}       # game map ids (2136) of the Abyss
 BOSS_HP = 150_000       # a target with this much HP is a boss (seal bosses have ~200K, field mobs ~40K)
 WORLD_BOSS_HP = 50_000_000
 CROWD = 8               # players outside your group hitting the same fight = a mass fight
+def _hp_text(hp):
+    """276000000 -> "276M", 119000 -> "119K" (a monster no database names is called by its HP)."""
+    return f"{hp / 1e6:.0f}M" if hp >= 10_000_000 else f"{hp / 1e6:.1f}M" if hp >= 1_000_000 else f"{hp // 1000}K"
+
+
 def in_instance(map_id):
     """Dungeons and the other instances (Fire Temple 600022, Draupnir 600032...): not the open world or the Abyss."""
     return map_id is not None and not 1000 <= map_id < 1200 and map_id not in ABYSS_MAPS
@@ -413,8 +418,8 @@ class CombatTracker:
         if not name and npc_id is not None and 2920000 <= npc_id < 2930000:
             name = "Efecto enemigo"      # objects a monster leaves (they copy its HP): areas, totems, clones
         elif not name:
-            name = (f"Jefe ({max_hp // 1000}K HP)" if max_hp and max_hp >= 300_000 else
-                    f"Enemigo ({max_hp // 1000}K HP)" if max_hp and max_hp >= 1000 else "Enemigo")
+            name = (f"Jefe ({_hp_text(max_hp)} HP)" if max_hp and max_hp >= 300_000 else
+                    f"Enemigo ({_hp_text(max_hp)} HP)" if max_hp and max_hp >= 1000 else "Enemigo")
         if npc_id is not None:
             self.npc_ids[eid] = npc_id
         if boss is not None:
