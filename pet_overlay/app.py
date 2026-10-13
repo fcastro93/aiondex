@@ -42,6 +42,9 @@ from .contribution import OPCODES as CONTRIBUTION_OPCODES, CombatFeed
 from .gear import HIDDEN_POSITIONS, INVENTORY_OPCODE, GearDB, GearReader, own_faction
 from .inventory import UPDATE_OPCODE as ITEMS_UPDATE_OPCODE
 from .arena import ARENA_MAPS, ROSTER_OPCODE as ARENA_OPCODE, parse_roster
+from .passes import CLAIM_OPCODE as PASS_CLAIM_OPCODE, LIST_OPCODE as PASS_OPCODE, Passes, \
+    parse_claim as parse_pass_claim, parse_list as parse_passes
+from .status import CLAIM_SECONDS
 from .armory import Armory
 from .paths import ASSETS_DIR
 from .sounds import SoundPlayer
@@ -62,6 +65,7 @@ from .modules.tracker import TrackerModule
 from .modules.crafting import CraftingModule
 from .modules.status import StatusModule
 from .modules.missions import AchievementsModule, MissionsModule
+from .modules.passes import PassesModule
 from .afinador import STORE_DELAY, Afinador
 from .update_controller import UpdateController
 from .notifications import NotificationCenter
@@ -112,7 +116,7 @@ OP_KIND = {SNAPSHOT_OPCODE: "collection", PROGRESS_OPCODE: "progress", LEVEL_OPC
            PRESETS_OPCODE: "bar", ROSTER_OPCODE: "roster", PARTY_INFO_OPCODE: "roster", FORCE_INFO_OPCODE: "roster",
            **{op: "roster" for op in MEMBER_OPCODES},
            COUNTERS_OPCODE: "status", COUNTER_OPCODE: "status", MISSIONS_OPCODE: "missions", MISSION_OPCODE: "missions",
-           ARENA_OPCODE: "arena",
+           ARENA_OPCODE: "arena", PASS_OPCODE: "passes", PASS_CLAIM_OPCODE: "passes",
            **{op: "combat" for op in DAMAGE_OPCODES}}
 
 SESSION_KEEP = 600       # seconds: a restart this short (an update) keeps your group and your entity id
@@ -143,6 +147,7 @@ class Bridge(QObject):
     counters = Signal(object)        # ("list", time, [(id, count, bonus, ms)]) | ("update" | "spent", time, ticket)
     missions = Signal(object)        # ("list" | "update", time, [(id, count, ms, collected)]): season missions
     arena = Signal(object)           # arena.ArenaMatch: who is in the match you are entering
+    passes = Signal(object)          # ("list", time, body) | ("claim", time, (pass id, level)): the Daeva Pass
     member_stats = Signal(object)    # {name: (level, item level, combat power)} of your group (and you)
     own_cp = Signal(int)             # your combat power
     revive_cast = Signal(object)     # (caster, skill, time) of a revive or a self revive
@@ -218,6 +223,12 @@ class Bridge(QObject):
             event = parse_craft(body)
             if event:
                 self.profession.emit(("craft", *event))
+        elif op == PASS_OPCODE:
+            self.passes.emit(("list", time.time(), body))
+        elif op == PASS_CLAIM_OPCODE:
+            claim = parse_pass_claim(body)
+            if claim:
+                self.passes.emit(("claim", time.time(), claim))
         elif op == ARENA_OPCODE:
             match = parse_roster(body)
             if match:
@@ -519,6 +530,8 @@ class Controller(QObject):
         self.achievements = Missions(self.data_dir, self.data_dir / "achievements_db.json", persist=self.persist,
                                      save_name="achievements.json")
         self.missions_window = self.achievements_window = None
+        self.passes = Passes(self.data_dir, self.data_dir / "passes_db.json", persist=self.persist)
+        self.bridge.passes.connect(self.on_passes)
         self.bridge.missions.connect(self.on_missions)
 
         self.fonts = Fonts(self.settings["scale"])
@@ -547,6 +560,7 @@ class Controller(QObject):
         self._restore_session()
         self.modules = [PetsModule(self), DpsModule(self), TunerModule(self), TrackerModule(self),
                         CraftingModule(self), StatusModule(self), MissionsModule(self), AchievementsModule(self),
+                        PassesModule(self),
                         NotificationsModule(self), DiagnosticsModule(self),
                         SettingsModule(self)]
         for module in self.modules:
@@ -946,11 +960,25 @@ class Controller(QObject):
                                 f"{window} del juego.", keep=True)
         self.missions_changed()
 
+    def _passes_settle(self):
+        if self.passes.settle(self.character.name if self.character else None, time.time()):
+            self.missions_changed()
+
+    def on_passes(self, event):
+        """The Daeva Pass from the game: the login's list waits for the character's name; then the playing one's."""
+        kind, at, payload = event
+        if kind == "list":
+            self.passes.on_list(at, parse_passes(payload, set(self.passes.db)))
+            QTimer.singleShot((CLAIM_SECONDS + 2) * 1000, self._passes_settle)
+        elif self.character:
+            self.passes.on_claim(self.character.name, *payload)
+        self.missions_changed()
+
     def missions_changed(self):
         for window in (self.missions_window, self.achievements_window):
             if window and window.isVisible():
                 window.refresh()
-        if self.active_module.key in ("missions", "achievements") and not self._refreshing:
+        if self.active_module.key in ("missions", "achievements", "passes") and not self._refreshing:
             self.refresh()
 
     def missions_character(self, model=None):
@@ -1178,7 +1206,7 @@ class Controller(QObject):
                     f"({short_number(mine)} de daño).{group}")
 
     def on_character(self, info):
-        claimed = [m.claim(info.name, time.time()) for m in (self.missions, self.achievements)]
+        claimed = [m.claim(info.name, time.time()) for m in (self.missions, self.achievements, self.passes)]
         if any(claimed):                                  # ... and so is the season missions' / achievements' list
             QTimer.singleShot(0, self.missions_changed)
         if self.status.claim(info.name, time.time()):     # the ticket list read just before is this character's

@@ -6,6 +6,7 @@ own window."""
 import time
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 
 from . import Module, ModuleView
@@ -117,6 +118,9 @@ class ProgressPanel(QWidget):
         lay.addWidget(ProgressBar(p.ratio, theme.GOLD if p.ready else theme.ACCENT, f.px(4)))
         bits = [text, f"paso {p.step}/{p.total}", PERIOD.get(m.period) or tab]
         lay.addWidget(label(" · ".join(b for b in bits if b), f.small, theme.MUTED, elide=True))
+        if m.rewards:
+            from ..ui.missionswindow import rewards_text
+            lay.addWidget(label("🎁 " + rewards_text(m.rewards), f.small, QColor("#e9c46a"), elide=True))
         return row
 
     def _line(self, text, color, indent=4):

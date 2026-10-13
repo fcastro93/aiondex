@@ -20,6 +20,7 @@ data/*
 !data/missions_db.json
 !data/achievements_db.json
 !data/skill_info.json
+!data/passes_db.json
 
 # Dev artifacts
 prototipos/

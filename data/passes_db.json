@@ -1,0 +1,430 @@
+{
+ "source": "https://aion2data.com/raw/season.json",
+ "credit": {
+  "text": "Pases: aion2data.com",
+  "url": "https://aion2data.com/season"
+ },
+ "generated_at": 1791874595.6417656,
+ "passes": {
+  "10011": {
+   "title": "Dawn Legion",
+   "race": "Elyos",
+   "start": 1763478000,
+   "end": 1768939200,
+   "premium": {
+    "currency": "Quna",
+    "count": 1000
+   }
+  },
+  "10012": {
+   "title": "Planet's Call",
+   "race": "Elyos",
+   "start": 1763478000,
+   "end": 1768939200,
+   "premium": {
+    "currency": "Quna",
+    "count": 1500
+   }
+  },
+  "10014": {
+   "title": "Golden Shugo Gift",
+   "race": "Elyos",
+   "start": 1766520000,
+   "end": 1768334400,
+   "premium": {
+    "currency": "Kina (All)",
+    "count": 500000
+   }
+  },
+  "10021": {
+   "title": "New Tide",
+   "race": "Elyos",
+   "start": 1768939200,
+   "end": 1774987200,
+   "premium": {
+    "currency": "Quna",
+    "count": 1000
+   }
+  },
+  "10022": {
+   "title": "Paradise",
+   "race": "Elyos",
+   "start": 1768939200,
+   "end": 1774987200,
+   "premium": {
+    "currency": "Quna",
+    "count": 1500
+   }
+  },
+  "10023": {
+   "title": "Blessed First Step",
+   "race": "Elyos",
+   "start": 1768939200,
+   "end": 1774987200,
+   "premium": {
+    "currency": "Quna",
+    "count": 1000
+   }
+  },
+  "10024": {
+   "title": "Arcana Gift Bundle",
+   "race": "Elyos",
+   "start": 1771963200,
+   "end": 1774987200,
+   "premium": {
+    "currency": "Kina (All)",
+    "count": 100000
+   }
+  },
+  "10025": {
+   "title": "Grace of Odyle",
+   "race": "Elyos",
+   "start": 1773172800,
+   "end": 1774987200,
+   "premium": {
+    "currency": "Kina (All)",
+    "count": 1000000
+   }
+  },
+  "10031": {
+   "title": "Stars' Guidance",
+   "race": "Elyos",
+   "start": 1775592000,
+   "end": 1782849600,
+   "premium": {
+    "currency": "Kina (All)",
+    "count": 2000000
+   }
+  },
+  "10032": {
+   "title": "Bountiful Journey",
+   "race": "Elyos",
+   "start": 1775592000,
+   "end": 1782849600,
+   "premium": {
+    "currency": "Kina (All)",
+    "count": 2000000
+   }
+  },
+  "10033": {
+   "title": "Hero's Invitation",
+   "race": "Elyos",
+   "start": 1775592000,
+   "end": 1777406400,
+   "premium": {
+    "currency": "Kina (All)",
+    "count": 2000000
+   }
+  },
+  "10034": {
+   "title": "Warm Welcome",
+   "race": "Elyos",
+   "start": 1775592000,
+   "end": 1782849600,
+   "premium": {
+    "currency": "Event Currency",
+    "count": 1
+   }
+  },
+  "10035": {
+   "title": "Grace of Odyle",
+   "race": "Elyos",
+   "start": 1776801600,
+   "end": 1778011200,
+   "premium": {
+    "currency": "Event Currency",
+    "count": 1
+   }
+  },
+  "10037": {
+   "title": "Horns of Alturadon",
+   "race": "Elyos",
+   "start": 1778011200,
+   "end": 1780430400,
+   "premium": {
+    "currency": "Event Currency",
+    "count": 1
+   }
+  },
+  "10041": {
+   "title": "Legacy of Flame",
+   "race": "Elyos",
+   "start": 1782849600,
+   "end": 1785528000,
+   "premium": {
+    "currency": "Kina (All)",
+    "count": 2000000
+   }
+  },
+  "10042": {
+   "title": "Hero's Invitation",
+   "race": "Elyos",
+   "start": 1782849600,
+   "end": 1785268800,
+   "premium": {
+    "currency": "Kina (All)",
+    "count": 2000000
+   }
+  },
+  "10044": {
+   "title": "Dawn Legion",
+   "race": "Elyos",
+   "start": 1790751600,
+   "end": 1797404400,
+   "premium": {
+    "currency": "Quna",
+    "count": 1500
+   }
+  },
+  "10045": {
+   "title": "Planet's Call",
+   "race": "Elyos",
+   "start": 1790751600,
+   "end": 1793170800,
+   "premium": {
+    "currency": "Quna",
+    "count": 1000
+   }
+  },
+  "10046": {
+   "title": "New Tide",
+   "race": "Elyos",
+   "start": 1797404400,
+   "end": 1804662000,
+   "premium": {
+    "currency": "Quna",
+    "count": 1500
+   }
+  },
+  "20011": {
+   "title": "Ishalgen Mercenary",
+   "race": "Asmodians",
+   "start": 1763478000,
+   "end": 1768939200,
+   "premium": {
+    "currency": "Quna",
+    "count": 1000
+   }
+  },
+  "20012": {
+   "title": "Planet's Call",
+   "race": "Asmodians",
+   "start": 1763478000,
+   "end": 1768939200,
+   "premium": {
+    "currency": "Quna",
+    "count": 1500
+   }
+  },
+  "20014": {
+   "title": "Golden Shugo Gift",
+   "race": "Asmodians",
+   "start": 1766520000,
+   "end": 1768334400,
+   "premium": {
+    "currency": "Kina (All)",
+    "count": 500000
+   }
+  },
+  "20021": {
+   "title": "New Tide",
+   "race": "Asmodians",
+   "start": 1768939200,
+   "end": 1774987200,
+   "premium": {
+    "currency": "Quna",
+    "count": 1000
+   }
+  },
+  "20022": {
+   "title": "Paradise",
+   "race": "Asmodians",
+   "start": 1768939200,
+   "end": 1774987200,
+   "premium": {
+    "currency": "Quna",
+    "count": 1500
+   }
+  },
+  "20023": {
+   "title": "Blessed First Step",
+   "race": "Asmodians",
+   "start": 1768939200,
+   "end": 1774987200,
+   "premium": {
+    "currency": "Quna",
+    "count": 1000
+   }
+  },
+  "20024": {
+   "title": "Arcana Gift Bundle",
+   "race": "Asmodians",
+   "start": 1771963200,
+   "end": 1774987200,
+   "premium": {
+    "currency": "Kina (All)",
+    "count": 100000
+   }
+  },
+  "20025": {
+   "title": "Grace of Odyle",
+   "race": "Asmodians",
+   "start": 1773172800,
+   "end": 1774987200,
+   "premium": {
+    "currency": "Kina (All)",
+    "count": 1000000
+   }
+  },
+  "20031": {
+   "title": "Stars' Guidance",
+   "race": "Asmodians",
+   "start": 1775592000,
+   "end": 1782849600,
+   "premium": {
+    "currency": "Kina (All)",
+    "count": 2000000
+   }
+  },
+  "20032": {
+   "title": "Bountiful Journey",
+   "race": "Asmodians",
+   "start": 1775592000,
+   "end": 1782849600,
+   "premium": {
+    "currency": "Kina (All)",
+    "count": 2000000
+   }
+  },
+  "20033": {
+   "title": "Hero's Invitation",
+   "race": "Asmodians",
+   "start": 1775592000,
+   "end": 1777406400,
+   "premium": {
+    "currency": "Kina (All)",
+    "count": 2000000
+   }
+  },
+  "20034": {
+   "title": "Warm Welcome",
+   "race": "Asmodians",
+   "start": 1775592000,
+   "end": 1782849600,
+   "premium": {
+    "currency": "Event Currency",
+    "count": 1
+   }
+  },
+  "20035": {
+   "title": "Grace of Odyle",
+   "race": "Asmodians",
+   "start": 1776801600,
+   "end": 1778011200,
+   "premium": {
+    "currency": "Event Currency",
+    "count": 1
+   }
+  },
+  "20037": {
+   "title": "Horns of Alturadon",
+   "race": "Asmodians",
+   "start": 1778011200,
+   "end": 1780430400,
+   "premium": {
+    "currency": "Event Currency",
+    "count": 1
+   }
+  },
+  "20041": {
+   "title": "Legacy of Flame",
+   "race": "Asmodians",
+   "start": 1782849600,
+   "end": 1785528000,
+   "premium": {
+    "currency": "Kina (All)",
+    "count": 2000000
+   }
+  },
+  "20042": {
+   "title": "Hero's Invitation",
+   "race": "Asmodians",
+   "start": 1782849600,
+   "end": 1785268800,
+   "premium": {
+    "currency": "Kina (All)",
+    "count": 2000000
+   }
+  },
+  "20044": {
+   "title": "Ishalgen Mercenary",
+   "race": "Asmodians",
+   "start": 1790751600,
+   "end": 1797404400,
+   "premium": {
+    "currency": "Quna",
+    "count": 1500
+   }
+  },
+  "20045": {
+   "title": "Planet's Call",
+   "race": "Asmodians",
+   "start": 1790751600,
+   "end": 1793170800,
+   "premium": {
+    "currency": "Quna",
+    "count": 1000
+   }
+  },
+  "20046": {
+   "title": "New Tide",
+   "race": "Asmodians",
+   "start": 1797404400,
+   "end": 1804662000,
+   "premium": {
+    "currency": "Quna",
+    "count": 1500
+   }
+  },
+  "50101": {
+   "title": "Snowy Atreia",
+   "race": "Elyos",
+   "start": null,
+   "end": null,
+   "premium": {
+    "currency": "Kina (All)",
+    "count": 1000000
+   }
+  },
+  "50131": {
+   "title": "Fresh Spring",
+   "race": "Elyos",
+   "start": 1777406400,
+   "end": 1779220800,
+   "premium": {
+    "currency": "Kina (All)",
+    "count": 100000
+   }
+  },
+  "60101": {
+   "title": "Snowy Atreia",
+   "race": "Asmodians",
+   "start": null,
+   "end": null,
+   "premium": {
+    "currency": "Kina (All)",
+    "count": 1000000
+   }
+  },
+  "60131": {
+   "title": "Fresh Spring",
+   "race": "Asmodians",
+   "start": 1777406400,
+   "end": 1779220800,
+   "premium": {
+    "currency": "Kina (All)",
+    "count": 100000
+   }
+  }
+ }
+}

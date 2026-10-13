@@ -5,6 +5,7 @@ import time
 import webbrowser
 
 from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (QComboBox, QFrame, QGridLayout, QHBoxLayout, QPushButton, QScrollArea, QVBoxLayout,
                                QWidget)
 
@@ -330,6 +331,12 @@ class MissionsWindow(QWidget):
         note.setWordWrap(True)
         note.setContentsMargins(12, 2, 12, 0)
         lay.addWidget(note)
+        if m.rewards:
+            prize = label("Recompensas: " + rewards_text(m.rewards), f.small, QColor("#e9c46a"))
+            prize.setWordWrap(True)
+            prize.setContentsMargins(12, 2, 12, 0)
+            prize.setToolTip("En total, sumando todos sus pasos")
+            lay.addWidget(prize)
         steps = " / ".join(amount(m, s) for s in m.steps)
         card.setToolTip(f"{mission_name}\n{text}\nPasos: {steps}" + (f"\nRecompensas (todos los pasos): {m.rewards}"
                                                                      if m.rewards else ""))
@@ -376,6 +383,13 @@ def _stack(totals, height):
 def _order(p):
     """Rewards waiting first, then in progress (the closest first), then not started, then done."""
     return (0 if p.ready else 3 if p.done else 1 if p.count or p.collected else 2, -p.ratio)
+
+
+def rewards_text(text):
+    """metabot's rewards ("2,940× Oath Coin 5,280× Abyss Points") with a separator between the items."""
+    import re
+    parts = re.split(r"\s+(?=\d[\d,]*×)", text.strip())
+    return " · ".join(p.strip(" ,") for p in parts if p.strip())
 
 
 def _clear(layout):
