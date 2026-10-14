@@ -26,6 +26,8 @@ from .professions import KNOWN_IDS
 log = logging.getLogger(__name__)
 FEE = 0.10                      # the market keeps 10% of every sale (the screen says it: "Current Tax Rate 10%")
 DEFAULT_PROFESSION = "Cooking"
+MATERIALS = "Materials"         # not a profession: the materials' own prices (Odyle, Wrathful Ego / Mind, ores...)
+WEEK_SECONDS = 7 * 86400
 TIME_SLACK = 1.5                # hours: the market shows the time left rounded ("2d 17h")
 MIN_RATE_HOURS = 6              # a per-day rate needs samples spanning this long (1 offer in 1 h is not "24 a day")
 MERGE_MINUTES = 15              # shots taken this close to a sample (a page read again later) join it
@@ -240,7 +242,9 @@ class Crafting:
         self.settings = settings
         db = _load(self.data_dir / "crafting_db.json", {})
         self.recipes = db.get("recipes", [])
-        self.professions = db.get("professions", {})
+        self.professions = {**db.get("professions", {}),
+                            MATERIALS: {"name": "Materiales",
+                                        "market": "materiales (Odyle, Ego, Mind, minerales, plantas…)"}}
         self.names = db.get("names", {})
         self.inventory = Inventory(settings, db.get("ids", {}))      # your bag and storage, from the game
         self.credit = db.get("credit")
@@ -848,23 +852,32 @@ class Crafting:
             self.config["sort"], self.config["sort_flip"] = key, False
         self.settings.save()
 
-    def material_rows(self, profession=None):
+    def material_rows(self, profession=None, with_unpriced=False):
         """The materials the profession's recipes use that have a price in your samples (Lesser Manastone,
-        Pujery...): [(name, source, lowest, when, listings, Sales, supply, recipes using it)], by name."""
+        Pujery...): [(name, source, lowest, when, listings, Sales, supply, recipes using it)], by name. For
+        "Materiales" every profession's; with_unpriced, also those with no price yet (lowest None)."""
         profession = profession or self.profession
         prices = self.latest_prices()
         uses = {}
         for r in self.recipes:
-            if r["profession"] == profession:
+            if r["profession"] == profession or profession == MATERIALS:
                 for m in r["materials"]:
-                    if m["source"] != "npc":
+                    if m["source"] != "npc" and "(Bound)" not in m["name"]:
                         uses.setdefault(m["name"], [m["source"], set()])[1].add(r["product"])
         out = []
         for name, (source, products) in sorted(uses.items()):
             if name in prices:
                 out.append((name, source, prices[name][0], prices[name][1], self._latest_field(name, "listings"),
                             self.sales(name), self.supply(name), sorted(products)))
+            elif with_unpriced:
+                out.append((name, source, None, None, None, Sales(), None, sorted(products)))
         return out
+
+    def week_average(self, name, now=None):
+        """(average lowest price of the last 7 days, readings) of an item, or (None, 0)."""
+        now = now or time.time()
+        seen = [low for at, low, _, _ in self.history(name) if low and now - at <= WEEK_SECONDS]
+        return (sum(seen) / len(seen), len(seen)) if seen else (None, 0)
 
     def leveling_pick(self, rows):
         """The recipe to level the profession up with: one you can make near your level (far below give little

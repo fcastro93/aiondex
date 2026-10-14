@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxL
                                QPushButton, QScrollArea, QSizePolicy, QSpinBox, QToolTip, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
-from ..crafting import SORT_KEYS, RecipeRow, span_text
+from ..crafting import MATERIALS, SORT_KEYS, RecipeRow, span_text
 from ..gathering import kills_for, map_open
 from ..professions import NOVICE_MAX, RANKS, level_text, parse_level
 from ..mapdata import MAP_NAMES
@@ -123,7 +123,8 @@ class CraftingWindow(QWidget):
         self.profession.setCurrentIndex(max(0, self.profession.findData(self.crafting.profession)))
         self.profession.currentIndexChanged.connect(self._profession_changed)
         head.addWidget(self.profession)
-        head.addWidget(label("Tu nivel:", f.small, theme.MUTED))
+        self.level_label = label("Tu nivel:", f.small, theme.MUTED)
+        head.addWidget(self.level_label)
         self.level = LevelBox()
         self.level.setToolTip("Tu nivel en esta profesión: decide tu probabilidad de éxito y qué recetas puedes hacer")
         self.level.setValue(self.crafting.level() or 0)
@@ -208,6 +209,12 @@ class CraftingWindow(QWidget):
     def _show_level(self):
         """The level box: the game's level (read-only) when AionDex has read it for this character, else yours."""
         crafting = self.crafting
+        materials = crafting.profession == MATERIALS
+        for widget in (self.level_label, self.level):
+            widget.setVisible(not materials)                 # materials have no level
+        if materials:
+            self.level_back.setVisible(False)
+            return
         source = crafting.level_source()
         self.level.blockSignals(True)
         self.level.setValue(crafting.level() or 0)
@@ -427,6 +434,12 @@ class CraftingWindow(QWidget):
             last = crafting.pool[-1]
             others = crafting.shared_count
             whose = f"tus muestreos y {others} de otros usuarios" if others else "tus muestreos"
+            if crafting.profession == MATERIALS:
+                self._hint(f"Precios de {whose} (el último: {_clock(last['at'])}, {_ago(last['at'])}): el más bajo "
+                           f"de cada material y su media de los últimos 7 días (en verde, más barato que su media). "
+                           f"Clic en «Gráfica de precio» para verlo en el tiempo.")
+                self._materials_tab(query)
+                return
             hint = self._hint(f"Precios de {whose} (el último: {_clock(last['at'])}, {_ago(last['at'])}). "
                               f"Ganancia media por intento, con tu % de éxito y el {crafting.fee:.0%} del mercado.  ⓘ")
             hint.setAttribute(Qt.WA_TransparentForMouseEvents, False)
@@ -435,6 +448,9 @@ class CraftingWindow(QWidget):
                             f"<b>Recolectando</b>: lo que se recolecta no te cuesta y lo que se fabrica, a su coste.<br>"
                             f"<b>Comprando</b>: todos los materiales al precio del mercado (lo de NPC a su precio; lo "
                             f"procesado, por el camino más barato).<br>Clic en una receta para ver sus materiales.")
+        if crafting.profession == MATERIALS:
+            self._materials_tab(query)
+            return
         if level is None:
             self._hint(f"Falta tu nivel de {prof}: escríbelo arriba (o craftea algo de {prof} y AionDex lo aprende). "
                        f"Mientras, se usa el % de éxito más bajo.", theme.WARN)
@@ -497,6 +513,74 @@ class CraftingWindow(QWidget):
             if row.product in self._open:
                 self.body.addWidget(self._detail(row))
         self._materials(query)
+
+    def _materials_tab(self, query):
+        """«Materiales»: every material the recipes use, by kind (gathered, only from the market, processed), with
+        its lowest price, the last 7 days' average, offers, units on sale, whether it sells and who uses it. The
+        ones with no price yet are listed so you know what to scan."""
+        f, crafting = self.fonts, self.crafting
+        rows = [m for m in crafting.material_rows(MATERIALS, with_unpriced=True)
+                if not query or query in m[0].lower() or any(query in p.lower() for p in m[7])]
+        if not rows:
+            self._hint(f"Nada coincide con «{self.search.text().strip()}»." if query else
+                       "No hay materiales en las recetas.")
+            return
+        groups = (("gather", "Recolectados (Odyle, minerales, plantas, ingredientes…)"),
+                  ("market", "Solo del mercado (Ego, Mind, piedras…)"),
+                  ("craft", "Procesados (los fabricas o los compras hechos)"))
+        for source, title in groups:
+            group = [m for m in rows if m[1] == source]
+            if not group:
+                continue
+            priced = [m for m in group if m[2] is not None]
+            self.body.addWidget(SectionTitle(f"{title} · {len(priced)} de {len(group)} con precio", f))
+            if priced:
+                self.body.addLayout(self._material_grid(priced))
+            missing = [m[0] for m in group if m[2] is None]
+            if missing:
+                note = self._hint("Sin precio todavía (escanéalos en el mercado): " + ", ".join(missing[:24])
+                                  + (f" y {len(missing) - 24} más" if len(missing) > 24 else ""))
+                note.setToolTip("\n".join(missing))
+                note.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+
+    def _material_grid(self, mats):
+        f, crafting = self.fonts, self.crafting
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(16)
+        grid.setVerticalSpacing(4)
+        heads = ("Material", "Tienes", "Más bajo", "Media 7 días", "Ofertas", "A la venta", "¿Se vende?", "Lo usan", "")
+        for c, text in enumerate(heads):
+            grid.addWidget(label(text, f.small, theme.MUTED), 0, c, Qt.AlignRight if 0 < c < 7 else Qt.AlignLeft)
+        for r, (name, source, lowest, at, listings, sales, supply, products) in enumerate(mats, start=1):
+            grid.addWidget(self._material_name(name, name, QColor(GRADE_COLOR.get(self._grade(name), "#D6DAE3"))),
+                           r, 0)
+            grid.addWidget(self._have_cell(name), r, 1, Qt.AlignRight)
+            price = label(_kinah(lowest), f.name, theme.TEXT)
+            shared = crafting.price_is_shared(name)
+            price.setToolTip(f"precio {_ago(at)}" + (" (de otro usuario)" if shared else ""))
+            grid.addWidget(price, r, 2, Qt.AlignRight)
+            avg, n = crafting.week_average(name)
+            if avg is not None and n >= 2:
+                change = (lowest - avg) / avg if avg else 0
+                color = theme.GAIN if change <= -0.05 else theme.COMBAT if change >= 0.05 else theme.MUTED
+                cell = label(f"{_kinah(avg)} ({change:+.0%})", f.body, color)
+                cell.setToolTip(f"Media de {n} lecturas de los últimos 7 días; el precio de ahora está {change:+.0%} "
+                                f"respecto a ella ({'barato' if change < 0 else 'caro'} para comprar)")
+            else:
+                cell = label("—", f.body, theme.MUTED)
+            grid.addWidget(cell, r, 3, Qt.AlignRight)
+            grid.addWidget(label("—" if listings is None else str(listings), f.body, theme.TEXT), r, 4, Qt.AlignRight)
+            units = f"{supply[0]}{'+' if supply[2] else ''} uds." if supply else "—"
+            grid.addWidget(label(units, f.body, theme.MUTED), r, 5, Qt.AlignRight)
+            verdict, kind = sales.verdict()
+            grid.addWidget(label(verdict, f.small, VERDICT_COLOR[kind]), r, 6, Qt.AlignRight)
+            used = label(f"{len(products)} {'receta' if len(products) == 1 else 'recetas'}", f.small, theme.MUTED)
+            used.setToolTip("Lo usan: " + ", ".join(products))
+            used.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+            grid.addWidget(used, r, 7)
+            grid.addWidget(self._chart_button(name), r, 8)
+        grid.setColumnStretch(7, 1)
+        return grid
 
     def _materials(self, query):
         """The profession's materials with a price in your samples: what you scanned that no recipe makes (Lesser

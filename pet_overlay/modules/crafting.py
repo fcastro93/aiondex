@@ -4,6 +4,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 
 from . import Module, ModuleView
+from ..crafting import MATERIALS
 from ..professions import level_text
 from ..ui import theme
 from ..ui.appmenu import glyph_icon
@@ -62,7 +63,21 @@ class CraftingPanel(QWidget):
         today = self._sales_today()
         if today:
             self._line(today, theme.GAIN)
-        rows = crafting.recommend(crafting.recipe_rows(self.ctl.crafting_faction()), n=ROWS[compact])
+        if crafting.profession == MATERIALS:
+            mats = [m for m in crafting.material_rows(MATERIALS) if m[2] is not None]
+            mats.sort(key=lambda m: -len(m[7]))              # the ones most recipes use first
+            if mats:
+                self.content.addWidget(SectionTitle("Precios de materiales (más bajo)", f))
+            for name, _, lowest, at, *_ in mats[:ROWS[compact] + 2]:
+                line = QWidget()
+                lay = QHBoxLayout(line)
+                lay.setContentsMargins(f.px(4), 0, f.px(2), 0)
+                lay.addWidget(label(name, f.body, theme.TEXT, elide=True), 1)
+                lay.addWidget(label(money(lowest), f.name, theme.GOLD))
+                self.content.addWidget(line)
+            rows = []
+        else:
+            rows = crafting.recommend(crafting.recipe_rows(self.ctl.crafting_faction()), n=ROWS[compact])
         if rows:
             level = crafting.level()
             self.content.addWidget(SectionTitle(f"Más rentable ({level_text(level)}, por intento)" if level else
