@@ -657,6 +657,9 @@ class BossDb:
         except (OSError, ValueError):
             db = {}
         self.bosses = db.get("bosses", {})
+        for npc in list(self.bosses):                # the Conquest copies (231xxxx) are the same bosses
+            if npc.startswith("230"):
+                self.bosses.setdefault(str(int(npc) + 10000), self.bosses[npc])
         self.face_url = db.get("face_url", "https://aion2data.com/game/monsters/")
         self.credit = db.get("credit")
 

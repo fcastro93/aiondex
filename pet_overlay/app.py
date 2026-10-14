@@ -518,6 +518,9 @@ class Controller(QObject):
         self.fights = FightLog(self.data_dir, enabled=self.persist)      # the last 48 hours of fights, and the pinned
         self.sessions = SessionLog(self.data_dir, enabled=self.persist)   # runs with the same party, for one report
         self.fights.keep = self.sessions.fight_ids
+        renamed = self.fights.rename(self.npc_db, place_of, final_boss_killed)
+        if renamed:
+            log.info("saved fights renamed now that their monsters have a name: %s", renamed)
         self._pin_when_done = set()     # fights pinned while they were going on
         self.bridge.own_cp.connect(self._on_own_cp)
         self._own_cp_at = 0.0

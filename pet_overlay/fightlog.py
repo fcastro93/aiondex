@@ -195,6 +195,56 @@ class FightLog:
             self._cache.pop(next(iter(self._cache)))
         return enc
 
+    def rename(self, npc_db, place_of, final_of=None):
+        """Saved fights whose monsters had no name then (a new dungeon or difficulty the database did not have:
+        "Jefe (2.9M HP)") get their names and their dungeon now that it has them."""
+        generic = ("Jefe (", "Enemigo (", "Enemigo")
+        changed = 0
+        for entry in self.index:
+            if not (entry.get("target", "").startswith(generic) or entry.get("place") in ("Mazmorra", "")):
+                continue
+            path = self.dir / f"{entry['id']}.json.gz"
+            try:
+                with gzip.open(path, "rt", encoding="utf-8") as fh:
+                    data = json.load(fh)
+            except (OSError, ValueError):
+                continue
+            names, npcs = data.get("target_names") or {}, data.get("target_npc") or {}
+            fixed = False
+            for eid, npc in npcs.items():
+                name = npc_db.name(npc)
+                if name and (names.get(eid) or "Enemigo").startswith(generic):
+                    names[eid] = name
+                    fixed = True
+                    boss = npc_db.is_boss(npc)
+                    if boss is not None and (data.get("target_boss") or {}).get(eid) is None:
+                        data.setdefault("target_boss", {})[eid] = boss
+            for b in (data.get("replay") or {}).get("bosses") or []:
+                name = npc_db.name(b.get("npc")) if b.get("npc") else None
+                if name and b.get("name", "").startswith(generic):
+                    b["name"] = name
+            if not fixed:
+                continue
+            data["target_names"] = names
+            enc = load(data)
+            data["place"] = enc.place = place_of(enc, npc_db)
+            if final_of is not None:
+                data["final"] = enc.final = final_of(enc, npc_db)
+            try:
+                with gzip.open(path, "wt", encoding="utf-8") as fh:
+                    json.dump(data, fh, ensure_ascii=False)
+            except OSError:
+                continue
+            entry["target"] = enc.main_target or entry["target"]
+            entry["place"] = enc.place
+            entry["final"] = enc.final
+            entry["boss"] = enc.activity(set(data.get("group") or [])).boss
+            self._cache.pop(entry["id"], None)
+            changed += 1
+        if changed:
+            self._write_index()
+        return changed
+
     def set_pinned(self, fid, on):
         entry = self.entry(fid)
         if entry is None:
