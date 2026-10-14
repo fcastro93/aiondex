@@ -17,8 +17,15 @@ Messages (layouts from the user's captures, Fire Temple 2026-10-11; coordinates 
 4136 / 4236 spawn (f32 x, y, z 2 bytes after the npc id) / despawn. The areas a boss leaves are NPCs 2920000-2929999
   with no owner (players' summons have one): they cast their own skill (0238) at a point and hit (0438) whoever is
   inside, which tells how big they are.
-0238 cast: varint caster | u8 | u32 skill | u8 | u8 mode | varint target | f32 heading | [mode&2: f32 x, y, z] |
-  varint | u8 | varint cooldown ms. A boss's cooldown names the skill: aion2data lists each boss's skills with theirs.
+0238 cast: varint caster | u8 | u32 skill | u8 cast id | u8 mode | varint target | f32 heading (degrees) |
+  [mode&2: f32 x, y, z] | varint | u8 | varint cooldown ms. A boss's cooldown names the skill: aion2data lists each
+  boss's skills with theirs.
+0638 cast over: varint caster | u32 skill | u8 cast id | u8 result (0 done, 2 / 3 cut short): 0238 -> 0638 is the
+  game's cast bar (Murute's Great Earthquake 5.2 s, a Kromede skill 6.6 s).
+0338 impact on someone: varint caster | u8 | varint target | u32 skill | ... | f32 x, y, z where it landed.
+0e38 a hit that moves someone (derribo, empujón: 0.1-2.5 m): varint caster | u8 | varint target | u32 skill | u8 |
+  4 bytes | f32 x, y, z from | ... | f32 x, y, z to (the last 12 bytes).
+05e0 a boss's stagger gauge (contribution.parse_stagger) · 3538 the boss's target: varint boss | u8 | varint target.
 048d death · 008d HP of anyone · 1b92 HP and max HP of the party.
 """
 import math
@@ -42,6 +49,11 @@ NEAR_EFFECT = bytes.fromhex("2b38")
 SPAWN = bytes.fromhex("4136")
 DESPAWN = bytes.fromhex("4236")
 CAST = bytes.fromhex("0238")
+CAST_END = bytes.fromhex("0638")
+IMPACT = bytes.fromhex("0338")
+KNOCK = bytes.fromhex("0e38")
+STAGGER = bytes.fromhex("05e0")
+AGGRO = bytes.fromhex("3538")
 HIT = bytes.fromhex("0438")
 DEATH = bytes.fromhex("048d")
 HP = bytes.fromhex("008d")
@@ -133,14 +145,16 @@ def parse_spawn_at(body):
 
 
 def parse_cast_at(body):
-    """0238 -> (caster, skill, target entity, cooldown ms, (x, y) of the point it aims at or None) or None."""
+    """0238 -> (caster, skill, target entity, cooldown ms, (x, y) of the point it aims at or None, cast id, heading
+    in degrees) or None."""
     try:
         caster, p = read_varint(body, 0)
         if caster is None:
             return None
         skill = struct.unpack_from("<I", body, p + 1)[0]
-        mode = body[p + 6]
+        cast_id, mode = body[p + 5], body[p + 6]
         target, q = read_varint(body, p + 7)
+        heading = struct.unpack_from("<f", body, q)[0]
         q += 4
         point = None
         if mode & 2:
@@ -150,7 +164,58 @@ def parse_cast_at(body):
         cooldown, _ = read_varint(body, q + 1)
     except (IndexError, struct.error, TypeError):
         return None
-    return caster, skill, target, cooldown or 0, point
+    heading = round(heading, 1) if math.isfinite(heading) and abs(heading) <= 720 else 0.0
+    return caster, skill, target, cooldown or 0, point, cast_id, heading
+
+
+def parse_cast_end(body):
+    """0638 -> (caster, skill, cast id, result) or None."""
+    try:
+        caster, p = read_varint(body, 0)
+        skill = struct.unpack_from("<I", body, p)[0]
+        return caster, skill, body[p + 4], body[p + 5]
+    except (IndexError, struct.error, TypeError):
+        return None
+
+
+def parse_impact(body):
+    """0338 -> (caster, target, skill) or None."""
+    try:
+        caster, p = read_varint(body, 0)
+        target, q = read_varint(body, p + 1)
+        return caster, target, struct.unpack_from("<I", body, q)[0]
+    except (IndexError, struct.error, TypeError):
+        return None
+
+
+def parse_knock(body):
+    """0e38 -> (caster, target, skill, (x, y) from, (x, y) to) or None."""
+    try:
+        caster, p = read_varint(body, 0)
+        target, q = read_varint(body, p + 1)
+        skill = struct.unpack_from("<I", body, q)[0]
+        start = _xyz(body, q + 4 + 1 + 4)
+        end = _xyz(body, len(body) - 12)
+    except (IndexError, struct.error, TypeError):
+        return None
+    if None in (caster, target) or not start or not end or math.dist(start, end) > 40:
+        return None
+    return caster, target, skill, start, end
+
+
+def parse_gauge(body):
+    """05e0 -> (npc, share of the stagger gauge left 0-1, or None when it broke) or None."""
+    try:
+        eid, p = read_varint(body, 0)
+        rest = body[p:]
+        if len(rest) == 11 and rest[0] == 3:
+            top, value = struct.unpack_from("<II", rest, 2)
+            return eid, (value / top if top else 0.0)
+        if rest[:2] == b"\x00\x03":
+            return eid, None
+    except (IndexError, struct.error, TypeError):
+        pass
+    return None
 
 
 def _hit_source(body):
@@ -222,6 +287,10 @@ class MoveRecorder:
             fix = parse_self_effect(body)
             if fix:
                 self._pos(now, *fix, True)
+            from .upkeep import parse_effect_on
+            on = parse_effect_on(body)
+            if on and on[4] not in players and on[4] not in owners and on[3] != 0:
+                self._add(("ef", now, on[0], on[4], on[2], on[3]))     # target, caster, effect, ms
         elif op == NEAR_EFFECT:
             fix = parse_near_effect(body)
             if fix and fix[0] in players:
@@ -231,9 +300,13 @@ class MoveRecorder:
             if spawn:
                 eid, npc, x, y, heading = spawn
                 owned = eid in owners
+                on = None
                 if npc in OBJECTS and not owned:
                     self.objects.add(eid)
-                self._add(("s", now, eid, npc, x, y, owned, heading))
+                    from .world import parse_spawn_full
+                    full = parse_spawn_full(body)
+                    on = full[2] if full else None          # the player a boss's marker was put on
+                self._add(("s", now, eid, npc, x, y, owned, heading, on))
         elif op == DESPAWN:
             eid, _ = read_varint(body, 0)
             if eid is not None:
@@ -243,6 +316,27 @@ class MoveRecorder:
             cast = parse_cast_at(body)
             if cast and cast[0] not in players and cast[0] not in owners:
                 self._add(("c", now, *cast))
+        elif op == CAST_END:
+            done = parse_cast_end(body)
+            if done and done[0] not in players and done[0] not in owners:
+                self._add(("ce", now, *done))
+        elif op == IMPACT:
+            hit = parse_impact(body)
+            if hit and hit[0] not in players and hit[0] not in owners:
+                self._add(("im", now, *hit))
+        elif op == KNOCK:
+            knock = parse_knock(body)
+            if knock and knock[0] not in players and knock[0] not in owners:
+                self._add(("kb", now, *knock))
+        elif op == STAGGER:
+            gauge = parse_gauge(body)
+            if gauge:
+                self._add(("sg", now, *gauge))
+        elif op == AGGRO:
+            boss, p = read_varint(body, 0)
+            target, _ = read_varint(body, p + 1) if boss is not None else (None, 0)
+            if boss is not None and target is not None and boss not in players:
+                self._add(("tg", now, boss, target))
         elif op == HIT:
             target, source = _hit_source(body)
             if source in self.objects:
@@ -250,6 +344,11 @@ class MoveRecorder:
                 hit = parse_effect(body)
                 if hit and hit.amount:
                     self._add(("x", now, source, target, hit.skill))
+            elif source is not None and source not in players and source not in owners and target in players:
+                from .contribution import parse_effect
+                hit = parse_effect(body)
+                if hit and hit.amount:
+                    self._add(("bh", now, source, target, hit.skill, hit.amount))
         elif op == DEATH:
             eid, _ = read_varint(body, 0)
             if eid is not None:
@@ -333,7 +432,7 @@ def _merge(exact, rough):
     return exact
 
 
-def build(events, enc, people, boss_db, t0=None, t1=None):
+def build(events, enc, people, boss_db, t0=None, t1=None, rage=None):
     """The simulation of one fight from the recorder's events.
 
     people: {eid: (name, class name, is you)} of you and your group. boss_db: npc id (str) -> {"face", "skills"}.
@@ -347,6 +446,7 @@ def build(events, enc, people, boss_db, t0=None, t1=None):
         boss_eids.insert(0, main)
     exact, rough = {}, {}
     spawns, gone, casts, hits, deaths, hp = {}, {}, [], [], [], {}
+    markers = {}                     # object eid -> the player's name it was put on (spread / stack markers)
     for e in events:
         kind, t = e[0], e[1]
         if not t0 - 30 <= t <= t1:
@@ -355,6 +455,7 @@ def build(events, enc, people, boss_db, t0=None, t1=None):
             (exact if e[5] else rough).setdefault(e[2], []).append((rel(t), e[3], e[4]))
         elif kind == "s":
             spawns[e[2]] = (t, e[3], e[4], e[5], e[6], e[7] if len(e) > 7 else 0.0)
+            markers[e[2]] = e[8] if len(e) > 8 else None
         elif kind == "g":
             gone.setdefault(e[2], t)
         elif t < t0:
@@ -411,7 +512,7 @@ def build(events, enc, people, boss_db, t0=None, t1=None):
 
     # what the bosses cast, named by its cooldown when the database lists the boss's skills
     named = []
-    for _, t, caster, skill, target, cooldown, point in casts:
+    for _, t, caster, skill, target, cooldown, point, *_ in casts:
         if caster not in boss_eids:
             continue
         npc = enc.target_npc.get(caster)
@@ -422,7 +523,7 @@ def build(events, enc, people, boss_db, t0=None, t1=None):
 
     # the areas: where each one hit, how big it is (hits on the players around), and what it came from
     obj_cast = {}
-    for _, t, caster, skill, target, cooldown, point in casts:
+    for _, t, caster, skill, target, cooldown, point, *_ in casts:
         if caster in spawns and caster not in obj_cast:
             obj_cast[caster] = (t, point)
     by_obj = {}
@@ -480,6 +581,25 @@ def build(events, enc, people, boss_db, t0=None, t1=None):
     boss_casts = sorted((c[0], c[4]) for c in named if c[4])
     lingering = {npc for npc in shape if any(len(by_obj.get(eid, [])) > 1 for _, _, eid, n, *_ in zones_raw
                                              if n == npc)}
+    # markers put on players: one on each at once is a spread (get apart), one whose hits several share is a stack
+    # (get together); a spread marker that hits someone else than its player is a spread done wrong
+    names = {e: p[0] for e, p in people.items()}
+    groups = {}
+    for t, end, eid, npc, *_ in zones_raw:
+        if markers.get(eid):
+            groups.setdefault((npc, round(t * 2)), []).append(eid)
+    roles, fails = {}, []
+    for (npc, _), eids in groups.items():
+        owners_ = {markers[e] for e in eids}
+        for e in eids:
+            victims = {who for _, who in by_obj.get(e, [])}
+            victims_named = {names.get(v) for v in victims} - {None}
+            if len(owners_) >= 3:
+                roles[e] = "spread"
+                for victim in sorted(victims_named - {markers[e]}):
+                    fails.append([rel(by_obj[e][0][0]), markers[e], victim])
+            elif len(victims) >= 2:
+                roles[e] = "stack"
     zones = []
     for t, end, eid, npc, center, origin, heading in zones_raw[:MAX_ZONES]:
         radius, grow = shape.get(npc, (ZONE_RADIUS, None))
@@ -490,14 +610,24 @@ def build(events, enc, people, boss_db, t0=None, t1=None):
             kind, center, speed, radius, grow = "wave", origin, wave[0], wave[1], None
         else:
             kind = "ring" if grow else "pool"
+        role = roles.get(eid)
         label = cast or ("Ola que avanza" if wave else "Aro que crece" if grow else
                          "Zona de daño" if npc in lingering else "Área del jefe")
+        if role:
+            label = ("Separarse" if role == "spread" else "Juntarse") + (f" · {cast}" if cast else "")
         r0, r1 = (grow[0], grow[0] + grow[1] * (end - t)) if grow else (radius, radius)
         zones.append([rel(t), rel(end), round(center[0], 2), round(center[1], 2), round(r0, 1),
                       round(max(0.5, min(40.0, r1)), 1), kind, label, zone_color(label), npc,
                       [rel(th) for th, _ in by_obj.get(eid, [])][:20],
                       [round(origin[0], 2), round(origin[1], 2)] if center != origin else None,
-                      heading, round(speed, 1)])
+                      heading, round(speed, 1), role, markers.get(eid)])
+
+    from .mechanics import analyze
+    boss_npc = enc.target_npc.get(main) if main is not None else None
+    mech = analyze(events, set(boss_eids), set(people), tracks, rel, t0, t1, boss_npc, boss_db)
+    rage_at = None
+    if rage and main is not None and main in enc.first_hit:
+        rage_at = rel(enc.first_hit[main] + rage)
 
     def lite(track):
         return [[s[0], round(s[1], 1), round(s[2], 1)] for s in track]
@@ -510,7 +640,9 @@ def build(events, enc, people, boss_db, t0=None, t1=None):
         "adds": adds,
         "tracks": {str(e): lite(tr) for e, tr in tracks.items() if e in shown},
         "deaths": downs, "hp": {str(e): v for e, v in shares.items()},
-        "casts": named, "zones": zones,
+        "casts": named, "zones": zones, "fails": fails,
+        "mechs": mech["mechs"], "stagger": mech["stagger"], "breaks": mech["breaks"], "aggro": mech["aggro"],
+        "rage": rage_at,
     }
 
 
@@ -554,6 +686,12 @@ class Replay:
         self.deaths = data.get("deaths", [])
         self.casts = data.get("casts", [])
         self.zones = data.get("zones", [])
+        self.mechs = data.get("mechs", [])
+        self.stagger = data.get("stagger", [])
+        self.breaks = data.get("breaks", [])
+        self.aggro = data.get("aggro", [])
+        self.fails = data.get("fails", [])
+        self.rage = data.get("rage")
         # shown at their last spot whatever its age: the bosses (they move little) and you (few positions)
         self.steady = {b["eid"] for b in self.bosses} | {p["eid"] for p in self.people if p.get("me")}
 
@@ -635,6 +773,41 @@ class Replay:
             if c[1] == eid and c[0] <= t <= c[0] + show:
                 best = c
         return best
+
+    def bar(self, t, linger=0.6):
+        """The boss's cast going on at time t (or just ended): (mechanic, progress 0-1) or None."""
+        best = None
+        for m in self.mechs:
+            if m[0] <= t <= m[1] + linger and m[1] - m[0] >= 0.3:
+                best = m
+        if best is None:
+            return None
+        span = max(0.01, best[1] - best[0])
+        return best, min(1.0, (t - best[0]) / span)
+
+    def mechs_at(self, t, before=0.0, after=1.5):
+        """The mechanics casting or just landed at time t."""
+        return [m for m in self.mechs if m[0] - before <= t <= m[1] + after]
+
+    def gauge(self, t):
+        """The boss's stagger gauge left at time t (0-1) and whether it is broken (a break shows 6 s)."""
+        broken = any(b <= t <= b + 6 for b in self.breaks)
+        value = None
+        for at, frac in self.stagger:
+            if at > t:
+                break
+            value = frac
+        return value, broken
+
+    def target_of(self, boss, t):
+        """Whom the boss is after at time t (its last 3538), or None."""
+        who = None
+        for at, target, b in self.aggro:
+            if at > t:
+                break
+            if b == boss:
+                who = target
+        return who
 
     def zones_at(self, t):
         return [z for z in self.zones if z[0] <= t <= z[1]]

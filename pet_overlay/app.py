@@ -1153,7 +1153,9 @@ class Controller(QObject):
         if enc.replay is None and simulation.worth(enc, group):
             try:
                 events = self.bridge.moves.slice(enc.start - simulation.PRE - 30, enc.last + simulation.POST + 1)
-                enc.replay = simulation.build(events, enc, self._sim_people(enc, group), self.boss_db.bosses)
+                npc = enc.target_npc.get(enc.main_target_eid)
+                enc.replay = simulation.build(events, enc, self._sim_people(enc, group), self.boss_db.bosses,
+                                              rage=self.npc_db.rage(npc) if npc else None)
                 log.info("simulation of %s: %s tracks, %s deaths, %s casts, %s areas", enc.main_target,
                          len(enc.replay["tracks"]), len(enc.replay["deaths"]), len(enc.replay["casts"]),
                          len(enc.replay["zones"]))

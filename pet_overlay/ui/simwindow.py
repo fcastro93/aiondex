@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QHBoxLayout, QLabel
                                QVBoxLayout, QWidget)
 
 from .. import APP_NAME
+from ..mechanics import COLORS as MECH_COLORS, LABELS as MECH_LABELS
 from ..simulation import Replay
 from . import theme
 from .dps_panel import CLASS_ICON, mmss
@@ -171,7 +172,11 @@ class ArenaView(QWidget):
         self._grid(p)
         r, t = self.replay, self.t
         self._zones(p, t)
-        self._casts(p, t)
+        if r.mechs:
+            self._mechanics(p, t)
+        else:
+            self._casts(p, t)                          # simulations saved before 1.48
+        self._aggro(p, t)
         if self.trails:
             for person in r.people:
                 self._trail(p, person, t)
@@ -181,6 +186,8 @@ class ArenaView(QWidget):
             self._boss(p, boss, t)
         for person in sorted(r.people, key=lambda q: q.get("me", False)):      # you on top
             self._person(p, person, t)
+        self._marks(p, t)
+        self._cast_bar(p, t)
         self._scale_bar(p)
         p.end()
 
@@ -396,13 +403,201 @@ class ArenaView(QWidget):
             p.setPen(Qt.NoPen)
             p.setBrush(QColor(10, 10, 14, 150))
             p.drawEllipse(center, BOSS_R, BOSS_R)
-        self._text(p, QPointF(center.x(), center.y() + BOSS_R + 6), boss["name"], self.fonts.small,
-                   QColor("#ffb3ad"), background=True)
-        cast = r.casting(eid, t)
+        raging = r.rage is not None and t >= r.rage and not dead
+        if raging:                                     # its rage timer ran out
+            p.setBrush(Qt.NoBrush)
+            p.setPen(QPen(QColor(255, 40, 40, 200), 3, Qt.DashLine))
+            p.drawEllipse(center, BOSS_R + 9, BOSS_R + 9)
+        gauge, broken = r.gauge(t)
+        if broken and not dead:
+            p.setPen(QPen(QColor("#6cb4ff"), 4))
+            p.drawEllipse(center, BOSS_R + 5, BOSS_R + 5)
+        rect = self._text(p, QPointF(center.x(), center.y() + BOSS_R + 6), boss["name"], self.fonts.small,
+                          QColor("#ffb3ad"), background=True)
+        if (gauge is not None or broken) and not dead:  # the stagger gauge under its name
+            w = 64
+            bar = QRectF(center.x() - w / 2, rect.bottom() + 3, w, 5)
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(0, 0, 0, 160))
+            p.drawRoundedRect(bar, 2, 2)
+            p.setBrush(QColor("#6cb4ff"))
+            p.drawRoundedRect(QRectF(bar.left(), bar.top(), w * (0 if broken else gauge or 0), 5), 2, 2)
+            if broken:
+                self._text(p, QPointF(center.x(), bar.bottom() + 2), "¡ATURDIDO!", self.fonts.small,
+                           QColor("#6cb4ff"))
+        if raging:
+            self._text(p, QPointF(center.x(), center.y() - BOSS_R - 30), "FURIA", self.fonts.name,
+                       QColor("#ff4d4d"), above=True)
+        cast = None if r.mechs else r.casting(eid, t)
         if cast and not dead:
             name = cast[4] or f"Habilidad ({cast[3]:g} s)"
             self._text(p, QPointF(center.x(), center.y() - BOSS_R - 8), name, self.fonts.name,
                        QColor("#ffd27a"), above=True)
+
+
+    # --- the boss's mechanics -----------------------------------------------------------------------------
+    def _mechanics(self, p, t):
+        """Each cast going on: its warning on the floor filling up until it lands (a circle where it aims or around
+        the boss, a cone in front of it, a line to its target, a jump), then a flash where it hit."""
+        r, s = self.replay, self._scale()
+        for m in r.mechs_at(t, before=0.0, after=0.7):
+            start, end, caster, name, kind, cut, info = m
+            color = QColor(MECH_COLORS.get(kind, "#ff5a4f"))
+            casting = t < end
+            k = 1.0 if not casting else (t - start) / max(0.01, end - start)
+            fade = 1.0 if casting else max(0.0, 1 - (t - end) / 0.7)
+            if cut and not casting:
+                continue                               # interrupted: it never landed
+            boss = r.position(caster, min(t, end))
+            shape = info.get("shape")
+            if info.get("jump"):
+                x1, y1, x2, y2 = info["jump"]
+                a, b = self.to_screen(x1, y1), self.to_screen(x2, y2)
+                p.setPen(QPen(QColor(199, 125, 255, round(220 * fade)), 2.5, Qt.DashLine))
+                p.drawLine(a, b)
+                self._arrow_head(p, a, b, QColor(199, 125, 255, round(220 * fade)))
+            if not shape or not boss:
+                continue
+            kind_s, radius, half = shape
+            center = self.to_screen(boss[0], boss[1])
+            if kind_s == "point" and info.get("point"):
+                center = self.to_screen(*info["point"])
+            if kind_s in ("point", "around"):
+                rr = radius * s
+                p.setBrush(QColor(color.red(), color.green(), color.blue(), round(35 * fade)))
+                p.setPen(QPen(QColor(color.red(), color.green(), color.blue(), round(220 * fade)), 2))
+                p.drawEllipse(center, rr, rr)
+                p.setPen(Qt.NoPen)
+                p.setBrush(QColor(color.red(), color.green(), color.blue(), round((70 if casting else 150) * fade)))
+                p.drawEllipse(center, rr * k, rr * k)          # fills up like the game's warning
+            elif kind_s == "cone":
+                rr = radius * s
+                rect = QRectF(center.x() - rr, center.y() - rr, 2 * rr, 2 * rr)
+                heading = info.get("heading", 0.0)
+                path = QPainterPath(center)
+                path.arcTo(rect, -heading - half, 2 * half)    # Qt angles go counterclockwise, y down
+                path.closeSubpath()
+                p.setPen(QPen(QColor(color.red(), color.green(), color.blue(), round(220 * fade)), 2))
+                p.setBrush(QColor(color.red(), color.green(), color.blue(), round(35 * fade)))
+                p.drawPath(path)
+                inner = QRectF(center.x() - rr * k, center.y() - rr * k, 2 * rr * k, 2 * rr * k)
+                fill = QPainterPath(center)
+                fill.arcTo(inner, -heading - half, 2 * half)
+                fill.closeSubpath()
+                p.setPen(Qt.NoPen)
+                p.setBrush(QColor(color.red(), color.green(), color.blue(), round((70 if casting else 150) * fade)))
+                p.drawPath(fill)
+            elif kind_s == "target":
+                who = info.get("target") or (info.get("hit") or [None])[0]
+                pos = r.position(who, t) if who is not None else None
+                if pos:
+                    end_pt = self.to_screen(pos[0], pos[1])
+                    p.setPen(QPen(QColor(color.red(), color.green(), color.blue(), round(90 * fade)), 7,
+                                  Qt.SolidLine, Qt.RoundCap))
+                    p.drawLine(center, end_pt)
+                    p.setPen(QPen(QColor(color.red(), color.green(), color.blue(), round(230 * fade)), 3,
+                                  Qt.SolidLine, Qt.RoundCap))
+                    p.drawLine(center, center + (end_pt - center) * k)
+                    if not casting:
+                        p.setBrush(Qt.NoBrush)
+                        p.drawEllipse(end_pt, PERSON_R + 6, PERSON_R + 6)
+            elif kind_s == "group" and not casting:
+                for who in info.get("hit") or []:
+                    pos = r.position(who, t)
+                    if pos:
+                        p.setBrush(Qt.NoBrush)
+                        p.setPen(QPen(QColor(color.red(), color.green(), color.blue(), round(230 * fade)), 3))
+                        p.drawEllipse(self.to_screen(pos[0], pos[1]), PERSON_R + 7, PERSON_R + 7)
+
+    def _arrow_head(self, p, a, b, color):
+        angle = math.atan2(b.y() - a.y(), b.x() - a.x())
+        size = 9
+        left = QPointF(b.x() - size * math.cos(angle - 0.45), b.y() - size * math.sin(angle - 0.45))
+        right = QPointF(b.x() - size * math.cos(angle + 0.45), b.y() - size * math.sin(angle + 0.45))
+        path = QPainterPath(b)
+        path.lineTo(left)
+        path.lineTo(right)
+        path.closeSubpath()
+        p.setPen(Qt.NoPen)
+        p.setBrush(color)
+        p.drawPath(path)
+
+    def _aggro(self, p, t):
+        """A faint line from the boss to whom it is after."""
+        r = self.replay
+        for boss in r.bosses:
+            who = r.target_of(boss["eid"], t)
+            a, b = r.position(boss["eid"], t), r.position(who, t) if who is not None else None
+            if a and b:
+                p.setPen(QPen(QColor(255, 90, 79, 70), 1.5, Qt.DotLine))
+                p.drawLine(self.to_screen(a[0], a[1]), self.to_screen(b[0], b[1]))
+
+    def _marks(self, p, t):
+        """On the players: the debuffs the boss left (purple ring, its seconds left), the hits that moved them
+        (an arrow to where they went), the boss's buff on itself (gold aura) and the adds it brought."""
+        r, f = self.replay, self.fonts
+        for m in r.mechs_at(t, before=0.0, after=25.0):
+            start, end, caster, name, kind, cut, info = m
+            if cut:
+                continue
+            for who, effect, seconds in info.get("debuffs") or []:
+                if end <= t <= end + seconds:
+                    pos = r.position(who, t)
+                    if pos:
+                        c = self.to_screen(pos[0], pos[1])
+                        p.setBrush(Qt.NoBrush)
+                        p.setPen(QPen(QColor(178, 141, 255, 210), 2, Qt.DashLine))
+                        p.drawEllipse(c, PERSON_R + 4, PERSON_R + 4)
+                        left = end + seconds - t
+                        if left >= 1:
+                            self._text(p, QPointF(c.x() + PERSON_R + 10, c.y() - PERSON_R), f"{left:.0f}s",
+                                       f.small, QColor("#b28dff"))
+            if end <= t <= end + 0.8:
+                for who, x1, y1, x2, y2 in info.get("knock") or []:
+                    a, b = self.to_screen(x1, y1), self.to_screen(x2, y2)
+                    if (b - a).manhattanLength() > 3:
+                        p.setPen(QPen(QColor(255, 255, 255, 200), 2))
+                        p.drawLine(a, b)
+                        self._arrow_head(p, a, b, QColor(255, 255, 255, 220))
+            boss = r.position(caster, t)
+            if info.get("buff") and start <= t <= end + info["buff"] and boss:
+                c = self.to_screen(boss[0], boss[1])
+                p.setBrush(QColor(255, 224, 138, 40))
+                p.setPen(QPen(QColor(255, 224, 138, 170), 2))
+                p.drawEllipse(c, BOSS_R + 13, BOSS_R + 13)
+            if info.get("adds") and end <= t <= end + 2.5 and boss:
+                c = self.to_screen(boss[0], boss[1])
+                self._text(p, QPointF(c.x(), c.y() - BOSS_R - 54), f"Invoca adds ×{info['adds']}", f.name,
+                           QColor(MECH_COLORS["adds"]), above=True)
+
+    def _cast_bar(self, p, t):
+        """The boss's cast bar at the top, like the game's: its name, how full, and if it was cut short."""
+        got = self.replay.bar(t)
+        if not got:
+            return
+        m, k = got
+        start, end, caster, name, kind, cut, info = m
+        f = self.fonts
+        w, h = min(420.0, self.width() - 80.0), 16.0
+        x, y = (self.width() - w) / 2, 34.0
+        color = QColor(MECH_COLORS.get(kind, "#ff8a3d"))
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(6, 10, 20, 210))
+        p.drawRoundedRect(QRectF(x - 8, y - 26, w + 16, h + 34), 8, 8)
+        p.setFont(f.name)
+        done = t >= end
+        p.setPen(theme.MUTED if cut and done else QColor("#ffd27a"))
+        title = name + ("  · interrumpido" if cut and done else "")
+        p.drawText(QRectF(x, y - 22, w, 18), Qt.AlignLeft | Qt.AlignVCenter, title)
+        p.setFont(f.small)
+        p.setPen(theme.MUTED)
+        p.drawText(QRectF(x, y - 22, w, 18), Qt.AlignRight | Qt.AlignVCenter,
+                   f"{min(t, end) - start:.1f} / {end - start:.1f} s · {MECH_LABELS.get(kind, '')}")
+        p.setBrush(QColor(255, 255, 255, 25))
+        p.drawRoundedRect(QRectF(x, y, w, h), 4, 4)
+        fill = QColor(120, 130, 150) if cut and done else color
+        p.setBrush(fill)
+        p.drawRoundedRect(QRectF(x, y, w * k, h), 4, 4)
 
 
 class Timeline(QWidget):
@@ -455,10 +650,29 @@ class Timeline(QWidget):
             path.closeSubpath()
             p.setBrush(QColor(255, 90, 79, 55))
             p.drawPath(path)
-        for c in r.casts:                              # the boss's casts
-            x = self._x(c[0])
-            p.setPen(QPen(QColor(255, 210, 122, 150 if c[4] else 80), 1.5))
-            p.drawLine(QPointF(x, bar.top() + 2), QPointF(x, bar.top() + 9))
+        if r.mechs:                                    # the boss's casts: one bar each, its colour its kind
+            for m in r.mechs:
+                x0, x1 = self._x(m[0]), max(self._x(m[1]), self._x(m[0]) + 2)
+                c = QColor(MECH_COLORS.get(m[4], "#8a93a6"))
+                c.setAlpha(110 if m[5] else 230)
+                p.setPen(Qt.NoPen)
+                p.setBrush(c)
+                p.drawRect(QRectF(x0, bar.top() + 2, x1 - x0, 7))
+        else:
+            for c in r.casts:                          # simulations saved before 1.48
+                x = self._x(c[0])
+                p.setPen(QPen(QColor(255, 210, 122, 150 if c[4] else 80), 1.5))
+                p.drawLine(QPointF(x, bar.top() + 2), QPointF(x, bar.top() + 9))
+        for b in r.breaks:                             # stagger broken
+            x = self._x(b)
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor("#6cb4ff"))
+            p.drawPolygon([QPointF(x, bar.bottom() - 9), QPointF(x + 4, bar.bottom() - 5), QPointF(x, bar.bottom() - 1),
+                           QPointF(x - 4, bar.bottom() - 5)])
+        if r.rage is not None and r.rage <= r.length:  # the rage timer
+            x = self._x(r.rage)
+            p.setPen(QPen(QColor(255, 60, 60, 220), 2, Qt.DashLine))
+            p.drawLine(QPointF(x, bar.top()), QPointF(x, bar.bottom()))
         x = self._x(self.t)                            # where the simulation is
         p.setPen(Qt.NoPen)
         p.setBrush(QColor(46, 192, 242, 60))
@@ -490,8 +704,31 @@ class Timeline(QWidget):
             names = [self.replay.name_of(d[1]) for d in self.replay.deaths if abs(self._x(d[0]) - self._x(hit[0])) < 6]
             QToolTip.showText(event.globalPosition().toPoint(),
                               f"{mmss(hit[0])} · murió " + ", ".join(dict.fromkeys(names)), self)
+            return
+        tip = self._lane_tip(event.position())
+        if tip:
+            QToolTip.showText(event.globalPosition().toPoint(), tip, self)
         else:
             QToolTip.hideText()
+
+    def _lane_tip(self, pos):
+        """What the cast bars, the stagger breaks and the rage line under the mouse are."""
+        r, top = self.replay, 26
+        bottom = self.height() - 14
+        if not top <= pos.y() <= bottom:
+            return None
+        t = self._t(pos.x())
+        slack = r.length / max(1.0, self.width()) * 4
+        if pos.y() <= top + 11:
+            here = [m for m in r.mechs if m[0] - slack <= t <= m[1] + slack]
+            if here:
+                return "\n".join(f"{mmss(m[0])} · {m[3]} ({m[1] - m[0]:.1f} s){' · interrumpido' if m[5] else ''}"
+                                 for m in here[:4])
+        if any(abs(b - t) <= slack * 2 for b in r.breaks):
+            return "El jefe quedó aturdido (barra de aturdimiento rota)"
+        if r.rage is not None and abs(r.rage - t) <= slack * 2:
+            return f"{mmss(r.rage)} · el jefe entra en furia (se acabó su tiempo)"
+        return None
 
     def mouseReleaseEvent(self, event):
         self._pressed = False
@@ -626,9 +863,14 @@ class SimulationWindow(QWidget):
             kinds.setdefault((z[7], z[8], z[6]), 0)
             kinds[(z[7], z[8], z[6])] += 1
         named = {}
-        for c in r.casts:
-            named.setdefault(c[4] or f"Habilidad ({c[3]:g} s de recarga)", 0)
-            named[c[4] or f"Habilidad ({c[3]:g} s de recarga)"] += 1
+        if r.mechs:
+            for m in r.mechs:
+                key = (m[3], m[4])
+                named.setdefault(key, []).append(m[0])
+        else:
+            for c in r.casts:
+                key = (c[4] or f"Habilidad ({c[3]:g} s de recarga)", "cast")
+                named.setdefault(key, []).append(c[0])
         if kinds:
             col.addSpacing(6)
             col.addWidget(label("ÁREAS DEL JEFE", f.section, theme.MUTED))
@@ -640,12 +882,23 @@ class SimulationWindow(QWidget):
                 col.addLayout(row)
         if named:
             col.addSpacing(6)
-            col.addWidget(label("LO QUE LANZÓ", f.section, theme.MUTED))
-            for name, n in sorted(named.items(), key=lambda kv: -kv[1])[:12]:
-                row = QHBoxLayout()
-                row.addWidget(label(name, f.body, QColor("#ffd27a"), elide=True), 1)
-                row.addWidget(label(f"×{n}", f.small, theme.MUTED))
-                col.addLayout(row)
+            col.addWidget(label("LO QUE LANZÓ (clic: la siguiente)", f.section, theme.MUTED))
+            for (name, kind), times in sorted(named.items(), key=lambda kv: -len(kv[1]))[:16]:
+                button = QPushButton(f"■ {name}  ×{len(times)}")
+                button.setProperty("flat", True)
+                button.setToolTip(MECH_LABELS.get(kind, ""))
+                button.setStyleSheet(f"text-align: left; color: {MECH_COLORS.get(kind, '#ffd27a')};")
+                button.clicked.connect(lambda _=False, ts=sorted(times): self._next_of(ts))
+                col.addWidget(button)
+        if r.fails:
+            col.addSpacing(6)
+            col.addWidget(label("ERRORES AL SEPARARSE", f.section, theme.MUTED))
+            for at, owner, victim in r.fails[:20]:
+                button = QPushButton(f"{mmss(at)}  la marca de {owner} le pegó a {victim}")
+                button.setProperty("flat", True)
+                button.setStyleSheet("text-align: left; color: #ffb347;")
+                button.clicked.connect(lambda _=False, at=at: self.seek(max(0.0, at - 3.0)))
+                col.addWidget(button)
         if r.deaths:
             col.addSpacing(6)
             col.addWidget(label("MUERTES (clic para verla)", f.section, theme.MUTED))
@@ -660,6 +913,12 @@ class SimulationWindow(QWidget):
         col.addStretch(1)
         scroll.setWidget(inner)
         return scroll
+
+    def _next_of(self, times):
+        """Jump to the next time a mechanic is cast (from where the simulation is; after the last, the first)."""
+        now = self.view.t
+        nxt = next((at for at in times if at > now + 0.5), times[0])
+        self.seek(max(0.0, nxt - 1.0))
 
     # --- pictures ---
     def picture(self, person):
