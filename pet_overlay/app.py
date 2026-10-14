@@ -68,7 +68,7 @@ from .modules.status import StatusModule
 from .modules.missions import AchievementsModule, MissionsModule
 from .modules.passes import PassesModule
 from .modules.events import EventsModule
-from .events import Events
+from .events import Events, event_missions
 from .afinador import STORE_DELAY, Afinador
 from .update_controller import UpdateController
 from .notifications import NotificationCenter
@@ -561,6 +561,7 @@ class Controller(QObject):
         self.status_window = None
         self.bridge.counters.connect(self.on_counters)
         self.missions = Missions(self.data_dir, self.data_dir / "missions_db.json", persist=self.persist)
+        self.missions.add_event(event_missions(self.events.curated))     # Season Mission > Event tab
         self.achievements = Missions(self.data_dir, self.data_dir / "achievements_db.json", persist=self.persist,
                                      save_name="achievements.json")
         self.missions_window = self.achievements_window = None

@@ -125,10 +125,21 @@ class Missions:
         self.maps = {**db.get("maps", {}), **state.get("maps", {})}   # instance map id -> where tags played there
         self.notified = set(state.get("notified", []))      # "expiring" notices given: character:deadline:hours
         self._pending = None
+        self._unknown_logged = False
 
     @property
     def available(self):
         return bool(self.db)
+
+    def add_event(self, missions, tab="event", tab_name="Evento"):
+        """The missions a running event adds to Season Mission (its Event tab), from data/events.json: they are read,
+        saved and shown like the others."""
+        if not missions:
+            return
+        self.tabs[tab] = tab_name
+        self.subs[tab] = [("weekly", "Semanales")]
+        for m in missions:
+            self.db[m["id"]] = Mission(**{k: m.get(k) for k in Mission.__dataclass_fields__ if k in m})
 
     # --- readings ---
     def on_list(self, at, records):
@@ -136,7 +147,8 @@ class Missions:
         self._pending = (at, [r for r in records if r[0] in self.db])
         log.info("%s: list read (%s of %s records)", self.path.stem, len(self._pending[1]), len(records))
         unknown = [r for r in records if self._unknown(r[0])]
-        if unknown:
+        if unknown and not self._unknown_logged:          # once per session: they are the same each login
+            self._unknown_logged = True
             log.info("%s: %s season-style records not in the database: %s", self.path.stem, len(unknown),
                      " ".join(f"{mid}={count}/{got}" for mid, count, ms, got in unknown[:40]))
 

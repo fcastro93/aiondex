@@ -50,6 +50,28 @@ def weeks_total(event):
     return weeks_left(event, at(event["start"]) + 3600)
 
 
+def event_missions(events, now=None):
+    """The missions of the running events that the game counts (their id is known), as missions_db entries."""
+    now = now or time.time()
+    out = []
+    for e in events:
+        if not at(e["start"]) <= now < at(e["end"]):
+            continue
+        for block in e.get("blocks") or []:
+            if block.get("type") != "missions":
+                continue
+            for row in block.get("rows", []):
+                name, what, reward, amount = row[:4]
+                extra = row[4] if len(row) > 4 and isinstance(row[4], dict) else {}
+                if not extra.get("id"):
+                    continue
+                out.append({"id": extra["id"], "tab": "event", "sub": "weekly", "period": "weekly", "name": name,
+                            "desc": extra.get("desc", what), "steps": [extra.get("target", 1)],
+                            "where": extra.get("where", []), "easy": extra.get("easy", 0),
+                            "rewards": f"{amount:,} {reward}".replace(",", ".")})
+    return out
+
+
 def parse_live(data):
     """NC's running-events JSON -> [{title, start, end, url, image, description}]."""
     out = []

@@ -280,13 +280,31 @@ class EventsWindow(QWidget):
                                     theme.MUTED))
 
     def _block_missions(self, block, e, now):
-        rows = [[(name, theme.TEXT), (what, theme.TEXT), (f"{_n(amount)} {reward.replace(' (Event)', '')}",
-                                                          theme.GOLD)]
-                for name, what, reward, amount in block.get("rows", [])]
+        ms = self.ctl.missions
+        who = self.ctl.missions_character(ms)
+        rows, done, ready = [], 0, 0
+        for row in block.get("rows", []):
+            name, what, reward, amount = row[:4]
+            mid = row[4].get("id") if len(row) > 4 and isinstance(row[4], dict) else None
+            cells = [(name, theme.TEXT), (what, theme.TEXT),
+                     (f"{_n(amount)} {reward.replace(' (Event)', '')}", theme.GOLD)]
+            if mid in ms.db and who:
+                p = ms.progress(who, mid, now)
+                done += p.done
+                ready += p.ready
+                cells.append(("cobrada ✓" if p.done else f"{p.count}/{p.target} · ¡cobrar!" if p.ready else
+                              f"{p.count}/{p.target}" if p.known else "—",
+                              theme.MUTED if p.done else theme.GAIN if p.ready else theme.TEXT))
+            else:
+                cells.append(("—", theme.MUTED))
+            rows.append(cells)
         total = sum(r[3] for r in block.get("rows", []))
-        self._grid(["Misión", "Qué hacer", "Recompensa"], rows, stretch=1, wrap=False)
-        self.detail.addWidget(label(f"{len(rows)} misiones · {_n(total)} por semana · se renuevan en "
-                                    f"{countdown(next_weekly(now) - now)}", self.fonts.small, theme.MUTED))
+        self._grid(["Misión", "Qué hacer", "Recompensa", f"{who}" if who else "Tu progreso"], rows, stretch=1,
+                   wrap=False)
+        bits = [f"{len(rows)} misiones · {_n(total)} por semana · se renuevan en {countdown(next_weekly(now) - now)}"]
+        if who:
+            bits.append(f"{who}: {done}/{len(rows)} cobradas" + (f", {ready} por cobrar en el juego" if ready else ""))
+        self.detail.addWidget(label(" · ".join(bits), self.fonts.small, theme.MUTED))
 
     def _block_shop(self, block, e, now):
         currency = (block.get("currency") or "").replace(" (Event)", "")

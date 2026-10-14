@@ -42,6 +42,15 @@ class EventsPanel(QWidget):
                        theme.WARN if end - now < 2 * 86400 else theme.MUTED)
             for text in (e.get("headline") or [])[:LINES[compact]]:
                 self._line("• " + text, theme.TEXT)
+            ids = [row[4]["id"] for b in e.get("blocks") or [] if b.get("type") == "missions"
+                   for row in b.get("rows", []) if len(row) > 4 and isinstance(row[4], dict) and row[4].get("id")]
+            ms = self.ctl.missions
+            who = self.ctl.missions_character(ms)
+            if ids and who:
+                progress = [ms.progress(who, mid, now) for mid in ids if mid in ms.db]
+                done, ready = sum(p.done for p in progress), sum(p.ready for p in progress)
+                self._line(f"{who}: {done}/{len(progress)} misiones del evento cobradas"
+                           + (f" · {ready} por cobrar" if ready else ""), theme.GAIN if ready else theme.TEXT)
             if any(b.get("type") == "missions" for b in e.get("blocks") or []):
                 left = weeks_left(e, now)
                 self._line(f"Misiones semanales: se renuevan en {countdown(next_weekly(now) - now)} · "

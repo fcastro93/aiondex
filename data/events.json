@@ -1,5 +1,5 @@
 {
- "generated_at": 1792014311.3969254,
+ "generated_at": 1792016011.014234,
  "source": "Avisos oficiales de AION 2 Global (aion2.plaync.com), leídos el 14/10/2026",
  "events": [
   {
@@ -152,61 +152,132 @@
        "[Event] Abyss",
        "Caza 10 monstruos en el Abismo",
        "Halloween Pumpkin Coin (Event)",
-       25
+       25,
+       {
+        "id": 249241400,
+        "target": 10,
+        "desc": "Hunt 10 monsters in Abyss",
+        "where": [
+         "abyss"
+        ]
+       }
       ],
       [
        "[Event] Transcendence",
        "Completa 1 vez una mazmorra de Trascendencia",
        "Halloween Pumpkin Coin (Event)",
-       25
+       25,
+       {
+        "id": 249241500,
+        "target": 1,
+        "desc": "Clear Transcendence Dungeon 1 time",
+        "where": [
+         "transcendence"
+        ],
+        "easy": 3
+       }
       ],
       [
        "[Event] Expedition",
        "Completa 1 vez una Expedition Conquest",
        "Halloween Pumpkin Coin (Event)",
-       25
+       25,
+       {
+        "id": 249241600,
+        "target": 1,
+        "desc": "Clear Expedition Conquest 1 time",
+        "easy": 3
+       }
       ],
       [
        "[Event] Ascension Trial",
        "Completa 1 vez el Ascension Trial",
        "Halloween Pumpkin Coin (Event)",
-       25
+       25,
+       {
+        "id": 249241700,
+        "target": 1,
+        "desc": "Clear Ascension Trial 1 time",
+        "where": [
+         "ascension"
+        ],
+        "easy": 3
+       }
       ],
       [
        "[Event] Nightmare",
        "Completa 1 vez Nightmare (cualquier etapa)",
        "Halloween Pumpkin Coin (Event)",
-       25
+       25,
+       {
+        "id": 249241800,
+        "target": 1,
+        "desc": "Clear Nightmare (any level) 1 time",
+        "where": [
+         "nightmare"
+        ],
+        "easy": 3
+       }
       ],
       [
-       "[Event] Log in",
+       "[Event] Login",
        "Entra al juego 3 veces",
        "Halloween Pumpkin Coin (Event)",
-       30
+       30,
+       {
+        "id": 249241900,
+        "target": 3,
+        "desc": "Log in 3 times",
+        "easy": 5
+       }
       ],
       [
        "[Event] Obtain Gear",
        "Consigue 1 pieza de equipo Unique",
        "Halloween Pumpkin Coin (Event)",
-       20
+       20,
+       {
+        "id": 249242000,
+        "target": 1,
+        "desc": "Obtain 1 piece of Unique Gear",
+        "easy": 2
+       }
       ],
       [
-       "[Event] Use a Scroll",
+       "[Event] Use Scrolls",
        "Usa 5 pergaminos (scrolls)",
        "Halloween Pumpkin Coin (Event)",
-       20
+       20,
+       {
+        "id": 249242100,
+        "target": 5,
+        "desc": "Use a Scroll 5 times",
+        "easy": 4
+       }
       ],
       [
        "[Event] Dimensional Invasion",
        "Participa 1 vez en una Dimensional Invasion",
        "Halloween Pumpkin Coin (Event)",
-       20
+       20,
+       {
+        "id": 249242200,
+        "target": 1,
+        "desc": "Participate in Dimensional Invasion 1 time",
+        "easy": 2
+       }
       ],
       [
        "[Event] Shugo Festival",
        "Participa 1 vez en el Shugo Festival",
        "Halloween Pumpkin Coin (Event)",
-       20
+       20,
+       {
+        "id": 249242300,
+        "target": 1,
+        "desc": "Participate in Shugo Festival 1 time",
+        "easy": 3
+       }
       ]
      ]
     },
