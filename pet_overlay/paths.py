@@ -18,7 +18,7 @@ DATA_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / APP_NAME if FROZE
 SEED_FILES = ("pets_db.json", "map_db.json", "skills_db.json", "tracker_db.json", "gear_items.json",
               "crafting_db.json", "gather_db.json", "npc_db.json", "missions_db.json",
               "achievements_db.json", "skill_info.json",
-              "passes_db.json", "boss_db.json")
+              "passes_db.json", "boss_db.json", "consumables.json")
 
 
 def seed_user_data():

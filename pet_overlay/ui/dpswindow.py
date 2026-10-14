@@ -166,6 +166,21 @@ METRICS = [
     ], [("Habilidades", "stagger_skills", None, "skill")], boss_filter=False,
         note="Puntos que cada jugador quitó de la barra de aturdimiento (stagger) del jefe. El juego solo envía la "
              "barra, no quién la bajó: AionDex reparte cada bajada entre los golpes que llegaron en ese instante."),
+    Metric("upkeep", "Buffs y consumibles", "", "upkeep_time", [
+        ("Comida/bebida", lambda a, v, enc, t: (_pct(a.food_uptime), a.food_uptime)),
+        ("Pociones", lambda a, v, enc, t: (str(a.potions), a.potions)),
+        ("Buffs", lambda a, v, enc, t: (str(sum(1 for b in a.buff_list if b[5] == "class")),
+                                        sum(1 for b in a.buff_list if b[5] == "class"))),
+        ("Distancia", lambda a, v, enc, t: (f"{a.distance:,.0f} m" if a.distance >= 0 else "—", a.distance)),
+        ("Muertes", _hits("deaths")),
+        ("Tiempo muerto", lambda a, v, enc, t: (mmss(a.dead_time) if a.dead_time > 0 else
+                                                ("0:00" if a.dead_time == 0 else "—"), a.dead_time)),
+    ], [("Buffs", "buff_list", None, "buff"), ("Consumibles", "item_uses", None, "use")],
+        note="Lo que cada uno de tu grupo tuvo puesto y usó: «Comida/bebida», la parte de la pelea con comida, bebida "
+             "o pergamino activos; «Buffs», los de clase que tuvo (suyos y de otros), y a la derecha cuánto de la "
+             "pelea estuvo activo cada uno y quién lo puso. Distancia y tiempo muerto, en las peleas de jefe en "
+             "mazmorra (las que tienen Simulación). El nombre de una comida o bebida lo aprende AionDex la primera "
+             "vez que tú la usas; hasta entonces sale con su número."),
 ]
 METRIC_BY_KEY = {m.key: m for m in METRICS}
 
@@ -594,7 +609,9 @@ class DpsDetailsWindow(QWidget):
             has = enc is not None and any(m.value(a) for a in enc.actors.values())
             button = self.metric_buttons[m.key]
             button.setEnabled(has or m is METRICS[0])
-            button.setToolTip("" if has else "No hay datos de esto en esta pelea")
+            button.setToolTip("" if has else
+                              "Se calcula al terminar la pelea (desde la versión 1.45)" if m.key == "upkeep" else
+                              "No hay datos de esto en esta pelea")
             button.setChecked(m is self.shown_metric and not self.enemy_view)
         self.enemy_button.setChecked(self.enemy_view)
         self.enemy_button.setEnabled(enc is not None and bool(enc.targets or enc.enemy_damage))
@@ -720,7 +737,7 @@ class DpsDetailsWindow(QWidget):
         for m in METRICS:
             values = [m.value(a) for a in enc.actors.values()]
             total = sum(values)
-            if not total:
+            if not total or not m.card:
                 continue
             mine = m.value(me) if me else 0
             if m.count:
@@ -876,6 +893,10 @@ class DpsDetailsWindow(QWidget):
         self.side_view = min(self.side_view, len(views) - 1)
         title, attr, hits_attr, kind = views[self.side_view]
         self.side_title.setText(names[actor.eid][0])
+        if metric.key == "upkeep":
+            self._side_tabs(views)
+            self._fill_upkeep(enc, actor, kind, names)
+            return
         if len(views) > 1:
             for i, v in enumerate(views):
                 button = QPushButton(v[0])
@@ -914,6 +935,69 @@ class DpsDetailsWindow(QWidget):
         table.setSortingEnabled(True)
         table.sortItems(1, Qt.DescendingOrder)
         self._request_icons(rows)
+
+    def _side_tabs(self, views):
+        if len(views) > 1:
+            for i, v in enumerate(views):
+                button = QPushButton(v[0])
+                button.setProperty("tab", True)
+                button.setCheckable(True)
+                button.setChecked(i == self.side_view)
+                button.clicked.connect(lambda _=False, i=i: self._set_side_view(i))
+                self.side_buttons.addWidget(button)
+
+    def _fill_upkeep(self, enc, actor, kind, names):
+        """Buffs: each one with the share of the fight it was on, how many times it was put and by whom.
+        Consumibles: what was used and how many times. Food names come from what AionDex learned."""
+        table = self.breakdown
+        consumables = self.ctl.consumables
+        color = QColor(CLASS_COLOR.get(actor.class_name, theme.ACCENT.name()))
+        me = next((a.name for a in enc.actors.values() if a.is_self), None)
+        if kind == "buff":
+            table.set_columns(["Buff", "Activo", "Veces", "De"])
+            rows = actor.buff_list
+            table.setRowCount(len(rows))
+            for i, (key, name, caster, uptime, times, what) in enumerate(rows):
+                if what == "item":
+                    name = consumables.name(key)
+                first = SortItem(name, name.lower(), Qt.AlignLeft | Qt.AlignVCenter)
+                first.setData(BAR_ROLE, uptime)
+                first.setData(COLOR_ROLE, color)
+                first.setData(KEY_ROLE, key)
+                if what == "class":
+                    pix = self._icon(key)
+                    if pix is not None:
+                        first.setData(ICON_ROLE, pix)
+                else:
+                    first.setForeground(theme.GOLD)
+                    first.setToolTip("Comida, bebida o pergamino (5 min)" + (
+                        "" if "#" not in name else ": AionDex aprende su nombre la primera vez que tú lo usas"))
+                who = "tú" if caster == me else caster
+                cells = [first, SortItem(_pct(uptime), uptime), SortItem(str(times), times),
+                         SortItem(who, who.lower(), Qt.AlignLeft | Qt.AlignVCenter)]
+                for col, item in enumerate(cells):
+                    table.setItem(i, col, item)
+            table.setSortingEnabled(True)
+            table.sortItems(1, Qt.DescendingOrder)
+            self._request_icons([(r[1], 0, 0, r[0], None, False) for r in rows if r[5] == "class"])
+            return
+        table.set_columns(["Consumible", "Usos", "Tipo"])
+        rows = actor.item_uses
+        table.setRowCount(len(rows))
+        top = max((r[2] for r in rows), default=1) or 1
+        for i, (skill, name, times, category) in enumerate(rows):
+            name = consumables.name(skill)
+            category = consumables.category(skill) or category or "—"
+            first = SortItem(name, name.lower(), Qt.AlignLeft | Qt.AlignVCenter)
+            first.setData(BAR_ROLE, times / top)
+            first.setData(COLOR_ROLE, color)
+            if "#" in name:
+                first.setToolTip("AionDex aprende el nombre la primera vez que tú lo usas")
+            for col, item in enumerate([first, SortItem(str(times), times),
+                                        SortItem(category, category, Qt.AlignLeft | Qt.AlignVCenter)]):
+                table.setItem(i, col, item)
+        table.setSortingEnabled(True)
+        table.sortItems(1, Qt.DescendingOrder)
 
     def _breakdown_rows(self, enc, actor, attr, hits_attr, kind, names):
         """[(text, amount, hits, key, pixmap or None, muted)] of one breakdown of the actor; rows with the same

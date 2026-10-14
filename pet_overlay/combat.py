@@ -131,6 +131,14 @@ class ActorStats:
     revives: int = 0            # times this player (a healer) revived someone (the same person 3 times counts 3)
     revived: int = 0            # times this player was revived by a healer
     stagger_skills: Counter = field(default_factory=Counter)
+    # upkeep, filled when the fight ends (upkeep.py): what this player had on and used
+    upkeep_time: float = 0.0    # seconds of fight these numbers cover (0: none)
+    distance: float = -1.0      # metres moved (-1: unknown; needs the fight's simulation)
+    dead_time: float = -1.0     # seconds dead (-1: unknown)
+    potions: int = 0            # potions drunk
+    food_uptime: float = 0.0    # share of the fight with food / drink / scroll on
+    buff_list: list = field(default_factory=list)   # [[key, name, caster, uptime 0-1, times, "class" | "item"]]
+    item_uses: list = field(default_factory=list)   # [[skill, name, times, category]] consumables used
 
     @property
     def class_name(self):

@@ -20,7 +20,7 @@ from .damage import (DAMAGE_OPCODES, DEATH_OPCODE, READY as DAMAGE_READY, STATS_
                      parse_mp, summon_owner)
 from .fightlog import SHORTEST, FightLog, summary as fight_summary
 from .sessions import SessionLog, final_boss_killed, place_of
-from . import simulation
+from . import simulation, upkeep
 from .npcs import NpcDb
 from .roster import (FORCE_INFO_OPCODE, MEMBER_HINT_OPCODES, MEMBER_OPCODES, PARTY_INFO_OPCODE, ROSTER_OPCODE,
                      parse_member_ids,
@@ -174,6 +174,8 @@ class Bridge(QObject):
         self._hinted = {}                # (kind, entity id) -> when that group hint was last passed on
         self.moves = simulation.MoveRecorder()   # positions in dungeons, for the Simulación of boss fights
         self._moves_failed = False
+        self.upkeep = upkeep.UpkeepRecorder()    # buffs and consumables of you and your group
+        self._upkeep_failed = False
 
     def take_hits(self):
         with self._hits_lock:
@@ -201,6 +203,13 @@ class Bridge(QObject):
             if not self._moves_failed:
                 self._moves_failed = True
                 log.exception("simulation recorder")
+        try:
+            self.upkeep.on_message(op, body, None, self.feed.players, self.feed.group,
+                                   self.self_eid if self.self_eid is not None else self.feed.self_eid)
+        except Exception:                # noqa: BLE001
+            if not self._upkeep_failed:
+                self._upkeep_failed = True
+                log.exception("upkeep recorder")
         if op == SPAWN_OPCODE:
             spawn = parse_spawn_full(body)
             if spawn:
@@ -480,6 +489,7 @@ class Controller(QObject):
         self.boss_names = _loxin_boss_names()
         self.npc_db = NpcDb(self.data_dir)
         self.boss_db = simulation.BossDb(self.data_dir)      # boss faces and named skills for the Simulación
+        self.consumables = upkeep.Consumables(self.data_dir, self.settings)   # names of food, potions, scrolls
         self.sim_windows = []
         self.member_stats = {}          # name -> (level, item level, combat power) from the group lists
         self.dps_ready = DAMAGE_READY
@@ -691,6 +701,7 @@ class Controller(QObject):
             self.tuner.on_press(*event[1:])
         elif kind == "cast":
             self.tuner.on_cast(*event[1:])
+            self.consumables.on_cast(event[1], event[2])
         elif kind == "mp":
             self.tuner.on_mp(*event[1:])
         elif kind in ("skills", "bar"):
@@ -940,6 +951,7 @@ class Controller(QObject):
     def on_items(self, event):
         """Your items (Crafting: what you have and how many you can make): the login list, then each change."""
         kind, at, body = event
+        self.consumables.on_items(at, body, update=kind != "list")      # learns what each consumable casts
         if kind == "list":
             self.crafting.inventory.on_list(at, body)
         elif self.crafting.inventory.on_update(at, body, self.character_name()):
@@ -1117,6 +1129,12 @@ class Controller(QObject):
                          len(enc.replay["zones"]))
             except Exception:            # noqa: BLE001 - the fight is saved without it
                 log.exception("simulation of %s", enc.id)
+        try:
+            people = {eid: p[0] for eid, p in self._sim_people(enc, group).items()}
+            events = self.bridge.upkeep.slice(enc.start - upkeep.WINDOW, enc.last + 2)
+            upkeep.apply(enc, upkeep.summarize(events, enc, people, self.consumables, self.tuner.skill_name))
+        except Exception:                # noqa: BLE001
+            log.exception("upkeep of %s", enc.id)
         names = set(group) | {a.name for a in enc.actors.values() if a.is_self}
         enc.cp = {n: self.cp_of(n) for n in names if self.cp_of(n)}
         pin = enc.id in self._pin_when_done
