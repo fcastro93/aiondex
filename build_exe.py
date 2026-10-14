@@ -51,6 +51,7 @@ def build_app():
         "--add-data", f"{ROOT / 'data' / 'passes_db.json'};seed",
         "--add-data", f"{ROOT / 'data' / 'boss_db.json'};seed",
         "--add-data", f"{ROOT / 'data' / 'consumables.json'};seed",
+        "--add-data", f"{ROOT / 'data' / 'events.json'};seed",
         "--collect-submodules", "scapy.layers",
         "--hidden-import", "scapy.arch.windows",
         "--collect-submodules", "winrt",          # Windows OCR for Crafting (namespace package of .pyd modules)

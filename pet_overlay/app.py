@@ -67,6 +67,8 @@ from .modules.crafting import CraftingModule
 from .modules.status import StatusModule
 from .modules.missions import AchievementsModule, MissionsModule
 from .modules.passes import PassesModule
+from .modules.events import EventsModule
+from .events import Events
 from .afinador import STORE_DELAY, Afinador
 from .update_controller import UpdateController
 from .notifications import NotificationCenter
@@ -518,6 +520,10 @@ class Controller(QObject):
         self._pin_when_done = set()     # fights pinned while they were going on
         self.bridge.own_cp.connect(self._on_own_cp)
         self._own_cp_at = 0.0
+        self._events_relay = _Relay()
+        self.events = Events(self.data_dir, on_live=lambda: self._events_relay.ready.emit(""))
+        self._events_relay.ready.connect(self._events_changed)
+        self.events_window = None
         self._armory_relay = _Relay()
         self.armory = Armory(self.data_dir, on_ready=self._armory_relay.ready.emit)
         self._armory_relay.ready.connect(self._profile_ready)
@@ -588,7 +594,7 @@ class Controller(QObject):
         self._restore_session()
         self.modules = [PetsModule(self), DpsModule(self), TunerModule(self), TrackerModule(self),
                         CraftingModule(self), StatusModule(self), MissionsModule(self), AchievementsModule(self),
-                        PassesModule(self),
+                        PassesModule(self), EventsModule(self),
                         NotificationsModule(self), DiagnosticsModule(self),
                         SettingsModule(self)]
         for module in self.modules:
@@ -1048,6 +1054,20 @@ class Controller(QObject):
                 "Los logros del juego (ventana Achievements) con tu progreso, leído del juego al entrar y en cada "
                 "avance.")
         self._show_window(self.achievements_window)
+
+    def open_events(self):
+        from .ui.eventswindow import EventsWindow
+        self.events.refresh_live()
+        if self.events_window is None:
+            self.events_window = EventsWindow(self)
+        self._show_window(self.events_window)
+
+    def _events_changed(self, _=None):
+        """NC's list of running events arrived."""
+        if self.active_module.key == "events":
+            self.refresh()
+        if self.events_window is not None and self.events_window.isVisible():
+            self.events_window.refresh()
 
     @staticmethod
     def _show_window(window):

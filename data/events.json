@@ -1,0 +1,542 @@
+{
+ "generated_at": 1792014311.3969254,
+ "source": "Avisos oficiales de AION 2 Global (aion2.plaync.com), leídos el 14/10/2026",
+ "events": [
+  {
+   "id": "trick-or-treat-2026",
+   "featured": true,
+   "title": "Trick or Treat!",
+   "title_es": "¡Truco o trato! (Halloween)",
+   "kind": "Evento",
+   "start": "2026-10-14T06:30:00Z",
+   "end": "2026-11-04T07:00:00Z",
+   "url": "https://aion2.plaync.com/en-us/eventon/board/event_notice/view?articleId=50000024",
+   "image": "https://fizz-download.playnccdn.com/download/v2/buckets/marketing-platform/files/1a1378943ec-c9e60263-f891-48f9-9165-a6c84614ca5b",
+   "summary": "Entra cada día y haz las misiones del evento para juntar Halloween Pumpkin Coin, y cámbialas en el Coin Merchant por premios de Halloween. Las mazmorras de Expedición y de Trascendencia dan Candy Key Fragments para abrir los caramelos del evento en las ciudades.",
+   "currency": "Halloween Pumpkin Coin (Event)",
+   "headline": [
+    "Asistencia diaria: 35 monedas (100 los días 7 y 14)",
+    "10 misiones semanales: 235 monedas por semana",
+    "Coin Merchant: cofre especial (skin + 10.000 Pet Soul Crystal) por 250"
+   ],
+   "blocks": [
+    {
+     "type": "steps",
+     "title": "Qué hacer",
+     "items": [
+      [
+       "Cada día: la asistencia",
+       "Menú del juego → Attendance → <Trick or Treat>. 14 días: 35 monedas por día y 100 los días 7 y 14 (620 en total). Se renueva cada día a las 07:00 UTC. Una vez por servidor."
+      ],
+      [
+       "Cada semana: las 10 misiones del evento",
+       "Season Mission → pestaña Event. Dan 235 monedas por semana; se renuevan cada semana (una vez por servidor)."
+      ],
+      [
+       "Expedición y Trascendencia: fragmentos de llave",
+       "Al completar mazmorras de Expedición y de Trascendencia recibes Candy Key Fragment (Event). Con 60 haces una llave (Substance Morph → Event Substance Morphs) y abres el caramelo de su color en la ciudad. Cada color, una vez por semana por servidor."
+      ],
+      [
+       "Gastar las monedas",
+       "Coin Merchant, en cada ciudad: Asmodian en Altgard (Safe Haven / Nornir Assembly), Elyos en Verteron (Dawn Legion Base / Zumion Village)."
+      ]
+     ]
+    },
+    {
+     "type": "plan",
+     "title": "Cuántas monedas puedes juntar",
+     "currency": "Halloween Pumpkin Coin (Event)",
+     "sources": [
+      [
+       "Asistencia (14 días)",
+       620,
+       "once"
+      ],
+      [
+       "Misiones semanales",
+       235,
+       "weekly"
+      ]
+     ],
+     "weekly_shop": 258,
+     "once_shop": 250,
+     "per_character_shop": 80,
+     "note": "Lo de la tienda con límite semanal cuesta 258 por semana; el cofre especial, 250 una sola vez; lo que tiene límite por personaje (Life Crystal, Halloween Candy y Cookie), 80 por personaje. Lo que sobre, en Superior Power Shard (1 moneda cada uno, sin límite)."
+    },
+    {
+     "type": "attendance",
+     "title": "Asistencia «Trick or Treat» (14 días)",
+     "reset": "daily",
+     "where": "Menú del juego → Attendance",
+     "days": [
+      [
+       1,
+       "Halloween Pumpkin Coin (Event)",
+       35
+      ],
+      [
+       2,
+       "Halloween Pumpkin Coin (Event)",
+       35
+      ],
+      [
+       3,
+       "Halloween Pumpkin Coin (Event)",
+       35
+      ],
+      [
+       4,
+       "Halloween Pumpkin Coin (Event)",
+       35
+      ],
+      [
+       5,
+       "Halloween Pumpkin Coin (Event)",
+       35
+      ],
+      [
+       6,
+       "Halloween Pumpkin Coin (Event)",
+       35
+      ],
+      [
+       7,
+       "Halloween Pumpkin Coin (Event)",
+       100
+      ],
+      [
+       8,
+       "Halloween Pumpkin Coin (Event)",
+       35
+      ],
+      [
+       9,
+       "Halloween Pumpkin Coin (Event)",
+       35
+      ],
+      [
+       10,
+       "Halloween Pumpkin Coin (Event)",
+       35
+      ],
+      [
+       11,
+       "Halloween Pumpkin Coin (Event)",
+       35
+      ],
+      [
+       12,
+       "Halloween Pumpkin Coin (Event)",
+       35
+      ],
+      [
+       13,
+       "Halloween Pumpkin Coin (Event)",
+       35
+      ],
+      [
+       14,
+       "Halloween Pumpkin Coin (Event)",
+       100
+      ]
+     ],
+     "note": "Se renueva a las 07:00 UTC (00:00 hora del Pacífico, 09:00 hora de Europa). Una vez por servidor."
+    },
+    {
+     "type": "missions",
+     "title": "Misiones semanales del evento",
+     "reset": "weekly",
+     "where": "Season Mission → pestaña Event · una vez por semana por servidor",
+     "rows": [
+      [
+       "[Event] Abyss",
+       "Caza 10 monstruos en el Abismo",
+       "Halloween Pumpkin Coin (Event)",
+       25
+      ],
+      [
+       "[Event] Transcendence",
+       "Completa 1 vez una mazmorra de Trascendencia",
+       "Halloween Pumpkin Coin (Event)",
+       25
+      ],
+      [
+       "[Event] Expedition",
+       "Completa 1 vez una Expedition Conquest",
+       "Halloween Pumpkin Coin (Event)",
+       25
+      ],
+      [
+       "[Event] Ascension Trial",
+       "Completa 1 vez el Ascension Trial",
+       "Halloween Pumpkin Coin (Event)",
+       25
+      ],
+      [
+       "[Event] Nightmare",
+       "Completa 1 vez Nightmare (cualquier etapa)",
+       "Halloween Pumpkin Coin (Event)",
+       25
+      ],
+      [
+       "[Event] Log in",
+       "Entra al juego 3 veces",
+       "Halloween Pumpkin Coin (Event)",
+       30
+      ],
+      [
+       "[Event] Obtain Gear",
+       "Consigue 1 pieza de equipo Unique",
+       "Halloween Pumpkin Coin (Event)",
+       20
+      ],
+      [
+       "[Event] Use a Scroll",
+       "Usa 5 pergaminos (scrolls)",
+       "Halloween Pumpkin Coin (Event)",
+       20
+      ],
+      [
+       "[Event] Dimensional Invasion",
+       "Participa 1 vez en una Dimensional Invasion",
+       "Halloween Pumpkin Coin (Event)",
+       20
+      ],
+      [
+       "[Event] Shugo Festival",
+       "Participa 1 vez en el Shugo Festival",
+       "Halloween Pumpkin Coin (Event)",
+       20
+      ]
+     ]
+    },
+    {
+     "type": "shop",
+     "title": "Tienda: Coin Merchant",
+     "currency": "Halloween Pumpkin Coin (Event)",
+     "where": "Asmodian: Altgard (Safe Haven / Nornir Assembly) · Elyos: Verteron (Dawn Legion Base / Zumion Village)",
+     "columns": [
+      "Objeto",
+      "Precio",
+      "Límite",
+      "Nivel",
+      "Notas"
+     ],
+     "rows": [
+      [
+       "Special Halloween Chest",
+       250,
+       "1 por servidor",
+       "10",
+       "Trae Spooky Scary Skeleton (Skin: Breastplate) y 10.000 Pet Soul Crystal. Se borra el 16/12 08:00 (hora de Europa) · 15/12 23:00 (hora del Pacífico)"
+      ],
+      [
+       "Odyle Energy (Bound)",
+       10,
+       "4 por servidor por semana",
+       "45",
+       ""
+      ],
+      [
+       "Lower Abyss Rift Stone (Bound)",
+       30,
+       "2 por servidor por semana",
+       "45",
+       ""
+      ],
+      [
+       "Skin Chest (10 times) (Bound)",
+       15,
+       "5 por servidor por semana",
+       "10",
+       ""
+      ],
+      [
+       "Resurrection Spiritstone (Bound)",
+       2,
+       "10 por servidor por semana",
+       "10",
+       "Se borra el 16/12 08:00 (hora de Europa) · 15/12 23:00 (hora del Pacífico)"
+      ],
+      [
+       "Instant Clear Ticket: Daily Dungeon (Bound)",
+       3,
+       "7 por servidor por semana",
+       "10",
+       "Se borra el 16/12 08:00 (hora de Europa) · 15/12 23:00 (hora del Pacífico)"
+      ],
+      [
+       "Nightmare Dungeon Challenge Ticket (Bound)",
+       7,
+       "3 por servidor por semana",
+       "10",
+       "Se borra el 16/12 08:00 (hora de Europa) · 15/12 23:00 (hora del Pacífico)"
+      ],
+      [
+       "Shugo Festival Reward Key (Bound)",
+       7,
+       "3 por servidor por semana",
+       "10",
+       "Se borra el 16/12 08:00 (hora de Europa) · 15/12 23:00 (hora del Pacífico)"
+      ],
+      [
+       "Life Crystal (Bound)",
+       2,
+       "20 por personaje",
+       "10",
+       ""
+      ],
+      [
+       "Halloween Candy (Bound)",
+       2,
+       "10 por personaje",
+       "10",
+       "Ataque 25, Defensa 250, Stamina máx. 300, regeneración de Stamina +40% durante 5 min. Se borra el 4/11 08:00 (hora de Europa) · 3/11 23:00 (hora del Pacífico)"
+      ],
+      [
+       "Halloween Cookie (Bound)",
+       2,
+       "10 por personaje",
+       "10",
+       "HP máx. 500, MP máx. 250, Stamina máx. 300, regeneración de Stamina +40% durante 5 min. Se borra el 4/11 08:00 (hora de Europa) · 3/11 23:00 (hora del Pacífico)"
+      ],
+      [
+       "Superior Power Shard (Bound)",
+       1,
+       "sin límite",
+       "10",
+       ""
+      ]
+     ]
+    },
+    {
+     "type": "table",
+     "title": "Llaves y caramelos",
+     "where": "Substance Morph → Event Substance Morphs (100% de éxito). Los caramelos están en las ciudades.",
+     "columns": [
+      "Llave (60 Candy Key Fragment)",
+      "Límite",
+      "El caramelo trae"
+     ],
+     "rows": [
+      [
+       "Red Candy Key (Event)",
+       "1 por semana por servidor",
+       "Growth Pet Chest (Bound) ×20 · Battle Enhance Scroll (Bound) ×10 · Halloween Candy ×5 · Halloween Cookie ×5"
+      ],
+      [
+       "Yellow Candy Key (Event)",
+       "1 por semana por servidor",
+       "Abyss Points ×10.000 · Life Crystal (Bound) ×10 · Halloween Candy ×5 · Halloween Cookie ×5"
+      ],
+      [
+       "Blue Candy Key (Event)",
+       "1 por semana por servidor",
+       "Odyle Energy (Bound) ×4 · Resurrection Spiritstone (Bound) ×10 · Halloween Candy ×5 · Halloween Cookie ×5"
+      ],
+      [
+       "Superior Power Shard (Bound) ×10",
+       "sin límite",
+       "Cuesta 1 Candy Key Fragment (no una llave)"
+      ]
+     ]
+    },
+    {
+     "type": "notes",
+     "title": "Importante",
+     "items": [
+      "Las monedas, los fragmentos y las llaves son solo del evento: las monedas se borran al terminar el evento; los fragmentos, las llaves, Halloween Candy y Cookie, el 4/11 08:00 (hora de Europa) · 3/11 23:00 (hora del Pacífico).",
+      "Resurrection Spiritstone, Instant Clear Ticket, Nightmare Ticket, Shugo Festival Reward Key, Odyle Energy y el cofre especial del evento se borran el 16/12 08:00 (hora de Europa) · 15/12 23:00 (hora del Pacífico).",
+      "Nada de lo del evento se puede comerciar. Todo llega directo a tu inventario.",
+      "«Por servidor»: entre todos tus personajes de ese servidor.",
+      "El aviso oficial no dice cuántos fragmentos da cada mazmorra ni dónde está cada caramelo."
+     ]
+    }
+   ]
+  },
+  {
+   "id": "conquerors-of-the-abyss-2026",
+   "title": "Conquerors of the Abyss",
+   "title_es": "Conquistadores del Abismo",
+   "kind": "Evento",
+   "start": "2026-10-14T07:00:00Z",
+   "end": "2026-10-28T06:30:00Z",
+   "url": "https://aion2.plaync.com/en-us/eventon/board/event_notice/view?articleId=50000025",
+   "image": "https://fizz-download.playnccdn.com/download/v2/buckets/marketing-platform/files/1a137de7e68-bfaeed01-77ac-47a3-8643-6c09470e7601",
+   "summary": "Piedras para tener más tiempo en el Abismo inferior, a la venta con Kina en la tienda del juego.",
+   "headline": [
+    "Lower Abyss Rift Stone: 50.000 Kina, +1 h de Abismo inferior, 7 por personaje por semana"
+   ],
+   "blocks": [
+    {
+     "type": "shop",
+     "title": "Tienda del juego",
+     "currency": "Kina",
+     "where": "Shop → Wind Breeze Merchants → pestaña Special",
+     "columns": [
+      "Objeto",
+      "Precio",
+      "Límite",
+      "Nivel",
+      "Notas"
+     ],
+     "rows": [
+      [
+       "Lower Abyss Rift Stone (7 Days) (Bound)",
+       50000,
+       "7 por personaje por semana",
+       "45",
+       "Recarga 1 hora de tiempo en el Abismo inferior. Caduca 7 días después de recibirla."
+      ]
+     ]
+    },
+    {
+     "type": "notes",
+     "title": "Importante",
+     "items": [
+      "Con el mismo parche el tiempo acumulable de entrada al Abismo sube a 7 horas.",
+      "No se puede comerciar. El aviso no dice cuándo se renueva el límite semanal."
+     ]
+    }
+   ]
+  },
+  {
+   "id": "launch-attendance-2026",
+   "title": "New Attendance Event",
+   "title_es": "Asistencia de lanzamiento",
+   "kind": "Asistencia",
+   "start": "2026-09-30T13:00:00Z",
+   "end": "2026-12-16T06:30:00Z",
+   "url": "https://aion2.plaync.com/en-us/eventon/board/event_notice/view?articleId=50000002",
+   "image": "https://fizz-download.playnccdn.com/download/v2/buckets/marketing-platform/files/1a137cf4741-77aedc1d-7a77-4e78-a407-6e614667d9b3",
+   "summary": "Dos registros de asistencia del lanzamiento: el de los Shugo (7 días) y el diario (14 días).",
+   "headline": [
+    "Asistencia Shugo (7 días) y diaria (14 días): entra cada día"
+   ],
+   "blocks": [
+    {
+     "type": "attendance",
+     "title": "Launch Celebration Shugo Attendance Log (7 días)",
+     "reset": "daily",
+     "where": "Menú del juego → Attendance",
+     "days": [
+      [
+       1,
+       "Kina (Bound)",
+       50000
+      ],
+      [
+       2,
+       "Kina (Bound)",
+       100000
+      ],
+      [
+       3,
+       "Soul Crystal (Bound)",
+       5000
+      ],
+      [
+       4,
+       "Centuryroot Token",
+       5000
+      ],
+      [
+       5,
+       "Phantasmal Fragment",
+       5000
+      ],
+      [
+       6,
+       "Abyss Points",
+       20000
+      ],
+      [
+       7,
+       "Kina (Bound)",
+       1000000
+      ]
+     ]
+    },
+    {
+     "type": "attendance",
+     "title": "Daily Attendance (14 días)",
+     "reset": "daily",
+     "where": "Menú del juego → Attendance",
+     "days": [
+      [
+       1,
+       "Life Crystal (Bound)",
+       5
+      ],
+      [
+       2,
+       "Battle Enhance Scroll (Bound)",
+       10
+      ],
+      [
+       3,
+       "Resurrection Spiritstone (Bound)",
+       3
+      ],
+      [
+       4,
+       "Key: Hidden Cube (Bound)",
+       2
+      ],
+      [
+       5,
+       "Skin Chest (10 times) (Bound)",
+       3
+      ],
+      [
+       6,
+       "Unknown Fissure Challenge Ticket (Bound)",
+       2
+      ],
+      [
+       7,
+       "Odyle Energy (Bound)",
+       1
+      ],
+      [
+       8,
+       "Life Crystal (Bound)",
+       5
+      ],
+      [
+       9,
+       "Battle Enhance Scroll (Bound)",
+       10
+      ],
+      [
+       10,
+       "Resurrection Spiritstone (Bound)",
+       3
+      ],
+      [
+       11,
+       "Key: Hidden Cube (Bound)",
+       2
+      ],
+      [
+       12,
+       "Skin Chest (10 times) (Bound)",
+       3
+      ],
+      [
+       13,
+       "Unknown Fissure Challenge Ticket (Bound)",
+       2
+      ],
+      [
+       14,
+       "Odyle Energy (Bound)",
+       1
+      ]
+     ],
+     "note": "Los días 8-14 repiten los días 1-7."
+    }
+   ]
+  }
+ ]
+}

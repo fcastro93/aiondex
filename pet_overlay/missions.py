@@ -135,6 +135,15 @@ class Missions:
         """The whole list, waiting for the game to name the character it belongs to (like Status' 0b61)."""
         self._pending = (at, [r for r in records if r[0] in self.db])
         log.info("%s: list read (%s of %s records)", self.path.stem, len(self._pending[1]), len(records))
+        unknown = [r for r in records if self._unknown(r[0])]
+        if unknown:
+            log.info("%s: %s season-style records not in the database: %s", self.path.stem, len(unknown),
+                     " ".join(f"{mid}={count}/{got}" for mid, count, ms, got in unknown[:40]))
+
+    def _unknown(self, mid):
+        """A season mission (24 C P 1 NN 00) the database does not have (event tabs added by a patch)."""
+        return self.path.stem == "missions" and 240_000_000 <= mid < 250_000_000 and mid % 100 == 0 \
+            and mid not in self.db
 
     def claim(self, name, at):
         if self._pending and name and 0 <= at - self._pending[0] <= CLAIM_SECONDS:
@@ -153,6 +162,10 @@ class Missions:
 
     def on_update(self, at, records, name, map_id=None):
         """Missions that moved for the character you play. Returns [(mission, progress before, progress now)]."""
+        for mid, count, ms, got in records:
+            if self._unknown(mid):
+                log.info("%s: unknown season-style record %s moved to %s (collected %s) on map %s",
+                         self.path.stem, mid, count, got, map_id)
         records = [r for r in records if r[0] in self.db]
         if not records:
             return []

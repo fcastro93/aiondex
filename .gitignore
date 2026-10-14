@@ -23,6 +23,7 @@ data/*
 !data/passes_db.json
 !data/boss_db.json
 !data/consumables.json
+!data/events.json
 
 # Dev artifacts
 prototipos/
