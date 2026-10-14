@@ -9,9 +9,16 @@ did, read from what came right after it:
 - a jump or a charge (the boss more than 6 m away after it);
 - the gauge of stagger (05e0) and its breaks, and whom the boss is after (3538).
 A skill that hit nobody this time is drawn the way its other casts in the fight hit. Named from aion2data by its
-cooldown when the boss is listed (simulation.skill_name), else by what it does ("Área alrededor del jefe")."""
+cooldown when the boss is listed (simulation.skill_name), else by what it does ("Área alrededor del jefe").
+
+When the client's own table knows the skill (data/boss_skills.json, BossSkills: the SkillEffectFilter rows the Waffle
+meter project publishes under MIT), its zones are exact: circles, rings, cones, lines, crosses with their sizes, how
+long the floor warns before each one and where it sits (on the boss, on the marked player, or where that player
+stood), and the statuses are named."""
+import json
 import math
 from collections import Counter, defaultdict
+from pathlib import Path
 
 from .simulation import OBJECTS, skill_name
 
@@ -21,9 +28,103 @@ ADDS_RADIUS = 40.0       # metres around the boss where new monsters count as it
 CONE_DEG = 75.0          # every hit within this of the boss's facing: a frontal cone
 LABELS = {"point": "Área en el suelo", "around": "Área alrededor del jefe", "cone": "Ataque frontal (cono)",
           "target": "Golpe al objetivo", "group": "Daño a todo el grupo", "jump": "Salto / embestida",
-          "adds": "Invoca adds", "buff": "Se potencia", "debuff": "Debuff al grupo", "cast": "Habilidad"}
+          "adds": "Invoca adds", "buff": "Se potencia", "debuff": "Debuff al grupo", "cast": "Habilidad",
+          "ring": "Anillo (el centro es seguro)", "line": "Línea", "cross": "Cruz", "marker": "Marca sobre un jugador"}
 COLORS = {"point": "#ff8a3d", "around": "#ff5a4f", "cone": "#ffb347", "target": "#ff6f91", "group": "#ff3b3b",
-          "jump": "#c77dff", "adds": "#7bd88f", "buff": "#ffe08a", "debuff": "#b28dff", "cast": "#8a93a8"}
+          "jump": "#c77dff", "adds": "#7bd88f", "buff": "#ffe08a", "debuff": "#b28dff", "cast": "#8a93a8",
+          "ring": "#ff7b54", "line": "#ffd166", "cross": "#ef476f", "marker": "#f15bb5"}
+ROOM_WIDE = 40.0         # metres: a circle this big around the boss is the whole room
+KIND_OF_ZONE = {"Circle": "around", "Sphere": "around", "Ring": "ring", "RingArc": "ring", "Arc": "cone",
+                "Triangle": "cone", "Rectangle": "line", "Cross": "cross"}
+
+
+class BossSkills:
+    """data/boss_skills.json: the zones each boss skill paints (by skill id, falling back to the id with its last
+    digit cleared, a stage or level of the same mechanic, unless that family mixes shapes), the statuses' names and
+    the dungeon maps."""
+
+    def __init__(self, data_dir):
+        try:
+            db = json.loads((Path(data_dir) / "boss_skills.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            db = {}
+        self.shapes = {int(k): v for k, v in (db.get("shapes") or {}).items()}
+        self.status = {int(k): v for k, v in (db.get("status") or {}).items()}
+        self.maps = db.get("maps") or []
+        self.map_url = db.get("map_url", "")
+        self.credit = db.get("credit")
+        kinds = {}
+        self._mixed = set()
+        for code, zones in self.shapes.items():
+            sig = ",".join(z[0] for z in zones)
+            base = code - code % 10
+            if kinds.setdefault(base, sig) != sig:
+                self._mixed.add(base)
+
+    def zones(self, skill):
+        if skill in self.shapes:
+            return self.shapes[skill]
+        base = skill - skill % 10
+        return self.shapes.get(base, []) if base not in self._mixed else []
+
+    def status_name(self, effect):
+        row = self.status.get(int(effect))
+        return row[0] if row else None
+
+    def map_for(self, npcs):
+        """The dungeon map whose bosses include one of these npc ids: {key, image, w, h, box (metres)} or None."""
+        wanted = {int(n) for n in npcs if n}
+        return next((m for m in self.maps if wanted & set(m["bosses"])), None)
+
+
+def zone_rows(zones):
+    """A skill's zones as the simulation keeps them: [kind, forward m, right m, rotation, A m, B, C, D m, E m,
+    notice s, anchor] (A/B/C/D/E as the kind reads them: radius, inner radius or angle or width, ...)."""
+    out = []
+    for kind, v, notice, anchor in zones:
+        v = list(v) + [0] * 10
+        if kind in ("Arc", "Triangle"):
+            b, c = v[5], 0                                 # angle (degrees)
+        elif kind == "RingArc":
+            b, c = v[5] / 100, v[7]                        # inner radius, angle
+        elif kind in ("Ring", "Rectangle", "Cross"):
+            b, c = v[5] / 100, 0                           # inner radius / width / second bar's length
+        else:
+            b, c = 0, 0
+        out.append([kind, round(v[1] / 100, 2), round(-v[0] / 100, 2), v[3], round(v[4] / 100, 2), b, c,
+                    round(v[7] / 100, 2) if kind == "Cross" else 0, round(v[8] / 100, 2) if kind == "Cross" else 0,
+                    round((notice or 0) / 1000, 2), anchor])
+    return out
+
+
+def zone_label(rows):
+    """What the zones are, in words, with their size ("3 círculos (8/15/25 m)", "Anillo 8–32 m")."""
+    if not rows:
+        return None
+    local = [r for r in rows if not (r[0] in ("Circle", "Sphere") and r[4] >= ROOM_WIDE and r[10] == "caster")]
+    rows = local or rows                         # a room-wide pulse next to real zones: name the zones
+    kinds = Counter(r[0] for r in rows)
+    kind, n = kinds.most_common(1)[0]
+    same = [r for r in rows if r[0] == kind]
+    sizes = "/".join(f"{r[4]:g}" for r in same[:4])
+    on = {"target": " sobre un jugador", "targetLoc": " donde estaba un jugador"}.get(same[0][10], "")
+    if kind in ("Circle", "Sphere"):
+        if same[0][4] >= ROOM_WIDE and same[0][10] == "caster":
+            return "Daño a toda la sala"
+        return (f"{n} círculos ({sizes} m)" if n > 1 else f"Círculo de {sizes} m") + on
+    if kind in ("Ring", "RingArc"):
+        r = same[0]
+        return f"Anillo {r[5]:g}–{r[4]:g} m" + on
+    if kind in ("Arc", "Triangle"):
+        r = same[0]
+        return f"Cono de {r[5]:g}° y {r[4]:g} m" + (f" ×{n}" if n > 1 else "") + on
+    if kind == "Rectangle":
+        r = same[0]
+        return f"Línea de {r[4]:g} × {r[5]:g} m" + (f" ×{n}" if n > 1 else "") + on
+    if kind == "Cross":
+        r = same[0]
+        return f"Cruz de {r[4]:g} m" + on
+    return None
 
 
 def _at(track, t, window=1.5):
@@ -56,7 +157,7 @@ def _shape(hits, boss_pos, heading, point):
     return "group", 0, 0
 
 
-def analyze(events, boss_eids, people, tracks, rel, t0, t1, boss_npc, boss_db):
+def analyze(events, boss_eids, people, tracks, rel, t0, t1, boss_npc, boss_db, skills=None):
     """The boss's casts and the rest of what it did, as lists of the saved simulation (times relative)."""
     starts, ends = [], {}
     by_kind = defaultdict(list)
@@ -98,8 +199,15 @@ def analyze(events, boss_eids, people, tracks, rel, t0, t1, boss_npc, boss_db):
         c["hit"] = sorted(hit_who)
         c["knock"] = [[e[3], *e[5], *e[6]] for e in by_kind["kb"]
                       if e[2] == c["caster"] and lo <= e[1] <= hi and e[3] in people]
-        c["debuffs"] = [[e[2], e[4], round(e[5] / 1000, 1)] for e in by_kind["ef"]       # 1 s: every hit's flinch
+        c["debuffs"] = [[e[2], e[4], round(e[5] / 1000, 1),
+                         (skills.status_name(e[4]) if skills else None)] for e in by_kind["ef"]   # 1 s: a flinch
                         if e[3] == c["caster"] and e[2] in people and lo <= e[1] <= hi and e[5] >= 2000]
+        c["zones"] = zone_rows(skills.zones(c["skill"])) if skills else []
+        if c["zones"]:                     # where a zone dropped on a player sits: where they stood at the cast
+            spot = _at(tracks.get(c["target"], []), rel(c["t"]), 3.0) if c["target"] in people else None
+            c["spot"] = list(spot) if spot else None
+        else:
+            c["spot"] = None
         c["buffs"] = {e[4]: e[5] for e in by_kind["ef"]
                       if e[2] == e[3] == c["caster"] and c["t"] - 0.2 <= e[1] <= c["end"] + 1.0
                       and 1500 <= e[5] <= 60000}
@@ -120,7 +228,7 @@ def analyze(events, boss_eids, people, tracks, rel, t0, t1, boss_npc, boss_db):
         own = [ms for b, ms in c["buffs"].items() if b not in usual_buffs]
         c["buff"] = round(max(own) / 1000, 1) if own else 0
     out = []
-    skills = (boss_db.get(str(boss_npc)) or {}).get("skills") if boss_npc else None
+    named_skills = (boss_db.get(str(boss_npc)) or {}).get("skills") if boss_npc else None
     for key, rows in per_skill.items():
         shapes = Counter(r["shape"][0] for r in rows if r["shape"])
         usual = shapes.most_common(1)[0][0] if shapes else None
@@ -129,9 +237,14 @@ def analyze(events, boss_eids, people, tracks, rel, t0, t1, boss_npc, boss_db):
         for r in rows:
             shape = r["shape"] or usual_shape
             kinds = []
+            if r["zones"]:                                   # the client's own zones beat what the hits suggest
+                z = r["zones"][0]
+                kinds.append("marker" if z[10] == "target" else "point" if z[10] == "targetLoc" and
+                             z[0] in ("Circle", "Sphere") else "group" if z[0] in ("Circle", "Sphere") and
+                             z[4] >= ROOM_WIDE else KIND_OF_ZONE.get(z[0], "around"))
             if r["jump"]:
                 kinds.append("jump")
-            if shape:
+            if shape and not r["zones"]:
                 kinds.append(shape[0])
             if r["adds"] and adds_rate >= 0.5:
                 kinds.append("adds")
@@ -140,17 +253,19 @@ def analyze(events, boss_eids, people, tracks, rel, t0, t1, boss_npc, boss_db):
             if r["debuffs"] and len({d[0] for d in r["debuffs"]}) >= 2:
                 kinds.append("debuff")
             main = kinds[0] if kinds else "cast"
-            name = skill_name(skills, r["cd"]) or (LABELS[main] if main != "cast" else "Habilidad del jefe")
+            name = skill_name(named_skills, r["cd"]) or zone_label(r["zones"]) or \
+                (LABELS[main] if main != "cast" else "Habilidad del jefe")
             if r["knock"] and "derrib" not in name:
                 name += " + derribo"
-            if r["end"] - r["t"] < 0.3 and main == "cast" and not r["knock"]:
+            if r["end"] - r["t"] < 0.3 and main == "cast" and not r["knock"] and not r["zones"]:
                 continue                                     # instant swings with nothing to show: noise
             out.append([rel(r["t"]), rel(max(r["end"], r["t"])), r["caster"], name, main, r["cut"],
                         {"shape": list(shape) if shape else None,
                          "point": list(r["point"]) if r["point"] else None, "heading": r["heading"],
                          "target": r["target"] if r["target"] in people else None, "hit": r["hit"],
                          "knock": r["knock"], "debuffs": r["debuffs"], "buff": r["buff"],
-                         "adds": r["adds"] if "adds" in kinds else 0, "jump": r["jump"], "kinds": kinds}])
+                         "adds": r["adds"] if "adds" in kinds else 0, "jump": r["jump"], "kinds": kinds,
+                         "zones": r["zones"], "spot": r["spot"]}])
     out.sort(key=lambda m: m[0])
     kept, last = [], {}
     for m in out:                                    # the same instant swing sent several times at once: once

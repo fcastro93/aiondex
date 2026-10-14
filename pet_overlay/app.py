@@ -492,6 +492,8 @@ class Controller(QObject):
         self.boss_names = _loxin_boss_names()
         self.npc_db = NpcDb(self.data_dir)
         self.boss_db = simulation.BossDb(self.data_dir)      # boss faces and named skills for the Simulación
+        from .mechanics import BossSkills
+        self.boss_skills = BossSkills(self.data_dir)          # the zones of their skills, statuses, dungeon maps
         self.consumables = upkeep.Consumables(self.data_dir, self.settings)   # names of food, potions, scrolls
         self.sim_windows = []
         self.member_stats = {}          # name -> (level, item level, combat power) from the group lists
@@ -1157,8 +1159,8 @@ class Controller(QObject):
             try:
                 events = self.bridge.moves.slice(enc.start - simulation.PRE - 30, enc.last + simulation.POST + 1)
                 npc = enc.target_npc.get(enc.main_target_eid)
-                enc.replay = simulation.build(events, enc, self._sim_people(enc, group), self.boss_db.bosses,
-                                              rage=self.npc_db.rage(npc) if npc else None)
+                enc.replay = simulation.build(events, enc, self._sim_people(enc, group), self.boss_db,
+                                              rage=self.npc_db.rage(npc) if npc else None, skills=self.boss_skills)
                 log.info("simulation of %s: %s tracks, %s deaths, %s casts, %s areas", enc.main_target,
                          len(enc.replay["tracks"]), len(enc.replay["deaths"]), len(enc.replay["casts"]),
                          len(enc.replay["zones"]))

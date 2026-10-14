@@ -432,7 +432,7 @@ def _merge(exact, rough):
     return exact
 
 
-def build(events, enc, people, boss_db, t0=None, t1=None, rage=None):
+def build(events, enc, people, boss_db, t0=None, t1=None, rage=None, skills=None):
     """The simulation of one fight from the recorder's events.
 
     people: {eid: (name, class name, is you)} of you and your group. boss_db: npc id (str) -> {"face", "skills"}.
@@ -624,7 +624,7 @@ def build(events, enc, people, boss_db, t0=None, t1=None, rage=None):
 
     from .mechanics import analyze
     boss_npc = enc.target_npc.get(main) if main is not None else None
-    mech = analyze(events, set(boss_eids), set(people), tracks, rel, t0, t1, boss_npc, boss_db)
+    mech = analyze(events, set(boss_eids), set(people), tracks, rel, t0, t1, boss_npc, boss_db, skills)
     rage_at = None
     if rage and main is not None and main in enc.first_hit:
         rage_at = rel(enc.first_hit[main] + rage)
@@ -657,15 +657,20 @@ class BossDb:
         except (OSError, ValueError):
             db = {}
         self.bosses = db.get("bosses", {})
-        for npc in list(self.bosses):                # the Conquest copies (231xxxx) are the same bosses
-            if npc.startswith("230"):
-                self.bosses.setdefault(str(int(npc) + 10000), self.bosses[npc])
         self.face_url = db.get("face_url", "https://aion2data.com/game/monsters/")
         self.credit = db.get("credit")
 
+    def get(self, npc_id):
+        from .npcs import base_variant
+        row = self.bosses.get(str(npc_id))
+        if row is None and npc_id is not None:
+            base = base_variant(npc_id)
+            row = self.bosses.get(str(base)) if base else None
+        return row
+
     def face(self, npc_id):
         """The URL of a boss's picture, or None."""
-        face = (self.bosses.get(str(npc_id)) or {}).get("face")
+        face = (self.get(npc_id) or {}).get("face")
         return self.face_url + face if face else None
 
 

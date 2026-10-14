@@ -24,6 +24,7 @@ data/*
 !data/boss_db.json
 !data/consumables.json
 !data/events.json
+!data/boss_skills.json
 
 # Dev artifacts
 prototipos/

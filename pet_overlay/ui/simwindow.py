@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QHBoxLayout, QLabel
                                QVBoxLayout, QWidget)
 
 from .. import APP_NAME
-from ..mechanics import COLORS as MECH_COLORS, LABELS as MECH_LABELS
+from ..mechanics import COLORS as MECH_COLORS, LABELS as MECH_LABELS, ROOM_WIDE
 from ..simulation import Replay
 from . import theme
 from .dps_panel import CLASS_ICON, mmss
@@ -169,6 +169,7 @@ class ArenaView(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         p.fillRect(self.rect(), BG)
+        self._dungeon_map(p)
         self._grid(p)
         r, t = self.replay, self.t
         self._zones(p, t)
@@ -440,8 +441,10 @@ class ArenaView(QWidget):
         """Each cast going on: its warning on the floor filling up until it lands (a circle where it aims or around
         the boss, a cone in front of it, a line to its target, a jump), then a flash where it hit."""
         r, s = self.replay, self._scale()
-        for m in r.mechs_at(t, before=0.0, after=0.7):
+        for m in r.mechs_at(t, before=0.0, after=6.0):   # chains of zones land one after the other
             start, end, caster, name, kind, cut, info = m
+            if not info.get("zones") and t > end + 0.7:
+                continue
             color = QColor(MECH_COLORS.get(kind, "#ff5a4f"))
             casting = t < end
             k = 1.0 if not casting else (t - start) / max(0.01, end - start)
@@ -449,6 +452,9 @@ class ArenaView(QWidget):
             if cut and not casting:
                 continue                               # interrupted: it never landed
             boss = r.position(caster, min(t, end))
+            if info.get("zones"):
+                self._client_zones(p, m, t, color, boss)
+                continue
             shape = info.get("shape")
             if info.get("jump"):
                 x1, y1, x2, y2 = info["jump"]
@@ -509,6 +515,154 @@ class ArenaView(QWidget):
                         p.setPen(QPen(QColor(color.red(), color.green(), color.blue(), round(230 * fade)), 3))
                         p.drawEllipse(self.to_screen(pos[0], pos[1]), PERSON_R + 7, PERSON_R + 7)
 
+    def _dungeon_map(self, p):
+        """The dungeon's map under the fight (only the part on screen is scaled)."""
+        info = self.win.dungeon_map
+        pix = self.win.map_pixmap()
+        if not info or pix is None:
+            return
+        x0, y0, x1, y1 = info["box"]
+        a, b = self.to_screen(x0, y0), self.to_screen(x1, y1)
+        target = QRectF(a, b).normalized()
+        shown = target.intersected(QRectF(self.rect()))
+        if shown.isEmpty():
+            return
+        sx, sy = pix.width() / target.width(), pix.height() / target.height()
+        source = QRectF((shown.left() - target.left()) * sx, (shown.top() - target.top()) * sy,
+                        shown.width() * sx, shown.height() * sy)
+        p.setOpacity(0.9)
+        p.drawPixmap(shown, pix, source)
+        p.setOpacity(1.0)
+
+    def _client_zones(self, p, m, t, color, boss):
+        """The zones the client paints for this skill: each lights up its warning time before it lands (the first
+        lands as the cast ends, the next ones one after the other), filling up, then flashes."""
+        r, s = self.replay, self._scale()
+        start, end, caster, name, kind, cut, info = m
+        if cut and t >= end:
+            return
+        hit, labelled = end, False
+        for k, z in enumerate(info["zones"]):
+            zkind, fwd, right, rot, a, b, c, d, e, notice, anchor = z
+            if k:
+                hit += max(0.3, notice)
+            shown_from = hit - notice if notice > 0 else hit
+            early = k == 0 and start <= t < shown_from      # the cast is on, the floor does not warn yet
+            if not (shown_from <= t <= hit + 0.5 or early):
+                continue
+            if anchor == "target":
+                who = info.get("target") or (info.get("hit") or [None])[0]
+                pos = r.position(who, t) if who is not None else None
+            elif anchor == "targetLoc":
+                pos = info.get("spot")
+            else:
+                pos = boss
+            if not pos:
+                continue
+            heading = math.radians((info.get("heading") or 0.0) + rot)
+            fx, fy = math.cos(heading), math.sin(heading)
+            rx, ry = -fy, fx
+            ox, oy = pos[0] + fx * fwd + rx * right, pos[1] + fy * fwd + ry * right
+            landing = t >= hit
+            k_fill = 1.0 if landing or notice <= 0 else max(0.0, min(1.0, (t - shown_from) / notice))
+            fade = 1.0 if not landing else max(0.0, 1 - (t - hit) / 0.5)
+            if zkind in ("Circle", "Sphere") and a >= ROOM_WIDE and anchor == "caster":
+                if landing:                            # the whole room: the edges of the view flash
+                    p.setBrush(Qt.NoBrush)
+                    p.setPen(QPen(QColor(color.red(), color.green(), color.blue(), round(200 * fade)), 8))
+                    p.drawRect(QRectF(self.rect()).adjusted(4, 4, -4, -4))
+                if not labelled:
+                    labelled = True
+                    self._text(p, self.to_screen(pos[0], pos[1]) + QPointF(0, -BOSS_R - 40), name, self.fonts.name,
+                               QColor(color.red(), color.green(), color.blue()), above=True)
+                continue
+            path, fill = self._zone_path(zkind, ox, oy, fx, fy, rx, ry, heading, a, b, c, d, e, s, k_fill)
+            if path is None:
+                continue
+            if early:                                  # what is coming: its outline, dashed, no fill
+                p.setBrush(Qt.NoBrush)
+                p.setPen(QPen(QColor(color.red(), color.green(), color.blue(), 150), 1.5, Qt.DashLine))
+                p.drawPath(path)
+                if not labelled:
+                    labelled = True
+                    self._text(p, self.to_screen(ox, oy) + QPointF(0, -14), name, self.fonts.small,
+                               QColor(color.red(), color.green(), color.blue()), above=True)
+                continue
+            p.setPen(QPen(QColor(color.red(), color.green(), color.blue(), round(230 * fade)), 2))
+            p.setBrush(QColor(color.red(), color.green(), color.blue(), round(30 * fade)))
+            p.drawPath(path)
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(color.red(), color.green(), color.blue(), round((150 if landing else 75) * fade)))
+            p.drawPath(fill)
+            if not labelled:
+                labelled = True
+                self._text(p, self.to_screen(ox, oy) + QPointF(0, -14), name, self.fonts.small,
+                           QColor(color.red(), color.green(), color.blue()), above=True)
+
+    def _zone_path(self, kind, ox, oy, fx, fy, rx, ry, heading, a, b, c, d, e, s, k):
+        """(outline, filled part) of one zone on screen; k: how much of the warning has filled."""
+        center = self.to_screen(ox, oy)
+        deg = math.degrees(heading)
+
+        def poly(points):
+            path = QPainterPath(self.to_screen(*points[0]))
+            for q in points[1:]:
+                path.lineTo(self.to_screen(*q))
+            path.closeSubpath()
+            return path
+
+        def disc(radius):
+            path = QPainterPath()
+            path.addEllipse(center, radius * s, radius * s)
+            return path
+
+        def pie(radius, angle):
+            rr = radius * s
+            path = QPainterPath(center)
+            path.arcTo(QRectF(center.x() - rr, center.y() - rr, 2 * rr, 2 * rr), -deg - angle / 2, angle)
+            path.closeSubpath()
+            return path
+
+        if kind in ("Circle", "Sphere"):
+            return disc(a), disc(a * k)
+        if kind == "Ring":
+            outline = disc(a).subtracted(disc(b))
+            return outline, disc(b + (a - b) * k).subtracted(disc(b))
+        if kind == "RingArc":
+            outline = pie(a, c).subtracted(pie(b, c))
+            return outline, pie(b + (a - b) * k, c).subtracted(pie(b, c))
+        if kind == "Arc":
+            return pie(a, b), pie(a * k, b)
+        if kind == "Triangle":
+            half = math.tan(math.radians(b / 2)) * a
+
+            def tri(reach, width):
+                return poly([(ox, oy), (ox + fx * reach + rx * width, oy + fy * reach + ry * width),
+                             (ox + fx * reach - rx * width, oy + fy * reach - ry * width)])
+            return tri(a, half), tri(a * k, half * k)
+
+        def bar(length, width, along, across):
+            ax, ay = along
+            cx, cy = across
+            return poly([(ox + ax * length + cx * width / 2, oy + ay * length + cy * width / 2),
+                         (ox + ax * length - cx * width / 2, oy + ay * length - cy * width / 2),
+                         (ox - cx * width / 2, oy - cy * width / 2), (ox + cx * width / 2, oy + cy * width / 2)])
+        if kind == "Rectangle":
+            return bar(a, b, (fx, fy), (rx, ry)), bar(a * k, b, (fx, fy), (rx, ry))
+        if kind == "Cross":
+            def cross(scale):
+                one = poly([(ox + fx * a / 2 * scale + rx * d / 2, oy + fy * a / 2 * scale + ry * d / 2),
+                            (ox + fx * a / 2 * scale - rx * d / 2, oy + fy * a / 2 * scale - ry * d / 2),
+                            (ox - fx * a / 2 * scale - rx * d / 2, oy - fy * a / 2 * scale - ry * d / 2),
+                            (ox - fx * a / 2 * scale + rx * d / 2, oy - fy * a / 2 * scale + ry * d / 2)])
+                two = poly([(ox + rx * b / 2 * scale + fx * e / 2, oy + ry * b / 2 * scale + fy * e / 2),
+                            (ox + rx * b / 2 * scale - fx * e / 2, oy + ry * b / 2 * scale - fy * e / 2),
+                            (ox - rx * b / 2 * scale - fx * e / 2, oy - ry * b / 2 * scale - fy * e / 2),
+                            (ox - rx * b / 2 * scale + fx * e / 2, oy - ry * b / 2 * scale + fy * e / 2)])
+                return one.united(two)
+            return cross(1.0), cross(max(0.01, k))
+        return None, None
+
     def _arrow_head(self, p, a, b, color):
         angle = math.atan2(b.y() - a.y(), b.x() - a.x())
         size = 9
@@ -540,7 +694,9 @@ class ArenaView(QWidget):
             start, end, caster, name, kind, cut, info = m
             if cut:
                 continue
-            for who, effect, seconds in info.get("debuffs") or []:
+            for debuff in info.get("debuffs") or []:
+                who, effect, seconds = debuff[:3]
+                status = debuff[3] if len(debuff) > 3 else None
                 if end <= t <= end + seconds:
                     pos = r.position(who, t)
                     if pos:
@@ -550,7 +706,8 @@ class ArenaView(QWidget):
                         p.drawEllipse(c, PERSON_R + 4, PERSON_R + 4)
                         left = end + seconds - t
                         if left >= 1:
-                            self._text(p, QPointF(c.x() + PERSON_R + 10, c.y() - PERSON_R), f"{left:.0f}s",
+                            text = (f"{status} " if status else "") + f"{left:.0f}s"
+                            self._text(p, QPointF(c.x() + PERSON_R + 10 + len(text) * 2.6, c.y() - PERSON_R), text,
                                        f.small, QColor("#b28dff"))
             if end <= t <= end + 0.8:
                 for who, x1, y1, x2, y2 in info.get("knock") or []:
@@ -746,6 +903,9 @@ class SimulationWindow(QWidget):
         self.ctl, self.enc = ctl, enc
         self.replay = Replay(enc.replay)
         self.fonts = Fonts(1.0)
+        skills = getattr(ctl, "boss_skills", None)
+        self.dungeon_map = skills.map_for([b.get("npc") for b in self.replay.bosses]) if skills else None
+        self._map_pix = None
         self._pictures, self._faces, self._asked = {}, {}, {}
         self.setObjectName("MapWindow")
         self.setWindowTitle(f"{APP_NAME} — Simulación: {enc.main_target or 'Jefe'}")
@@ -820,9 +980,9 @@ class SimulationWindow(QWidget):
         note = ("Vista desde arriba (cuadrícula de 5 m; rueda para acercar, arrastra para mover, doble clic para "
                 "encuadrar). Las posiciones vienen del tráfico del juego: la tuya es aproximada (el juego no te envía "
                 "tu propio movimiento). Áreas: dónde cayeron y a quién alcanzaron; su tamaño sale de esos golpes.")
-        credit = getattr(ctl.boss_db, "credit", None)
-        if credit:
-            note += " " + credit["text"] + "."
+        for source in (getattr(ctl.boss_db, "credit", None), getattr(getattr(ctl, "boss_skills", None), "credit", None)):
+            if source:
+                note += " " + source["text"] + "."
         foot = label(note, f.small, theme.MUTED)
         foot.setWordWrap(True)
         root.addWidget(foot)
@@ -972,11 +1132,23 @@ class SimulationWindow(QWidget):
         self._faces[npc] = _circle_pixmap(QPixmap.fromImage(img), 2 * BOSS_R, self.devicePixelRatioF(), crop)
         return self._faces[npc]
 
+    def map_pixmap(self):
+        """The dungeon map's picture once downloaded (from the Waffle meter project, MIT), else None."""
+        if self._map_pix is not None or not self.dungeon_map:
+            return self._map_pix
+        url = self.ctl.boss_skills.map_url + self.dungeon_map["image"]
+        path = self.ctl.armory.icon(url)
+        if path:
+            pix = QPixmap(str(path))
+            self._map_pix = pix if not pix.isNull() else None
+        return self._map_pix
+
     def _pictures_check(self):
         """Pictures that arrive while the window is open (profiles, boss faces)."""
         missing = [p for p in self.replay.people if p["name"] not in self._pictures]
         missing_face = [b for b in self.replay.bosses if self._faces.get(b.get("npc")) is None]
-        if not missing and not missing_face:
+        missing_map = bool(self.dungeon_map) and self.map_pixmap() is None
+        if not missing and not missing_face and not missing_map:
             self._redraw.stop()
             return
         for b in missing_face:

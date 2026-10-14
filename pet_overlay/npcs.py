@@ -8,9 +8,10 @@ RANK_NAMES = {"N": "Normal", "E": "Élite", "H": "Héroe", "L": "Leyenda"}
 
 def base_variant(npc_id):
     """The npc id of the same monster in the dungeon's base difficulty: Conquest copies are 231xxxx for the 230xxxx
-    of Exploration (Ferocious Horn Den, 2026-10-14: 2310908 Watchdog Kwapo = 2300908), not in aion2data's list."""
+    of Exploration (Ferocious Horn Den, 2026-10-14: 2310908 Watchdog Kwapo = 2300908), and the other difficulties
+    and Transcendence stages 232xxxx-235xxxx (Shattered Arkanis 2357707 = 2300707); none in aion2data's list."""
     npc_id = int(npc_id)
-    return npc_id - 10000 if 2_310_000 <= npc_id < 2_320_000 else None
+    return 2_300_000 + npc_id % 1000 if 2_310_000 <= npc_id < 2_400_000 else None
 
 
 class NpcDb:
