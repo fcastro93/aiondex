@@ -19,7 +19,8 @@ from .combat import (ABYSS_MAPS, PLAYER_SPAWN_OPCODE, REVIVE_SKILLS, SELF_REVIVE
 from .damage import (DAMAGE_OPCODES, DEATH_OPCODE, READY as DAMAGE_READY, STATS_OPCODE, parse_hp,
                      parse_mp, summon_owner)
 from .fightlog import SHORTEST, FightLog, summary as fight_summary
-from .sessions import SessionLog
+from .sessions import SessionLog, final_boss_killed, place_of
+from . import simulation
 from .npcs import NpcDb
 from .roster import (FORCE_INFO_OPCODE, MEMBER_HINT_OPCODES, MEMBER_OPCODES, PARTY_INFO_OPCODE, ROSTER_OPCODE,
                      parse_member_ids,
@@ -171,6 +172,8 @@ class Bridge(QObject):
         self.finder = OwnEntityFinder()  # who you are until the game resends your character (and after teleports)
         self._self_stale = True          # the entity id may be unknown or old (start, map change) until a 3336
         self._hinted = {}                # (kind, entity id) -> when that group hint was last passed on
+        self.moves = simulation.MoveRecorder()   # positions in dungeons, for the Simulación of boss fights
+        self._moves_failed = False
 
     def take_hits(self):
         with self._hits_lock:
@@ -192,6 +195,12 @@ class Bridge(QObject):
             if hits:
                 with self._hits_lock:
                     self._pending_hits.extend(hits)
+        try:
+            self.moves.on_message(op, body, None, self.feed.players, self.feed.owners)
+        except Exception:                # noqa: BLE001 - the simulation never stops the capture
+            if not self._moves_failed:
+                self._moves_failed = True
+                log.exception("simulation recorder")
         if op == SPAWN_OPCODE:
             spawn = parse_spawn_full(body)
             if spawn:
@@ -470,6 +479,8 @@ class Controller(QObject):
         self.combat = CombatTracker()
         self.boss_names = _loxin_boss_names()
         self.npc_db = NpcDb(self.data_dir)
+        self.boss_db = simulation.BossDb(self.data_dir)      # boss faces and named skills for the Simulación
+        self.sim_windows = []
         self.member_stats = {}          # name -> (level, item level, combat power) from the group lists
         self.dps_ready = DAMAGE_READY
         self.bridge.player.connect(self.on_player)
@@ -1095,6 +1106,17 @@ class Controller(QObject):
         if not enc.total:
             return
         group = enc.group_names(self.combat.group)
+        enc.place = place_of(enc, self.npc_db)
+        enc.final = final_boss_killed(enc, self.npc_db)
+        if enc.replay is None and simulation.worth(enc, group):
+            try:
+                events = self.bridge.moves.slice(enc.start - simulation.PRE - 30, enc.last + simulation.POST + 1)
+                enc.replay = simulation.build(events, enc, self._sim_people(enc, group), self.boss_db.bosses)
+                log.info("simulation of %s: %s tracks, %s deaths, %s casts, %s areas", enc.main_target,
+                         len(enc.replay["tracks"]), len(enc.replay["deaths"]), len(enc.replay["casts"]),
+                         len(enc.replay["zones"]))
+            except Exception:            # noqa: BLE001 - the fight is saved without it
+                log.exception("simulation of %s", enc.id)
         names = set(group) | {a.name for a in enc.actors.values() if a.is_self}
         enc.cp = {n: self.cp_of(n) for n in names if self.cp_of(n)}
         pin = enc.id in self._pin_when_done
@@ -1104,6 +1126,25 @@ class Controller(QObject):
         in_session = session is not None and enc.duration >= SHORTEST     # a session keeps every fight of its runs
         if self.fights.save(enc, group, force=enc.pinned or in_session) and in_session:
             self.sessions.add_fight(enc.id)
+
+    def _sim_people(self, enc, group):
+        """{eid: (name, class, is you)} of you and your group in a fight."""
+        return {a.eid: (a.name, a.class_name or "", a.is_self) for a in enc.actors.values()
+                if a.is_self or a.name in group}
+
+    def open_simulation(self, fid):
+        """The Simulación of a dungeon boss fight (a fight or its id)."""
+        from .ui.simwindow import SimulationWindow
+        enc = fid if not isinstance(fid, str) else self.fight(fid)
+        if enc is None or not enc.replay:
+            return
+        self.sim_windows = [w for w in self.sim_windows if w.isVisible()]
+        window = next((w for w in self.sim_windows if w.enc is enc), None) or SimulationWindow(self, enc)
+        if window not in self.sim_windows:
+            self.sim_windows.append(window)
+        window.show()
+        window.raise_()
+        window.activateWindow()
 
     # --- sessions ------------------------------------------------------------------------------------
     def start_session(self, name):
@@ -1303,6 +1344,7 @@ class Controller(QObject):
             self.bridge.feed.set_self(eid)
         if session.get("map_id") is not None:
             self.combat.on_map(session["map_id"])
+            self.bridge.moves.set_map(session["map_id"])
         self._party_names, self._force_names = list(session.get("party", [])), list(session.get("force", []))
         self._roster_info.update({n: tuple(v) for n, v in session.get("roster", {}).items()})
         self.member_stats.update({n: tuple(v) for n, v in session.get("stats", {}).items()})

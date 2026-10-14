@@ -110,6 +110,59 @@ def place_of(enc, npc_db):
     return "Mazmorra" if in_instance(enc.map_id) else "Mundo abierto"
 
 
+RUN_GAP = 1800       # seconds between two fights of the same dungeon that still make one run
+
+
+@dataclass
+class HistoryRun:
+    """A visit to a dungeon in the history: its fights (summaries of fightlog.summary), oldest first."""
+    place: str
+    map_id: int
+    items: list = field(default_factory=list)
+    closed: bool = False          # its last boss died: the next fights there are another run
+
+    @property
+    def id(self):
+        return "run-" + self.items[0]["id"]
+
+    @property
+    def start(self):
+        return self.items[0]["start"]
+
+    @property
+    def last(self):
+        return max(i["last"] for i in self.items)
+
+    @property
+    def bosses(self):
+        """The boss fights (the trash in between is left out)."""
+        return [i for i in self.items if i.get("boss")]
+
+    @property
+    def pinned(self):
+        return any(i.get("pinned") for i in self.bosses)
+
+
+def history_entries(items):
+    """The history grouped: [("run", HistoryRun) | ("fight", summary)], newest first. A run is the fights in a row
+    in the same dungeon until its last boss dies (only the runs with a boss fight are listed, and only their boss
+    fights); fights outside dungeons, those going on and those saved before 1.44 (no place) stay on their own."""
+    out, run = [], None
+    for item in sorted(items, key=lambda i: i["start"]):
+        if item.get("live") or not item.get("instance") or not item.get("place"):
+            out.append(("fight", item))
+            run = None if not item.get("live") else run
+            continue
+        if run is None or run.closed or run.map_id != item.get("map_id") or run.place != item["place"] or \
+                item["start"] - run.last > RUN_GAP:
+            run = HistoryRun(item["place"], item.get("map_id"))
+            out.append(("run", run))
+        run.items.append(item)
+        run.closed = run.closed or bool(item.get("final"))
+    out = [e for e in out if e[0] == "fight" or e[1].bosses]
+    return sorted(out, key=lambda e: -(e[1].last if e[0] == "run" else e[1]["last"]))
+
+
 def final_boss_killed(enc, npc_db):
     """The fight killed a dungeon's last boss (the ones with a rage timer: Kromede's Desire, Bakarma...)."""
     return any(enc.target_npc.get(eid) and npc_db.rage(enc.target_npc[eid]) for eid in enc.dead)

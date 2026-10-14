@@ -1,7 +1,9 @@
 """Overlay panel of the DPS module, kept clean for the fight (the look of dps_party.py everywhere): a card with the
 main enemy (its HP, rage countdown and, in dungeons, your Odyle Energy and the dungeon's rewards left), then one row
 per player with their class colour, combat power, DPS and share; a selector (you / your party / force / everyone)
-only when there is a choice to make; and the history of the last 48 hours with a pin (★) for the fights to keep."""
+only when there is a choice to make; and the history of the last 48 hours with a pin (★) for the fights to keep:
+each dungeon visit is one entry with its boss fights inside (the trash in between left out), and each boss fight
+there has its Simulación (ui/simwindow.py)."""
 import time
 from pathlib import Path
 
@@ -11,6 +13,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from ..combat import in_instance
 from ..gear import CLASS_OF_JOB
+from ..sessions import history_entries
 from . import theme
 from .dps_party import BossCard, PartyRow, compact_number, thousands
 from .notifications_panel import ago
@@ -75,7 +78,8 @@ class DpsPanel(QWidget):
         super().__init__(parent)
         self.ctl = ctl
         self.fonts = fonts
-        self.mode = "live"               # "live" | "history"
+        self.mode = "live"               # "live" | "history" | "run" (a dungeon visit of the history)
+        self._run_id = None
         self._icons = {}
         self._live_encounter = None      # the fight on screen when the history was opened
         self.content = QVBoxLayout(self)
@@ -88,14 +92,16 @@ class DpsPanel(QWidget):
             if item.widget():
                 item.widget().hide()            # gone at once, not when the deferred delete runs: no blink
                 item.widget().deleteLater()
-        if self.mode == "history" and encounter is not None and not encounter.ended and \
+        if self.mode in ("history", "run") and encounter is not None and not encounter.ended and \
                 encounter is not self._live_encounter:
             self.mode = "live"           # a new fight started: back to the meter
-        match = self.ctl.arena() if self.mode != "history" else None
+        match = self.ctl.arena() if self.mode == "live" else None
         if match is not None:
             self._arena(match, compact)
         if self.mode == "history":
             self._history(compact)
+        elif self.mode == "run":
+            self._run_view(compact)
         elif not ready:
             self._note("Preparando el medidor…")
         elif encounter is None:
@@ -345,42 +351,110 @@ class DpsPanel(QWidget):
 
     # --- the history -------------------------------------------------------------------------------------------
     def _history(self, compact):
-        """The fights of the last 48 hours (the pinned ones first), each with its pin and a button to its details."""
+        """The fights of the last 48 hours (the pinned ones first): each dungeon visit as one entry (its bosses
+        inside), the rest one by one with their pin and a button to their details."""
+        f = self.fonts
+        self._head("HISTORIAL · 48 H", self._close_history)
+        fights = self.ctl.fight_list()
+        if not fights:
+            self._note("Aún no hay peleas guardadas.")
+        entries = sorted(history_entries(fights),
+                         key=lambda e: (not (e[1].pinned if e[0] == "run" else e[1]["pinned"]),
+                                        -(e[1].last if e[0] == "run" else e[1]["last"])))[:HISTORY_ROWS[compact]]
+        for kind, entry in entries:
+            if kind == "run":
+                self._run_row(entry)
+            else:
+                self._fight_row(entry)
+        self._note("Las peleas se guardan 48 horas en tu PC; las marcadas con ★ se quedan hasta que las quites. "
+                   "Cada mazmorra muestra solo sus jefes.")
+
+    def _head(self, title, back):
         f = self.fonts
         head = QWidget()
         lay = QHBoxLayout(head)
         lay.setContentsMargins(f.px(2), f.px(2), 0, f.px(2))
-        lay.addWidget(label("HISTORIAL · 48 H", f.section, theme.MUTED))
-        lay.addStretch(1)
-        lay.addWidget(Pill("Volver", f, self._close_history))
+        lay.addWidget(label(title, f.section, theme.MUTED, elide=True), 1)
+        lay.addWidget(Pill("Volver", f, back))
         self.content.addWidget(head)
-        fights = self.ctl.fight_list()
-        if not fights:
-            self._note("Aún no hay peleas guardadas.")
-        fights = sorted(fights, key=lambda i: (not i["pinned"], -i["last"]))[:HISTORY_ROWS[compact]]
+
+    @staticmethod
+    def _when(at):
         now = time.time()
-        for item in fights:
-            row = QWidget()
-            rl = QHBoxLayout(row)
-            rl.setContentsMargins(0, 0, 0, 0)
-            rl.setSpacing(f.px(6))
-            pinned = item["pinned"]
-            rl.addWidget(Pill("★" if pinned else "☆", f, lambda i=item["id"], p=pinned: self.ctl.pin_fight(i, not p),
-                              color=theme.GOLD if pinned else theme.MUTED,
-                              tip="Quitar: se borrará cuando pasen 48 horas" if pinned else
-                              "Conservar esta pelea (no se borra a las 48 horas)"))
-            col = QVBoxLayout()
-            col.setSpacing(0)
-            mark = " ✓" if item["killed"] else ""
-            col.addWidget(label(f"{item['target']}{mark}", f.body, theme.GOLD if pinned else theme.TEXT, elide=True))
-            when = "en curso" if item.get("live") else (ago(item["last"]) if now - item["last"] < 86400 else
-                                                        time.strftime("%d/%m %H:%M", time.localtime(item["last"])))
-            yours = f" · {short_number(item['dps'])}/s ({100 * item['share']:.0f}%)" if item["damage"] else ""
-            col.addWidget(label(f"{mmss(item['duration'])}{yours} · {when}", f.small, theme.MUTED, elide=True))
-            rl.addLayout(col, 1)
-            rl.addWidget(Pill("Ver", f, lambda i=item["id"]: self.ctl.open_dps_details(i)))
-            self.content.addWidget(row)
-        self._note("Las peleas se guardan 48 horas en tu PC; las marcadas con ★ se quedan hasta que las quites.")
+        return ago(at) if now - at < 86400 else time.strftime("%d/%m %H:%M", time.localtime(at))
+
+    def _run_row(self, run):
+        """A dungeon visit: its name, its bosses (✓ the ones killed) and a button to open it."""
+        f = self.fonts
+        row = QWidget()
+        rl = QHBoxLayout(row)
+        rl.setContentsMargins(0, 0, 0, 0)
+        rl.setSpacing(f.px(6))
+        bosses = run.bosses
+        col = QVBoxLayout()
+        col.setSpacing(0)
+        col.addWidget(label(run.place, f.body, theme.GOLD if run.pinned else theme.ACCENT, elide=True))
+        killed = sum(1 for i in bosses if i["killed"])
+        names = ", ".join(i["target"] + (" ✓" if i["killed"] else "") for i in bosses)
+        col.addWidget(label(f"{len(bosses)} {'jefe' if len(bosses) == 1 else 'jefes'} ({killed} ✓) · "
+                            f"{self._when(run.last)} · {names}", f.small, theme.MUTED, elide=True))
+        rl.addLayout(col, 1)
+        rl.addWidget(Pill("Abrir", f, lambda r=run.id: self._open_run(r),
+                          tip="Las peleas de cada jefe de esta mazmorra, con su Simulación"))
+        self.content.addWidget(row)
+
+    def _fight_row(self, item, simulation=False):
+        f = self.fonts
+        row = QWidget()
+        rl = QHBoxLayout(row)
+        rl.setContentsMargins(0, 0, 0, 0)
+        rl.setSpacing(f.px(6))
+        pinned = item["pinned"]
+        rl.addWidget(Pill("★" if pinned else "☆", f, lambda i=item["id"], p=pinned: self.ctl.pin_fight(i, not p),
+                          color=theme.GOLD if pinned else theme.MUTED,
+                          tip="Quitar: se borrará cuando pasen 48 horas" if pinned else
+                          "Conservar esta pelea (no se borra a las 48 horas)"))
+        col = QVBoxLayout()
+        col.setSpacing(0)
+        mark = " ✓" if item["killed"] else ""
+        col.addWidget(label(f"{item['target']}{mark}", f.body, theme.GOLD if pinned else theme.TEXT, elide=True))
+        when = "en curso" if item.get("live") else self._when(item["last"])
+        yours = f" · {short_number(item['dps'])}/s ({100 * item['share']:.0f}%)" if item["damage"] else ""
+        deaths = f" · {item['deaths']} muertes" if simulation and item.get("deaths") else ""
+        col.addWidget(label(f"{mmss(item['duration'])}{yours}{deaths} · {when}", f.small, theme.MUTED, elide=True))
+        rl.addLayout(col, 1)
+        if simulation:
+            rl.addWidget(Pill("Simulación", f, lambda i=item["id"]: self.ctl.open_simulation(i),
+                              enabled=bool(item.get("replay")),
+                              tip="Ver la pelea desde arriba: dónde estaba cada uno, las muertes y lo que lanzó "
+                                  "el jefe" if item.get("replay") else
+                                  "Sin simulación: AionDex no grabó esta pelea (solo las de jefes de mazmorra "
+                                  "desde la versión 1.44)"))
+        rl.addWidget(Pill("Ver", f, lambda i=item["id"]: self.ctl.open_dps_details(i)))
+        self.content.addWidget(row)
+
+    def _open_run(self, run_id):
+        self.mode, self._run_id = "run", run_id
+        self.ctl.refresh()
+
+    def _back_to_history(self):
+        self.mode = "history"
+        self.ctl.refresh()
+
+    def _run_view(self, compact):
+        """A dungeon visit: its boss fights in order, each with its details and its Simulación."""
+        run = next((e[1] for e in history_entries(self.ctl.fight_list()) if e[0] == "run" and e[1].id == self._run_id),
+                   None)
+        if run is None:
+            self._back_to_history()
+            return
+        self._head(f"{run.place.upper()} · {time.strftime('%d/%m %H:%M', time.localtime(run.start))}",
+                   self._back_to_history)
+        for item in run.bosses:
+            self._fight_row(item, simulation=True)
+        deaths = sum(i.get("deaths", 0) for i in run.bosses)
+        self._note(f"Solo los jefes (los mobs de en medio no se muestran)"
+                   + (f" · {deaths} muertes de tu grupo en ellos" if deaths else "") + ".")
 
     # --- helpers -------------------------------------------------------------------------------------------------
     def _class_icon(self, class_name):

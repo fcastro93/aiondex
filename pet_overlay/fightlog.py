@@ -6,8 +6,9 @@ their breakdowns) with your party / force named and everyone else already rename
 reach the disk. Only the fights worth keeping are saved (boss fights, fights with other players, or 30 s and longer);
 a quick solo mob stays in the session's list until AionDex closes. Pinning one saves it whatever it is.
 
-fights/index.json   [{id, start, last, target, label, duration, killed, damage, dps, share, players, pinned}]
-fights/<id>.json.gz the encounter
+fights/index.json   [{id, start, last, target, label, duration, killed, damage, dps, share, players, pinned, place,
+                      map_id, instance, boss, final, replay}]
+fights/<id>.json.gz the encounter (with its Simulación in dungeon boss fights, simulation.py)
 """
 import gzip
 import json
@@ -17,7 +18,7 @@ from collections import Counter
 from dataclasses import fields
 from pathlib import Path
 
-from .combat import ActorStats, Encounter
+from .combat import ActorStats, Encounter, in_instance
 
 log = logging.getLogger(__name__)
 KEEP_HOURS = 48
@@ -47,7 +48,9 @@ def summary(enc, group):
     return {"id": enc.id, "start": enc.start, "last": enc.last, "target": enc.main_target or "Pelea",
             "label": enc.activity(group).label, "duration": enc.fight_time(group), "killed": enc.killed,
             "damage": mine, "dps": mine / enc.fight_time(group), "share": mine / total, "players": len(enc.dealers()),
-            "pinned": enc.pinned}
+            "pinned": enc.pinned, "place": enc.place, "map_id": enc.map_id, "instance": in_instance(enc.map_id),
+            "boss": enc.activity(group).boss, "final": enc.final, "replay": bool(enc.replay),
+            "deaths": sum(a.deaths for a in enc.actors.values() if a.is_self or a.name in group)}
 
 
 # --- (de)serialising ---
@@ -96,7 +99,8 @@ def dump(enc, group):
             "first_hit": _ints(enc.first_hit), "last_hit": _ints(enc.last_hit), "died_at": _ints(enc.died_at),
             "side_targets": _ints(enc.side_targets),
             "group": sorted(group), "cp": {n: cp for n, cp in enc.cp.items() if n in group or n in
-                                           {a.name for a in enc.actors.values() if a.is_self}}}
+                                           {a.name for a in enc.actors.values() if a.is_self}},
+            "place": enc.place, "final": enc.final, "replay": enc.replay}
 
 
 def load(data):
@@ -120,6 +124,9 @@ def load(data):
     enc.side_targets = Counter(keyed("side_targets"))
     enc.group = set(data.get("group", []))
     enc.cp = dict(data.get("cp") or {})
+    enc.place = data.get("place") or ""
+    enc.final = bool(data.get("final"))
+    enc.replay = data.get("replay")
     return enc
 
 

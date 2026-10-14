@@ -7,13 +7,14 @@ import webbrowser
 from dataclasses import dataclass, field
 
 from PySide6.QtCore import QRect, QRectF, QSize, Qt, QTimer
-from PySide6.QtGui import QColor, QPainter, QPixmap
+from PySide6.QtGui import QColor, QFont, QPainter, QPixmap
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDialog, QFrame, QHBoxLayout, QHeaderView,
                                QLineEdit, QPushButton, QSplitter, QStyledItemDelegate, QTableWidget, QTableWidgetItem,
                                QVBoxLayout, QWidget)
 
 from .. import APP_NAME
 from ..combat import aggro_counts
+from ..sessions import history_entries
 from . import theme
 from .dps_panel import mmss, short_number
 from .mapwindow import STYLE, badge_label
@@ -342,6 +343,9 @@ class DpsDetailsWindow(QWidget):
         report.setToolTip("Una imagen con la pelea, los números de tu grupo y su MVP, para guardar o pegar")
         report.clicked.connect(self._report)
         head.addWidget(report)
+        self.sim_button = QPushButton("Simulación")
+        self.sim_button.clicked.connect(self._simulation)
+        head.addWidget(self.sim_button)
         root.addLayout(head)
 
         self.cards = QHBoxLayout()
@@ -469,15 +473,38 @@ class DpsDetailsWindow(QWidget):
         self.encounter_box.blockSignals(True)
         self.encounter_box.clear()
         today = time.strftime("%d/%m")
-        for item in self.encounters():
+        items = self.encounters()
+        self._listed = [(i["id"], i["pinned"]) for i in items]
+
+        def when(item):
             day = time.strftime("%d/%m", time.localtime(item["last"]))
-            when = "en curso" if item["live"] else time.strftime("%H:%M" if day == today else "%d/%m %H:%M",
+            return "en curso" if item["live"] else time.strftime("%H:%M" if day == today else "%d/%m %H:%M",
                                                                  time.localtime(item["last"]))
-            self.encounter_box.addItem(f"{'★ ' if item['pinned'] else ''}{item['target']}"
-                                       f"{' ✓' if item['killed'] else ''} · {mmss(item['duration'])} · {when}",
+
+        def add(item, indent=""):
+            self.encounter_box.addItem(f"{indent}{'★ ' if item['pinned'] else ''}{item['target']}"
+                                       f"{' ✓' if item['killed'] else ''} · {mmss(item['duration'])} · {when(item)}",
                                        item["id"])
+
+        bold = QFont(self.encounter_box.font())
+        bold.setBold(True)
+        for kind, entry in history_entries(items):     # a dungeon visit: its name, then its boss fights
+            if kind == "fight":
+                add(entry)
+                continue
+            n = len(entry.bosses)
+            self.encounter_box.addItem(f"{entry.place} · {n} {'jefe' if n == 1 else 'jefes'} · "
+                                       f"{when(entry.bosses[-1])}")
+            header = self.encounter_box.model().item(self.encounter_box.count() - 1)
+            header.setFlags(Qt.NoItemFlags)
+            header.setData(bold, Qt.FontRole)
+            header.setData(theme.ACCENT, Qt.ForegroundRole)
+            for item in entry.bosses:
+                add(item, "    ↳ ")
         idx = self.encounter_box.findData(current)
-        self.encounter_box.setCurrentIndex(max(0, idx))
+        if idx < 0:
+            idx = next((i for i in range(self.encounter_box.count()) if self.encounter_box.itemData(i)), 0)
+        self.encounter_box.setCurrentIndex(idx)
         self.encounter_box.blockSignals(False)
         self._fill()
 
@@ -496,9 +523,7 @@ class DpsDetailsWindow(QWidget):
     def _live(self):
         enc = self.encounter()
         items = self.encounters()
-        known = [self.encounter_box.itemData(i) for i in range(self.encounter_box.count())]
-        if [i["id"] for i in items] != known or \
-                any(i["pinned"] != self.encounter_box.itemText(n).startswith("★") for n, i in enumerate(items)):
+        if [(i["id"], i["pinned"]) for i in items] != getattr(self, "_listed", None):
             self.refresh()
         elif enc is not None and not enc.ended:
             self._fill()
@@ -517,6 +542,11 @@ class DpsDetailsWindow(QWidget):
 
     def _sessions(self):
         SessionsDialog(self.ctl, self).exec()
+
+    def _simulation(self):
+        enc = self.encounter()
+        if enc is not None and enc.replay:
+            self.ctl.open_simulation(enc)
 
     def _show_enemies(self):
         self.enemy_view = True
@@ -571,6 +601,11 @@ class DpsDetailsWindow(QWidget):
         self.pin_button.setEnabled(enc is not None)
         self.pin_button.setChecked(bool(enc is not None and enc.pinned))
         self.pin_button.setText("★ Conservada" if enc is not None and enc.pinned else "☆ Conservar")
+        has_sim = bool(enc is not None and enc.replay)
+        self.sim_button.setEnabled(has_sim)
+        self.sim_button.setToolTip("La pelea desde arriba: dónde estaba cada uno, las muertes (calaveras en la línea "
+                                   "de tiempo) y lo que lanzó el jefe" if has_sim else
+                                   "Solo para las peleas de jefes de mazmorra grabadas desde la versión 1.44")
         if enc is not None and not self.metric_buttons[self.shown_metric.key].isEnabled():
             self.shown_metric = METRICS[0]
             self.metric_buttons[self.shown_metric.key].setChecked(True)

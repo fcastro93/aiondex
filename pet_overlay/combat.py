@@ -203,6 +203,9 @@ class Encounter:
     group: set | None = None     # your party / force when it ended (None while it goes on: the current one counts)
     cp: dict = field(default_factory=dict)            # name -> combat power of you and your group (saved fights)
     pinned: bool = False         # saved fight kept past the 48 hours
+    place: str = ""              # the dungeon it was in ("Fire Temple"), "Mundo abierto", "Abismo" (sessions.place_of)
+    final: bool = False          # it killed the dungeon's last boss (the next fights are another run)
+    replay: dict | None = None   # the Simulación of a dungeon boss fight (simulation.build)
 
     @property
     def id(self):
