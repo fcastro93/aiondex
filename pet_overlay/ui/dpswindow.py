@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDialog,
                                QVBoxLayout, QWidget)
 
 from .. import APP_NAME
-from ..combat import aggro_counts
+from ..combat import aggro_counts, in_instance
 from ..sessions import history_entries
 from . import theme
 from .dps_panel import mmss, short_number
@@ -603,9 +603,18 @@ class DpsDetailsWindow(QWidget):
         self.pin_button.setText("★ Conservada" if enc is not None and enc.pinned else "☆ Conservar")
         has_sim = bool(enc is not None and enc.replay)
         self.sim_button.setEnabled(has_sim)
-        self.sim_button.setToolTip("La pelea desde arriba: dónde estaba cada uno, las muertes (calaveras en la línea "
-                                   "de tiempo) y lo que lanzó el jefe" if has_sim else
-                                   "Solo para las peleas de jefes de mazmorra grabadas desde la versión 1.44")
+        self.sim_button.setText("Simulación" if has_sim or enc is None else "Sin simulación")
+        if has_sim:
+            why = ("La pelea desde arriba: dónde estaba cada uno, las muertes (calaveras en la línea de tiempo) y lo "
+                   "que lanzó el jefe")
+        elif enc is not None and not enc.ended:
+            why = "La simulación se arma cuando termina la pelea"
+        elif enc is not None and in_instance(enc.map_id) and enc.activity(self._group(enc)).boss:
+            why = ("Esta pelea no se grabó: es de antes de la versión 1.44 (o AionDex se abrió ya dentro de la "
+                   "mazmorra, sin ver la entrada)")
+        else:
+            why = "Solo hay simulación de las peleas de jefe dentro de mazmorras"
+        self.sim_button.setToolTip(why)
         if enc is not None and not self.metric_buttons[self.shown_metric.key].isEnabled():
             self.shown_metric = METRICS[0]
             self.metric_buttons[self.shown_metric.key].setChecked(True)

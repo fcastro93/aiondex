@@ -22,6 +22,7 @@ EXTRA_STYLE = f"""
 QPushButton {{ background: {theme.ACCENT.name()}; color: #06101f; border: none; border-radius: 6px;
     padding: 6px 14px; font-weight: 600; }}
 QPushButton:hover {{ background: #3fd3ff; }}
+QPushButton:disabled {{ background: #18233c; color: #56627c; }}
 QPushButton[flat="true"] {{ background: transparent; color: {theme.ACCENT.name()}; padding: 2px 6px; }}
 QPushButton[flat="true"]:disabled {{ color: #2c3a58; }}
 QPushButton[tab="true"] {{ background: #0f1830; color: {theme.MUTED.name()}; border: 1px solid #24345a;
