@@ -32,6 +32,9 @@ SOURCE = {   # how a material is priced -> (chip text, colour)
 PROFESSION_ES = {"Cooking": "Cocina", "Alchemy": "Alquimia", "Blacksmithing": "Herrería",
                  "Armorsmithing": "Armería", "Handicrafting": "Artesanía"}
 VERDICT_COLOR = {"good": theme.GAIN, "bad": theme.COMBAT, "none": theme.MUTED}
+MAT_KINDS = [("all", "Todos"), ("gather", "Recolectados"), ("market", "Solo del mercado"), ("craft", "Procesados")]
+MAT_KIND_CHIP = {"gather": ("Recolectado", "#7bd88f"), "market": ("Mercado", "#f0c24e"),
+                 "craft": ("Procesado", "#c38bff")}
 COLUMNS = (("Precio", 74), ("Recibes", 74), ("Fallo", 96), ("Recolectando", 108), ("Comprando", 108),
            ("¿Se vende?", 146))
 SORTABLE = {"Objeto": "name", "Precio": "price", "Recibes": "net", "Fallo": "fail", "Recolectando": "gather",
@@ -515,71 +518,160 @@ class CraftingWindow(QWidget):
         self._materials(query)
 
     def _materials_tab(self, query):
-        """«Materiales»: every material the recipes use, by kind (gathered, only from the market, processed), with
-        its lowest price, the last 7 days' average, offers, units on sale, whether it sells and who uses it. The
-        ones with no price yet are listed so you know what to scan."""
+        """«Materiales»: every material the recipes use, with filters (kind, the profession that uses it, only
+        priced, only selling) and every column sortable with a click on its title (another click reverses it).
+        Materials with no price yet stay at the end (or out, with «Solo con precio») so you know what to scan."""
         f, crafting = self.fonts, self.crafting
-        rows = [m for m in crafting.material_rows(MATERIALS, with_unpriced=True)
-                if not query or query in m[0].lower() or any(query in p.lower() for p in m[7])]
+        conf = crafting.config.setdefault("materials", {})
+        used_by = {}
+        for r in crafting.recipes:
+            for m in r["materials"]:
+                used_by.setdefault(m["name"], set()).add(r["profession"])
+        rows = crafting.material_rows(MATERIALS, with_unpriced=True)
+        bar = QHBoxLayout()
+        bar.setSpacing(8)
+        bar.addWidget(label("Tipo", f.small, theme.MUTED))
+        kind = QComboBox()
+        for key, text in MAT_KINDS:
+            kind.addItem(text, key)
+        kind.setCurrentIndex(max(0, kind.findData(conf.get("kind", "all"))))
+        kind.currentIndexChanged.connect(lambda _: self._mat_option("kind", kind.currentData()))
+        bar.addWidget(kind)
+        bar.addWidget(label("Lo usa", f.small, theme.MUTED))
+        prof = QComboBox()
+        prof.addItem("Cualquier profesión", "all")
+        for key, info in crafting.professions.items():
+            if key != MATERIALS:
+                prof.addItem(info["name"], key)
+        prof.setCurrentIndex(max(0, prof.findData(conf.get("prof", "all"))))
+        prof.currentIndexChanged.connect(lambda _: self._mat_option("prof", prof.currentData()))
+        bar.addWidget(prof)
+        for key, text, tip in (("priced", "Solo con precio", "Ocultar los que aún no escaneaste"),
+                               ("selling", "Solo los que se venden", "Los que se vieron venderse entre muestreos")):
+            box = QCheckBox(text)
+            box.setToolTip(tip)
+            box.setChecked(bool(conf.get(key)))
+            box.toggled.connect(lambda on, k=key: self._mat_option(k, on))
+            bar.addWidget(box)
+        bar.addStretch(1)
+        if conf.get("kind", "all") != "all":
+            rows = [m for m in rows if m[1] == conf["kind"]]
+        if conf.get("prof", "all") != "all":
+            rows = [m for m in rows if conf["prof"] in used_by.get(m[0], set())]
+        if conf.get("priced"):
+            rows = [m for m in rows if m[2] is not None]
+        if conf.get("selling"):
+            rows = [m for m in rows if m[5].verdict()[1] == "good"]
+        if query:
+            rows = [m for m in rows if query in m[0].lower() or any(query in p.lower() for p in m[7])]
+        priced = sum(1 for m in rows if m[2] is not None)
+        bar.addWidget(label(f"{len(rows)} materiales · {priced} con precio", f.small, theme.MUTED))
+        self.body.addLayout(bar)
         if not rows:
             self._hint(f"Nada coincide con «{self.search.text().strip()}»." if query else
-                       "No hay materiales en las recetas.")
+                       "Ningún material con esos filtros.")
             return
-        groups = (("gather", "Recolectados (Odyle, minerales, plantas, ingredientes…)"),
-                  ("market", "Solo del mercado (Ego, Mind, piedras…)"),
-                  ("craft", "Procesados (los fabricas o los compras hechos)"))
-        for source, title in groups:
-            group = [m for m in rows if m[1] == source]
-            if not group:
-                continue
-            priced = [m for m in group if m[2] is not None]
-            self.body.addWidget(SectionTitle(f"{title} · {len(priced)} de {len(group)} con precio", f))
-            if priced:
-                self.body.addLayout(self._material_grid(priced))
-            missing = [m[0] for m in group if m[2] is None]
-            if missing:
-                note = self._hint("Sin precio todavía (escanéalos en el mercado): " + ", ".join(missing[:24])
-                                  + (f" y {len(missing) - 24} más" if len(missing) > 24 else ""))
-                note.setToolTip("\n".join(missing))
-                note.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        key, flip = conf.get("sort", "kind"), conf.get("flip", False)
+        value, descending = self._mat_sort_keys().get(key, self._mat_sort_keys()["kind"])
+        known = [m for m in rows if value(m) is not None]
+        unknown = [m for m in rows if value(m) is None]
+        known.sort(key=lambda m: (value(m), m[0].lower()), reverse=descending != flip)
+        self.body.addLayout(self._material_grid(known + sorted(unknown, key=lambda m: m[0].lower()), key, flip))
 
-    def _material_grid(self, mats):
+    def _mat_option(self, key, value):
+        self.crafting.config.setdefault("materials", {})[key] = value
+        self.crafting.settings.save()
+        QTimer.singleShot(0, self.refresh)
+
+    def _mat_sort(self, key):
+        conf = self.crafting.config.setdefault("materials", {})
+        if conf.get("sort", "kind") == key:
+            conf["flip"] = not conf.get("flip", False)
+        else:
+            conf["sort"], conf["flip"] = key, False
+        self.crafting.settings.save()
+        QTimer.singleShot(0, self.refresh)
+
+    def _mat_sort_keys(self):
+        """column -> (value of a material row, highest first by default); None values always go last."""
+        crafting = self.crafting
+
+        def owned(m):
+            o = crafting.owned(m[0])
+            return o[0] if o else None
+
+        def change(m):
+            avg, n = crafting.week_average(m[0])
+            return (m[2] - avg) / avg if m[2] is not None and avg and n >= 2 else None
+
+        def sales(m):
+            s = m[5]
+            return s.per_day if s.per_day is not None else (s.sold if s.observations >= 2 else None)
+
+        order = {k: i for i, (k, _) in enumerate(MAT_KINDS)}
+        return {"name": (lambda m: m[0].lower(), False),
+                "kind": (lambda m: (order.get(m[1], 9), m[0].lower()), False),
+                "have": (owned, True),
+                "price": (lambda m: m[2], True),
+                "avg": (change, False),
+                "listings": (lambda m: m[4], True),
+                "supply": (lambda m: m[6][0] if m[6] else None, True),
+                "sales": (sales, True),
+                "used": (lambda m: len(m[7]), True)}
+
+    def _material_grid(self, mats, current, flip):
         f, crafting = self.fonts, self.crafting
+        keys = self._mat_sort_keys()
         grid = QGridLayout()
         grid.setHorizontalSpacing(16)
         grid.setVerticalSpacing(4)
-        heads = ("Material", "Tienes", "Más bajo", "Media 7 días", "Ofertas", "A la venta", "¿Se vende?", "Lo usan", "")
-        for c, text in enumerate(heads):
-            grid.addWidget(label(text, f.small, theme.MUTED), 0, c, Qt.AlignRight if 0 < c < 7 else Qt.AlignLeft)
+        heads = (("Material", "name"), ("Tipo", "kind"), ("Tienes", "have"), ("Más bajo", "price"),
+                 ("Media 7 días", "avg"), ("Ofertas", "listings"), ("A la venta", "supply"), ("¿Se vende?", "sales"),
+                 ("Lo usan", "used"))
+        for c, (text, key) in enumerate(heads):
+            active = key == current
+            arrow = (" ▾" if keys[key][1] != flip else " ▴") if active else ""
+            head = label(text + arrow, f.small, theme.TEXT if active else theme.ACCENT)
+            head.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+            head.setCursor(Qt.PointingHandCursor)
+            head.setToolTip("Ordenar por esta columna (otro clic invierte el orden)")
+            head.mousePressEvent = lambda e, k=key: self._mat_sort(k)
+            grid.addWidget(head, 0, c, Qt.AlignRight if 1 < c < 8 else Qt.AlignLeft)
         for r, (name, source, lowest, at, listings, sales, supply, products) in enumerate(mats, start=1):
             grid.addWidget(self._material_name(name, name, QColor(GRADE_COLOR.get(self._grade(name), "#D6DAE3"))),
                            r, 0)
-            grid.addWidget(self._have_cell(name), r, 1, Qt.AlignRight)
-            price = label(_kinah(lowest), f.name, theme.TEXT)
-            shared = crafting.price_is_shared(name)
-            price.setToolTip(f"precio {_ago(at)}" + (" (de otro usuario)" if shared else ""))
-            grid.addWidget(price, r, 2, Qt.AlignRight)
+            text, color = MAT_KIND_CHIP.get(source, ("—", "#8a93a6"))
+            grid.addWidget(_chip(text, color, f), r, 1)
+            grid.addWidget(self._have_cell(name), r, 2, Qt.AlignRight)
+            if lowest is None:
+                grid.addWidget(label("sin precio", f.small, theme.WARN), r, 3, Qt.AlignRight)
+            else:
+                price = label(_kinah(lowest), f.name, theme.TEXT)
+                shared = crafting.price_is_shared(name)
+                price.setToolTip(f"precio {_ago(at)}" + (" (de otro usuario)" if shared else ""))
+                grid.addWidget(price, r, 3, Qt.AlignRight)
             avg, n = crafting.week_average(name)
-            if avg is not None and n >= 2:
-                change = (lowest - avg) / avg if avg else 0
-                color = theme.GAIN if change <= -0.05 else theme.COMBAT if change >= 0.05 else theme.MUTED
-                cell = label(f"{_kinah(avg)} ({change:+.0%})", f.body, color)
-                cell.setToolTip(f"Media de {n} lecturas de los últimos 7 días; el precio de ahora está {change:+.0%} "
-                                f"respecto a ella ({'barato' if change < 0 else 'caro'} para comprar)")
+            if lowest is not None and avg is not None and n >= 2:
+                diff = (lowest - avg) / avg if avg else 0
+                color = theme.GAIN if diff <= -0.05 else theme.COMBAT if diff >= 0.05 else theme.MUTED
+                cell = label(f"{_kinah(avg)} ({diff:+.0%})", f.body, color)
+                cell.setToolTip(f"Media de {n} lecturas de los últimos 7 días; el precio de ahora está {diff:+.0%} "
+                                f"respecto a ella ({'barato' if diff < 0 else 'caro'} para comprar)")
             else:
                 cell = label("—", f.body, theme.MUTED)
-            grid.addWidget(cell, r, 3, Qt.AlignRight)
-            grid.addWidget(label("—" if listings is None else str(listings), f.body, theme.TEXT), r, 4, Qt.AlignRight)
+            grid.addWidget(cell, r, 4, Qt.AlignRight)
+            grid.addWidget(label("—" if listings is None else str(listings), f.body, theme.TEXT), r, 5, Qt.AlignRight)
             units = f"{supply[0]}{'+' if supply[2] else ''} uds." if supply else "—"
-            grid.addWidget(label(units, f.body, theme.MUTED), r, 5, Qt.AlignRight)
+            grid.addWidget(label(units, f.body, theme.MUTED), r, 6, Qt.AlignRight)
             verdict, kind = sales.verdict()
-            grid.addWidget(label(verdict, f.small, VERDICT_COLOR[kind]), r, 6, Qt.AlignRight)
+            grid.addWidget(label(verdict, f.small, VERDICT_COLOR[kind]), r, 7, Qt.AlignRight)
             used = label(f"{len(products)} {'receta' if len(products) == 1 else 'recetas'}", f.small, theme.MUTED)
             used.setToolTip("Lo usan: " + ", ".join(products))
             used.setAttribute(Qt.WA_TransparentForMouseEvents, False)
-            grid.addWidget(used, r, 7)
-            grid.addWidget(self._chart_button(name), r, 8)
-        grid.setColumnStretch(7, 1)
+            grid.addWidget(used, r, 8)
+            if lowest is not None:
+                grid.addWidget(self._chart_button(name), r, 9)
+        grid.setColumnStretch(8, 1)
         return grid
 
     def _materials(self, query):
