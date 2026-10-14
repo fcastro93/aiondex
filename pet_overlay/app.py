@@ -68,6 +68,7 @@ from .modules.status import StatusModule
 from .modules.missions import AchievementsModule, MissionsModule
 from .modules.passes import PassesModule
 from .modules.events import EventsModule
+from .modules.dashboard import DashboardModule
 from .events import Events, event_missions
 from .afinador import STORE_DELAY, Afinador
 from .update_controller import UpdateController
@@ -538,6 +539,10 @@ class Controller(QObject):
         self.sounds = SoundPlayer(self.settings, ASSETS_DIR / "sounds")
         self._last_own_death = 0.0
         self.tracker = Tracker(self.data_dir, self.settings, self._tracker_notice)
+        if not self.tracker.config.get("siege_marked"):     # 1.47: the Abyss siege, marked once for everyone
+            self.tracker.config["siege_marked"] = True
+            if not self.tracker.marked("event:siege"):
+                self.tracker.toggle("event:siege")
         self._tracked_eids = {}         # entity id -> npc id of field bosses in view
         self.tracker_window = None
         self.bridge.field_list.connect(lambda event: self._tracker_changed(self.tracker.on_field_list(*event)))
@@ -593,13 +598,17 @@ class Controller(QObject):
         self.diag_window = None
         self.dps_window = None
         self._restore_session()
-        self.modules = [PetsModule(self), DpsModule(self), TunerModule(self), TrackerModule(self),
+        self.modules = [DashboardModule(self), PetsModule(self), DpsModule(self), TunerModule(self), TrackerModule(self),
                         CraftingModule(self), StatusModule(self), MissionsModule(self), AchievementsModule(self),
                         PassesModule(self), EventsModule(self),
                         NotificationsModule(self), DiagnosticsModule(self),
                         SettingsModule(self)]
         for module in self.modules:
             self.window.add_panel(module.create_panel(self.fonts))
+        if not self.settings.get("dashboard_intro"):      # 1.47: the Dashboard is the module to keep open
+            self.settings["dashboard_intro"] = True
+            self.settings["module"] = "dashboard"
+            self._save_settings()
         self.active_module = next((m for m in self.modules if m.key == self.settings["module"]), self.modules[0])
         self.window.show_module(self.active_module)
         self.window.set_unread(self.notifications.unread)

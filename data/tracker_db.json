@@ -1,5 +1,5 @@
 {
- "generated_at": 1791780735,
+ "generated_at": 1792016476,
  "credits": [
   {
    "text": "Horarios, jefes y botín: metabot.gg (datos del cliente Global)",
@@ -142,7 +142,7 @@
   },
   {
    "id": "siege",
-   "name": "Asedio de artefactos",
+   "name": "Asedio del Abismo (Siege)",
    "sub": "Chaotic Lower Reshanta · lunes, jueves y sábado",
    "clock": "region",
    "slots": [

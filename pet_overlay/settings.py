@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 DEFAULTS = {
-    "module": "pets",       # active feature module in the overlay
+    "module": "dashboard",  # active feature module in the overlay
     "pos": None,            # [x, y] of the window's top-left corner
     "opacity": 0.85,        # panel background only; text stays opaque
     "scale": 1.0,

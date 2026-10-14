@@ -22,7 +22,7 @@ EVENTS = {   # metabot id -> (name, sub, clock)
     "invasion": ("Invasión dimensional", "Verteron y Altgard · el juego la programa a las :30, pero en Global no sale todas las horas", "region"),
     "rifts": ("Spacetime Rift", "Portales en Altgard, Verteron, Morheim y Eltnen · cada 3 h", "region"),
     "arena": ("Arena of Tactics (10 vs 10)", "Odyle Shard Cradle · dos ventanas al día", "region"),
-    "siege": ("Asedio de artefactos", "Chaotic Lower Reshanta · lunes, jueves y sábado", "region"),
+    "siege": ("Asedio del Abismo (Siege)", "Chaotic Lower Reshanta · lunes, jueves y sábado", "region"),
     "reset-daily": ("Reinicio diario", "Misiones, entradas y llaves del Shugo Festival", "kst"),
     "reset-weekly": ("Reinicio semanal", "Miércoles", "kst"),
 }
