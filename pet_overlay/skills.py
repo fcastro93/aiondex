@@ -8,6 +8,10 @@
       [flags&2: varint cooldown left] | 4 bytes | [flags&4: u8 charges]}
 8ce2  quickslot presets at login: header lists | u8 active preset | u8 n | n x {u8 type (3 = skill) | u8 preset |
       u8 slot | [type 3: u32 skill] | u8 m | m x u32 priority}
+90e2  preset switched in the Skill window: 00 00 02 | u8 preset | 00 00; the game then sends that preset's skill list
+      (0051) again: skill levels and specializations are per preset (2026-10-15).
+93e2  a preset's whole bar, with each change made in the Skill window: u8 1 | u8 n | n x the 8ce2 slot record (type 3
+      = a skill, 2 = empty); 0856 comes with it (the change itself).
 
 Skill ids: class prefix (14 = Ranger...) + skill number + 4 variant digits. The variant digits of the equipped id
 are the chosen specializations (14020340 = Snipe with specializations 3 and 4). Skill number 00 is the basic attack.
@@ -22,6 +26,8 @@ REQUEST_OPCODE = bytes.fromhex("0138")
 CAST_OPCODE = bytes.fromhex("0238")
 SKILL_LIST_OPCODE = bytes.fromhex("0051")
 PRESETS_OPCODE = bytes.fromhex("8ce2")
+PRESET_SWITCH_OPCODE = bytes.fromhex("90e2")
+BAR_UPDATE_OPCODE = bytes.fromhex("93e2")
 REJECT_TOO_SOON = 0x1813    # the most common rejection: pressed 0.1-0.5 s after another cast, skill off cooldown
 # quickslot -> key in the game's bar (checked against the game's bar screen); each slot holds up to 4 skills by
 # priority. The bar shows them as 1-4 | 5-8 | Q E mouse | T.
@@ -174,27 +180,50 @@ def _skip_kv_list(body, p, value_size):
     return p + 1 + body[p] * (value_size + 1)
 
 
+def parse_preset_switch(body):
+    """90e2 -> the preset now on (1-3) or None."""
+    if len(body) == 6 and body[2] == 2 and 1 <= body[3] <= 3:
+        return body[3]
+    return None
+
+
+def _slot_records(body, p, n):
+    """n slot records from p -> ({preset: [QuickSlot]}, end) (8ce2 / 93e2)."""
+    presets = {}
+    for _ in range(n):
+        typ, preset, slot = body[p], body[p + 1], body[p + 2]
+        p += 3
+        skill = None
+        if typ == 3:
+            skill = struct.unpack_from("<I", body, p)[0]
+            p += 4
+        m = body[p]
+        prio = list(struct.unpack_from(f"<{m}I", body, p + 1))
+        p += 1 + 4 * m
+        presets.setdefault(preset, [])
+        if typ == 3:
+            presets[preset].append(QuickSlot(slot, skill, [base_skill(s) for s in prio if s] or [base_skill(skill)]))
+    return presets, p
+
+
+def parse_bar_update(body):
+    """93e2 -> (preset, [QuickSlot]) or None."""
+    try:
+        presets, end = _slot_records(body, 2, body[1])
+    except (IndexError, struct.error):
+        return None
+    if end != len(body) or len(presets) != 1:
+        return None
+    return next(iter(presets.items()))
+
+
 def parse_presets(body):
     """(active preset, {preset number: [QuickSlot]}) for the 3 presets (an unused preset has no slots)."""
     try:
         p = _skip_kv_list(body, 3, 8) + 3
         p = _skip_kv_list(body, p, 8)
         active, n = body[p], body[p + 1]
-        p += 2
-        presets = {}
-        for _ in range(n):
-            typ, preset, slot = body[p], body[p + 1], body[p + 2]
-            p += 3
-            skill = None
-            if typ == 3:
-                skill = struct.unpack_from("<I", body, p)[0]
-                p += 4
-            m = body[p]
-            prio = list(struct.unpack_from(f"<{m}I", body, p + 1))
-            p += 1 + 4 * m
-            presets.setdefault(preset, [])
-            if typ == 3:
-                presets[preset].append(QuickSlot(slot, skill, [base_skill(s) for s in prio if s] or [base_skill(skill)]))
+        presets, _ = _slot_records(body, p + 2, n)
     except (IndexError, struct.error):
         return None
     return active, presets

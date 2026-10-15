@@ -47,6 +47,12 @@ class TunerPanel(QWidget):
         link.on_click = self.ctl.open_tuner
         link.setContentsMargins(f.px(4), f.px(4), 0, 0)
         self.content.addWidget(link)
+        builds = label("Builds de skills (más de 3 presets)", f.name, theme.ACCENT)
+        builds.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        builds.setCursor(Qt.PointingHandCursor)
+        builds.on_click = self.ctl.open_builds
+        builds.setContentsMargins(f.px(4), f.px(2), 0, 0)
+        self.content.addWidget(builds)
         self.adjustSize()
 
     def _line(self, text, color):

@@ -25,8 +25,9 @@ from .npcs import NpcDb
 from .roster import (FORCE_INFO_OPCODE, MEMBER_HINT_OPCODES, MEMBER_OPCODES, PARTY_INFO_OPCODE, ROSTER_OPCODE,
                      parse_member_ids,
                      parse_member_stats, parse_party_info, parse_roster)
-from .skills import (CAST_OPCODE, PRESETS_OPCODE, REQUEST_OPCODE, SKILL_LIST_OPCODE, OwnEntityFinder, caster_of,
-                     parse_cast, parse_presets, parse_request, parse_skill_list)
+from .skills import (BAR_UPDATE_OPCODE, CAST_OPCODE, PRESETS_OPCODE, PRESET_SWITCH_OPCODE, REQUEST_OPCODE,
+                     SKILL_LIST_OPCODE, OwnEntityFinder, caster_of, parse_bar_update, parse_cast, parse_preset_switch,
+                     parse_presets, parse_request, parse_skill_list)
 from .tracker import FIELD_LIST_OPCODE, Tracker, parse_field_list
 from .crafting import Crafting
 from .market_share import SYNC_SECONDS as SHARE_SYNC_SECONDS, MarketShare
@@ -362,6 +363,14 @@ class Bridge(QObject):
             skills = parse_skill_list(body)
             if skills:
                 self.own_skill.emit(("skills", skills))
+        elif op == BAR_UPDATE_OPCODE:
+            update = parse_bar_update(body)
+            if update:
+                self.own_skill.emit(("bar_update", *update))
+        elif op == PRESET_SWITCH_OPCODE:
+            number = parse_preset_switch(body)
+            if number:
+                self.own_skill.emit(("preset", number))
         elif op == PRESETS_OPCODE:
             presets = parse_presets(body)
             if presets and any(presets[1].values()):
@@ -636,6 +645,9 @@ class Controller(QObject):
         # Feature modules, switchable from the app menu. New features register here.
         self.tuner = Afinador(self)
         self.tuner_window = None
+        from .builds import Builds
+        self.builds = Builds(self.data_dir, self.tuner.skills)     # skill builds beyond the game's 3 presets
+        self.builds_window = None
         self.diag_window = None
         self.dps_window = None
         self._restore_session()
@@ -761,6 +773,13 @@ class Controller(QObject):
             self.consumables.on_cast(event[1], event[2])
         elif kind == "mp":
             self.tuner.on_mp(*event[1:])
+        elif kind == "bar_update":
+            self.tuner.on_bar_update(event[1], event[2])
+            QTimer.singleShot(int(STORE_DELAY * 1000) + 200, self.tuner_changed)
+        elif kind == "preset":
+            self.tuner.on_preset_switch(event[1])
+            if self.builds_window and self.builds_window.isVisible():
+                self.builds_window.refresh()
         elif kind in ("skills", "bar"):
             if kind == "skills":
                 self.tuner.on_skill_list(event[1])
@@ -1569,7 +1588,7 @@ class Controller(QObject):
         self.players_window.activateWindow()
 
     def _profile_ready(self, name):
-        for window in (self.players_window, self.arena_window):
+        for window in (self.players_window, self.arena_window, getattr(self, "builds_window", None)):
             if window is not None:
                 window.profile_ready(name)
         if self.arena() and self.active_module.key == "dps" and not self._refreshing:
@@ -2226,6 +2245,17 @@ class Controller(QObject):
             self._tracker_image_thread.done.connect(on_done)
         self._tracker_image_thread.start()
 
+    def open_builds(self):
+        """Builds: your skill setups beyond the game's 3 presets."""
+        self._ensure_skill_icons()
+        from .ui.buildswindow import BuildsWindow
+        if self.builds_window is None:
+            self.builds_window = BuildsWindow(self)
+        self.builds_window.refresh()
+        self.builds_window.show()
+        self.builds_window.raise_()
+        self.builds_window.activateWindow()
+
     def open_tuner(self):
         self._ensure_skill_icons()
         from .ui.tunerwindow import TunerWindow
@@ -2421,6 +2451,7 @@ class Controller(QObject):
         menu.addAction("Colección de pets", self.open_collection)
         menu.addAction("Pets exclusivos (Asmodian / Elyos)", self.open_exclusive_pets)
         menu.addAction("Jugadores de tu party / force", self.open_players)
+        menu.addAction("Builds de skills", self.open_builds)
         menu.addAction("Abrir Crafting", self.open_crafting)
         menu.addAction(f"Escanear el mercado (Crafting)\t{hk.get('crafting_scan', '')}", self.crafting_scan)
         menu.addAction("Abrir Status de tus personajes", self.open_status)

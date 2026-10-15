@@ -112,6 +112,18 @@ class Afinador:
         self.presets = presets
         self._got_loadout()
 
+    def on_bar_update(self, preset, slots):
+        """One preset's bar changed in the Skill window."""
+        self.presets[preset] = slots
+        self._got_loadout()
+
+    def on_preset_switch(self, number):
+        """The game switched preset (its skill list follows)."""
+        if number != self.active_preset:
+            self.chosen_preset = None
+        self.active_preset = number
+        self._changed()
+
     def on_character(self):
         """The character changed: a fresh skill list is theirs, otherwise use what was saved for them."""
         self.chosen_preset = None
