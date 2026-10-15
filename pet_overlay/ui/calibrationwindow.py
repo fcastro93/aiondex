@@ -4,7 +4,7 @@ and the panel catch the mouse: clicks anywhere else reach the game (to switch ta
 import ctypes
 from ctypes import wintypes
 
-from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
@@ -67,9 +67,18 @@ class CalibrationWindow(QWidget):
 
     def showEvent(self, event):
         super().showEvent(event)
+        # over the game in real pixels, once Qt has shown it (placed earlier, Qt puts back its own size)
+        QTimer.singleShot(0, self._place)
+        QTimer.singleShot(200, self._place)
+
+    def _place(self):
         left, top, right, bottom = self.client
-        _user32.SetWindowPos(int(self.winId()), wintypes.HWND(-1), left, top, right - left, bottom - top, 0x0050)
+        _user32.SetWindowPos(int(self.winId()), wintypes.HWND(-1), left, top, right - left, bottom - top, 0x0040)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
         self.panel.move(round(self.width() * 0.22), round(self.height() * 0.35))
+        self.update()
 
     def _px(self, name):
         fx, fy = self.points[name]
