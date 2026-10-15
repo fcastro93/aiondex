@@ -143,6 +143,7 @@ class SettingsPanel(QWidget):
         self.content.addWidget(self._toggle("Actualizar automáticamente", "auto_update"))
 
         self._ui_scale()
+        self._minimap()
 
         self.content.addWidget(SectionTitle("Sonidos", f))
         for key, (text, _) in SOUNDS.items():
@@ -159,6 +160,24 @@ class SettingsPanel(QWidget):
         credit.setWordWrap(True)
         self.content.addWidget(credit)
         self.adjustSize()
+
+    def _minimap(self):
+        """Minimapa: its 4 corners, where the route over it is drawn (and what is read of it)."""
+        f = self.fonts
+        self.content.addWidget(SectionTitle("Minimapa", f))
+        sizes = sorted(((self.ctl.settings.get("minimap") or {}).get("corners") or {}))
+        text = (f"Esquinas calibradas ({', '.join(sizes)}): la ruta se dibuja solo dentro de ellas." if sizes else
+                "AionDex lo encuentra solo por el nombre de la zona. Si la ruta se sale del minimapa, calibra sus "
+                "4 esquinas.")
+        note = label(text, f.small, theme.GAIN if sizes else theme.MUTED)
+        note.setWordWrap(True)
+        self.content.addWidget(note)
+        row = QHBoxLayout()
+        row.addWidget(PillButton("Calibrar esquinas", f, self.ctl.open_minimap_calibration, small=True))
+        if sizes:
+            row.addWidget(PillButton("Automático", f, self.ctl.reset_minimap_calibration, small=True))
+        row.addStretch(1)
+        self.content.addLayout(row)
 
     def _ui_scale(self):
         """Accesibilidad: the size of everything (overlay, windows, texts), 100-250%."""

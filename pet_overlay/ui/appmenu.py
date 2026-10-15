@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QMenu
 from . import theme
 
 GLYPH_EXIT = ""
+GLYPH_WORLD = "\ue909"       # World
 GLYPH_PEOPLE = ""       # People in Segoe MDL2 / Fluent
 GLYPH_RESTART = ""     # Refresh
 
@@ -97,6 +98,7 @@ def build_app_menu(ctl, fonts, parent=None):
             font.setBold(True)
             entry.setFont(font)
     menu.addSeparator()
+    menu.addAction(glyph_icon(GLYPH_WORLD, theme.ACCENT, fonts.icons_family), "Mapa del mundo", ctl.open_world_map)
     menu.addAction(glyph_icon(GLYPH_PEOPLE, theme.ACCENT, fonts.icons_family), "Jugadores de tu party / force",
                    ctl.open_players)
     restart = menu.addAction(glyph_icon(GLYPH_RESTART, theme.MUTED, fonts.icons_family), "Reiniciar",

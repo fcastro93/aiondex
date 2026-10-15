@@ -610,6 +610,7 @@ class Controller(QObject):
         QTimer.singleShot(20_000, self.sync_market)
         self.gathering = Gathering(self.data_dir, self.settings)
         self.gather_window = None
+        self.world_window = None
         self._empty_spots = {}                  # (map, u, v) -> when you found that gathering spot empty
         self.minimap_overlay = None             # the route drawn over the game's minimap
         self._near_spots = {}                   # (map, u, v) -> since when you are close to it
@@ -618,6 +619,7 @@ class Controller(QObject):
         self.minimap_wanted_until = 0.0         # the map windows keep this ahead while they are open
         self.minimap = MinimapReader(self.data_dir / "tiles", self.bridge.position, game_pids,
                                      lambda: time.time() < self.minimap_wanted_until, self._zone_spot, self._zone_map)
+        self.minimap.corners = self.minimap_corners
         self.minimap.start()
         self._ocr = OcrWorker(self.crafting)
         self._ocr.read.connect(self._shot_read)
@@ -861,6 +863,15 @@ class Controller(QObject):
         self.tracker_window.activateWindow()
 
     # --- crafting ------------------------------------------------------------------------------
+    def open_world_map(self):
+        """Mapa del mundo: every map with your map's points (data/world_db.json) by category, and where you are."""
+        from .ui.worldmap import WorldMapWindow
+        if self.world_window is None:
+            self.world_window = WorldMapWindow(self)
+        self.world_window.show()
+        self.world_window.raise_()
+        self.world_window.activateWindow()
+
     def open_gather_map(self, material):
         """Where to gather a material: its nodes, the best area with a route, your bot marks."""
         from .ui.gathermap import GatherMapWindow
@@ -2339,6 +2350,60 @@ class Controller(QObject):
         self.calibration_window.show()
         return self.calibration_window
 
+    # --- the minimap's corners (Ajustes > Minimapa) ---
+    def minimap_corners(self, client, fractions=False):
+        """Your 4 calibrated corners of the minimap for this game window size (screen pixels; fractions of the
+        window with fractions=True), or None. Called from the minimap thread."""
+        left, top, right, bottom = client
+        saved = ((self.settings.get("minimap") or {}).get("corners") or {}).get(f"{right - left}x{bottom - top}")
+        if not saved or len(saved) != 4:
+            return None
+        if fractions:
+            return [tuple(c) for c in saved]
+        return [(round(left + fx * (right - left)), round(top + fy * (bottom - top))) for fx, fy in saved]
+
+    def open_minimap_calibration(self):
+        """Drag 4 markers onto the minimap's corners; kept per game window size."""
+        from .minimap import game_window
+        from .sniffer import game_pids
+        from .ui.calibrationwindow import MINIMAP, MINIMAP_TEXT, CalibrationWindow
+        from .winput import real_pixels
+        real_pixels()
+        game = game_window(game_pids())
+        if game is None:
+            self.notify("warn", "Minimapa", "Abre el juego para calibrar el minimapa.")
+            return None
+        _, client = game
+        left, top, right, bottom = client
+        w, h = right - left, bottom - top
+
+        def found(w, h):
+            """Where AionDex finds the minimap by itself (its last read), else about where it usually is."""
+            box = self.minimap._box[0] if self.minimap._box and not self.minimap.poly else None
+            if box:
+                l, t, r, b = ((box[0] - left) / w, (box[1] - top) / h, (box[2] - left) / w, (box[3] - top) / h)
+            else:
+                l, t, r, b = 1 - 0.25 * h / w, 0.0921, 1 - 0.0204 * h / w, 0.2449     # 4K, 2026-10-15
+            return dict(zip(MINIMAP, ((l, t), (r, t), (r, b), (l, b))))
+        saved = self.minimap_corners(client, fractions=True)
+        points = dict(zip(MINIMAP, saved)) if saved else found(w, h)
+
+        def save(points):
+            self.settings.setdefault("minimap", {}).setdefault("corners", {})[f"{w}x{h}"] = \
+                [[round(points[n][0], 5), round(points[n][1], 5)] for n in MINIMAP]
+            self._save_settings()
+            self.refresh()
+        self.calibration_window = CalibrationWindow(client, points, save, names=MINIMAP, text=MINIMAP_TEXT,
+                                                    defaults=found, outline=True, panel_at=(0.52, 0.32))
+        self.calibration_window.show()
+        return self.calibration_window
+
+    def reset_minimap_calibration(self):
+        """Back to finding the minimap by itself, for every window size."""
+        (self.settings.get("minimap") or {}).pop("corners", None)
+        self._save_settings()
+        self.refresh()
+
     def apply_build(self, steps, preset, on_progress, on_done):
         """Run the build macro (its own thread); on_progress / on_done are called from it. -> error text or None."""
         from .buildmacro import BuildMacro, is_admin
@@ -2596,6 +2661,7 @@ class Controller(QObject):
         menu = styled_menu()
         hk = self.settings["hotkeys"]
         menu.addAction(f"Abrir mapa de pets\t{hk['toggle_map']}", self.open_map)
+        menu.addAction("Mapa del mundo", self.open_world_map)
         menu.addAction("Colección de pets", self.open_collection)
         menu.addAction("Pets exclusivos (Asmodian / Elyos)", self.open_exclusive_pets)
         menu.addAction("Jugadores de tu party / force", self.open_players)

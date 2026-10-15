@@ -4,6 +4,8 @@ whereami.py), so between the few messages that tell where you stand, the minimap
 - Finding it, at any resolution or UI size: Windows' OCR reads the top-right quarter of the game window; the
   minimap's title (the zone's name) sits on a plain dark bar right above the map, its left edge where the map's is.
   The bar's height is the unit: the map is MAP_W x MAP_H bars (4K, 2026-10-14: bar 49 px, map 496 x 330 px).
+  Or, when you calibrated its four corners (Ajustes > Minimapa, per game window size), exactly there: the title is
+  then read only to know the map when AionDex missed the game's map entry.
 - Reading it: the map part is compared with metabot's world map (the same picture in other colours) around where
   you were: both band-passed (Gaussian 2 px minus 15 px, which leaves the shapes and drops the paper texture, the
   colours and the light of the view cone), the icons and the ring around you masked out, then a normalized
@@ -28,7 +30,7 @@ from ctypes import wintypes
 from pathlib import Path
 
 from .metabot import UA, tile_url
-from .whereami import SPAN
+from .whereami import SPAN, to_map, to_world
 from .gathering import GAME_MAPS
 
 log = logging.getLogger(__name__)
@@ -40,6 +42,7 @@ TILES = 256
 MOSAIC = 900                     # pixels of world map searched around where you were
 ACROSS = 296.0                   # metres the minimap shows across at its default zoom
 MIN_SCORE = 0.32                 # a match below this is not trusted
+GOOD_SCORE = 0.55                # a match this good confirms the minimap's size
 LOCATE_EVERY = 15.0              # seconds between two looks for the minimap (it moves only with the UI)
 READ_EVERY = 1.0
 READ_FAST = 0.08                 # with the route drawn over the minimap (a read takes ~60 ms at 4K)
@@ -76,9 +79,10 @@ def find_box(image, lines):
             x -= 1
         left, col = x, x + 2
         top = bottom = y
-        while top > 0 and _close(px[col, top - 1][:3], seed):
-            top -= 1
-        while bottom < h - 1 and _close(px[col, bottom + 1][:3], seed):
+        ref = px[col, y][:3]                           # the bar's own colour in that column: the one by the text
+        while top > 0 and _close(px[col, top - 1][:3], ref, 14):     # can differ a bit (2026-10-15: the walk
+            top -= 1                                                 # stopped mid-bar, a box 2/3 the size)
+        while bottom < h - 1 and _close(px[col, bottom + 1][:3], ref, 14):
             bottom += 1
         unit = bottom - top + 1
         if not 1.2 * ln.h <= unit <= 4 * ln.h or ln.x0 - left > 3 * unit:
@@ -383,6 +387,12 @@ class MinimapReader:
         self.ignore = set()                 # windows left out of screen captures (the route over the minimap)
         self._ppm = None                    # world pixels per metre of the map being read
         self._seen = 0.0                    # when the minimap was last matched
+        self.corners = None                 # client rect -> your 4 calibrated corners (screen pixels) or None
+        self._units = {}                    # (width, height) of the game window -> the title bar's height that
+                                            # gave a good read (a later find of another size is not trusted)
+        self._good = {}                     # ... -> the box that read well: the minimap does not move by itself,
+                                            # so a failed find (or one on a quest's text) falls back to it
+        self.poly = None                    # those corners while they are used (the route is drawn inside them)
 
     def start(self):
         if self._thread is None and self.available:
@@ -421,14 +431,27 @@ class MinimapReader:
             return None
         hwnd, client = game
         self.game_hwnd = hwnd
-        if game_map is None or self._box is None or now - self._located > LOCATE_EVERY or self._misses >= 4:
+        calibrated = self.corners(client) if self.corners else None
+        self.poly = calibrated
+        if calibrated:                           # where you put its corners: no guessing
+            xs, ys = [x for x, _ in calibrated], [y for _, y in calibrated]
+            box = (min(xs), min(ys), max(xs), max(ys))
+            if self._box is None or self._box[0] != box:
+                self._scale = None
+                self._box = (box, (box[3] - box[1]) / MAP_H)
+            if game_map is None and (self.zone is None or now - self._located > LOCATE_EVERY):
+                self._locate(client, now, zone_only=True)
+        elif game_map is None or self._box is None or now - self._located > LOCATE_EVERY or self._misses >= 4:
             left, top, right, bottom = client
             corner = (left + (right - left) * 3 // 4, top, right, top + (bottom - top) // 4)
             if covered(hwnd, corner, self.ignore):
                 self.status = "Minimapa: otra ventana tapa esa parte del juego"
                 return None
             if not self._locate(client, now):
-                return None
+                good = self._good.get((client[2] - client[0], client[3] - client[1]))
+                if good is None:
+                    return None
+                self._box = good
         if game_map is None:                     # AionDex started after the game's last map entry: by the zone
             game_map = self.zone_map(self.zone) if self.zone_map and self.zone else None
             if game_map is None:
@@ -448,9 +471,15 @@ class MinimapReader:
         if found is None:
             self._misses += 1
             self.status = "Minimapa: no lo reconozco en el mapa"
+            good = self._good.get((client[2] - client[0], client[3] - client[1]))
+            if not calibrated and good and self._box != good:
+                self._box, self._scale = good, None      # found somewhere else that does not read: back to it
             return None
         self._misses = 0
         x, y, score = found
+        if score >= GOOD_SCORE and not calibrated:
+            self._units[(client[2] - client[0], client[3] - client[1])] = unit
+            self._good[(client[2] - client[0], client[3] - client[1])] = self._box
         self._seen = now
         self.position.set_fix(now, x, y, exact=False, source="minimapa")
         cone = view_cone(shot)
@@ -459,7 +488,8 @@ class MinimapReader:
         self.status = ""
         return x, y, score
 
-    def _locate(self, client, now):
+    def _locate(self, client, now, zone_only=False):
+        """Find the minimap by its title (zone_only: just read the title, the zone's name)."""
         from . import market_ocr
         self._located = now
         left, top, right, bottom = client
@@ -475,12 +505,25 @@ class MinimapReader:
             except OSError:
                 pass
         found = find_box(quarter, lines)
+        if zone_only:
+            if found:
+                self.zone = found[1]
+            return found is not None
         if found is None:
             self._box = None
             self.status = "Minimapa: no lo encuentro en pantalla"
             return False
         (bl, bt, br, bb), title, unit = found
+        known = self._units.get((right - left, bottom - top))
+        if known and abs(unit - known) > 0.08 * known:      # the bar measured wrong: the size that read well
+            bt = bt - unit + known
+            unit = known
+            br, bb = bl + round(MAP_W * unit), bt + round(MAP_H * unit)
         box = (region[0] + bl, region[1] + bt, region[0] + br, region[1] + bb)
+        good = self._good.get((right - left, bottom - top))
+        if good and max(abs(a - b) for a, b in zip(box, good[0])) > good[1]:     # far from where it reads well:
+            self._box = good                                                   # some other text (a quest's)
+            return True
         if self._box is None or self._box[0] != box:
             self._scale = None                   # a new place or size: its zoom again
         self._box, self.zone = (box, unit), title
@@ -498,14 +541,15 @@ class MinimapReader:
             reach = min(400.0, 60.0 + 10.0 * (now - fix[0]))
         elif self.zone and self.zone_spot and self.zone_spot(self.zone, map_id):
             u, v = self.zone_spot(self.zone, map_id)
-            cx, cy = (u - 0.5) * span, (v - 0.5) * span
+            cx, cy = to_world(game_map, u, v)
             reach = 600.0
         elif fix:
             cx, cy = fix[1], fix[2]
             reach = 600.0
         else:
             return None
-        wx, wy = (cx / span + 0.5) * world, (cy / span + 0.5) * world
+        _, u, v = to_map(game_map, cx, cy)
+        wx, wy = u * world, v * world
         size = TRACK_MOSAIC if reach < 100 and self._scale else MOSAIC if reach < 300 else 2 * MOSAIC
         if (self._area is None or self._area_map != map_id or self._area.size != size or
                 not self._area.contains(wx, wy, size * 0.3)):
@@ -527,7 +571,7 @@ class MinimapReader:
                        key=lambda r: r[0])
             if fine[0] > score:
                 score, bx, by, scale = fine
-        x, y = (bx / world - 0.5) * span, (by / world - 0.5) * span
+        x, y = to_world(game_map, bx / world, by / world)
         if score < MIN_SCORE or math.dist((x, y), (cx, cy)) > reach + 50:
             if self._scale is not None and self._misses >= 2:
                 self._scale = None
@@ -545,9 +589,10 @@ def _numpy_ok():
 
 
 def overlay_geometry(reader, now=None):
-    """(minimap box in screen pixels, minimap pixels per metre) while the minimap is being read, else None."""
+    """(minimap box in screen pixels, minimap pixels per metre, your calibrated corners or None) while the minimap is
+    being read, else None."""
     if reader._box is None or reader._scale is None or reader._ppm is None:
         return None
     if (now or time.time()) - reader._seen > 5:
         return None
-    return reader._box[0], reader._scale * reader._ppm
+    return reader._box[0], reader._scale * reader._ppm, reader.poly

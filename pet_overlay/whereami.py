@@ -10,9 +10,10 @@ The game never streams your own movement back to you (only the others'), but a f
 While you do things that is every 1-2 s (90% within 5-12 s); while you only run, nothing: then the minimap on
 screen tells (minimap.py), and the map says how old and from where the position is.
 
-Metabot's world maps (ui/mapview.py, normalized 0-1) are the game's coordinates scaled around their centre:
-u = x / SPAN + 0.5, v = y / SPAN + 0.5, fitted 2026-10-14 on monster spawns (Altgard 756, residual median 2 m;
-Verteron 30; the Abyss 85, half the size).
+Metabot's world maps (ui/mapview.py, normalized 0-1) are the game's coordinates scaled: u = x / SPAN + u0,
+v = y / SPAN + v0, fitted 2026-10-14 on monster spawns (Altgard 756, residual median 2 m; Verteron 30; the Abyss 85,
+half the size); the 9 world maps' spans and origins from the user's own map export (2026-10-15: linear to 0.01 px;
+only Ishalgen's origin is not the centre), whose monsters sit on metabot's spawns (median 0 m on 6 maps).
 """
 import struct
 import time
@@ -22,7 +23,10 @@ from .gathering import GAME_MAPS
 from .protocol import read_varint
 
 MAP_ENTER = bytes.fromhex("2136")
-SPAN = {1110: 8160.0, 1010: 8160.0, 20: 4080.0}       # game map -> metres across its metabot map
+SPAN = {1110: 8160.0, 1111: 8160.0, 1100: 8160.0, 1010: 8160.0, 1011: 8160.0, 1000: 4080.0,   # game map -> metres
+        20: 4080.0, 22: 2040.0, 23: 2040.0}                                                   # across its map
+ORIGIN = {1100: (0.404103, 0.316176)}      # where x = y = 0 is on the map, when not its centre (Ishalgen's picture
+                                           # sits in a corner of metabot's square)
 OWN_MOVES = {**simulation.MOVE_AT, bytes.fromhex("3f37"): "fixed"}
 
 
@@ -42,7 +46,15 @@ def to_map(game_map, x, y):
     span = SPAN.get(game_map)
     if span is None or game_map not in GAME_MAPS:
         return None
-    return GAME_MAPS[game_map], x / span + 0.5, y / span + 0.5
+    u0, v0 = ORIGIN.get(game_map, (0.5, 0.5))
+    return GAME_MAPS[game_map], x / span + u0, y / span + v0
+
+
+def to_world(game_map, u, v):
+    """A point of a map (normalized) -> the game position (x m, y m); the inverse of to_map()."""
+    span = SPAN[game_map]
+    u0, v0 = ORIGIN.get(game_map, (0.5, 0.5))
+    return (u - u0) * span, (v - v0) * span
 
 
 class OwnPosition:

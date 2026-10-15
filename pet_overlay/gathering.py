@@ -1,5 +1,6 @@
 """Where to gather a material: its nodes on the map, grouped into areas, the best area to farm with a route through
-it, and your "full of bots" marks (data/gather_db.json from metabot.gg; see tools/build_gather_db.py).
+it, and your "full of bots" marks (data/gather_db.json from metabot.gg; see tools/build_gather_db.py; plus the nodes
+of the user's own world map, data/world_db.json, that metabot's pages do not have).
 
 - Areas: nodes closer than EPS x the typical distance between neighbours form an area (at least MIN_NODES).
 - Materials that monsters drop (meat, fruit, manastones): the nodes are those monsters' spawns, each weighted by
@@ -12,6 +13,7 @@ import json
 import math
 import statistics
 import time
+from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -28,13 +30,19 @@ REGION_NAME = {"altgard": "Altgard", "morheim": "Morheim", "verteron": "Verteron
                "chaotic-lower-reshanta": "Chaotic Lower Reshanta", "chaotic-middle-reshanta": "Chaotic Middle Reshanta",
                "chaotic-upper-reshanta": "Chaotic Upper Reshanta"}
 MAP_SIDE = {"world_d_a": "asmodian", "world_d_b": "asmodian", "world_l_a": "elyos", "world_l_b": "elyos",
+            "world_d_starter": "asmodian", "world_l_starter": "elyos",
             "abyss_reshanta_a": "abyss", "abyss_reshanta_c": "abyss", "abyss_reshanta_d": "abyss"}
 SIDES = ("elyos", "asmodian", "abyss")
 # the Abyss maps open on the global servers (2026-10-12: only Chaotic Lower Reshanta; Middle and Upper not yet)
 ABYSS_OPEN = {"abyss_reshanta_a"}
 CLOSED_REGIONS = {REGION_NAME[r] for r, m in REGION_MAP.items() if MAP_SIDE.get(m) == "abyss" and m not in ABYSS_OPEN}
 # the game's map id (2136) -> metabot's (20 is the Abyss; the only one open is Chaotic Lower Reshanta)
-GAME_MAPS = {1110: "world_d_a", 1010: "world_l_a", 20: "abyss_reshanta_a"}
+GAME_MAPS = {1110: "world_d_a", 1111: "world_d_b", 1100: "world_d_starter", 1010: "world_l_a", 1011: "world_l_b",
+             1000: "world_l_starter", 20: "abyss_reshanta_a", 22: "abyss_reshanta_c", 23: "abyss_reshanta_d"}
+# the world map's gathering categories, and its node names -> gather_db's ("Ruby Gemstone" -> "Ruby")
+WORLD_GATHER = ("od", "vegetable", "berry", "jewelry", "herb", "metal", "shellfish", "tree")
+WORLD_SUFFIXES = (" Gemstone", " Ore", " Log")
+SAME_NODE = 0.0004       # normalized: a world map node this close to one of metabot's is that one (~3 m)
 
 QUALITIES = ("Radiant ", "Pure ", "Fine ")
 
@@ -72,6 +80,42 @@ class Gathering:
         self.materials = db.get("materials", {})
         self.zones = db.get("zones", {})
         self.credit = db.get("credit")
+        self.added = self._merge_world(Path(data_dir) / "world_db.json")
+
+    def _merge_world(self, path):
+        """Add the gathering nodes of the world map (data/world_db.json) that metabot's pages do not have. -> how many
+        (checked 2026-10-15: half of metabot's nodes sit on one of them within 0.4 m, all within 16 m)."""
+        try:
+            world = json.loads(Path(path).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return 0
+        by_node = defaultdict(lambda: defaultdict(list))         # node -> map -> points
+        for map_id, cats in world.get("points", {}).items():
+            for cat in WORLD_GATHER:
+                for names, points in cats.get(cat, []):
+                    for name in names.split(" / "):
+                        for suffix in WORLD_SUFFIXES:
+                            name = name.removesuffix(suffix)
+                        by_node[name][map_id] += points
+        added = 0
+        for info in self.materials.values():
+            node = info.get("node")
+            if not node or info.get("kind") == "drop" or node not in by_node:
+                continue
+            for map_id, points in by_node[node].items():
+                entry = next((m for m in info.setdefault("maps", []) if m["map"] == map_id), None)
+                if entry is None:
+                    entry = {"map": map_id, "points": []}
+                    info["maps"].append(entry)
+                grid = {(round(p[0] / SAME_NODE), round(p[1] / SAME_NODE)) for p in entry["points"]}
+                for p in points:
+                    cx, cy = round(p[0] / SAME_NODE), round(p[1] / SAME_NODE)
+                    if any((cx + dx, cy + dy) in grid for dx in (-1, 0, 1) for dy in (-1, 0, 1)):
+                        continue
+                    grid.add((cx, cy))
+                    entry["points"].append(list(p))
+                    added += 1
+        return added
 
     def zone_positions(self, names, map_id):
         """[(zone name, x, y)] of the zones on this map (from their metabot pages)."""

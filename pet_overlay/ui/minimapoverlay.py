@@ -2,7 +2,13 @@
 it) that draws the recommended route of the material you gather, its nodes as AionDex knows them now (available,
 used up, found empty) and a line to the next one with its distance. It moves with you between the minimap reads
 (smoothed), and screen captures leave it out (SetWindowDisplayAffinity), so the minimap reader keeps seeing the game
-under it - and so do your screenshots and streams. Between two reads it moves with your movement keys (motion.py)."""
+under it - and so do your screenshots and streams. Between two reads it moves with your movement keys (motion.py).
+
+It stays put: a read that fails (the minimap not recognized for a moment, the zone's name not read) keeps what was
+drawn, moving with you, for up to HOLD seconds; it hides only when the game is minimized or something covers the
+minimap (or you leave the map), and only after HIDE_AFTER seconds of it, so it does not blink. Everything is drawn
+inside the minimap: inside your 4 calibrated corners (Ajustes > Minimapa) or its box, and when the next node is out
+of the minimap, an arrow on its edge points to it."""
 import ctypes
 import logging
 import math
@@ -10,13 +16,13 @@ import time
 from ctypes import wintypes
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
-from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
+from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QPolygonF
 from PySide6.QtWidgets import QWidget
 
 from ..gathering import GAME_MAPS
-from ..minimap import overlay_geometry
+from ..minimap import covered, overlay_geometry
 from ..motion import Motion
-from ..whereami import SPAN
+from ..whereami import to_world
 
 log = logging.getLogger(__name__)
 _user32 = ctypes.windll.user32
@@ -25,6 +31,7 @@ _user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, cty
 _user32.SetWindowDisplayAffinity.argtypes = [wintypes.HWND, wintypes.DWORD]
 _user32.GetForegroundWindow.restype = wintypes.HWND
 _user32.GetAsyncKeyState.restype = ctypes.c_short
+_user32.IsIconic.argtypes = [wintypes.HWND]
 
 WDA_EXCLUDEFROMCAPTURE = 0x11
 HWND_TOPMOST = -1
@@ -38,6 +45,10 @@ TICK_MS = 33                     # ~30 frames a second
 DATA_EVERY = 1.0                 # seconds between two looks at the nodes
 ROUTE_EVERY = 30.0               # seconds between two route computations (bot marks can change it)
 CAMERA_FRESH = 1.5               # seconds the camera direction read from the minimap is trusted
+HOLD = 60.0                      # seconds it keeps drawing without a new minimap read (moving with your keys)
+HIDE_AFTER = 1.5                 # seconds something must be wrong before it hides (no blinking)
+LOOK_EVERY = 0.5                 # seconds between two checks that the minimap is in sight
+MOVE_MIN = 3                     # pixels the minimap's box must move before the window follows (no jitter)
 KEY_FORWARD, KEY_BACK = (0x57, 0x26), (0x53, 0x28)          # W / up, S / down
 KEY_LEFT, KEY_RIGHT = (0x41, 0x25), (0x44, 0x27)            # A / left, D / right
 
@@ -58,7 +69,13 @@ class MinimapOverlay(QWidget):
         self._route_at = 0.0
         self._data_at = 0.0
         self._box = None                 # the minimap on screen (real pixels)
+        self._poly = None                # your calibrated corners (real pixels) or None
         self._ppm = None                 # minimap pixels per metre
+        self._geo = None                 # (box, ppm, corners) last read from the minimap, and when
+        self._geo_at = 0.0
+        self._wrong_since = None         # since when it should hide
+        self._hidden_game = False        # the game minimized or the minimap covered (checked every LOOK_EVERY)
+        self._looked_at = 0.0
         self._shown = None               # (x, y) metres drawn at the minimap's centre
         self._motion = Motion()          # where you are between two reads (keys, camera, speed)
         self._hwnd = None
@@ -85,19 +102,28 @@ class MinimapOverlay(QWidget):
         ctl.minimap.fast = True
         now = time.time()
         geo = overlay_geometry(ctl.minimap, now)
+        if geo is not None:
+            self._geo, self._geo_at = geo, now
+        elif self._geo is not None and now - self._geo_at > HOLD:
+            self._geo = None
         position = ctl.bridge.position
         map_id = GAME_MAPS.get(position.game_map)
         fix = position.fix
-        if geo is None or map_id is None or fix is None or now - fix[0] > 10:
-            self.hide()
+        if self._geo is not None and now - self._looked_at > LOOK_EVERY:
+            self._looked_at = now
+            self._hidden_game = self._game_hidden(self._geo[0])
+        if self._geo is None or map_id is None or fix is None or now - fix[0] > HOLD or self._hidden_game:
+            self._wrong_since = self._wrong_since or now
+            if now - self._wrong_since > HIDE_AFTER or map_id is None or self._geo is None:
+                self.hide()
             return
-        box, ppm = geo
+        self._wrong_since = None
+        box, ppm, poly = self._geo
         if map_id != self._map or now - self._route_at > ROUTE_EVERY:
             self._load_route(map_id, position.game_map)
             self._route_at = now
         if now - self._data_at > DATA_EVERY:
-            span = SPAN[position.game_map]
-            self._nodes = [((r[0] - 0.5) * span, (r[1] - 0.5) * span, r[2])
+            self._nodes = [(*to_world(position.game_map, r[0], r[1]), r[2])
                            for r in ctl.live_nodes(map_id, self.material)]
             self._data_at = now
         cone = position.cone
@@ -107,10 +133,22 @@ class MinimapOverlay(QWidget):
         if not self.isVisible():
             self.show()
             self._exclude_from_capture()
-        if box != self._box:
-            self._box = box
+        if self._box is None or max(abs(a - b) for a, b in zip(box, self._box)) >= MOVE_MIN or poly != self._poly:
+            self._box, self._poly = box, poly
             self._place(box)
         self.update()
+
+    def _game_hidden(self, box):
+        """The game minimized, or another window over the minimap."""
+        game = self.ctl.minimap.game_hwnd
+        if not game:
+            return True
+        if _user32.IsIconic(game):
+            return True
+        try:
+            return covered(game, box, self.ctl.minimap.ignore)
+        except OSError:
+            return False
 
     def _keys(self):
         """(forward, right) from the movement keys held while the game window is in front, else None."""
@@ -121,9 +159,8 @@ class MinimapOverlay(QWidget):
         return (held(KEY_FORWARD) - held(KEY_BACK), held(KEY_RIGHT) - held(KEY_LEFT))
 
     def _load_route(self, map_id, game_map):
-        span = SPAN[game_map]
         g = self.ctl.gathering
-        to_m = lambda p: ((p[0] - 0.5) * span, (p[1] - 0.5) * span)     # noqa: E731
+        to_m = lambda p: to_world(game_map, p[0], p[1])                 # noqa: E731
         areas, loose = g.areas(self.material, map_id)
         best = next((a for a in areas if not a.bots), None)
         self._route = [to_m(p) for p in best.route] if best else []
@@ -156,7 +193,16 @@ class MinimapOverlay(QWidget):
         dpr = self.devicePixelRatioF()
         p.scale(1 / dpr, 1 / dpr)                           # draw in real pixels, like the minimap
         w, h = self._box[2] - self._box[0], self._box[3] - self._box[1]
-        p.setClipRect(QRectF(0, 0, w, h))
+        if self._poly:                                      # inside your corners exactly
+            outline = QPolygonF([QPointF(x - self._box[0], y - self._box[1]) for x, y in self._poly])
+            clip = QPainterPath()
+            clip.addPolygon(outline)
+            clip.closeSubpath()
+            p.setClipPath(clip)
+            inner = outline.boundingRect()
+        else:
+            p.setClipRect(QRectF(0, 0, w, h))
+            inner = QRectF(0, 0, w, h)
         sx, sy = self._shown
         k = self._ppm
         unit = h / 330                                      # the minimap's 4K size is the reference
@@ -193,12 +239,34 @@ class MinimapOverlay(QWidget):
         if free:                                            # the next one: the closest node not known to be taken
             nx, ny = min(free, key=lambda q: math.dist(q, (sx, sy)))
             target, centre = at(nx, ny), QPointF(w / 2, h / 2)
+            margin = 14 * unit
+            room = inner.adjusted(margin, margin, -margin, -margin)
+            text = f"{math.dist((nx, ny), (sx, sy)):.0f} m"
             p.setPen(QPen(NEXT, 2.2 * unit))
-            p.drawLine(centre, target)
             p.setBrush(Qt.NoBrush)
-            p.drawEllipse(target, 9 * unit, 9 * unit)
-            self._label(p, target + QPointF(11 * unit, -8 * unit), f"{math.dist((nx, ny), (sx, sy)):.0f} m", unit)
+            if room.contains(target):
+                p.drawLine(centre, target)
+                p.drawEllipse(target, 9 * unit, 9 * unit)
+                spot = target + QPointF(11 * unit, -8 * unit)
+            else:                                           # out of the minimap: an arrow on its edge
+                edge = _to_edge(centre, target, room)
+                p.drawLine(centre, edge)
+                self._arrow(p, centre, edge, unit)
+                spot = edge + QPointF(-30 * unit if edge.x() > centre.x() else 8 * unit,
+                                      16 * unit if edge.y() < centre.y() else -8 * unit)
+            spot.setX(min(max(spot.x(), room.left()), room.right() - 34 * unit))
+            spot.setY(min(max(spot.y(), room.top() + 12 * unit), room.bottom()))
+            self._label(p, spot, text, unit)
         p.end()
+
+    def _arrow(self, p, start, tip, unit):
+        angle = math.atan2(tip.y() - start.y(), tip.x() - start.x())
+        size = 16 * unit
+        head = QPolygonF([tip, tip - QPointF(math.cos(angle - 0.45) * size, math.sin(angle - 0.45) * size),
+                          tip - QPointF(math.cos(angle + 0.45) * size, math.sin(angle + 0.45) * size)])
+        p.setPen(QPen(QColor(5, 10, 20, 220), 1.2 * unit))
+        p.setBrush(NEXT)
+        p.drawPolygon(head)
 
     def _node(self, p, c, state, unit):
         r = 4.5 * unit
@@ -227,3 +295,15 @@ class MinimapOverlay(QWidget):
         p.setPen(Qt.NoPen)
         p.setBrush(NEXT)
         p.drawPath(path)
+
+
+def _to_edge(centre, target, room):
+    """Where the line from the centre to the target leaves the room (a rectangle around the centre)."""
+    dx, dy = target.x() - centre.x(), target.y() - centre.y()
+    t = 1.0
+    if dx:
+        t = min(t, ((room.right() if dx > 0 else room.left()) - centre.x()) / dx)
+    if dy:
+        t = min(t, ((room.bottom() if dy > 0 else room.top()) - centre.y()) / dy)
+    t = max(0.0, t)
+    return QPointF(centre.x() + dx * t, centre.y() + dy * t)
