@@ -106,7 +106,7 @@ Publicar una versión (solo el dueño del repo): subir `__version__` en `pet_ove
 | `pet_overlay/nodes.py` | Nodos de recolección en vivo: aparición (`3436`), recolección (`3836`/`3a36`/`338d`), agotado (`3536`) y lo que tarda cada tipo en reponerse |
 | `pet_overlay/ui/minimapoverlay.py` | La ruta dibujada sobre el minimapa del juego (ventana transparente excluida de las capturas) |
 | `pet_overlay/tracker.py`, `ui/trackerwindow.py` | Horarios de jefes y eventos, lista de jefes de campo (`0191`) y avisos |
-| `pet_overlay/crafting.py`, `market_ocr.py`, `professions.py`, `gathering.py`, `ui/craftingwindow.py`, `ui/gathermap.py` | Crafting: capturas del mercado, OCR, muestreos, niveles de profesión (`3336`, `7c8d`, `6f8d`), coste y ganancia de cada receta, ventas y gráficas |
+| `pet_overlay/crafting.py`, `market_ocr.py`, `professions.py`, `gathering.py`, `ui/craftingwindow.py`, `ui/gathermap.py` | Crafting: capturas del mercado, OCR, muestreos, niveles de profesión (`3336`, `7c8d`, `7d8d`, `6f8d`), coste y ganancia de cada receta, ventas y gráficas |
 | `pet_overlay/market_share.py`, `server/market/` | Muestreos compartidos: el cliente y el servidor (Cloudflare Worker + D1, plan gratuito) |
 | `pet_overlay/sales.py`, `ui/salesview.py` | Ventas: Settlement / List leídos por OCR, pruebas, coste, ganancia y estadísticas |
 | `pet_overlay/inventory.py` | Tu bolsa y almacén para Crafting (`1156` al entrar, `1b56` cuando cambian) |

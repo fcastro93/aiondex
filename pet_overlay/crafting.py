@@ -249,7 +249,8 @@ class Crafting:
         self.inventory = Inventory(settings, db.get("ids", {}))      # your bag and storage, from the game
         self.credit = db.get("credit")
         self.character = None            # who you are playing: profession levels are per character
-        self._last_craft = None          # (when, profession id, recipe id, success) until its experience arrives
+        self._last_craft = None          # (when, recipe id, success) until its experience arrives
+        self._synced = set()             # (character, profession id) whose level the game confirmed this session
         self.samples = [_clean_sample(s) for s in _load(self.dir / "samples.json", [])]
         self.shared = []                      # the other users' samples of your market (set by the app)
         self._pool = None
@@ -338,11 +339,12 @@ class Crafting:
         """The 3336 list: {profession id: (level, experience)} for this character."""
         stored = self.config.setdefault("game_levels", {}).setdefault(character, {})
         stored.update({str(pid): [lvl, exp] for pid, (lvl, exp) in levels.items()})
+        self._synced |= {(character, pid) for pid in levels}
         self.settings.save()
 
-    def note_craft(self, pid, recipe_id, success):
-        """A craft just finished (6f8d): its experience comes in the next 7c8d."""
-        self._last_craft = (time.time(), pid, recipe_id, success)
+    def note_craft(self, recipe_id, success):
+        """A craft just started (6f8d): its experience comes in the next 7c8d, which names the profession."""
+        self._last_craft = (time.time(), recipe_id, success)
 
     def exp_seen(self, recipe_id):
         """{"ok": [...], "fail": [...]}: the experience each craft of this recipe gave you."""
@@ -352,23 +354,39 @@ class Crafting:
         """A craft's experience (7c8d): experience in the level after it, and what it gave. Less than before plus
         the gain means a level up. -> (profession, new level) on a level up, else None."""
         last = self._last_craft
-        if last and last[1] == pid and time.time() - last[0] <= EXP_LINK and gained > 0:
-            seen = self.config.setdefault("craft_exp", {}).setdefault(str(last[2]), {})
-            values = seen.setdefault("ok" if last[3] else "fail", [])
+        if last and time.time() - last[0] <= EXP_LINK and gained > 0:
+            self.learn_profession_id(pid, last[1])
+            seen = self.config.setdefault("craft_exp", {}).setdefault(str(last[1]), {})
+            values = seen.setdefault("ok" if last[2] else "fail", [])
             values.append(int(gained))
             del values[:-5]
             self._last_craft = None
-        stored = self.config.setdefault("game_levels", {}).setdefault(character or self.character or "", {})
+        who = character or self.character or ""
+        stored = self.config.setdefault("game_levels", {}).setdefault(who, {})
         entry = stored.get(str(pid))
         if entry is None:
-            return None                  # level unknown until the game sends the list (next login)
+            return None                  # level unknown until the game sends it (login list or 7d8d)
         level, before = entry
         if exp < before + gained:
             level += 1
         stored[str(pid)] = [level, exp]
         self.settings.save()
         profession = self._ids().get(pid)
-        return (profession, level) if level != entry[0] and profession else None
+        # only from a level the game confirmed this session (a stored one can be behind: AionDex was closed...)
+        return (profession, level) if level != entry[0] and profession and (who, pid) in self._synced else None
+
+    def on_level(self, pid, level, exp, character=None):
+        """The game's own level of a profession (7d8d). -> (profession, new level) when it went up, else None."""
+        who = character or self.character or ""
+        stored = self.config.setdefault("game_levels", {}).setdefault(who, {})
+        entry = stored.get(str(pid))
+        stored[str(pid)] = [level, exp]
+        self.settings.save()
+        synced = (who, pid) in self._synced
+        self._synced.add((who, pid))
+        profession = self._ids().get(pid)
+        # one level more than a confirmed one: a level up (else AionDex was out of step: it just catches up)
+        return (profession, level) if synced and entry and level == entry[0] + 1 and profession else None
 
     def learn_profession_id(self, pid, recipe_id):
         """A craft (6f8d) names its profession id and recipe: that tells which profession the id is."""

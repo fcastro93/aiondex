@@ -7,8 +7,13 @@
   character seen so far was Novice (0); a level over 50 with rank 0 is taken as that one scale.
 - 7c8d after each craft: u8 profession id | u64 experience in the level | u64 gained (7 for a fail, 26 for a
   success; 7 + 26 -> level 2 with 7/28).
-- 6f8d when a craft is done: u8 0 | u8 profession id | varint ? | u32 recipe id | u8 1 success / 0 fail | ... The
-  recipe tells which profession an id is (only Cooking = 5 is known beforehand).
+- 6f8d when a craft starts (its result is already decided): u8 0 | u8 5 | varint ? | u32 recipe id | u8 1 success /
+  0 fail | ... (then the materials). The 5 is NOT the profession: it is 5 for Alchemy too (2026-10-14, Sapphire
+  Powder), it only matched Cooking = 5 by chance. The 7c8d that follows (8-16 s later, when it ends) names the
+  profession, and the recipe says which one that id is.
+- 7d8d the level itself, with the first experience after logging in and on each level up: u8 profession id | u8 level |
+  u8 rank | u32 experience in the level | u32 | u8 | u8 (Alchemy 31 -> 32, 2026-10-14).
+- Profession ids: 4 Alchemy (capture 2026-10-14), 5 Cooking; 1-3 are learnt from the first craft.
 """
 import struct
 
@@ -16,7 +21,8 @@ from .protocol import read_varint
 
 EXP_OPCODE = bytes.fromhex("7c8d")
 CRAFT_OPCODE = bytes.fromhex("6f8d")
-KNOWN_IDS = {5: "Cooking"}          # the others are learnt from the first craft of each profession
+LEVEL_OPCODE = bytes.fromhex("7d8d")
+KNOWN_IDS = {4: "Alchemy", 5: "Cooking"}    # the others are learnt from the first craft of each profession
 RECORD = 13
 NOVICE_MAX = 50                     # levels per rank
 RANKS = ("Novice", "Professional", "Expert")      # Expert: only in Korea so far (up to 70 there)
@@ -83,11 +89,24 @@ def parse_exp(body):
 
 
 def parse_craft(body):
-    """6f8d -> (profession id, recipe id, success) or None."""
-    if len(body) < 8 or not 1 <= body[1] <= 10:
+    """6f8d -> (recipe id, success) or None."""
+    if len(body) < 8:
         return None
     _, p = read_varint(body, 2)
     if p is None or p + 5 > len(body):
         return None
     recipe = struct.unpack_from("<I", body, p)[0]
-    return body[1], recipe, body[p + 4] == 1
+    return recipe, body[p + 4] == 1
+
+
+def parse_level_update(body):
+    """7d8d -> (profession id, level on the one 1-100 scale, experience in the level) or None."""
+    if len(body) < 7 or not 1 <= body[0] <= 10:
+        return None
+    level, rank = body[1], body[2]
+    exp = struct.unpack_from("<I", body, 3)[0]
+    if not 1 <= level <= 200 or exp > 10 ** 9:
+        return None
+    if level <= NOVICE_MAX and rank < len(RANKS):
+        level += rank * NOVICE_MAX
+    return body[0], level, exp

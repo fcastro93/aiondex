@@ -31,7 +31,8 @@ from .tracker import FIELD_LIST_OPCODE, Tracker, parse_field_list
 from .crafting import Crafting
 from .market_share import SYNC_SECONDS as SHARE_SYNC_SECONDS, MarketShare
 from .gathering import GAME_MAPS, Gathering
-from .professions import CRAFT_OPCODE, EXP_OPCODE, level_text, parse_craft, parse_exp, parse_levels
+from .professions import (CRAFT_OPCODE, EXP_OPCODE, LEVEL_OPCODE as PROFESSION_LEVEL_OPCODE, level_text, parse_craft,
+                          parse_exp, parse_level_update, parse_levels)
 from .status import (ALERTS as STATUS_ALERTS, LIST_OPCODE as COUNTERS_OPCODE, UPDATE_OPCODE as COUNTER_OPCODE, Status,
                      SPENT, alert_text, countdown, is_dungeon_reward, parse_change, parse_list as parse_counters)
 from .protocol import read_varint
@@ -154,7 +155,7 @@ class Bridge(QObject):
     gear = Signal(object)            # (character name, job, level, faction, {pos: (item, +N, level)}, full list?)
     own_entity = Signal(int)         # your entity id, found from your own presses before the character info
     profession = Signal(object)      # ("levels", name, {id: (level, exp)}) | ("exp", id, exp, gained) |
-                                     # ("craft", id, recipe id, success)
+                                     # ("craft", recipe id, success) | ("level", id, level, exp)
     counters = Signal(object)        # ("list", time, [(id, count, bonus, ms)]) | ("update" | "spent", time, ticket)
     missions = Signal(object)        # ("list" | "update", time, [(id, count, ms, collected)]): season missions
     arena = Signal(object)           # arena.ArenaMatch: who is in the match you are entering
@@ -259,6 +260,10 @@ class Bridge(QObject):
             event = parse_exp(body)
             if event:
                 self.profession.emit(("exp", *event))
+        elif op == PROFESSION_LEVEL_OPCODE:
+            event = parse_level_update(body)
+            if event:
+                self.profession.emit(("level", *event))
         elif op == CRAFT_OPCODE:
             event = parse_craft(body)
             if event:
@@ -971,10 +976,10 @@ class Controller(QObject):
         if kind == "levels":
             self.crafting.set_game_levels(event[1], event[2])
         elif kind == "craft":
-            self.crafting.learn_profession_id(event[1], event[2])
-            self.crafting.note_craft(event[1], event[2], event[3])
-        elif kind == "exp":
-            up = self.crafting.on_exp(*event[1:])
+            self.crafting.note_craft(event[1], event[2])
+        elif kind in ("exp", "level"):
+            up = self.crafting.on_exp(*event[1:]) if kind == "exp" else self.crafting.on_level(*event[1:])
+            log.info("profession %s: %s %s%s", event[1], kind, event[2:], f" -> level up {up}" if up else "")
             if up:
                 profession, level = up
                 name = self.crafting.professions.get(profession, {}).get("name", profession)
