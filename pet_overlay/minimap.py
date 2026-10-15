@@ -378,7 +378,8 @@ class MinimapReader:
         self._stop = threading.Event()
         self._thread = None
         self.available = _numpy_ok()
-        self.fast = False                   # read three times a second (the route over the minimap is on)
+        self.fast = False                   # read several times a second (the route over the minimap is on)
+        self.game_hwnd = None               # the game's window, last seen
         self.ignore = set()                 # windows left out of screen captures (the route over the minimap)
         self._ppm = None                    # world pixels per metre of the map being read
         self._seen = 0.0                    # when the minimap was last matched
@@ -419,6 +420,7 @@ class MinimapReader:
             self.status = "Minimapa: no veo la ventana del juego"
             return None
         hwnd, client = game
+        self.game_hwnd = hwnd
         if game_map is None or self._box is None or now - self._located > LOCATE_EVERY or self._misses >= 4:
             left, top, right, bottom = client
             corner = (left + (right - left) * 3 // 4, top, right, top + (bottom - top) // 4)
