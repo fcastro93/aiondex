@@ -12,7 +12,7 @@ from PySide6.QtCore import QObject, QThread, QTimer, Signal
 from PySide6.QtGui import QAction, QActionGroup, QIcon
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
-from .character import CHARACTER_OPCODE, COMBAT_POWER_OPCODE, parse_character, parse_combat_power
+from .character import CHARACTER_OPCODE, COMBAT_POWER_OPCODE, CharacterInfo, parse_character, parse_combat_power
 from .world import MAP_ENTER_OPCODE, SPAWN_OPCODE, WorldTracker, game_map_faction, parse_spawn_full
 from .combat import (ABYSS_MAPS, PLAYER_SPAWN_OPCODE, REVIVE_SKILLS, SELF_REVIVE, CombatTracker, in_instance,
                      parse_player)
@@ -1455,6 +1455,12 @@ class Controller(QObject):
         self.own_cp = session.get("own_cp") or self.own_cp
         log.info("restored the game session of %.0f s ago: you %s (%s), party %s, force %s", age, name, eid,
                  len(self._party_names), len(self._force_names))
+        # the character you play: the game names it only at login or on a server change, and without it your bag's
+        # changes, missions... have no owner (each update restarts AionDex in the middle of a session)
+        known = self.settings.get("characters", {}).get(name or "", {})
+        if eid is not None and name and known.get("server"):
+            info = CharacterInfo(eid, name, known["server"], known.get("job", 0), known.get("level", 0))
+            QTimer.singleShot(0, lambda: self.on_character(info) if self.character is None else None)  # after start-up
 
     def on_player(self, player):
         eid, name = player[0], player[1]
