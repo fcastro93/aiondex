@@ -1172,7 +1172,7 @@ class Controller(QObject):
             self.notify("status", f"Season M.: expiran en {countdown(left)}",
                         f"{name}: {len(items)} sin terminar ({shown})"
                         + (f"; {ready} con la recompensa esperando, recógela antes" if ready else "") + ".",
-                        keep=True)
+                        keep=True, same=f"missions-expiry|{name}")
 
     def _on_status_tick(self, refresh=True):
         """The alerts whose bell is on: a notice (and sound) when one starts holding, then every hour."""

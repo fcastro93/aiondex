@@ -3,7 +3,8 @@
 Toasts (ui/toasts.py) show every notice next to the overlay for a moment; the Notificaciones module lists only the ones
 kept: problems, Status alerts, a pet at max level, a mission or achievement step done, missions about to expire, a new
 version. The rest (each +1 of a pet, the zone, Crafting's notes, the end of a fight...) are only seen as a toast, so the
-list stays readable.
+list stays readable. A kept notice replaces the older ones that say the same thing (same kind and title, or the same
+`same` the caller gives): the history has no duplicates, only the latest of each.
 """
 import json
 import time
@@ -35,6 +36,11 @@ class Notice:
     updated: float = field(default_factory=time.time)
     read: bool = False
     keep: bool = True            # in the history (False: only the toast)
+    same: str | None = None      # what it is about, when the title alone does not say it (replaces older ones)
+
+    @property
+    def ident(self):
+        return self.same or f"{self.kind}|{self.title}|{self.pet_id}"
 
 
 class NotificationCenter(QObject):
@@ -50,7 +56,7 @@ class NotificationCenter(QObject):
         self._next_id = 1
         self._load()
 
-    def post(self, kind, title, body="", pet_id=None, key=None, amount=0, title_template=None, keep=None):
+    def post(self, kind, title, body="", pet_id=None, key=None, amount=0, title_template=None, keep=None, same=None):
         """Add a notice (keep: into the history; by default only the KEEP_KINDS, the rest are toasts only). With a
         key, a matching notice from the last few seconds is updated instead: its amount accumulates and
         title_template.format(amount=...) becomes the new title."""
@@ -70,8 +76,11 @@ class NotificationCenter(QObject):
                     self.changed.emit()
                 return last
         notice = Notice(self._next_id, kind, title_template.format(amount=amount) if title_template else title,
-                        body, pet_id, key, amount, now, now, keep=keep)
+                        body, pet_id, key, amount, now, now, keep=keep, same=same)
         self._next_id += 1
+        if keep:                                 # the older ones saying the same thing go: no duplicates
+            for old in [n for n in self.history if n.ident == notice.ident]:
+                self.history.remove(old)
         pool.append(notice)
         if keep:
             self._save()
@@ -114,6 +123,14 @@ class NotificationCenter(QObject):
             if "keep" not in item and not _important(notice):
                 continue                 # before 1.39: everything went to the history
             self.history.append(notice)
+        newest = {}
+        for n in self.history:                   # histories from before 1.56.3 can hold duplicates: the latest stays
+            newest[n.ident] = n
+        if len(newest) < len(self.history):
+            kept = set(map(id, newest.values()))
+            for n in [n for n in self.history if id(n) not in kept]:
+                self.history.remove(n)
+            self._save()
         if self.history:
             self._next_id = max(n.id for n in self.history) + 1
 
