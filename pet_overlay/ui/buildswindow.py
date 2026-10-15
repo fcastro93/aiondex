@@ -111,6 +111,11 @@ class BuildsWindow(QWidget):
         paste.setToolTip("Importa la build cuyo código copiaste (de AionDex de otro jugador)")
         paste.clicked.connect(self._paste_code)
         head.addWidget(paste)
+        calibrate = QPushButton("Calibrar menú")
+        calibrate.setToolTip("Con la ventana Skill del juego abierta: arrastra unos marcadores sobre sus botones y "
+                             "celdas para que «Aplicar en el juego» haga clic justo ahí con tu resolución")
+        calibrate.clicked.connect(self.ctl.open_calibration)
+        head.addWidget(calibrate)
         root.addLayout(head)
 
         self.import_row = QFrame()
@@ -483,6 +488,10 @@ class BuildsWindow(QWidget):
             again = QPushButton("Reiniciar como administrador")
             again.clicked.connect(self.ctl.restart_as_admin)
             row.addWidget(again)
+            cal = QPushButton("Calibrar menú")
+            cal.setProperty("flat", True)
+            cal.clicked.connect(self.ctl.open_calibration)
+            row.addWidget(cal)
             return row
         apply = QPushButton("Detener (Esc)" if self.running else f"Aplicar en el juego ({len(doable)} cambios)")
         apply.setEnabled(bool(doable) or self.running)

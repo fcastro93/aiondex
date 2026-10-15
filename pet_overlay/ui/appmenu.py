@@ -18,7 +18,10 @@ QMenu::item:checked {{ color: {theme.GOLD.name()}; }}
 QMenu::indicator {{ width: 0; height: 0; }}
 QMenu::icon {{ padding-left: 6px; }}
 QMenu::separator {{ height: 1px; background: #24345a; margin: 4px 8px; }}
+QMenu::right-arrow {{ width: 8px; height: 8px; padding-right: 8px; }}
 """
+# modules shown together in a submenu (a "›" row that opens to the side), at the place of the first one
+GROUPS = (("Progreso", "progress", ("missions", "achievements", "passes", "events")),)
 
 
 def styled_menu(parent=None):
@@ -58,16 +61,41 @@ def glyph_icon(glyph, color, family, size=64):
 
 
 def build_app_menu(ctl, fonts, parent=None):
-    """Modules (exclusive, the active one highlighted), the players of your group, Reiniciar and Salir."""
+    """Modules (exclusive, the active one highlighted; some in a submenu of their own), the players of your group,
+    Reiniciar and Salir."""
     menu = styled_menu(parent)
     group = QActionGroup(menu)
     group.setExclusive(True)
-    for module in ctl.modules:
+    grouped = {key: g for g in GROUPS for key in g[2]}
+    done = set()
+
+    def module_action(module, owner):
         text = module.menu_label() if hasattr(module, "menu_label") else module.title
-        act = QAction(module.icon(), text, menu, checkable=True, checked=module is ctl.active_module)
+        act = QAction(module.icon(), text, owner, checkable=True, checked=module is ctl.active_module)
         act.triggered.connect(lambda _=False, key=module.key: ctl.switch_module(key))
         group.addAction(act)
-        menu.addAction(act)
+        return act
+
+    for module in ctl.modules:
+        g = grouped.get(module.key)
+        if g is None:
+            menu.addAction(module_action(module, menu))
+            continue
+        if g[0] in done:
+            continue
+        done.add(g[0])
+        members = [m for m in ctl.modules if m.key in g[2]]
+        active = next((m for m in members if m is ctl.active_module), None)
+        sub = styled_menu(menu)
+        sub.setTitle(g[0] + (f" · {active.title}" if active else ""))
+        sub.setIcon(members[0].icon())
+        for m in members:
+            sub.addAction(module_action(m, sub))
+        entry = menu.addMenu(sub)
+        if active:                                   # the group of the module on: in gold like a checked row
+            font = entry.font()
+            font.setBold(True)
+            entry.setFont(font)
     menu.addSeparator()
     menu.addAction(glyph_icon(GLYPH_PEOPLE, theme.ACCENT, fonts.icons_family), "Jugadores de tu party / force",
                    ctl.open_players)
