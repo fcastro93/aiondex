@@ -20,7 +20,7 @@ from .damage import (DAMAGE_OPCODES, DEATH_OPCODE, READY as DAMAGE_READY, STATS_
                      parse_mp, summon_owner)
 from .fightlog import SHORTEST, FightLog, summary as fight_summary
 from .sessions import SessionLog, final_boss_killed, place_of
-from . import simulation, upkeep
+from . import nodes, simulation, upkeep, whereami
 from .npcs import NpcDb
 from .roster import (FORCE_INFO_OPCODE, MEMBER_HINT_OPCODES, MEMBER_OPCODES, PARTY_INFO_OPCODE, ROSTER_OPCODE,
                      parse_member_ids,
@@ -30,7 +30,7 @@ from .skills import (CAST_OPCODE, PRESETS_OPCODE, REQUEST_OPCODE, SKILL_LIST_OPC
 from .tracker import FIELD_LIST_OPCODE, Tracker, parse_field_list
 from .crafting import Crafting
 from .market_share import SYNC_SECONDS as SHARE_SYNC_SECONDS, MarketShare
-from .gathering import Gathering
+from .gathering import GAME_MAPS, Gathering
 from .professions import CRAFT_OPCODE, EXP_OPCODE, level_text, parse_craft, parse_exp, parse_levels
 from .status import (ALERTS as STATUS_ALERTS, LIST_OPCODE as COUNTERS_OPCODE, UPDATE_OPCODE as COUNTER_OPCODE, Status,
                      SPENT, alert_text, countdown, is_dungeon_reward, parse_change, parse_list as parse_counters)
@@ -179,6 +179,9 @@ class Bridge(QObject):
         self._moves_failed = False
         self.upkeep = upkeep.UpkeepRecorder()    # buffs and consumables of you and your group
         self._upkeep_failed = False
+        self.position = whereami.OwnPosition()   # where you are, for the map windows
+        self._position_failed = False
+        self.nodes = nodes.NodeTracker()         # the gathering nodes around you
 
     def take_hits(self):
         with self._hits_lock:
@@ -213,6 +216,14 @@ class Bridge(QObject):
             if not self._upkeep_failed:
                 self._upkeep_failed = True
                 log.exception("upkeep recorder")
+        try:
+            me = self.self_eid if self.self_eid is not None else self.feed.self_eid
+            self.position.on_message(op, body, me)
+            self.nodes.on_message(op, body, me)
+        except Exception:                # noqa: BLE001
+            if not self._position_failed:
+                self._position_failed = True
+                log.exception("own position")
         if op == SPAWN_OPCODE:
             spawn = parse_spawn_full(body)
             if spawn:
@@ -481,6 +492,9 @@ class Controller(QObject):
         self.health = Health(self.data_dir)
         self.health.install_log_handler()
         self.bridge = Bridge(self._make_tracker(), self.health)
+        self.bridge.nodes.learned = json.loads(json.dumps(self.settings.get("gather_nodes") or nodes.SEED))
+        self._nodes_timer = QTimer(self, interval=30_000, timeout=self._save_nodes)
+        self._nodes_timer.start()
         self.bridge.snapshot.connect(self.on_snapshot)
         self.bridge.progress.connect(self.on_progress)
         self.bridge.pet_level.connect(self.on_pet_level)
@@ -561,6 +575,12 @@ class Controller(QObject):
         QTimer.singleShot(20_000, self.sync_market)
         self.gathering = Gathering(self.data_dir, self.settings)
         self.gather_window = None
+        from .minimap import MinimapReader
+        from .sniffer import game_pids
+        self.minimap_wanted_until = 0.0         # the map windows keep this ahead while they are open
+        self.minimap = MinimapReader(self.data_dir / "tiles", self.bridge.position, game_pids,
+                                     lambda: time.time() < self.minimap_wanted_until, self._zone_spot)
+        self.minimap.start()
         self._ocr = OcrWorker(self.crafting)
         self._ocr.read.connect(self._shot_read)
         self.crafting.character = self.settings.get("last_character")
@@ -1722,6 +1742,65 @@ class Controller(QObject):
         """Side of the world the player is standing in right now, from the last map entry."""
         return game_map_faction(self.game_map) if self.game_map is not None else None
 
+    def where_am_i(self):
+        """(metabot map id, u, v, seconds since, exact, source) of your last known position on a world map, or None.
+        The map windows ask about once a second: the minimap is read meanwhile."""
+        self.minimap_wanted_until = time.time() + 3
+        return self.bridge.position.where()
+
+    def minimap_status(self):
+        return self.minimap.status if self.minimap.available else ""
+
+    def live_nodes(self, map_id, material):
+        """The nodes of a material the game shows around you on a metabot map, live:
+        [(u, v, state "up" | "used" | "unknown", charges used, used up at, appeared at, gathered by you,
+        (typical, shortest, longest) respawn seconds or None)]."""
+        from .gathering import family
+        from .whereami import to_map
+        tracker = self.bridge.nodes
+        game_map = next((g for g, m in GAME_MAPS.items() if m == map_id), None)
+        if game_map is None or not material:
+            return []
+        wanted = family(material)
+        names = self.crafting.inventory.ids
+        points = None
+        out = []
+        for kind, x, y, state, used, used_at, new_at, mine in tracker.spots_on(game_map):
+            spot = to_map(game_map, x, y)
+            if spot is None:
+                continue
+            entry = tracker.learned.get(str(kind), {})
+            name = names.get(entry.get("item")) or entry.get("name")
+            if name is None:                 # not gathered yet: a metabot point of this material right there
+                if points is None:
+                    points = [p for m in self.gathering.info(material).get("maps", []) if m["map"] == map_id
+                              for p in m["points"]]
+                if any(abs(p[0] - spot[1]) < 4e-4 and abs(p[1] - spot[2]) < 4e-4 for p in points):
+                    with tracker.lock:
+                        tracker.learned.setdefault(str(kind), {})["name"] = wanted
+                        tracker.changed = True
+                    name = wanted
+            if name and family(name) == wanted:
+                out.append((spot[1], spot[2], state, used, used_at, new_at, mine, tracker.respawn(kind)))
+        return out
+
+    def _save_nodes(self):
+        tracker = self.bridge.nodes
+        if tracker.changed:
+            with tracker.lock:
+                self.settings["gather_nodes"] = json.loads(json.dumps(tracker.learned))
+                tracker.changed = False
+            self._save_settings()
+
+    def _zone_spot(self, name, map_id):
+        """(u, v) of a zone on a metabot map, from its name as the minimap's title writes it (capture thread)."""
+        from .gathering import zone_centers
+        zone = self.gathering.zones.get(name)
+        if zone and zone.get("map") == map_id:
+            return zone["x"], zone["y"]
+        found = zone_centers(self.mapdata, [name], map_id)
+        return found[0][1:] if found else None
+
     def set_character_faction(self, faction):
         if not self.character:
             return
@@ -2179,6 +2258,8 @@ class Controller(QObject):
 
     def quit(self):
         log.info("AionDex closing")
+        self.minimap.stop()
+        self._save_nodes()
         self._save_session()
         self.remember_position(self.window.pos())
         hwnd = int(self.window.winId())

@@ -3,6 +3,8 @@ psutil>=6.0
 pillow>=10.0
 PySide6-Essentials>=6.8
 cryptography>=42
+# Maps: your position read from the game's minimap
+numpy>=2.0
 # Crafting: Windows' own OCR reads the market screenshots
 winrt-runtime>=3.2,<4
 winrt-Windows.Foundation>=3.2,<4

@@ -1,5 +1,5 @@
 """Pet map window: where a pet's monsters spawn, and which other pets share those zones."""
-from PySide6.QtCore import QSize, Qt, QStringListModel
+from PySide6.QtCore import QSize, Qt, QStringListModel, QTimer
 from PySide6.QtGui import QColor, QIcon, QPixmap
 from PySide6.QtWidgets import (QComboBox, QCompleter, QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton,
                                QScrollArea, QTabBar, QVBoxLayout, QWidget)
@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (QComboBox, QCompleter, QFrame, QHBoxLayout, QLabe
 from .. import APP_NAME
 from ..paths import ASSETS_DIR, DATA_DIR
 from . import theme
-from .mapview import MapView
+from .mapview import MapView, show_you
 from .theme import Fonts
 from .tiles import TileCache
 from .widgets import PetIcon, ProgressBar, label
@@ -112,6 +112,9 @@ class MapWindow(QWidget):
         self.view = MapView(self.tiles)
         left.addWidget(self.view, 1)
         root.addLayout(left, 1)
+        self._tab_maps = []
+        self._where = QTimer(self, interval=1000, timeout=self._show_you)
+        self._where.start()
 
         side = QFrame()
         side.setObjectName("Side")
@@ -251,6 +254,11 @@ class MapWindow(QWidget):
             self.map_id = self._tab_maps[index]
             self.view.set_map(self.map_id)
             self._plot()
+            self._show_you()
+
+    def _show_you(self):
+        if self.isVisible():
+            show_you(self.view, self.ctl, self.map_id, self._tab_maps, self.tabs.setCurrentIndex)
 
     def _plot(self, refocus=True):
         self.view.clear_markers()

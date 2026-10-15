@@ -1,11 +1,12 @@
 """Gathering map: one material's nodes on the world map, its areas with the recommended one and a route through it,
 and "full of bots" marks on areas (button) and nodes (right click). The maps are picked by side (Elyos, Asmodian,
-Abyss); in the Abyss, only the maps open now unless you untick it."""
+Abyss); in the Abyss, only the maps open now unless you untick it. Live, from the game: where you are, and the
+material's nodes around you (available, used up and how long until a new one, just appeared)."""
 import time
 import webbrowser
 
-from PySide6.QtCore import QPointF, Qt
-from PySide6.QtGui import QBrush, QColor, QPainterPath, QPen, QPolygonF, QTransform
+from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
+from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QPen, QPolygonF, QTransform
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFrame, QGraphicsItem, QGraphicsPathItem,
                                QGraphicsPolygonItem, QGraphicsSimpleTextItem, QHBoxLayout, QPushButton, QScrollArea,
                                QTabBar, QVBoxLayout, QWidget)
@@ -16,7 +17,7 @@ from ..gathering import (ABYSS_OPEN, BOT_DAYS, GAME_MAPS, MAP_SIDE, SIDES, hull,
 from ..mapdata import MAP_NAMES
 from ..paths import DATA_DIR
 from . import theme
-from .mapview import WORLD, Marker, MapView
+from .mapview import WORLD, Marker, MapView, show_you
 from .mapwindow import STYLE, badge_label
 from .theme import Fonts
 from .tiles import TileCache
@@ -27,6 +28,9 @@ BEST = QColor("#7bd88f")
 OTHER = QColor("#f0c24e")
 BOTS = QColor("#ff6b6b")
 LOOSE = QColor("#8a93a8")
+LIVE = QColor("#3ee6b0")             # a node the game shows now
+SPENT = QColor("#ffb347")            # the clock of a used-up one
+NEW_FOR = 120                        # seconds a node that just appeared is marked "nuevo"
 AREAS_SHOWN = 8
 SIDE_STYLE = """
 QFrame#AreaRow { background: #101a30; border: 1px solid #1a2643; border-radius: 6px; }
@@ -50,6 +54,65 @@ class NodeMarker(Marker):
             super().mousePressEvent(event)
 
 
+def clock(seconds):
+    seconds = max(0, int(seconds))
+    return f"{seconds // 60}:{seconds % 60:02d}"
+
+
+class LiveNode(QGraphicsItem):
+    """A node the game shows (or showed) around you: available (charges left), used up (a clock of the wait for
+    the next one there) or out of sight now."""
+    R = 7
+
+    def __init__(self, state, text, progress, fresh, mine):
+        super().__init__()
+        self.setFlag(QGraphicsItem.ItemIgnoresTransformations)
+        self.setAcceptHoverEvents(True)
+        self.state, self.text, self.progress, self.fresh, self.mine = state, text, progress, fresh, mine
+        self.font = QFont("Segoe UI", 8, QFont.Bold)
+
+    def boundingRect(self):
+        return QRectF(-16, -16, 80, 32)
+
+    def paint(self, p, _option, _widget=None):
+        p.setRenderHint(QPainter.Antialiasing)
+        r = self.R
+        if self.state == "up":
+            if self.fresh:
+                p.setPen(QPen(QColor("#fff27a"), 2))
+                p.setBrush(Qt.NoBrush)
+                p.drawEllipse(QPointF(0, 0), r + 5, r + 5)
+            p.setPen(QPen(QColor(255, 255, 255, 240), 2))
+            p.setBrush(LIVE)
+            p.drawEllipse(QPointF(0, 0), r, r)
+        elif self.state == "used":
+            p.setPen(QPen(QColor(255, 255, 255, 200), 1.5))
+            p.setBrush(QColor(52, 58, 74, 235))
+            p.drawEllipse(QPointF(0, 0), r + 1, r + 1)
+            if self.progress is not None:
+                p.setPen(Qt.NoPen)
+                p.setBrush(SPENT)
+                p.drawPie(QRectF(-r, -r, 2 * r, 2 * r), 90 * 16, -round(360 * 16 * min(1.0, self.progress)))
+        else:
+            p.setOpacity(0.55)
+            p.setPen(QPen(LIVE, 2, Qt.DashLine))
+            p.setBrush(Qt.NoBrush)
+            p.drawEllipse(QPointF(0, 0), r - 1, r - 1)
+        if self.mine:
+            p.setPen(QPen(QColor(255, 92, 240, 230), 1.6))
+            p.setBrush(Qt.NoBrush)
+            p.drawEllipse(QPointF(0, 0), r + 3, r + 3)
+        if self.text:
+            path = QPainterPath()
+            path.addText(QPointF(r + 6, 4), self.font, self.text)
+            p.setPen(QPen(QColor(5, 10, 20, 230), 3))
+            p.setBrush(Qt.NoBrush)
+            p.drawPath(path)
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor("#fff27a") if self.fresh else SPENT if self.state == "used" else QColor(235, 240, 250))
+            p.drawPath(path)
+
+
 class GatherMapWindow(QWidget):
     def __init__(self, ctl):
         super().__init__(None, Qt.Window)
@@ -62,6 +125,7 @@ class GatherMapWindow(QWidget):
         self._all_maps = []               # [(map id, has points)] of the material, every side
         self._maps = []                   # [(map id, has points)] in the tabs
         self._items = []                  # scene items other than the markers (areas, route, labels)
+        self._live = []                   # the nodes the game shows around you
         self.setObjectName("MapWindow")
         self.setWindowIcon(ctl.app_icon)
         self.setStyleSheet(STYLE + EXTRA_STYLE + SIDE_STYLE)
@@ -104,6 +168,8 @@ class GatherMapWindow(QWidget):
         self.view = MapView(self.tiles)
         left.addWidget(self.view, 1)
         root.addLayout(left, 1)
+        self._where = QTimer(self, interval=1000, timeout=self._show_you)
+        self._where.start()
 
         side = QFrame()
         side.setObjectName("Side")
@@ -121,6 +187,10 @@ class GatherMapWindow(QWidget):
         titles.addWidget(self.subtitle)
         head.addLayout(titles, 1)
         sv.addLayout(head)
+        self.live_label = label("", self.fonts.small, LIVE)
+        self.live_label.setWordWrap(True)
+        self.live_label.hide()
+        sv.addWidget(self.live_label)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -216,6 +286,62 @@ class GatherMapWindow(QWidget):
         self.map_id = self._maps[index][0]
         self.view.set_map(self.map_id)
         self.refresh(refocus=True)
+        self._show_you()
+
+    def _show_you(self):
+        if self.isVisible():
+            show_you(self.view, self.ctl, self.map_id, [m for m, _ in self._maps], self.tabs.setCurrentIndex)
+            self._show_live()
+
+    def _show_live(self):
+        """The material's nodes the game shows around you, redrawn every second."""
+        for item in self._live:
+            self.view.scene().removeItem(item)
+        self._live = []
+        live = self.ctl.live_nodes(self.map_id, self.material) if hasattr(self.ctl, "live_nodes") else []
+        now = time.time()
+        up = used = 0
+        soonest = None
+        for u, v, state, charges, used_at, new_at, mine, respawn in live:
+            fresh = state == "up" and new_at is not None and now - new_at < NEW_FOR
+            progress, text = None, ""
+            if state == "up":
+                up += 1
+                left = 3 - charges
+                text = "¡nuevo!" if fresh else f"{left}/3" if charges else ""
+                tip = (f"{self.material}: disponible, {left} de 3 cargas" + (" · acaba de aparecer" if fresh else ""))
+            elif state == "used":
+                used += 1
+                since = now - used_at
+                if respawn:
+                    typical, low, high = respawn
+                    progress = since / typical
+                    text = f"~{clock(typical - since)}" if since < typical else "ya?"
+                    tip = (f"Agotado hace {clock(since)}. Aquí suele salir otro en ~{clock(typical)} (lo visto: entre "
+                           f"{clock(low)} y {clock(high)}); se pone verde en cuanto aparezca, si estás cerca.")
+                    if since < typical:
+                        soonest = min(soonest or 1e9, typical - since)
+                else:
+                    text = clock(since)
+                    tip = f"Agotado hace {clock(since)}. Aún no sé cuánto tarda en salir otro aquí: lo voy aprendiendo."
+            else:
+                text = ""
+                tip = f"{self.material}: ya no está a la vista (te alejaste); no sé si sigue ahí."
+            if mine:
+                tip += "\nLo recolectaste tú."
+            item = LiveNode(state, text, progress, fresh, mine)
+            item.setPos(u * WORLD, v * WORLD)
+            item.setZValue(700 if state == "up" else 650)
+            item.setToolTip(tip)
+            self.view.scene().addItem(item)
+            self._live.append(item)
+        if up or used:
+            bits = [f"{up} disponible{'s' if up != 1 else ''}"] if up else []
+            if used:
+                bits.append(f"{used} agotado{'s' if used != 1 else ''}" +
+                            (f" (el próximo en ~{clock(soonest)})" if soonest else ""))
+            self.live_label.setText("En vivo cerca de ti: " + " · ".join(bits))
+        self.live_label.setVisible(bool(up or used))
 
     # --- drawing ---
     def refresh(self, refocus=False):

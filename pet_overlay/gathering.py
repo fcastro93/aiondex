@@ -36,6 +36,16 @@ CLOSED_REGIONS = {REGION_NAME[r] for r, m in REGION_MAP.items() if MAP_SIDE.get(
 # the game's map id (2136) -> metabot's (20 is the Abyss; the only one open is Chaotic Lower Reshanta)
 GAME_MAPS = {1110: "world_d_a", 1010: "world_l_a", 20: "abyss_reshanta_a"}
 
+QUALITIES = ("Radiant ", "Pure ", "Fine ")
+
+
+def family(name):
+    """A material without its quality ("Fine Asvata Log" -> "Asvata Log"): one node gives any of them."""
+    for prefix in QUALITIES:
+        if name.startswith(prefix):
+            return name[len(prefix):]
+    return name
+
 
 @dataclass
 class Area:
