@@ -1,19 +1,44 @@
-"""Eventos module: the events running now in short (when each ends, what pays most, when the weekly missions start
-over) with a link to the whole of each one (ui/eventswindow.py)."""
+"""Eventos module: one small card per event running now, with what matters at a glance: its name and the time left,
+and for an event with missions your week (missions collected and the coins they gave, as a bar), what is waiting to
+be collected and the next mission left. Everything else is in the window (ui/eventswindow.py)."""
 import time
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QWidget
 
 from . import Module, ModuleView
-from ..events import at, weeks_left
-from ..status import countdown, next_weekly
+from ..events import at
+from ..status import countdown
 from ..ui import theme
 from ..ui.appmenu import glyph_icon
-from ..ui.widgets import SectionTitle, label
+from ..ui.widgets import ProgressBar, label
 
 GLYPH_EVENTS = ""         # calendar (Segoe MDL2 / Fluent)
-LINES = {True: 2, False: 4}     # headline lines per event (compact / expanded)
+CARD_STYLE = ("QFrame#EventCard { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); "
+              "border-radius: %dpx; }")
+
+
+def week_of(ctl, event, now):
+    """Your week in an event's missions: (who, collected, missions, coins got, coins in all, ready, next one left)
+    or None when the event has no missions AionDex reads."""
+    ms = ctl.missions
+    who = ctl.missions_character(ms)
+    rows = [r for b in event.get("blocks") or [] if b.get("type") == "missions" for r in b.get("rows", [])
+            if len(r) > 4 and isinstance(r[4], dict) and r[4].get("id") in ms.db]
+    if not rows or not who:
+        return None
+    done = got = ready = 0
+    left = None
+    for name, what, reward, amount, extra in (r[:5] for r in rows):
+        p = ms.progress(who, extra["id"], now)
+        if p.done:
+            done += 1
+            got += amount
+        elif p.ready:
+            ready += 1
+        elif left is None or p.ratio > left[1].ratio:
+            left = (name.replace("[Event] ", ""), p)
+    return who, done, len(rows), got, sum(r[3] for r in rows), ready, left
 
 
 class EventsPanel(QWidget):
@@ -23,7 +48,7 @@ class EventsPanel(QWidget):
         self.fonts = fonts
         self.content = QVBoxLayout(self)
         self.content.setContentsMargins(0, 0, 0, 0)
-        self.content.setSpacing(fonts.px(2))
+        self.content.setSpacing(fonts.px(4))
 
     def render(self, compact):
         while self.content.count():
@@ -34,42 +59,50 @@ class EventsPanel(QWidget):
         f, now = self.fonts, time.time()
         running = self.ctl.events.running(now)
         if not running:
-            self._line("No hay eventos en marcha (o aún no se leyó la lista oficial).", theme.MUTED)
+            self.content.addWidget(label("Ningún evento en marcha.", f.small, theme.MUTED))
         for e in running if not compact else running[:3]:
-            self.content.addWidget(SectionTitle(e.get("title_es") or e["title"], f))
-            end = at(e["end"])
-            self._line(f"Termina en {countdown(end - now)} ({time.strftime('%d/%m %H:%M', time.localtime(end))})",
-                       theme.WARN if end - now < 2 * 86400 else theme.MUTED)
-            for text in (e.get("headline") or [])[:LINES[compact]]:
-                self._line("• " + text, theme.TEXT)
-            ids = [row[4]["id"] for b in e.get("blocks") or [] if b.get("type") == "missions"
-                   for row in b.get("rows", []) if len(row) > 4 and isinstance(row[4], dict) and row[4].get("id")]
-            ms = self.ctl.missions
-            who = self.ctl.missions_character(ms)
-            if ids and who:
-                progress = [ms.progress(who, mid, now) for mid in ids if mid in ms.db]
-                done, ready = sum(p.done for p in progress), sum(p.ready for p in progress)
-                self._line(f"{who}: {done}/{len(progress)} misiones del evento cobradas"
-                           + (f" · {ready} por cobrar" if ready else ""), theme.GAIN if ready else theme.TEXT)
-            if any(b.get("type") == "missions" for b in e.get("blocks") or []):
-                left = weeks_left(e, now)
-                self._line(f"Misiones semanales: se renuevan en {countdown(next_weekly(now) - now)} · "
-                           f"{left} {'semana' if left == 1 else 'semanas'} de misiones hasta el final", theme.MUTED)
-            if not e.get("curated"):
-                self._line("Sin detalles en AionDex todavía: el aviso oficial está en la ventana.", theme.MUTED)
-        link = label("Ver misiones, recompensas y tienda", f.name, theme.ACCENT)
+            self.content.addWidget(self._card(e, now))
+        link = label("Ver detalles", f.name, theme.ACCENT)
         link.setAttribute(Qt.WA_TransparentForMouseEvents, False)
         link.setCursor(Qt.PointingHandCursor)
         link.on_click = self.ctl.open_events
-        link.setContentsMargins(f.px(4), f.px(4), 0, 0)
+        link.setContentsMargins(f.px(4), f.px(2), 0, 0)
         self.content.addWidget(link)
         self.adjustSize()
 
-    def _line(self, text, color, indent=4):
-        lbl = label(text, self.fonts.small, color)
-        lbl.setWordWrap(True)
-        lbl.setContentsMargins(self.fonts.px(indent), 0, 0, 0)
-        self.content.addWidget(lbl)
+    def _card(self, e, now):
+        f = self.fonts
+        card = QFrame()
+        card.setObjectName("EventCard")
+        card.setStyleSheet(CARD_STYLE % f.px(8))
+        card.setCursor(Qt.PointingHandCursor)
+        card.on_click = self.ctl.open_events
+        col = QVBoxLayout(card)
+        col.setContentsMargins(f.px(8), f.px(5), f.px(8), f.px(6))
+        col.setSpacing(f.px(3))
+        head = QHBoxLayout()
+        head.setSpacing(f.px(6))
+        head.addWidget(label(e.get("title_es") or e["title"], f.name, theme.TEXT, elide=True), 1)
+        end = at(e["end"])
+        head.addWidget(label(countdown(end - now), f.small, theme.WARN if end - now < 2 * 86400 else theme.MUTED))
+        col.addLayout(head)
+        week = week_of(self.ctl, e, now)
+        if week:
+            who, done, total, got, coins, ready, left = week
+            col.addWidget(ProgressBar(done / total if total else 0, theme.GAIN if done == total else theme.ACCENT,
+                                      f.px(5)))
+            line = QHBoxLayout()
+            line.setSpacing(f.px(6))
+            line.addWidget(label(f"{done}/{total} misiones", f.small, theme.TEXT))
+            if ready:
+                line.addWidget(label(f"· {ready} por cobrar", f.small, theme.GAIN))
+            line.addStretch(1)
+            line.addWidget(label(f"{got}/{coins} monedas", f.small, theme.GOLD))
+            col.addLayout(line)
+            if left and not ready:
+                name, p = left
+                col.addWidget(label(f"Siguiente: {name} {p.count}/{p.target}", f.small, theme.MUTED, elide=True))
+        return card
 
 
 class EventsModule(Module):
@@ -86,5 +119,5 @@ class EventsModule(Module):
     def render(self, compact):
         self.ctl.events.refresh_live()
         self.panel.render(compact)
-        n = len(self.ctl.events.running())
-        return ModuleView(summary=f"{n} en marcha" if n else "")
+        ready = sum((week_of(self.ctl, e, time.time()) or (0,) * 7)[5] for e in self.ctl.events.running())
+        return ModuleView(summary=f"{ready} por cobrar" if ready else "")
