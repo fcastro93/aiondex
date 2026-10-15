@@ -1,5 +1,6 @@
 """Wires capture, collection state, session stats, character/faction, tray, hotkeys, overlay and map."""
 import json
+import math
 import logging
 import os
 import queue
@@ -13,7 +14,8 @@ from PySide6.QtGui import QAction, QActionGroup, QIcon
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
 from .character import CHARACTER_OPCODE, COMBAT_POWER_OPCODE, CharacterInfo, parse_character, parse_combat_power
-from .world import MAP_ENTER_OPCODE, SPAWN_OPCODE, WorldTracker, game_map_faction, parse_spawn_full
+from .world import MAP_ENTER_OPCODE, SPAWN_OPCODE, WorldTracker, game_map_faction, parse_map_enter, parse_spawn_full
+from .mobs import MobTracker
 from .combat import (ABYSS_MAPS, PLAYER_SPAWN_OPCODE, REVIVE_SKILLS, SELF_REVIVE, CombatTracker, in_instance,
                      parse_player)
 from .damage import (DAMAGE_OPCODES, DEATH_OPCODE, READY as DAMAGE_READY, STATS_OPCODE, parse_hp,
@@ -134,6 +136,11 @@ WORLD_REGIONS = {1010: "Verteron", 1110: "Altgard"}      # open-world map ids (2
 SEAL_REGIONS = {310: "Verteron", 320: "Altgard"}         # sealed dungeons: Seal_Verteron 3100NN, Seal_Altgard 3200NN
 
 
+MY_KILL = 20.0                   # seconds: a monster you hit this recently and that died was your kill
+MOB_SHOWN = 160.0                # metres around you whose mob spawn points the minimap shows
+MOB_CAMP = 120.0                 # metres of the closest camp, when none is around
+MOB_ROUTE = 24                   # spawn points in the route
+MOB_LOST = 45.0                  # seconds past a monster's respawn after which a dead one not seen back is unknown
 EMPTY_RADIUS = 35          # metres: closer than this to a gathering spot, its node would be on screen
 EMPTY_KEEP = 3600          # seconds a spot found empty is remembered
 CHECK_GAP = 600            # seconds between two visits that count for a gathering point
@@ -191,6 +198,7 @@ class Bridge(QObject):
         self.macro = None                        # the build macro running (it waits for the game's answers)
         self._position_failed = False
         self.nodes = nodes.NodeTracker()         # the gathering nodes around you
+        self.mobs = MobTracker()                 # the monsters around you: spawn points, deaths, respawns
 
     def take_hits(self):
         with self._hits_lock:
@@ -232,6 +240,11 @@ class Bridge(QObject):
             me = self.self_eid if self.self_eid is not None else self.feed.self_eid
             self.position.on_message(op, body, me)
             self.nodes.on_message(op, body, me)
+            if op == MAP_ENTER_OPCODE:
+                entry = parse_map_enter(body)
+                if entry:
+                    self.mobs.on_map(entry[1])
+            self.mobs.on_message(op, body, time.time())
         except Exception:                # noqa: BLE001
             if not self._position_failed:
                 self._position_failed = True
@@ -620,6 +633,20 @@ class Controller(QObject):
         self.minimap = MinimapReader(self.data_dir / "tiles", self.bridge.position, game_pids,
                                      lambda: time.time() < self.minimap_wanted_until, self._zone_spot, self._zone_map)
         self.minimap.corners = self.minimap_corners
+        self._my_hits = {}                       # entity -> when you last hit it (who killed a monster)
+        self._world_mobs = self._load_world_mobs()   # map -> {monster name: [(u, v)]}: the world map's spawns
+        mobs = self.bridge.mobs
+        saved = self.settings.get("mobs") or {}
+        mobs.gaps = {n: list(g) for n, g in (saved.get("respawn") or {}).items()}
+        mobs.points.update(MobTracker(saved).points)
+        mobs.spawn_points = self._mob_spawn_points
+        self._mob_names()
+        if (self.settings.get("mob_route") or {}).get("on"):
+            QTimer.singleShot(0, self._mob_overlay)
+        self.minimap.quests_wanted = lambda: bool(self.settings.get("pets_focus"))
+        self.focus_panel = None
+        if self.settings.get("pets_focus"):
+            QTimer.singleShot(0, lambda: self.set_pets_focus(True))
         self.minimap.start()
         self._ocr = OcrWorker(self.crafting)
         self._ocr.read.connect(self._shot_read)
@@ -776,6 +803,11 @@ class Controller(QObject):
         for hit in hits:
             mine = me is not None and hit.kind == "damage" and \
                 self.combat.owners.get(hit.attacker, hit.attacker) == me
+            if mine:
+                self._my_hits[hit.target] = time.time()
+                if len(self._my_hits) > 400:
+                    cutoff = time.time() - MY_KILL
+                    self._my_hits = {k: v for k, v in self._my_hits.items() if v > cutoff}
             if mine and self.tuner.recording and hit.target not in self.combat.players:
                 self.tuner.on_damage(hit.skill, hit.amount)
             finished = self.combat.on_hit(hit)
@@ -823,6 +855,11 @@ class Controller(QObject):
             self.refresh()
 
     def on_death(self, eid):
+        now = time.time()
+        mine = now - self._my_hits.pop(eid, 0) < MY_KILL
+        name = self.bridge.mobs.on_death(now, eid, mine)
+        if name and mine:
+            self._mob_killed(name)
         if eid is not None and eid == self.combat.self_eid and time.time() - self._last_own_death > 2:
             self._last_own_death = time.time()      # 048d of your own character: always with your HP at 0
             self.sounds.play("death")
@@ -1953,6 +1990,9 @@ class Controller(QObject):
             tracker.spots_changed = False
             self.settings["gather_spots"] = tracker.export()
             save = True
+        if self.bridge.mobs.changed:
+            self.settings["mobs"] = self.bridge.mobs.export()
+            save = True
         if getattr(self, "_checks_dirty", False):
             self._checks_dirty = False
             save = True
@@ -2119,6 +2159,8 @@ class Controller(QObject):
             watch = getattr(self, "blink_watch", None)
             if watch is not None and watch.active:
                 watch.on_refresh(1000 * (time.perf_counter() - started), self.active_module.key)
+        if self.focus_panel is not None and self.settings.get("pets_focus"):
+            self.focus_panel.set_rows(self.focus_rows(), self.flash_ids)
         self.flash_ids.clear()
         self.tray.setToolTip(f"{self.app_name} — {view.status or self.active_module.title}")
         if self.map_window and self.map_window.isVisible():
@@ -2349,6 +2391,157 @@ class Controller(QObject):
         self.calibration_window = CalibrationWindow(layout.client, layout.points, save)
         self.calibration_window.show()
         return self.calibration_window
+
+    # --- the mob route over the minimap ---
+    def _mob_names(self):
+        """npc id -> monster name, for the mob tracker."""
+        self.bridge.mobs.names = {npc: m["name"] for m in self.mapdata.monsters.values()
+                                  for npc in m.get("npc_ids", [])}
+
+    def _mob_spawn_points(self, game_map, name):
+        """[(x m, y m)] spawn points of a monster on a game map: the world map's, else metabot's. Called from the
+        capture thread (the world map's points are loaded once, beforehand)."""
+        from .whereami import to_world
+        map_id = GAME_MAPS.get(game_map)
+        if map_id is None:
+            return []
+        world = self._world_mobs or {}
+        points = list(world.get(map_id, {}).get(name, []))
+        if not points:
+            points = [tuple(p[:2]) for m in self.mapdata.monsters.values() if m["name"] == name
+                      for mp in m.get("maps", []) if mp["map"] == map_id for p in mp.get("spawns", [])]
+        return [to_world(game_map, u, v) for u, v in points]
+
+    def _load_world_mobs(self):
+        """The world map's monster spawn points: {map: {name: [(u, v)]}}."""
+        try:
+            db = json.loads((self.data_dir / "world_db.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        kinds = {c for c, (_, typ) in db.get("categories", {}).items() if typ == "monster"}
+        out = {}
+        for map_id, cats in db.get("points", {}).items():
+            names = out.setdefault(map_id, {})
+            for cat in kinds:
+                for label, points in cats.get(cat, []):
+                    for name in label.split(" / "):
+                        names.setdefault(name, []).extend(tuple(p) for p in points)
+        return out
+
+    def _monster_pets(self, name):
+        return {pid for m in self.mapdata.monsters.values() if m["name"] == name for pid in m.get("pet_ids", [])}
+
+    def monster_needed(self, name):
+        """A monster of the route: one whose soul gives a pet you do not have at max level yet."""
+        pets = self._monster_pets(name)
+        return any(not (self.collection.pets.get(pid) and self.collection.pets[pid].is_max) for pid in pets)
+
+    def mob_route_names(self):
+        """The monsters of the mob route now (the ones whose pets got to max leave it)."""
+        route = self.settings.get("mob_route") or {}
+        return [n for n in route.get("names", []) if self.monster_needed(n)] if route.get("on") else []
+
+    def set_mob_route(self, on):
+        route = self.settings.setdefault("mob_route", {"on": False, "names": []})
+        route["on"] = bool(on)
+        self._save_settings()
+        self._mob_overlay()
+        self.refresh()
+
+    def toggle_mob(self, name):
+        """Add a monster to the mob route, or take it out."""
+        route = self.settings.setdefault("mob_route", {"on": True, "names": []})
+        names = route.setdefault("names", [])
+        if name in names:
+            names.remove(name)
+        else:
+            names.append(name)
+            route["on"] = True
+        self._save_settings()
+        self._mob_overlay()
+        self.refresh()
+
+    def _mob_killed(self, name):
+        """You killed a monster: with the mob route on, its kind joins it (unless its pet is at max)."""
+        route = self.settings.get("mob_route") or {}
+        if route.get("on") and name not in route.get("names", []) and self.monster_needed(name):
+            route.setdefault("names", []).append(name)
+            self._save_settings()
+            self._mob_overlay()
+            self.refresh()
+
+    def _mob_overlay(self):
+        """Start (or stop) the mob route over the minimap."""
+        on = bool((self.settings.get("mob_route") or {}).get("on"))
+        if self.minimap_overlay is None:
+            if not on:
+                return
+            from .ui.minimapoverlay import MinimapOverlay
+            self.minimap_overlay = MinimapOverlay(self)
+        self.minimap_overlay.set_mobs(on)
+
+    def mob_route_data(self, game_map):
+        """What the mob route draws: {"route": [(x m, y m)], "points": [(x, y, state, seconds left, mine, name)]}
+        of the route's monsters near you (state: "up" alive, "dead", "soon" past its usual respawn, "unknown"), or
+        None."""
+        from .gathering import _route
+        names = self.mob_route_names()
+        fix = self.bridge.position.fix
+        if not names or not fix:
+            return None
+        now = time.time()
+        points = self.bridge.mobs.on_map_points(game_map, names)
+        me = (fix[1], fix[2])
+        near = [p for p in points if math.dist((p.x, p.y), me) <= MOB_SHOWN]
+        if not near and points:                  # the closest camp, when none is around
+            first = min(points, key=lambda p: math.dist((p.x, p.y), me))
+            near = [p for p in points if math.dist((p.x, p.y), (first.x, first.y)) <= MOB_CAMP]
+        camp = sorted(near, key=lambda p: math.dist((p.x, p.y), me))[:MOB_ROUTE]
+        rows = []
+        for p in near:
+            respawn = self.bridge.mobs.respawn(p.name)
+            if p.alive:
+                state, left = "up", None
+            elif p.died_at is not None and not (respawn and now - p.died_at > max(MOB_LOST, 2.5 * respawn)):
+                left = p.died_at + respawn - now if respawn else None
+                state = "soon" if left is not None and left <= 0 else "dead"
+            else:
+                state, left = "unknown", None
+            rows.append((p.x, p.y, state, left, p.mine, p.name))
+        return {"route": _route([(p.x, p.y) for p in camp]), "points": rows}
+
+    # --- the pets' Modo Focus ---
+    def set_pets_focus(self, on):
+        """Modo Focus: your pets listed under the game's quest list, like a quest (ui/focuspanel.py)."""
+        self.settings["pets_focus"] = bool(on)
+        self._save_settings()
+        if on:
+            if self.focus_panel is None:
+                from .ui.focuspanel import FocusPanel
+                self.focus_panel = FocusPanel(self)
+            self.focus_panel.set_rows(self.focus_rows())
+            self.focus_panel.start()
+        elif self.focus_panel is not None:
+            self.focus_panel.stop()
+        self.refresh()
+
+    def focus_rows(self):
+        """The pets of the Modo Focus: the pinned one, then the ones of your zone (the last killed first)."""
+        from .ui.focuspanel import ROWS, FocusRow
+        _, nearby, _ = self.nearby_pets()
+        pets = [(p, mobs) for p, mobs in nearby]
+        pinned = self.collection.pets.get(self.settings.get("pinned"))
+        if pinned and pinned.pet_id not in {p.pet_id for p, _ in pets}:
+            pets.insert(0, (pinned, []))
+        rows = []
+        for pet, mobs in pets[:ROWS]:
+            info, name = self.pet_info(pet.pet_id)
+            count = "MAX" if pet.is_max else (f"{pet.progress}/{pet.threshold}" if pet.threshold else str(pet.progress))
+            gained = self.session.per_pet.get(pet.pet_id, 0)
+            what = ", ".join(mobs) if mobs else (info.get("mob") or "").removeprefix("Mata: ")
+            rows.append(FocusRow(pet.pet_id, name, count, pet.ratio, f"Mata: {what}" if what else "",
+                                 f"+{gained}" if gained else "", pet.is_max))
+        return rows
 
     # --- the minimap's corners (Ajustes > Minimapa) ---
     def minimap_corners(self, client, fractions=False):

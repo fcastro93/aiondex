@@ -213,7 +213,7 @@ class GatherMapWindow(QWidget):
         sv.addWidget(scroll, 1)
         credit = self.gathering.credit or {"text": "Puntos de recolección: metabot.gg",
                                            "url": "https://metabot.gg/en/aion-2/gathering"}
-        link = QPushButton(credit["text"] + " · mapa: metabot.gg")
+        link = QPushButton(credit["text"] + (" + tu mapa" if self.gathering.added else "") + " · mapa: metabot.gg")
         link.setProperty("flat", True)
         link.clicked.connect(lambda: webbrowser.open(credit["url"]))
         sv.addWidget(link)
@@ -398,8 +398,9 @@ class GatherMapWindow(QWidget):
         areas, loose = g.areas(name, map_id)
         focus = []
         mobs = info.get("monsters", [])
+        farm = g.farm_area(name, map_id, areas)
         for area in areas:
-            best = area is areas[0] and not area.bots
+            best = area is farm
             color = BOTS if area.bots else BEST if best else OTHER
             self._area_shape(area, color, best)
             if mobs and area.mobs and area.index <= AREAS_SHOWN:      # the area's best drop rate, on the map
@@ -593,13 +594,15 @@ class GatherMapWindow(QWidget):
             self.panel.addStretch(1)
             return
         self.panel.addWidget(SectionTitle("Zonas", f))
-        legend = label("Verde: la recomendada (más nodos sin bots), con la ruta en azul. Amarillo: otras. Rojo: con bots. "
+        legend = label("Verde: la que farmeas, con la ruta en azul (la recomendada: más nodos sin bots; o la que "
+                       "elijas con «Farmear aquí»). Amarillo: otras. Rojo: con bots. "
                        f"Las marcas de bots se borran solas a los {BOT_DAYS} días (los bots se mueven).", f.small,
                        theme.MUTED)
         legend.setWordWrap(True)
         self.panel.addWidget(legend)
+        chosen = self.gathering.chosen_area(self.material, self.map_id, areas)
         for area in areas[:AREAS_SHOWN]:
-            self.panel.addWidget(self._area_row(area, area is areas[0] and not area.bots, zones))
+            self.panel.addWidget(self._area_row(area, area is areas[0] and not area.bots, zones, area is chosen))
         if len(areas) > AREAS_SHOWN:
             self.panel.addWidget(label(f"y {len(areas) - AREAS_SHOWN} zonas más pequeñas en el mapa.", f.small,
                                        theme.MUTED))
@@ -608,7 +611,7 @@ class GatherMapWindow(QWidget):
         self.panel.addWidget(self._hint("Clic derecho en un punto del mapa para marcarlo «con bots»: sale de la ruta."))
         self.panel.addStretch(1)
 
-    def _area_row(self, area, best, zones):
+    def _area_row(self, area, best, zones, chosen=False):
         f = self.fonts
         row = QFrame()
         row.setObjectName("AreaRow")
@@ -620,8 +623,10 @@ class GatherMapWindow(QWidget):
         cx, cy = area.center
         near = min(zones, key=lambda z: (z[1] - cx) ** 2 + (z[2] - cy) ** 2)[0] if zones else ""
         head = QHBoxLayout()
-        title = f"{'★ Recomendada · ' if best else ''}Zona {area.index}" + (f" · {near}" if near else "")
-        head.addWidget(label(title, f.name, BOTS if area.bots else BEST if best else theme.TEXT, elide=True), 1)
+        title = (f"{'▶ Farmeando aquí · ' if chosen else '★ Recomendada · ' if best else ''}Zona {area.index}" +
+                 (f" · {near}" if near else ""))
+        head.addWidget(label(title, f.name, BOTS if area.bots else BEST if best or chosen else theme.TEXT,
+                             elide=True), 1)
         see = QPushButton("Ver")
         see.setProperty("flat", True)
         see.clicked.connect(lambda _=False, a=area: self.view.focus_points(a.nodes))
@@ -639,11 +644,27 @@ class GatherMapWindow(QWidget):
         if area.bots:
             sub += f" · llena de bots (marcada {_ago(area.bot_at)})"
         lay.addWidget(label(sub, f.small, BOTS if area.bots else theme.MUTED))
+        buttons = QHBoxLayout()
+        buttons.setSpacing(4)
+        farm = QPushButton("Volver a la recomendada" if chosen else "Farmear aquí")
+        farm.setProperty("flat", True)
+        farm.setToolTip("Dibuja la ruta de esta zona en el mapa y en el minimapa del juego" if not chosen else
+                        "Deja de farmear esta zona: la ruta vuelve a la recomendada")
+        farm.clicked.connect(lambda _=False, a=None if chosen else area: self._choose_area(a))
+        buttons.addWidget(farm)
         mark = QPushButton("Quitar «llena de bots»" if area.bots else "Marcar: llena de bots")
         mark.setProperty("flat", True)
         mark.clicked.connect(lambda _=False, a=area: self._toggle_area(a))
-        lay.addWidget(mark, 0, Qt.AlignLeft)
+        buttons.addWidget(mark)
+        buttons.addStretch(1)
+        lay.addLayout(buttons)
         return row
+
+    def _choose_area(self, area):
+        self.gathering.choose_area(self.material, self.map_id, area)
+        if getattr(self.ctl, "minimap_overlay", None) is not None:
+            self.ctl.minimap_overlay.reload()
+        self.refresh(refocus=area is not None)
 
     def _hint(self, text):
         hint = label(text, self.fonts.small, theme.MUTED)

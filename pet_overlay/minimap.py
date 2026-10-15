@@ -3,7 +3,8 @@ whereami.py), so between the few messages that tell where you stand, the minimap
 
 - Finding it, at any resolution or UI size: Windows' OCR reads the top-right quarter of the game window; the
   minimap's title (the zone's name) sits on a plain dark bar right above the map, its left edge where the map's is.
-  The bar's height is the unit: the map is MAP_W x MAP_H bars (4K, 2026-10-14: bar 49 px, map 496 x 330 px).
+  The map under it is found by its frame (find_box); MAP_W x MAP_H bars (4K, 2026-10-14: bar 49 px, map 496 x 330
+  px).
   Or, when you calibrated its four corners (Ajustes > Minimapa, per game window size), exactly there: the title is
   then read only to know the map when AionDex missed the game's map entry.
 - Reading it: the map part is compared with metabot's world map (the same picture in other colours) around where
@@ -13,6 +14,9 @@ whereami.py), so between the few messages that tell where you stand, the minimap
   changes it) is searched once and then followed. Error against the game's exact positions: 6-7 m.
 - The camera's view cone: the minimap draws it as a lighter wedge with two white edges from the centre (about 115
   degrees wide); the two strongest white rays are its edges and the lighter side between them is the cone.
+- The quest list: right under the minimap the game lists your quests (a progress bar, then per quest a gold title
+  and its step), as long as you have quests. Its lines are read (OCR) every QUEST_EVERY seconds while the pets'
+  Modo Focus is on, and where they end is where that list goes (quest_area).
 - It runs on its own thread, about once a second (three times with the route drawn over the minimap), only while
   a map window or the route over the minimap is on, and skips a read when another window (AionDex's own too)
   covers the minimap: it would read that window instead. The route's window over the minimap is left out of
@@ -43,6 +47,10 @@ MOSAIC = 900                     # pixels of world map searched around where you
 ACROSS = 296.0                   # metres the minimap shows across at its default zoom
 MIN_SCORE = 0.32                 # a match below this is not trusted
 GOOD_SCORE = 0.55                # a match this good confirms the minimap's size
+QUEST_EVERY = 2.0                # seconds between two reads of the quest list under the minimap
+QUEST_FIRST = 0.6                # the first quest line starts within this many minimap heights under it (the bar
+                                 # above the quests is ~0.2-0.3)
+QUEST_GAP = 0.3                  # ... and each next line within this gap of the one before
 LOCATE_EVERY = 15.0              # seconds between two looks for the minimap (it moves only with the UI)
 READ_EVERY = 1.0
 READ_FAST = 0.08                 # with the route drawn over the minimap (a read takes ~60 ms at 4K)
@@ -62,36 +70,60 @@ def _close(a, b, tol=10):
 
 def find_box(image, lines):
     """(left, top, right, bottom) of the minimap's map in the image, its title and the bar height, or None.
-    lines: the OCR's lines of that image (market_ocr.Line)."""
+    lines: the OCR's lines of that image (market_ocr.Line). The map is found by its frame under the title: its left
+    and right edges (long vertical edges either side of the title) and its top and bottom edges (horizontal edges
+    across its whole width, the map being MAP_W x MAP_H). Colours do not do: the title bar is see-through and the
+    world behind it changes (2026-10-15: measured 34 and 31 px for a 49 px bar, boxes 2/3 the size)."""
+    np = _np()
     w, h = image.size
-    px = image.load()
+    gray = np.asarray(image.convert("L"), dtype=np.int16)
     for ln in sorted(lines, key=lambda ln: ln.y):
         if ln.x0 < w * 0.4 or ln.y > h * 0.7 or ln.h < 5 or len(ln.text.strip()) < 3:
             continue
-        y = int(ln.y + ln.h / 2)
-        x = int(ln.x0) - max(2, round(ln.h * 0.3))
-        if x <= 0 or y >= h:
-            continue
-        seed = px[x, y][:3]
-        if max(seed) > 110:                            # the bar is dark
-            continue
-        while x > 0 and _close(px[x - 1, y][:3], seed):
-            x -= 1
-        left, col = x, x + 2
-        top = bottom = y
-        ref = px[col, y][:3]                           # the bar's own colour in that column: the one by the text
-        while top > 0 and _close(px[col, top - 1][:3], ref, 14):     # can differ a bit (2026-10-15: the walk
-            top -= 1                                                 # stopped mid-bar, a box 2/3 the size)
-        while bottom < h - 1 and _close(px[col, bottom + 1][:3], ref, 14):
-            bottom += 1
-        unit = bottom - top + 1
-        if not 1.2 * ln.h <= unit <= 4 * ln.h or ln.x0 - left > 3 * unit:
-            continue
-        box = (left, bottom + 2, left + round(MAP_W * unit), bottom + 2 + round(MAP_H * unit))
-        if box[2] > w + 4 or box[3] > h:
-            continue
-        return box, ln.text.strip(), unit
+        box = _frame(np, gray, ln.x0, ln.y, ln.h)
+        if box:
+            return box, ln.text.strip(), (box[3] - box[1]) / MAP_H
     return None
+
+
+def _longest_runs(np, mask):
+    """The longest run of True down each column of a 2D array."""
+    best = np.zeros(mask.shape[1], int)
+    run = np.zeros(mask.shape[1], int)
+    for row in mask:
+        run = np.where(row, run + 1, 0)
+        best = np.maximum(best, run)
+    return best
+
+
+def _frame(np, gray, x0, ty, th, edge=18):
+    """The map's rectangle under a title at (x0, ty) of text height th (image pixels), or None when no frame of
+    the minimap's shape is there (a quest's text...)."""
+    h, w = gray.shape
+    lo, hi = int(ty + 2 * th), int(min(h - 1, ty + 12 * th))
+    if hi - lo < 4 * th or x0 - 3 * th < 1:
+        return None
+    vertical = _longest_runs(np, np.abs(np.diff(gray[lo:hi], axis=1)) > edge)
+    left = max(range(int(x0 - 1.6 * th), int(x0)), key=lambda x: vertical[x])      # the title starts by its edge
+    span = range(int(x0 + 10 * th), min(w - 2, int(x0 + 30 * th)))
+    if not span:
+        return None
+    right = max(span, key=lambda x: vertical[x] - 0.001 * x)
+    across = right - left
+    if across < 8 * th:
+        return None
+    horizontal = _longest_runs(np, (np.abs(np.diff(gray[:, left + 3:right - 3], axis=0)) > edge).T)
+    top = max(range(int(ty + 0.5 * th), int(min(h - 2, ty + 4 * th))), key=lambda y: horizontal[y])  # under it
+    want = top + across * MAP_H / MAP_W
+    rows = range(int(want - 0.08 * across), min(h - 2, int(want + 0.08 * across)))
+    if not rows:
+        return None
+    bottom = max(rows, key=lambda y: horizontal[y])
+    if horizontal[top] < 0.8 * (across - 6) or horizontal[bottom] < 0.6 * (across - 6):
+        return None
+    if abs(across / max(1, bottom - top) / (MAP_W / MAP_H) - 1) > 0.04:      # not the minimap's shape
+        return None
+    return left + 1, top + 1, right + 1, bottom + 1
 
 
 class _BitmapInfo(ctypes.Structure):
@@ -384,6 +416,7 @@ class MinimapReader:
         self.available = _numpy_ok()
         self.fast = False                   # read several times a second (the route over the minimap is on)
         self.game_hwnd = None               # the game's window, last seen
+        self.client = None                  # ... and its client area (screen pixels)
         self.ignore = set()                 # windows left out of screen captures (the route over the minimap)
         self._ppm = None                    # world pixels per metre of the map being read
         self._seen = 0.0                    # when the minimap was last matched
@@ -393,6 +426,10 @@ class MinimapReader:
         self._good = {}                     # ... -> the box that read well: the minimap does not move by itself,
                                             # so a failed find (or one on a quest's text) falls back to it
         self.poly = None                    # those corners while they are used (the route is drawn inside them)
+        self.quests_wanted = lambda: False  # the pets' Modo Focus: read where the game's quest list ends
+        self.quest_area = None              # (left, top, right, at) under the quest list, screen pixels
+        self._quests_at = 0.0
+        self._quest_ends = []               # the last reads' ends: a read that misses a line does not move it up
 
     def start(self):
         if self._thread is None and self.available:
@@ -413,6 +450,8 @@ class MinimapReader:
                 continue
             try:
                 self.read_once()
+                if self.quests_wanted() and time.time() - self._quests_at > QUEST_EVERY:
+                    self.read_quests()
             except Exception:                   # noqa: BLE001 - never stops the app
                 if not failed:
                     failed = True
@@ -430,7 +469,7 @@ class MinimapReader:
             self.status = "Minimapa: no veo la ventana del juego"
             return None
         hwnd, client = game
-        self.game_hwnd = hwnd
+        self.game_hwnd, self.client = hwnd, client
         calibrated = self.corners(client) if self.corners else None
         self.poly = calibrated
         if calibrated:                           # where you put its corners: no guessing
@@ -487,6 +526,49 @@ class MinimapReader:
             self.position.cone = (now, *cone)
         self.status = ""
         return x, y, score
+
+    def minimap_box(self, client):
+        """The minimap on screen now: your corners, else where it read well, else where it was found, or None."""
+        corners = self.corners(client) if self.corners else None
+        if corners:
+            xs, ys = [x for x, _ in corners], [y for _, y in corners]
+            return min(xs), min(ys), max(xs), max(ys)
+        good = self._good.get((client[2] - client[0], client[3] - client[1]))
+        return good[0] if good else self._box[0] if self._box else None
+
+    def read_quests(self, now=None):
+        """Where the game's quest list under the minimap ends -> quest_area (left, top, right, at)."""
+        from . import market_ocr
+        now = now or time.time()
+        self._quests_at = now
+        game = game_window(self.game_pids())
+        if game is None:
+            return None
+        hwnd, client = game
+        box = self.minimap_box(client)
+        if box is None:
+            if not self._locate(client, now):
+                return None
+            box = self._box[0]
+        w, h = box[2] - box[0], box[3] - box[1]
+        region = (max(client[0], box[0] - w // 6), box[3], min(client[2], box[2] + w // 20),
+                  min(client[3], box[3] + round(2.8 * h)))
+        if covered(hwnd, region, self.ignore):
+            return self.quest_area                       # something over it: keep the last one
+        path = Path(tempfile.gettempdir()) / f"aiondex_quests_{os.getpid()}_{int(now * 1000)}.png"
+        grab(region).save(path)
+        try:
+            lines, _, _ = market_ocr.recognize(path)
+        finally:
+            try:
+                path.unlink()
+            except OSError:
+                pass
+        bottom = quest_bottom([(region[0] + ln.x0, region[1] + ln.y, region[1] + ln.y + ln.h, ln.text)
+                               for ln in lines], box)
+        self._quest_ends = (self._quest_ends + [bottom])[-3:]
+        self.quest_area = (box[0], max(self._quest_ends), box[2], now)
+        return self.quest_area
 
     def _locate(self, client, now, zone_only=False):
         """Find the minimap by its title (zone_only: just read the title, the zone's name)."""
@@ -578,6 +660,33 @@ class MinimapReader:
             return None
         self._scale, self._ppm = scale, ppm
         return round(float(x), 1), round(float(y), 1), round(score, 3)
+
+
+def quest_bottom(lines, box):
+    """Where the quest list under the minimap ends (screen y): its lines (x0, top, bottom, text) one under the other,
+    starting near the minimap's left edge; with no quest, a little under the minimap (the bar that is always
+    there)."""
+    w, h = box[2] - box[0], box[3] - box[1]
+    end, gap = box[3], QUEST_FIRST * h
+    for x0, top, bottom, text in sorted(lines, key=lambda ln: ln[1]):
+        if len(text.strip()) < 2 or not box[0] - w * 0.12 <= x0 <= box[0] + w * 0.45:
+            continue
+        if top - end > gap:
+            break
+        end, gap = max(end, bottom), QUEST_GAP * h
+    return round(end + (0.04 if end > box[3] else 0.3) * h)
+
+
+def fallback_geometry(reader):
+    """(box, minimap pixels per metre at its usual zoom, corners) from where the minimap is known to be, when it
+    cannot be read (the route then follows the game's own position: whereami), or None."""
+    client = reader.client
+    box = reader.minimap_box(client) if client else None
+    if not box:
+        return None
+    inner = (box[2] - box[0]) * (1 - 2 * INSET)
+    ppm = reader._scale * reader._ppm if reader._scale and reader._ppm else inner / ACROSS
+    return box, ppm, reader.poly
 
 
 def _numpy_ok():

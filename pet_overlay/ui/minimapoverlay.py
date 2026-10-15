@@ -4,6 +4,10 @@ used up, found empty) and a line to the next one with its distance. It moves wit
 (smoothed), and screen captures leave it out (SetWindowDisplayAffinity), so the minimap reader keeps seeing the game
 under it - and so do your screenshots and streams. Between two reads it moves with your movement keys (motion.py).
 
+The mob route (Pets: «Ruta de mobs en el minimapa», mobs.py): the spawn points of the monsters you farm around
+you, a route through the closest ones (orange), each one alive (orange), dead with the seconds until it comes back
+(a pink ring: you killed it; grey: someone else did) or "ya" when it is due, and a line to the next one to kill.
+
 It stays put: a read that fails (the minimap not recognized for a moment, the zone's name not read) keeps what was
 drawn, moving with you, for up to HOLD seconds; it hides only when the game is minimized or something covers the
 minimap (or you leave the map), and only after HIDE_AFTER seconds of it, so it does not blink. Everything is drawn
@@ -20,7 +24,7 @@ from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QPolygonF
 from PySide6.QtWidgets import QWidget
 
 from ..gathering import GAME_MAPS
-from ..minimap import covered, overlay_geometry
+from ..minimap import covered, fallback_geometry, overlay_geometry
 from ..motion import Motion
 from ..whereami import to_world
 
@@ -41,6 +45,9 @@ ROUTE = QColor("#2ec0f2")
 UP = QColor("#3ee6b0")
 GONE = QColor(225, 228, 236)
 NEXT = QColor("#fff27a")
+MOB = QColor("#ff8a3d")             # the mob route and the monsters alive
+MOB_DEAD = QColor(60, 60, 66, 235)
+MINE = QColor(255, 92, 240)
 TICK_MS = 33                     # ~30 frames a second
 DATA_EVERY = 1.0                 # seconds between two looks at the nodes
 ROUTE_EVERY = 30.0               # seconds between two route computations (bot marks can change it)
@@ -62,6 +69,8 @@ class MinimapOverlay(QWidget):
         self.setAttribute(Qt.WA_TransparentForMouseEvents)
         self.ctl = ctl
         self.material = None
+        self.mobs_on = False             # the mob route (pets)
+        self._mobs = None                # {"route": [...], "points": [...]} from the Controller
         self._map = None
         self._route = []                 # [(x m, y m)] of the recommended area's loop
         self._points = []                # [(x m, y m)] every point of the material on the map
@@ -83,11 +92,26 @@ class MinimapOverlay(QWidget):
         self._timer = QTimer(self, interval=TICK_MS, timeout=self._tick)
 
     # --- on / off ---
+    def reload(self):
+        """The route changed (another area chosen): load it at the next tick."""
+        self._route_at = 0.0
+
     def set_material(self, material):
         """Draw this material's route over the minimap (None: stop)."""
         self.material = material
+        self._route, self._points, self._nodes = [], [], []
         self._route_at = self._data_at = 0.0
-        if material:
+        self._switch()
+
+    def set_mobs(self, on):
+        """Draw the mob route (the monsters you farm) over the minimap, or stop."""
+        self.mobs_on = bool(on)
+        self._mobs = None
+        self._data_at = 0.0
+        self._switch()
+
+    def _switch(self):
+        if self.material or self.mobs_on:
             self._timer.start()
             self._tick()
         else:
@@ -106,6 +130,9 @@ class MinimapOverlay(QWidget):
             self._geo, self._geo_at = geo, now
         elif self._geo is not None and now - self._geo_at > HOLD:
             self._geo = None
+        if self._geo is None:                   # never read yet, or lost for long: where the minimap is, at its
+            self._geo = fallback_geometry(ctl.minimap)       # usual zoom, centred on the game's own position
+            self._geo_at = now
         position = ctl.bridge.position
         map_id = GAME_MAPS.get(position.game_map)
         fix = position.fix
@@ -119,13 +146,16 @@ class MinimapOverlay(QWidget):
             return
         self._wrong_since = None
         box, ppm, poly = self._geo
-        if map_id != self._map or now - self._route_at > ROUTE_EVERY:
+        if self.material and (map_id != self._map or now - self._route_at > ROUTE_EVERY):
             self._load_route(map_id, position.game_map)
             self._route_at = now
         if now - self._data_at > DATA_EVERY:
             self._nodes = [(*to_world(position.game_map, r[0], r[1]), r[2])
-                           for r in ctl.live_nodes(map_id, self.material)]
+                           for r in ctl.live_nodes(map_id, self.material)] if self.material else []
+            self._mobs = ctl.mob_route_data(position.game_map) if self.mobs_on else None
             self._data_at = now
+        elif self._mobs:                          # the seconds left tick every frame
+            self.update()
         cone = position.cone
         camera = cone[1] if cone and now - cone[0] < CAMERA_FRESH else None
         self._shown = self._motion.update(now, fix, self._keys(), camera)
@@ -162,7 +192,7 @@ class MinimapOverlay(QWidget):
         g = self.ctl.gathering
         to_m = lambda p: to_world(game_map, p[0], p[1])                 # noqa: E731
         areas, loose = g.areas(self.material, map_id)
-        best = next((a for a in areas if not a.bots), None)
+        best = g.farm_area(self.material, map_id, areas)            # the one you chose, else the recommended
         self._route = [to_m(p) for p in best.route] if best else []
         self._points = [to_m(p) for a in areas for p in a.nodes] + [to_m(p) for p in loose]
         self._map = map_id
@@ -182,7 +212,7 @@ class MinimapOverlay(QWidget):
             self._hwnd = hwnd
             if not _user32.SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE):
                 log.warning("the route over the minimap cannot be left out of screen captures")
-            self.ctl.minimap.ignore = {hwnd}
+            self.ctl.minimap.ignore.add(hwnd)
 
     # --- drawing ---
     def paintEvent(self, _event):
@@ -257,7 +287,60 @@ class MinimapOverlay(QWidget):
             spot.setX(min(max(spot.x(), room.left()), room.right() - 34 * unit))
             spot.setY(min(max(spot.y(), room.top() + 12 * unit), room.bottom()))
             self._label(p, spot, text, unit)
+        if self._mobs:
+            self._draw_mobs(p, at, inner, unit, (sx, sy), QPointF(w / 2, h / 2))
         p.end()
+
+    def _draw_mobs(self, p, at, inner, unit, me, centre):
+        """The mob route: its loop, each spawn point's state and the next one to kill."""
+        route = self._mobs.get("route") or []
+        if len(route) > 1:
+            path = QPainterPath(at(*route[0]))
+            for q in route[1:] + route[:1]:
+                path.lineTo(at(*q))
+            p.setBrush(Qt.NoBrush)
+            p.setPen(QPen(QColor(5, 10, 20, 160), 4.6 * unit))
+            p.drawPath(path)
+            p.setPen(QPen(MOB, 2.2 * unit, Qt.DashLine))
+            p.drawPath(path)
+        now_left = time.time() - self._data_at          # the seconds left were computed this long ago
+        r = 4.8 * unit
+        targets = []
+        for x, y, state, left, mine, _name in self._mobs.get("points") or []:
+            c = at(x, y)
+            if state == "up":
+                p.setPen(QPen(QColor(255, 255, 255, 235), 1.5 * unit))
+                p.setBrush(MOB)
+                p.drawEllipse(c, r, r)
+                targets.append((0, x, y))
+            elif state in ("dead", "soon"):
+                p.setPen(QPen(MINE if mine else QColor(170, 170, 178), 1.8 * unit))
+                p.setBrush(MOB_DEAD)
+                p.drawEllipse(c, r, r)
+                seconds = None if left is None else left - now_left
+                text = "?" if seconds is None else "ya" if seconds <= 0 else \
+                    f"{int(seconds)} s" if seconds < 60 else f"{int(seconds) // 60}:{int(seconds) % 60:02d}"
+                self._label(p, c + QPointF(r + 3 * unit, 4 * unit), text, unit * 0.85,
+                            MOB if seconds is not None and seconds <= 0 else NEXT)
+                if seconds is not None:
+                    targets.append((max(0.0, seconds), x, y))
+            else:                                       # not seen yet / out of sight
+                p.setPen(QPen(MOB, 1.4 * unit))
+                p.setBrush(Qt.NoBrush)
+                p.drawEllipse(c, r * 0.8, r * 0.8)
+        if targets:                                     # alive first (nearest), else the one back soonest
+            wait, nx, ny = min(targets, key=lambda e: (e[0] > 0, e[0], math.dist((e[1], e[2]), me)))
+            target = at(nx, ny)
+            room = inner.adjusted(14 * unit, 14 * unit, -14 * unit, -14 * unit)
+            p.setPen(QPen(MOB, 2 * unit))
+            p.setBrush(Qt.NoBrush)
+            if room.contains(target):
+                p.drawLine(centre, target)
+                p.drawEllipse(target, 9 * unit, 9 * unit)
+            else:
+                edge = _to_edge(centre, target, room)
+                p.drawLine(centre, edge)
+                self._arrow(p, centre, edge, unit)
 
     def _arrow(self, p, start, tip, unit):
         angle = math.atan2(tip.y() - start.y(), tip.x() - start.x())
@@ -284,7 +367,7 @@ class MinimapOverlay(QWidget):
             p.setBrush(QColor(ROUTE.red(), ROUTE.green(), ROUTE.blue(), 210))
             p.drawEllipse(c, r * 0.8, r * 0.8)
 
-    def _label(self, p, at, text, unit):
+    def _label(self, p, at, text, unit, color=NEXT):
         font = QFont(self._font)
         font.setPixelSize(max(9, round(15 * unit)))
         path = QPainterPath()
@@ -293,7 +376,7 @@ class MinimapOverlay(QWidget):
         p.setBrush(Qt.NoBrush)
         p.drawPath(path)
         p.setPen(Qt.NoPen)
-        p.setBrush(NEXT)
+        p.setBrush(color)
         p.drawPath(path)
 
 

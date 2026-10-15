@@ -95,6 +95,18 @@ class PetsPanel(QWidget):
         for pid in state.flash_ids:
             if pid in self._rows:
                 self._rows[pid].flash()
+        self._mob_route(state, compact)
+        focus = bool(self.ctl.settings.get("pets_focus"))
+        toggle = label("◉ Modo Focus activo · quitar" if focus else "○ Modo Focus: tus pets junto a las misiones",
+                       self.fonts.name, theme.GAIN if focus else theme.ACCENT)
+        toggle.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        toggle.setCursor(Qt.PointingHandCursor)
+        toggle.setToolTip("Pone la lista de los pets que estás farmeando en el juego, justo debajo de tus misiones "
+                          "(bajo el minimapa) y con su mismo estilo: se mueve cuando la lista de misiones crece o "
+                          "se acorta. No sale en tus capturas ni en tus streams.")
+        toggle.on_click = lambda: self.ctl.set_pets_focus(not focus)
+        toggle.setContentsMargins(self.fonts.px(4), self.fonts.px(6), 0, 0)
+        self.content.addWidget(toggle)
         for text, tip, action in (("Ver toda la colección", "Todos los pets con tu progreso: subiendo, sin empezar y "
                                                             "al máximo, con buscador", self.ctl.open_collection),
                                   ("Pets exclusivos de cada lado", "Los pets que solo se farmean en el lado Asmodian "
@@ -136,6 +148,46 @@ class PetsPanel(QWidget):
         row.customContextMenuRequested.connect(lambda pos, w=row, pid=pet.pet_id: self._pet_menu(w, pid, pos))
         self._rows.setdefault(pet.pet_id, row)
         self.content.addWidget(row)
+
+    def _mob_route(self, state, compact):
+        """Ruta de mobs en el minimapa: on/off, and the zone's monsters to tick (the ones you kill join it)."""
+        f, ctl = self.fonts, self.ctl
+        route = ctl.settings.get("mob_route") or {}
+        on = bool(route.get("on"))
+        toggle = self._link("◉ Ruta de mobs en el minimapa · quitar" if on else
+                            "○ Ruta de mobs en el minimapa (se arma con lo que matas)",
+                            theme.GAIN if on else theme.ACCENT, lambda: ctl.set_mob_route(not on),
+                            "Dibuja sobre el minimapa del juego los spawns de los mobs que farmeas, una ruta por "
+                            "los más cercanos y cuántos segundos le faltan a cada uno muerto para reaparecer (lo "
+                            "aprende viéndolos; aro rosa: lo mataste tú, gris: otro jugador). Cada mob que matas "
+                            "entra solo; los de pets que ya tienes al máximo, no.")
+        toggle.setContentsMargins(f.px(4), f.px(6), 0, 0)
+        if not on:
+            return
+        chosen = set(ctl.mob_route_names())
+        mobs = list(dict.fromkeys(m for _, ms in state.nearby for m in ms if ctl.monster_needed(m)))
+        mobs += [m for m in chosen if m not in mobs]
+        for name in mobs[:4 if compact else 8]:
+            respawn = ctl.bridge.mobs.respawn(name)
+            spread = ctl.bridge.mobs.respawn_range(name)
+            when = ""
+            if respawn:
+                when = f" · reaparece en {respawn:.0f} s"
+                if spread and spread[1] > 1.6 * max(1.0, spread[0]):
+                    when = f" · reaparece en {spread[0]:.0f}–{spread[1]:.0f} s"
+            line = self._link(f"{'☑' if name in chosen else '☐'} {name}{when}",
+                              theme.TEXT if name in chosen else theme.MUTED, lambda n=name: ctl.toggle_mob(n),
+                              "Clic: meterlo en la ruta o sacarlo")
+            line.setContentsMargins(f.px(14), 0, 0, 0)
+
+    def _link(self, text, color, action, tip=""):
+        link = label(text, self.fonts.small, color)
+        link.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        link.setCursor(Qt.PointingHandCursor)
+        link.setToolTip(tip)
+        link.on_click = action
+        self.content.addWidget(link)
+        return link
 
     def _stats(self, state):
         f = self.fonts

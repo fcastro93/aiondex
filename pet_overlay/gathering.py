@@ -5,7 +5,8 @@ of the user's own world map, data/world_db.json, that metabot's pages do not hav
 - Areas: nodes closer than EPS x the typical distance between neighbours form an area (at least MIN_NODES).
 - Materials that monsters drop (meat, fruit, manastones): the nodes are those monsters' spawns, each weighted by
   its drop chance, so the recommended area is the one where the most drop chance stands.
-- Recommended: the area with the most nodes (drop chance) not marked as full of bots.
+- Recommended: the area with the most nodes (drop chance) not marked as full of bots. "Farmear aquí" picks another
+  one: its route is then the one drawn (map and minimap), per material and map.
 - Route: a loop through its nodes (nearest neighbour, then 2-opt), leaving out the nodes marked with bots.
 - Bot marks fade after BOT_DAYS: bots move.
 """
@@ -222,6 +223,29 @@ class Gathering:
         cutoff = time.time() - BOT_DAYS * 86400
         entry = self._store().get(name, {})
         return {k: [m for m in entry.get(k, []) if m[3] >= cutoff] for k in ("areas", "nodes")}
+
+    def chosen_area(self, name, map_id, areas):
+        """The area you chose to farm on this map ("Farmear aquí"), or None."""
+        spot = ((self.settings.get("crafting") or {}).get("farm_area") or {}).get(f"{family(name)}|{map_id}")
+        if not spot:
+            return None
+        return next((a for a in areas if math.dist(a.center, spot) <= MATCH * 3), None)
+
+    def farm_area(self, name, map_id, areas=None):
+        """The area whose route is drawn: the one you chose, else the recommended one (or None)."""
+        if areas is None:
+            areas = self.areas(name, map_id)[0]
+        return self.chosen_area(name, map_id, areas) or next((a for a in areas if not a.bots), None)
+
+    def choose_area(self, name, map_id, area):
+        """Farm this area (None: back to the recommended one)."""
+        farm = self.settings.setdefault("crafting", {}).setdefault("farm_area", {})
+        key = f"{family(name)}|{map_id}"
+        if area is None:
+            farm.pop(key, None)
+        else:
+            farm[key] = [round(c, 6) for c in area.center]
+        self.settings.save()
 
     def toggle_area(self, name, map_id, area):
         entry = self._store().setdefault(name, {"areas": [], "nodes": []})
