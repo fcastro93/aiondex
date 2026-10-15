@@ -113,6 +113,7 @@ class NodeTracker:
         self.spots = {}                              # (map, kind, x dm, y dm) -> Spot
         self.learned = learned if learned is not None else {}
         self.changed = False                         # learned something new (the UI saves it)
+        self.spots_changed = False                   # a spot never seen before
 
     def on_message(self, op, body, me, now=None):
         if op == MAP_ENTER:
@@ -167,6 +168,7 @@ class NodeTracker:
         spot = self.spots.get(key)
         if spot is None:
             spot = self.spots[key] = Spot(self.game_map, kind, x, y)
+            self.spots_changed = True
         if fresh and spot.used_at and spot.eid is None and now - spot.used_at < KEEP:
             samples = self.learned.setdefault(str(kind), {}).setdefault("respawn", [])
             samples.append(round(now - spot.used_at, 1))
@@ -197,6 +199,27 @@ class NodeTracker:
         with self.lock:
             return [(s.kind, s.x, s.y, s.state(now), s.used, s.used_at, s.new_at, s.mine)
                     for s in self.spots.values() if s.game_map == game_map]
+
+    def export(self):
+        """{game map: {kind: [[x, y, last seen]]}} of every spot, to keep for the next run."""
+        out = {}
+        with self.lock:
+            for s in self.spots.values():
+                if s.game_map is not None:
+                    out.setdefault(str(s.game_map), {}).setdefault(str(s.kind), []).append(
+                        [round(s.x, 1), round(s.y, 1), round(s.seen_at)])
+        return out
+
+    def load(self, saved):
+        """The spots kept from earlier runs (seen, not in sight now)."""
+        with self.lock:
+            for game_map, kinds in (saved or {}).items():
+                for kind, rows in kinds.items():
+                    for x, y, seen in rows:
+                        key = (int(game_map), int(kind), round(x * 10), round(y * 10))
+                        if key not in self.spots:
+                            spot = self.spots[key] = Spot(int(game_map), int(kind), x, y)
+                            spot.seen_at = seen
 
     def respawn(self, kind):
         """(typical, shortest, longest) seconds a spot of this kind took to get a new node, or None."""

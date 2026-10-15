@@ -99,8 +99,11 @@ async def _recognize(path):
     import os
     file = await StorageFile.get_file_from_path_async(os.path.abspath(str(path)).replace("/", "\\"))
     stream = await file.open_async(FileAccessMode.READ)
-    decoder = await BitmapDecoder.create_async(stream)
-    bitmap = await decoder.get_software_bitmap_async()
+    try:
+        decoder = await BitmapDecoder.create_async(stream)
+        bitmap = await decoder.get_software_bitmap_async()
+    finally:
+        stream.close()                  # else the file stays locked (the minimap reader deletes its own)
     engine = OcrEngine.try_create_from_language(Language("en-US")) or OcrEngine.try_create_from_user_profile_languages()
     result = await engine.recognize_async(bitmap)
     lines = []

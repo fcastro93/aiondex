@@ -9,8 +9,12 @@ whereami.py), so between the few messages that tell where you stand, the minimap
   colours and the light of the view cone), the icons and the ring around you masked out, then a normalized
   correlation by FFT (numpy). You are the minimap's centre. Its zoom (about 300 m across by default; the magnifier
   changes it) is searched once and then followed. Error against the game's exact positions: 6-7 m.
-- It runs on its own thread, about once a second, only while a map window is open, and skips a read when another
-  window (AionDex's own too) covers the minimap: it would read that window instead.
+- The camera's view cone: the minimap draws it as a lighter wedge with two white edges from the centre (about 115
+  degrees wide); the two strongest white rays are its edges and the lighter side between them is the cone.
+- It runs on its own thread, about once a second (three times with the route drawn over the minimap), only while
+  a map window or the route over the minimap is on, and skips a read when another window (AionDex's own too)
+  covers the minimap: it would read that window instead. The route's window over the minimap is left out of
+  screen captures (SetWindowDisplayAffinity), so it does not get in the way.
 """
 import ctypes
 import logging
@@ -38,6 +42,8 @@ ACROSS = 296.0                   # metres the minimap shows across at its defaul
 MIN_SCORE = 0.32                 # a match below this is not trusted
 LOCATE_EVERY = 15.0              # seconds between two looks for the minimap (it moves only with the UI)
 READ_EVERY = 1.0
+READ_FAST = 0.33                 # with the route drawn over the minimap
+TRACK_MOSAIC = 560               # pixels searched while following you second by second
 PER_MONITOR_AWARE_V2 = -4
 
 
@@ -112,9 +118,10 @@ def game_window(pids):
     return hwnd, (point.x, point.y, point.x + rect.right, point.y + rect.bottom)
 
 
-def covered(game_hwnd, rect):
+def covered(game_hwnd, rect, ignore=()):
     """Whether something other than the game shows over rect (screen pixels): any window at its corners or centre,
-    or one of AionDex's own windows over any part of it (they can be click-through)."""
+    or one of AionDex's own windows over any part of it (they can be click-through). ignore: windows that screen
+    captures leave out (the route over the minimap)."""
     user32 = ctypes.windll.user32
     user32.WindowFromPoint.restype = wintypes.HWND
     user32.GetAncestor.restype = wintypes.HWND
@@ -122,7 +129,8 @@ def covered(game_hwnd, rect):
     for x, y in ((left + 3, top + 3), (right - 3, top + 3), (left + 3, bottom - 3), (right - 3, bottom - 3),
                  ((left + right) // 2, (top + bottom) // 2)):
         hwnd = user32.WindowFromPoint(wintypes.POINT(x, y))
-        if hwnd and user32.GetAncestor(hwnd, 2) != game_hwnd:            # GA_ROOT
+        root = user32.GetAncestor(hwnd, 2) if hwnd else None              # GA_ROOT
+        if hwnd and root != game_hwnd and root not in ignore:
             return True
     mine = os.getpid()
     hits = []
@@ -132,7 +140,7 @@ def covered(game_hwnd, rect):
         if user32.IsWindowVisible(hwnd) and not user32.IsIconic(hwnd):
             pid = wintypes.DWORD()
             user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
-            if pid.value == mine:
+            if pid.value == mine and hwnd not in ignore:
                 r = wintypes.RECT()
                 user32.GetWindowRect(hwnd, ctypes.byref(r))
                 if r.left < right and r.right > left and r.top < bottom and r.bottom > top:
@@ -152,6 +160,39 @@ def band(image):
     a = np.asarray(grey.filter(ImageFilter.GaussianBlur(2)), dtype=np.float32)
     b = np.asarray(grey.filter(ImageFilter.GaussianBlur(15)), dtype=np.float32)
     return a - b
+
+
+def view_cone(shot):
+    """(direction, width) in degrees of the camera cone the minimap draws (screen angles: 0 east, 90 south), or
+    None when its edges are not clear."""
+    np = _np()
+    a = np.asarray(shot.convert("RGB"), dtype=np.float32)
+    grey = a.mean(axis=2)
+    h, w = grey.shape
+    white = (grey > 215) & (a.max(axis=2) - a.min(axis=2) < 40)
+    radii = np.linspace(0.2 * h, 0.5 * h, 40)
+    angles = np.radians(np.arange(720) / 2)[:, None]                   # every half degree
+    xs = np.clip((w / 2 + np.cos(angles) * radii).astype(int), 0, w - 1)
+    ys = np.clip((h / 2 + np.sin(angles) * radii).astype(int), 0, h - 1)
+    hits = white[ys, xs].mean(axis=1)
+    hits = np.maximum(hits, np.maximum(np.roll(hits, 1), np.roll(hits, -1)))     # a line a little off a ray
+    light = grey[ys, xs].mean(axis=1)
+    first = int(np.argmax(hits))
+    others = hits.copy()
+    others[[(first + d) % 720 for d in range(-80, 81)]] = -1                     # at least 40 degrees apart
+    second = int(np.argmax(others))
+    if hits[first] < 0.25 or hits[second] < 0.25:
+        return None
+    sides = []
+    for start, end in ((first, second), (second, first)):
+        span = (end - start) % 720
+        arc = [(start + i) % 720 for i in range(span + 1)]
+        sides.append((float(light[arc].mean()), start, span))
+    (lit, start, span), (dark, _, _) = max(sides), min(sides)
+    width = span / 2
+    if lit - dark < 8 or not 60 <= width <= 170:
+        return None
+    return (start / 2 + width / 2) % 360, width
 
 
 def mask(image):
@@ -258,12 +299,13 @@ class MinimapReader:
     """Reads the minimap on its own thread while wanted() is true and puts what it finds in `position`
     (whereami.OwnPosition). status: what the map windows show about it."""
 
-    def __init__(self, tiles_dir, position, game_pids, wanted, zone_spot=None):
+    def __init__(self, tiles_dir, position, game_pids, wanted, zone_spot=None, zone_map=None):
         self.tiles = Tiles(tiles_dir)
         self.position = position
         self.game_pids = game_pids
         self.wanted = wanted
         self.zone_spot = zone_spot          # (zone name, metabot map) -> (u, v) or None: where to look first
+        self.zone_map = zone_map            # zone name -> game map id or None: the map, when AionDex missed its entry
         self.status = ""
         self.zone = None                    # the minimap's title
         self._box = None                    # (box in screen pixels, bar height)
@@ -276,6 +318,10 @@ class MinimapReader:
         self._stop = threading.Event()
         self._thread = None
         self.available = _numpy_ok()
+        self.fast = False                   # read three times a second (the route over the minimap is on)
+        self.ignore = set()                 # windows left out of screen captures (the route over the minimap)
+        self._ppm = None                    # world pixels per metre of the map being read
+        self._seen = 0.0                    # when the minimap was last matched
 
     def start(self):
         if self._thread is None and self.available:
@@ -291,7 +337,7 @@ class MinimapReader:
         user32.SetThreadDpiAwarenessContext.argtypes = [ctypes.c_void_p]
         user32.SetThreadDpiAwarenessContext(ctypes.c_void_p(PER_MONITOR_AWARE_V2))
         failed = False
-        while not self._stop.wait(READ_EVERY):
+        while not self._stop.wait(READ_FAST if self.fast else READ_EVERY):
             if not self.wanted():
                 continue
             try:
@@ -306,25 +352,32 @@ class MinimapReader:
         from PIL import ImageGrab
         now = now or time.time()
         game_map = self.position.game_map
-        map_id = GAME_MAPS.get(game_map)
-        if map_id is None or game_map not in SPAN:
-            self.status = ""
+        if game_map is not None and (GAME_MAPS.get(game_map) is None or game_map not in SPAN):
+            self.status = ""                     # a dungeon or another map the windows do not draw
             return None
         game = game_window(self.game_pids())
         if game is None:
             self.status = "Minimapa: no veo la ventana del juego"
             return None
         hwnd, client = game
-        if self._box is None or now - self._located > LOCATE_EVERY or self._misses >= 4:
+        if game_map is None or self._box is None or now - self._located > LOCATE_EVERY or self._misses >= 4:
             left, top, right, bottom = client
             corner = (left + (right - left) * 3 // 4, top, right, top + (bottom - top) // 4)
-            if covered(hwnd, corner):
+            if covered(hwnd, corner, self.ignore):
                 self.status = "Minimapa: otra ventana tapa esa parte del juego"
                 return None
             if not self._locate(client, now):
                 return None
+        if game_map is None:                     # AionDex started after the game's last map entry: by the zone
+            game_map = self.zone_map(self.zone) if self.zone_map and self.zone else None
+            if game_map is None:
+                self.status = ""                 # a zone of no world map AionDex draws (a dungeon...)
+                return None
+            if self.position.game_map is None:
+                self.position.game_map = game_map
+        map_id = GAME_MAPS[game_map]
         box, unit = self._box
-        if covered(hwnd, box):
+        if covered(hwnd, box, self.ignore):
             self.status = "Minimapa: algo lo tapa (¿una ventana de AionDex?)"
             return None
         inset = round(INSET * (box[3] - box[1]))
@@ -337,7 +390,11 @@ class MinimapReader:
             return None
         self._misses = 0
         x, y, score = found
+        self._seen = now
         self.position.set_fix(now, x, y, exact=False, source="minimapa")
+        cone = view_cone(shot)
+        if cone:
+            self.position.cone = (now, *cone)
         self.status = ""
         return x, y, score
 
@@ -348,7 +405,7 @@ class MinimapReader:
         left, top, right, bottom = client
         region = (left + (right - left) // 2, top, right, top + (bottom - top) // 2)
         quarter = ImageGrab.grab(bbox=region, all_screens=True).convert("RGB")
-        path = Path(tempfile.gettempdir()) / "aiondex_minimap.png"
+        path = Path(tempfile.gettempdir()) / f"aiondex_minimap_{os.getpid()}_{int(now * 1000)}.png"
         quarter.save(path)
         try:
             lines, _, _ = market_ocr.recognize(path)
@@ -389,14 +446,16 @@ class MinimapReader:
         else:
             return None
         wx, wy = (cx / span + 0.5) * world, (cy / span + 0.5) * world
-        size = MOSAIC if reach < 300 else 2 * MOSAIC
+        size = TRACK_MOSAIC if reach < 100 and self._scale else MOSAIC if reach < 300 else 2 * MOSAIC
         if (self._area is None or self._area_map != map_id or self._area.size != size or
                 not self._area.contains(wx, wy, size * 0.3)):
             self._area, self._area_map = self.tiles.area(map_id, wx, wy, size), map_id
         expected = (shot.size[0] / (1 - 2 * INSET)) / (ACROSS * ppm)     # minimap px per world px at default zoom
         self._reads += 1
-        if self._scale is None:
-            scales = [expected * k for k in (0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.25, 1.4, 1.6, 1.8, 2.0)]
+        if self._scale is None:                              # the default zoom first, then the others
+            scales = [expected * k for k in (0.85, 0.95, 1.05, 1.15)]
+            if self._misses:
+                scales = [expected * k for k in (0.5, 0.6, 0.7, 0.8, 1.3, 1.5, 1.75, 2.0)]
         elif self._reads % 10 == 0 or self._misses:          # now and then, whether the zoom changed a little
             scales = [self._scale * k for k in (0.96, 1.0, 1.04)]
         else:
@@ -413,7 +472,7 @@ class MinimapReader:
             if self._scale is not None and self._misses >= 2:
                 self._scale = None
             return None
-        self._scale = scale
+        self._scale, self._ppm = scale, ppm
         return round(float(x), 1), round(float(y), 1), round(score, 3)
 
 
@@ -423,3 +482,12 @@ def _numpy_ok():
         return True
     except ImportError:
         return False
+
+
+def overlay_geometry(reader, now=None):
+    """(minimap box in screen pixels, minimap pixels per metre) while the minimap is being read, else None."""
+    if reader._box is None or reader._scale is None or reader._ppm is None:
+        return None
+    if (now or time.time()) - reader._seen > 5:
+        return None
+    return reader._box[0], reader._scale * reader._ppm

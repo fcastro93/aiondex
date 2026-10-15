@@ -52,6 +52,7 @@ class OwnPosition:
         self.game_map = None
         self.fix = None               # (time, x m, y m, exact, source "juego" | "minimapa")
         self.objects = {}             # entity -> (x, y) of the objects around (gathering nodes)
+        self.cone = None              # (time, direction, width) of the camera's view cone (from the minimap)
 
     def on_message(self, op, body, me, now=None):
         """One server message; me: your entity id (None until known)."""

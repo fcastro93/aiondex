@@ -3,7 +3,7 @@ import math
 import time
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
-from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QPen
+from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QPen, QRadialGradient
 from PySide6.QtWidgets import QGraphicsEllipseItem, QGraphicsItem, QGraphicsScene, QGraphicsView, QPushButton
 
 from ..mapdata import MAP_NAMES
@@ -14,6 +14,8 @@ WORLD = 256.0 * 2 ** MAX_ZOOM   # scene units: normalized map coords * WORLD
 BASE_ZOOM = 2                   # always-loaded low-res layer so the map never shows holes
 YOU = QColor("#ff5cf0")         # your position: a colour no other marker uses
 FRESH = 20                      # seconds a position counts as "now"
+CONE_R = 58                     # pixels of the view cone around you
+CONE_FRESH = 6                  # seconds the cone read from the minimap is shown
 LOCATE_SPAN = 0.03              # how much of the map (normalized) "Dónde estoy" shows around you
 
 
@@ -69,13 +71,23 @@ class YouMarker(QGraphicsItem):
         self.setZValue(900)
         self.setAcceptHoverEvents(True)
         self.fresh = True
+        self.cone = None                 # (direction, width) in degrees, screen angles (0 east, 90 south)
         self.font = QFont("Segoe UI", 9, QFont.Bold)
 
     def boundingRect(self):
-        return QRectF(-30, -30, 70, 60)
+        return QRectF(-CONE_R - 2, -CONE_R - 2, 2 * CONE_R + 40, 2 * CONE_R + 4)
 
     def paint(self, p, _option, _widget=None):
         p.setRenderHint(QPainter.Antialiasing)
+        if self.cone:                                          # where the camera looks, as in the game's minimap
+            direction, width = self.cone
+            fill = QRadialGradient(QPointF(0, 0), CONE_R)
+            fill.setColorAt(0.0, QColor(YOU.red(), YOU.green(), YOU.blue(), 170))
+            fill.setColorAt(1.0, QColor(YOU.red(), YOU.green(), YOU.blue(), 20))
+            p.setPen(QPen(QColor(255, 255, 255, 170), 1.2))
+            p.setBrush(fill)
+            box = QRectF(-CONE_R, -CONE_R, 2 * CONE_R, 2 * CONE_R)
+            p.drawPie(box, round(-(direction + width / 2) * 16), round(width * 16))
         if self.fresh:
             k = (time.time() % 1.6) / 1.6                       # the halo grows and fades every 1.6 s
             halo = QColor(YOU)
@@ -265,9 +277,12 @@ class MapView(QGraphicsView):
         self._refresh.start()
 
     # --- you -------------------------------------------------------------------------------
-    def set_you(self, point, tip="", fresh=True, away=None):
+    def set_you(self, point, tip="", fresh=True, away=None, cone=None):
         """Your position (normalized) on the map shown, or None. away: (map name, callback) when you are on another
-        map the window has a tab for: the button then takes you there."""
+        map the window has a tab for: the button then takes you there. cone: (direction, width) of the camera."""
+        if cone != self.you.cone:
+            self.you.cone = cone
+            self.you.update()
         moved = point is not None and point != self.you_point
         self.you_point, self._away = point, away
         if point is None:
@@ -335,8 +350,9 @@ def show_you(view, ctl, map_id, tab_maps, go_to_tab):
     status = getattr(ctl, "minimap_status", lambda: "")()
     if status:
         tip += "\n" + status
+    view_cone = getattr(ctl, "view_cone", lambda: None)()
     if spot == map_id:
-        view.set_you((u, v), tip, fresh=age < FRESH)
+        view.set_you((u, v), tip, fresh=age < FRESH, cone=view_cone)
     elif spot in tab_maps:
         index = tab_maps.index(spot)
         view.set_you(None, tip, away=(MAP_NAMES.get(spot, spot).split(" (")[0], lambda: go_to_tab(index)))

@@ -85,8 +85,8 @@ class LiveNode(QGraphicsItem):
             p.setPen(QPen(QColor(255, 255, 255, 240), 2))
             p.setBrush(LIVE)
             p.drawEllipse(QPointF(0, 0), r, r)
-        elif self.state == "used":
-            p.setPen(QPen(QColor(255, 255, 255, 200), 1.5))
+        elif self.state in ("used", "empty"):
+            p.setPen(QPen(QColor(255, 255, 255, 200), 1.5, Qt.SolidLine if self.state == "used" else Qt.DashLine))
             p.setBrush(QColor(52, 58, 74, 235))
             p.drawEllipse(QPointF(0, 0), r + 1, r + 1)
             if self.progress is not None:
@@ -126,6 +126,7 @@ class GatherMapWindow(QWidget):
         self._maps = []                   # [(map id, has points)] in the tabs
         self._items = []                  # scene items other than the markers (areas, route, labels)
         self._live = []                   # the nodes the game shows around you
+        self._checks_seen = 0             # spot_checks_version drawn
         self.setObjectName("MapWindow")
         self.setWindowIcon(ctl.app_icon)
         self.setStyleSheet(STYLE + EXTRA_STYLE + SIDE_STYLE)
@@ -191,6 +192,16 @@ class GatherMapWindow(QWidget):
         self.live_label.setWordWrap(True)
         self.live_label.hide()
         sv.addWidget(self.live_label)
+        self.on_minimap = QCheckBox("Ruta en el minimapa del juego")
+        self.on_minimap.setToolTip(
+            "Dibuja sobre el minimapa del juego la ruta recomendada de este material, sus nodos (verde: a la vista; "
+            "X: agotado o vacío) y una línea al siguiente con su distancia.\nSigue aunque minimices o cierres esta "
+            "ventana; desmárcalo para quitarlo. Necesita ver el minimapa (que nada lo tape), y no sale en tus "
+            "capturas ni streams.")
+        self.on_minimap.setChecked(bool(self.ctl.settings.get("crafting", {}).get("minimap_route")))
+        self.on_minimap.toggled.connect(self._minimap_toggled)
+        self.on_minimap.setVisible(getattr(getattr(ctl, "minimap", None), "available", False))
+        sv.addWidget(self.on_minimap)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -211,6 +222,8 @@ class GatherMapWindow(QWidget):
     # --- public ---
     def show_material(self, name):
         self.material = name
+        if self.on_minimap.isChecked() and hasattr(self.ctl, "route_on_minimap"):
+            self.ctl.route_on_minimap(name)
         verb = "conseguir" if self.gathering.is_drop(name) else "recolectar"
         self.setWindowTitle(f"{APP_NAME} — Dónde {verb} {name}")
         faction = self.ctl.crafting_faction()
@@ -236,6 +249,12 @@ class GatherMapWindow(QWidget):
             self._panel([], [], [])
             return
         self._fill_tabs()
+
+    def _minimap_toggled(self, on):
+        self.ctl.settings.setdefault("crafting", {})["minimap_route"] = on
+        self.ctl.settings.save()
+        if hasattr(self.ctl, "route_on_minimap"):
+            self.ctl.route_on_minimap(self.material if on else None)
 
     def _pick_side(self, side):
         self.side = side
@@ -299,8 +318,12 @@ class GatherMapWindow(QWidget):
             self.view.scene().removeItem(item)
         self._live = []
         live = self.ctl.live_nodes(self.map_id, self.material) if hasattr(self.ctl, "live_nodes") else []
+        version = getattr(self.ctl, "spot_checks_version", 0)
+        if version != self._checks_seen:            # a point confirmed or doubted: redraw them
+            self._checks_seen = version
+            self.refresh()
         now = time.time()
-        up = used = 0
+        up = used = gone = 0
         soonest = None
         for u, v, state, charges, used_at, new_at, mine, respawn in live:
             fresh = state == "up" and new_at is not None and now - new_at < NEW_FOR
@@ -310,23 +333,31 @@ class GatherMapWindow(QWidget):
                 left = 3 - charges
                 text = "¡nuevo!" if fresh else f"{left}/3" if charges else ""
                 tip = (f"{self.material}: disponible, {left} de 3 cargas" + (" · acaba de aparecer" if fresh else ""))
-            elif state == "used":
-                used += 1
+            elif state in ("used", "empty"):
                 since = now - used_at
+                if state == "used":
+                    used += 1
+                    tip = f"Agotado hace {clock(since)}."
+                else:
+                    gone += 1
+                    tip = (f"Vacío: pasaste cerca hace {clock(since)} y no estaba (alguien lo recolectó antes; "
+                           f"desde cuándo, no se sabe).")
                 if respawn:
                     typical, low, high = respawn
                     progress = since / typical
-                    text = f"~{clock(typical - since)}" if since < typical else "ya?"
-                    tip = (f"Agotado hace {clock(since)}. Aquí suele salir otro en ~{clock(typical)} (lo visto: entre "
-                           f"{clock(low)} y {clock(high)}); se pone verde en cuanto aparezca, si estás cerca.")
+                    text = (f"~{clock(typical - since)}" if since < typical else "ya?") + (" vacío" if state == "empty"
+                                                                                            else "")
+                    tip += (f" Aquí suele salir otro en ~{clock(typical)} (lo visto: entre {clock(low)} y "
+                            f"{clock(high)}); se pone verde en cuanto aparezca, si estás cerca.")
                     if since < typical:
                         soonest = min(soonest or 1e9, typical - since)
                 else:
-                    text = clock(since)
-                    tip = f"Agotado hace {clock(since)}. Aún no sé cuánto tarda en salir otro aquí: lo voy aprendiendo."
+                    text = "vacío" if state == "empty" else clock(since)
+                    tip += " Aún no sé cuánto tarda en salir otro aquí: lo voy aprendiendo."
             else:
                 text = ""
-                tip = f"{self.material}: ya no está a la vista (te alejaste); no sé si sigue ahí."
+                tip = (f"Punto de {self.material} que viste en el juego (metabot puede no tenerlo); ahora no está a "
+                       f"la vista, no sé si sigue ahí.")
             if mine:
                 tip += "\nLo recolectaste tú."
             item = LiveNode(state, text, progress, fresh, mine)
@@ -335,13 +366,15 @@ class GatherMapWindow(QWidget):
             item.setToolTip(tip)
             self.view.scene().addItem(item)
             self._live.append(item)
-        if up or used:
+        if up or used or gone:
             bits = [f"{up} disponible{'s' if up != 1 else ''}"] if up else []
             if used:
-                bits.append(f"{used} agotado{'s' if used != 1 else ''}" +
-                            (f" (el próximo en ~{clock(soonest)})" if soonest else ""))
-            self.live_label.setText("En vivo cerca de ti: " + " · ".join(bits))
-        self.live_label.setVisible(bool(up or used))
+                bits.append(f"{used} agotado{'s' if used != 1 else ''}")
+            if gone:
+                bits.append(f"{gone} vacío{'s' if gone != 1 else ''}")
+            self.live_label.setText("En vivo cerca de ti: " + " · ".join(bits) +
+                                    (f" (el próximo en ~{clock(soonest)})" if soonest else ""))
+        self.live_label.setVisible(bool(up or used or gone))
 
     # --- drawing ---
     def refresh(self, refocus=False):
@@ -404,8 +437,21 @@ class GatherMapWindow(QWidget):
         self._items = []
 
     def _node(self, p, color, radius, tip):
+        check = self.ctl.spot_check(self.map_id, p) if hasattr(self.ctl, "spot_check") else None
+        if check and check[0] == "real":
+            tip += f"\nConfirmado con tu personaje: había un nodo ({check[1]} {'vez' if check[1] == 1 else 'veces'})."
+        elif check:
+            tip += (f"\nDudoso: pasaste {check[1]} veces (en momentos distintos) y nunca hubo un nodo aquí; "
+                    f"puede que este punto no exista.")
         m = NodeMarker(p[0], p[1], color, radius, tip, on_click=lambda q=p: self.view.center_on_norm(*q),
                        on_right=lambda q=p: self._toggle_node(q))
+        if check and check[0] == "dudoso":
+            m.base_pen = QPen(QColor(255, 255, 255, 200), 1.4, Qt.DashLine)
+            m.setPen(m.base_pen)
+            m.setBrush(QBrush(QColor(color.red(), color.green(), color.blue(), 60)))
+        elif check:
+            m.base_pen = QPen(QColor(255, 255, 255, 235), 1.8)
+            m.setPen(m.base_pen)
         m.setZValue(200)
         self.view.scene().addItem(m)
         self.view.markers.append(m)
@@ -525,6 +571,16 @@ class GatherMapWindow(QWidget):
                 f"Desmarca «Solo lo abierto ahora» para verlos."))
             self.panel.addStretch(1)
             return
+        if hasattr(self.ctl, "spot_check") and self.map_id:
+            points = [p for m in g.info(self.material).get("maps", []) if m["map"] == self.map_id for p in m["points"]]
+            checks = [self.ctl.spot_check(self.map_id, p) for p in points]
+            real = sum(1 for c in checks if c and c[0] == "real")
+            doubt = sum(1 for c in checks if c and c[0] == "dudoso")
+            if real or doubt:
+                self.panel.addWidget(self._hint(
+                    f"Comprobado con tu personaje en este mapa: {real} punto{'s' if real != 1 else ''} con nodo"
+                    + (f" · {doubt} dudoso{'s' if doubt != 1 else ''} (nunca hubo nodo al pasar; borde punteado)"
+                       if doubt else "") + "."))
         for region, map_id, nodes, zone_names in g.side_regions(self.material, faction):
             line = label(f"{region}: {nodes} nodos · {', '.join(zone_names)}", f.small, theme.TEXT)
             line.setWordWrap(True)

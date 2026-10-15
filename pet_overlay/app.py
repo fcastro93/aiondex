@@ -131,6 +131,11 @@ WORLD_REGIONS = {1010: "Verteron", 1110: "Altgard"}      # open-world map ids (2
 SEAL_REGIONS = {310: "Verteron", 320: "Altgard"}         # sealed dungeons: Seal_Verteron 3100NN, Seal_Altgard 3200NN
 
 
+EMPTY_RADIUS = 35          # metres: closer than this to a gathering spot, its node would be on screen
+EMPTY_KEEP = 3600          # seconds a spot found empty is remembered
+CHECK_GAP = 600            # seconds between two visits that count for a gathering point
+DOUBT_AFTER = 3            # visits finding one of metabot's points empty (and never a node) to doubt it
+
 class Bridge(QObject):
     """Moves parsed game messages from the capture thread to the UI thread."""
     snapshot = Signal(object)
@@ -493,6 +498,9 @@ class Controller(QObject):
         self.health.install_log_handler()
         self.bridge = Bridge(self._make_tracker(), self.health)
         self.bridge.nodes.learned = json.loads(json.dumps(self.settings.get("gather_nodes") or nodes.SEED))
+        self.bridge.nodes.load(self.settings.get("gather_spots"))
+        self.spot_checks = self.settings.setdefault("gather_checks", {})   # map -> point -> [up, empty, last]
+        self.spot_checks_version = 0
         self._nodes_timer = QTimer(self, interval=30_000, timeout=self._save_nodes)
         self._nodes_timer.start()
         self.bridge.snapshot.connect(self.on_snapshot)
@@ -575,11 +583,14 @@ class Controller(QObject):
         QTimer.singleShot(20_000, self.sync_market)
         self.gathering = Gathering(self.data_dir, self.settings)
         self.gather_window = None
+        self._empty_spots = {}                  # (map, u, v) -> when you found that gathering spot empty
+        self.minimap_overlay = None             # the route drawn over the game's minimap
+        self._near_spots = {}                   # (map, u, v) -> since when you are close to it
         from .minimap import MinimapReader
         from .sniffer import game_pids
         self.minimap_wanted_until = 0.0         # the map windows keep this ahead while they are open
         self.minimap = MinimapReader(self.data_dir / "tiles", self.bridge.position, game_pids,
-                                     lambda: time.time() < self.minimap_wanted_until, self._zone_spot)
+                                     lambda: time.time() < self.minimap_wanted_until, self._zone_spot, self._zone_map)
         self.minimap.start()
         self._ocr = OcrWorker(self.crafting)
         self._ocr.read.connect(self._shot_read)
@@ -1401,7 +1412,7 @@ class Controller(QObject):
             "roster": {n: list(v) for n, v in self._roster_info.items() if n in group},
             "stats": {n: list(v) for n, v in self.member_stats.items() if n in group or n == me},
             "eids": {str(e): n for e, n in self.combat.players.items() if n in group and e != self.combat.self_eid},
-            "own_cp": self.own_cp}
+            "own_cp": self.own_cp, "position": list(self.bridge.position.fix or [])}
         self._save_settings()
 
     def _restore_session(self):
@@ -1420,6 +1431,13 @@ class Controller(QObject):
         if session.get("map_id") is not None:
             self.combat.on_map(session["map_id"])
             self.bridge.moves.set_map(session["map_id"])
+            # the map windows' "you" and the minimap need the map: the game says it only on the next map entry
+            position = self.bridge.position
+            if position.game_map is None:
+                position.game_map = self.bridge.nodes.game_map = session["map_id"]
+                fix = session.get("position")
+                if fix and len(fix) == 5 and position.fix is None:
+                    position.fix = tuple(fix)
         self._party_names, self._force_names = list(session.get("party", [])), list(session.get("force", []))
         self._roster_info.update({n: tuple(v) for n, v in session.get("roster", {}).items()})
         self.member_stats.update({n: tuple(v) for n, v in session.get("stats", {}).items()})
@@ -1748,49 +1766,138 @@ class Controller(QObject):
         self.minimap_wanted_until = time.time() + 3
         return self.bridge.position.where()
 
+    def route_on_minimap(self, material):
+        """Draw a material's route over the game's minimap (None: stop)."""
+        if self.minimap_overlay is None:
+            if material is None:
+                return
+            from .ui.minimapoverlay import MinimapOverlay
+            self.minimap_overlay = MinimapOverlay(self)
+        self.minimap_overlay.set_material(material)
+
+    def view_cone(self):
+        """(direction, width) of the camera's view cone read from the minimap a moment ago, or None."""
+        from .ui.mapview import CONE_FRESH
+        cone = self.bridge.position.cone
+        return cone[1:] if cone and time.time() - cone[0] < CONE_FRESH else None
+
     def minimap_status(self):
         return self.minimap.status if self.minimap.available else ""
 
     def live_nodes(self, map_id, material):
-        """The nodes of a material the game shows around you on a metabot map, live:
-        [(u, v, state "up" | "used" | "unknown", charges used, used up at, appeared at, gathered by you,
-        (typical, shortest, longest) respawn seconds or None)]."""
+        """The nodes of a material around you on a metabot map, live: [(u, v, state, charges used, since, appeared at,
+        gathered by you, (typical, shortest, longest) respawn seconds or None)]. state: "up" (the game shows it),
+        "used" (used up, since = when), "empty" (you passed close and it was not there: someone took it, since = when
+        you noticed) or "unknown" (seen before, out of sight now)."""
         from .gathering import family
-        from .whereami import to_map
+        from .whereami import SPAN, to_map
         tracker = self.bridge.nodes
         game_map = next((g for g, m in GAME_MAPS.items() if m == map_id), None)
         if game_map is None or not material:
             return []
+        now = time.time()
         wanted = family(material)
         names = self.crafting.inventory.ids
-        points = None
-        out = []
+        points = [(p[0], p[1]) for m in self.gathering.info(material).get("maps", []) if m["map"] == map_id
+                  for p in m["points"]]
+        near = 4.0 / SPAN[game_map]                             # the same spot: 4 m
+        out, ups, kinds = [], [], set()
         for kind, x, y, state, used, used_at, new_at, mine in tracker.spots_on(game_map):
             spot = to_map(game_map, x, y)
             if spot is None:
                 continue
+            if state == "up":
+                ups.append(spot[1:])
             entry = tracker.learned.get(str(kind), {})
             name = names.get(entry.get("item")) or entry.get("name")
             if name is None:                 # not gathered yet: a metabot point of this material right there
-                if points is None:
-                    points = [p for m in self.gathering.info(material).get("maps", []) if m["map"] == map_id
-                              for p in m["points"]]
-                if any(abs(p[0] - spot[1]) < 4e-4 and abs(p[1] - spot[2]) < 4e-4 for p in points):
+                if any(abs(p[0] - spot[1]) < near and abs(p[1] - spot[2]) < near for p in points):
                     with tracker.lock:
                         tracker.learned.setdefault(str(kind), {})["name"] = wanted
                         tracker.changed = True
                     name = wanted
             if name and family(name) == wanted:
-                out.append((spot[1], spot[2], state, used, used_at, new_at, mine, tracker.respawn(kind)))
-        return out
+                kinds.add(kind)
+                out.append([spot[1], spot[2], state, used, used_at, new_at, mine, tracker.respawn(kind)])
+        respawn = next((r for r in (tracker.respawn(k) for k in kinds) if r), None)
+        # the spots you pass close to: a node there would have come (the game sends them from ~50 m)
+        known = [(e[0], e[1]) for e in out] + [p for p in points if not any(
+            abs(p[0] - e[0]) < near and abs(p[1] - e[1]) < near for e in out)]
+        empty = self._empty_spots
+        for key in [k for k in empty if any(abs(k[1] - u) < near and abs(k[2] - v) < near for u, v in ups)]:
+            del empty[key]                   # a node is back there
+        fix, close_by = self.bridge.position.fix, set()
+        if fix and now - fix[0] < 3 and self.bridge.position.game_map == game_map:
+            me = to_map(game_map, fix[1], fix[2])
+            reach = EMPTY_RADIUS / SPAN[game_map]
+            metabot = set(points)
+            for u, v in known:
+                if (u - me[1]) ** 2 + (v - me[2]) ** 2 > reach ** 2:
+                    continue
+                key = (map_id, round(u, 5), round(v, 5))
+                close_by.add(key)
+                first = self._near_spots.setdefault(key, now)
+                if now - first < 2:
+                    continue
+                up_here = any(abs(u - a) < near and abs(v - b) < near for a, b in ups)
+                if (u, v) in metabot:
+                    self._check_spot(map_id, u, v, up_here, now)
+                if not up_here and key not in empty:
+                    empty[key] = now
+        self._near_spots = {k: v for k, v in self._near_spots.items() if k in close_by}
+        for key in [k for k, when in empty.items() if now - when > EMPTY_KEEP]:
+            del empty[key]
+        for e in out:                        # a spot seen before, found empty now
+            key = (map_id, round(e[0], 5), round(e[1], 5))
+            if e[2] == "unknown" and key in empty:
+                e[2], e[4] = "empty", empty[key]
+        listed = {(round(e[0], 5), round(e[1], 5)) for e in out}
+        for (m, u, v), when in empty.items():
+            if m == map_id and (u, v) not in listed and any(abs(p[0] - u) < near and abs(p[1] - v) < near
+                                                             for p in points):
+                out.append([u, v, "empty", 0, when, None, False, respawn])
+        return [tuple(e) for e in out]
+
+    def _check_spot(self, map_id, u, v, up, now):
+        """What your character found at one of metabot's points: a node (it is real) or none (once per visit)."""
+        entry = self.spot_checks.setdefault(map_id, {}).setdefault(f"{u:.6f},{v:.6f}", [0, 0, 0])
+        if up and entry[0] == 0 or now - entry[2] >= CHECK_GAP:
+            entry[0 if up else 1] += 1
+            entry[2] = round(now)
+            self.spot_checks_version += 1
+            self._checks_dirty = True
+
+    def spot_check(self, map_id, point):
+        """("real", times seen) | ("dudoso", times found empty) | None for one of metabot's points."""
+        entry = self.spot_checks.get(map_id, {}).get(f"{point[0]:.6f},{point[1]:.6f}")
+        if not entry:
+            return None
+        if entry[0]:
+            return "real", entry[0]
+        return ("dudoso", entry[1]) if entry[1] >= DOUBT_AFTER else None
 
     def _save_nodes(self):
         tracker = self.bridge.nodes
+        save = False
         if tracker.changed:
             with tracker.lock:
                 self.settings["gather_nodes"] = json.loads(json.dumps(tracker.learned))
                 tracker.changed = False
+            save = True
+        if tracker.spots_changed:
+            tracker.spots_changed = False
+            self.settings["gather_spots"] = tracker.export()
+            save = True
+        if getattr(self, "_checks_dirty", False):
+            self._checks_dirty = False
+            save = True
+        if save:
             self._save_settings()
+
+    def _zone_map(self, name):
+        """The game map (of the ones the map windows draw) whose zone the minimap's title names, or None."""
+        found = [g for g, m in GAME_MAPS.items() if self._zone_spot(name, m)]
+        return found[0] if len(found) == 1 else None
 
     def _zone_spot(self, name, map_id):
         """(u, v) of a zone on a metabot map, from its name as the minimap's title writes it (capture thread)."""
@@ -2258,6 +2365,8 @@ class Controller(QObject):
 
     def quit(self):
         log.info("AionDex closing")
+        if self.minimap_overlay is not None:
+            self.minimap_overlay.set_material(None)
         self.minimap.stop()
         self._save_nodes()
         self._save_session()
