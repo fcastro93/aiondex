@@ -62,7 +62,7 @@ from .modules.notifications import NotificationsModule
 from .modules.pets import PetsModule
 from .modules.settings import SettingsModule
 from .modules.dps import DpsModule
-from .modules.tuner import TunerModule
+from .modules.builds import BuildsModule
 from .modules.diagnostics import DiagnosticsModule, open_problems
 from .modules.tracker import TrackerModule
 from .modules.crafting import CraftingModule
@@ -656,7 +656,7 @@ class Controller(QObject):
         self.diag_window = None
         self.dps_window = None
         self._restore_session()
-        self.modules = [DashboardModule(self), PetsModule(self), DpsModule(self), TunerModule(self), TrackerModule(self),
+        self.modules = [DashboardModule(self), PetsModule(self), DpsModule(self), BuildsModule(self), TrackerModule(self),
                         CraftingModule(self), StatusModule(self), MissionsModule(self), AchievementsModule(self),
                         PassesModule(self), EventsModule(self),
                         NotificationsModule(self), DiagnosticsModule(self),
@@ -667,6 +667,8 @@ class Controller(QObject):
             self.settings["dashboard_intro"] = True
             self.settings["module"] = "dashboard"
             self._save_settings()
+        if self.settings.get("module") == "tuner":         # 1.56: the Afinador is part of Builds
+            self.settings["module"] = "builds"
         self.active_module = next((m for m in self.modules if m.key == self.settings["module"]), self.modules[0])
         self.window.show_module(self.active_module)
         self.window.set_unread(self.notifications.unread)
@@ -798,7 +800,9 @@ class Controller(QObject):
         self._ensure_skill_icons()
         if self.tuner_window and self.tuner_window.isVisible():
             self.tuner_window.rebuild()
-        if self.active_module.key == "tuner":
+        if self.builds_window and self.builds_window.isVisible() and self.builds_window.stack.currentIndex() == 0:
+            self.builds_window.refresh()
+        if self.active_module.key == "builds":
             self.refresh()
 
     def on_death(self, eid):
@@ -2250,13 +2254,16 @@ class Controller(QObject):
             self._tracker_image_thread.done.connect(on_done)
         self._tracker_image_thread.start()
 
-    def open_builds(self):
-        """Builds: your skill setups beyond the game's 3 presets."""
+    def open_builds(self, build=None, plan=False, tab="builds"):
+        """Builds: your skill setups beyond the game's 3 presets, and the Afinador of the macro (its second tab)."""
         self._ensure_skill_icons()
         from .ui.buildswindow import BuildsWindow
         if self.builds_window is None:
             self.builds_window = BuildsWindow(self)
         self.builds_window.refresh()
+        if build:
+            self.builds_window.select(build, plan)
+        self.builds_window.show_tab(tab)
         self.builds_window.show()
         self.builds_window.raise_()
         self.builds_window.activateWindow()
@@ -2389,15 +2396,8 @@ class Controller(QObject):
         return False                             # the user said no in Windows' prompt
 
     def open_tuner(self):
-        self._ensure_skill_icons()
-        from .ui.tunerwindow import TunerWindow
-        if self.tuner_window is None:
-            self.tuner_window = TunerWindow(self)
-        else:
-            self.tuner_window.rebuild()
-        self.tuner_window.show()
-        self.tuner_window.raise_()
-        self.tuner_window.activateWindow()
+        """The Afinador of the macro: the Builds window's second tab."""
+        self.open_builds(tab="afinador")
 
     def switch_module(self, key):
         module = next((m for m in self.modules if m.key == key), None)
@@ -2583,7 +2583,7 @@ class Controller(QObject):
         menu.addAction("Colección de pets", self.open_collection)
         menu.addAction("Pets exclusivos (Asmodian / Elyos)", self.open_exclusive_pets)
         menu.addAction("Jugadores de tu party / force", self.open_players)
-        menu.addAction("Builds de skills", self.open_builds)
+        menu.addAction("Builds de skills (y Afinador del macro)", self.open_builds)
         menu.addAction("Abrir Crafting", self.open_crafting)
         menu.addAction(f"Escanear el mercado (Crafting)\t{hk.get('crafting_scan', '')}", self.crafting_scan)
         menu.addAction("Abrir Status de tus personajes", self.open_status)

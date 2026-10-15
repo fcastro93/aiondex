@@ -1,12 +1,13 @@
 """Builds window: your skill setups kept on your PC beyond the game's 3 presets (builds.py): save the preset you
 have on, bring in another player's from their official profile, share or paste a code, and "Usar build": the
-changes from your preset to it, in the Skill window's order (and, when it is on, AionDex makes them itself)."""
+changes from your preset to it, in the Skill window's order (and, when it is on, AionDex makes them itself). Its
+second tab is the Afinador of the macro (ui/tunerwindow.py), part of the builds."""
 import time
 import webbrowser
 
 from PySide6.QtCore import QObject, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QPixmap
-from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxLayout, QInputDialog, QLabel,
+from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QStackedWidget, QFrame, QGridLayout, QHBoxLayout, QInputDialog, QLabel,
                                QLineEdit, QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
@@ -60,11 +61,33 @@ class BuildsWindow(QWidget):
         self.setWindowTitle(f"{APP_NAME} — Builds")
         self.setWindowIcon(ctl.app_icon)
         self.setStyleSheet(STYLE + EXTRA_STYLE + SIDE_STYLE)
-        self.resize(1180, 820)
+        self.resize(1320, 900)
         f = self.fonts
 
-        root = QVBoxLayout(self)
-        root.setContentsMargins(16, 14, 16, 12)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 8, 0, 0)
+        outer.setSpacing(0)
+        tabs = QHBoxLayout()
+        tabs.setContentsMargins(16, 0, 16, 4)
+        tabs.setSpacing(6)
+        self.tab_buttons = {}
+        for key, text in (("builds", "Builds"), ("afinador", "Afinador del macro")):
+            button = QPushButton(text)
+            button.setProperty("tab", True)
+            button.setCheckable(True)
+            button.clicked.connect(lambda _=False, k=key: self.show_tab(k))
+            tabs.addWidget(button)
+            self.tab_buttons[key] = button
+        tabs.addStretch(1)
+        outer.addLayout(tabs)
+        self.stack = QStackedWidget()
+        outer.addWidget(self.stack, 1)
+        page = QWidget()
+        self.stack.addWidget(page)
+        self.tuner_page = None            # the Afinador, made the first time its tab opens
+
+        root = QVBoxLayout(page)
+        root.setContentsMargins(16, 6, 16, 12)
         root.setSpacing(10)
         head = QHBoxLayout()
         head.addWidget(badge_label(34, self.devicePixelRatioF()))
@@ -135,6 +158,32 @@ class BuildsWindow(QWidget):
         root.addLayout(body, 1)
         self._poll = QTimer(self, interval=500, timeout=self._check_import)
         self._fill_classes()
+        self.show_tab("builds")
+
+    # --- tabs ---
+    def show_tab(self, key):
+        """"builds" or "afinador" (the Afinador of the macro, inside)."""
+        if key == "afinador":
+            if self.tuner_page is None:
+                from .tunerwindow import TunerWindow
+                self.tuner_page = TunerWindow(self.ctl)
+                self.tuner_page.setWindowFlags(Qt.Widget)
+                self.stack.addWidget(self.tuner_page)
+                self.ctl.tuner_window = self.tuner_page
+            self.tuner_page.rebuild()
+            self.stack.setCurrentWidget(self.tuner_page)
+        else:
+            self.stack.setCurrentIndex(0)
+        for k, button in self.tab_buttons.items():
+            button.setChecked(k == key)
+        self.setWindowTitle(f"{APP_NAME} — {'Afinador del macro' if key == 'afinador' else 'Builds'}")
+
+    def select(self, build_id, plan=False):
+        """Show one build (and its plan, "Usar build")."""
+        if self.builds.get(build_id):
+            self.selected = build_id
+            self.plan_for = build_id if plan else None
+            self.refresh()
 
     # --- the list ---
     def _fill_classes(self):

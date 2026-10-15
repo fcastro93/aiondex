@@ -1,4 +1,5 @@
-"""Afinador module: overlay summary of the macro test; the full editor lives in its own window."""
+"""The Afinador's overlay summary (its macro test), shown inside the Builds module (modules/builds.py); the full
+editor is the Builds window's Afinador tab."""
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
@@ -47,12 +48,6 @@ class TunerPanel(QWidget):
         link.on_click = self.ctl.open_tuner
         link.setContentsMargins(f.px(4), f.px(4), 0, 0)
         self.content.addWidget(link)
-        builds = label("Builds de skills (más de 3 presets)", f.name, theme.ACCENT)
-        builds.setAttribute(Qt.WA_TransparentForMouseEvents, False)
-        builds.setCursor(Qt.PointingHandCursor)
-        builds.on_click = self.ctl.open_builds
-        builds.setContentsMargins(f.px(4), f.px(2), 0, 0)
-        self.content.addWidget(builds)
         self.adjustSize()
 
     def _line(self, text, color):
