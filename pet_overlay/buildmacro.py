@@ -5,6 +5,13 @@ the way you do it by hand (the user's recordings, 2026-10-15):
 - Points: pick the skill (its icon in the Active / Passive grid of the Mastery tab, or in the Stigma tab's grid), then
   the reset button (bottom right) and the dialog's yellow Confirm give all its points back (4438), and each click on
   the gold level-up button adds one (0551 answers each one; clicks faster than the answers are dropped).
+- Specializations: pick the skill; its panel (left) shows "Specialty", under it the slots (3; the last ones locked
+  until the skill's level) and under them the list of specializations (their numbers, top to bottom). A click on one
+  of the list and then on a slot puts it there (replacing what it had); a click on a slot shows a small red button at
+  its top right corner that takes it out. 0739 answers with the slot (and 0f38 with the skill's new variant). The
+  panel's text changes with the specializations, so "Specialty" is found again (OCR) before each click. Which one is
+  in each slot comes from 0739: the game sends all of them with each preset switch (the macro switches preset and
+  back when it does not know them).
 - The bar: pick the skill, then click the bar's cell (key column, priority row: 0 is the bottom one): 0856 answers and
   93e2 brings the whole bar. Dragging a cell's skill out of the bar empties it.
 - The grids list the class's skills in the official profile's order (by the level they are learnt at), five per row.
@@ -21,7 +28,7 @@ import threading
 import time
 from pathlib import Path
 
-from .skills import SLOT_KEYS
+from .skills import SLOT_KEYS, parse_spec_slots
 from .winput import Guard, Interrupted, real_pixels
 
 # the reference layout: the game's client area at 1920 x 1080 (it scales with the height); anchor: which edge the
@@ -46,8 +53,15 @@ LABELS = {
 }
 GROUPS = {"1-4": [2, 3, 4, 5], "5-8": [20, 21, 22, 23], "QE": [6, 7, 0, 1]}      # bar slots by key group
 COLUMNS = 5
-WATCH = {bytes.fromhex(h) for h in ("90e2", "0051", "4438", "0551", "0856", "93e2")}
+WATCH = {bytes.fromhex(h) for h in ("90e2", "0051", "4438", "0551", "0856", "93e2", "0739", "0f38")}
 BAR_UPDATE = bytes.fromhex("93e2")
+SPEC_SLOTS = bytes.fromhex("0739")
+# the specialization block at 1080 (it scales with the height), from the left end and the middle of its "Specialty"
+# title: the first slot's centre, the step to the next slot, a slot's red take-out button from its centre, the first
+# line of the list (where to click it) and the step to the next line (measured on the user's screenshots, 2026-10-15)
+SPEC_SLOT, SPEC_SLOT_STEP, SPEC_REMOVE = (26.5, 47.0), 57.3, (20.0, -20.0)
+SPEC_ROW, SPEC_ROW_STEP = (100.0, 103.0), 34.3
+SPEC_TITLES = ("specialt", "spezial", "specialit", "especiali")     # "Specialty" (and its likely translations)
 ANSWER = 1.5                     # seconds the game has to answer a click
 
 
@@ -107,7 +121,7 @@ class BuildMacro:
     """Carries out a plan on its own thread. ctl: the Controller (skill order, OCR, the game window); steps:
     builds.plan(); on_progress(text) and on_done(ok, text) are called on that thread (post them to the UI)."""
 
-    def __init__(self, ctl, steps, preset, order, layout, game_hwnd, on_progress, on_done):
+    def __init__(self, ctl, steps, preset, order, layout, game_hwnd, on_progress, on_done, slots=None):
         self.ctl = ctl
         self.steps = steps
         self.preset = preset             # the game's preset to apply it to (None: the one on)
@@ -120,6 +134,7 @@ class BuildMacro:
         self.tab = None
         self.done_steps = 0
         self.last_bar = None             # the latest whole bar the game sent (93e2)
+        self.slots = {b: dict(s) for b, s in (slots or {}).items()}   # {base: {slot: specialization}} (0739)
         self._thread = None
 
     def start(self):
@@ -129,9 +144,13 @@ class BuildMacro:
     def feed(self, op, body):
         """A message from the game (capture thread)."""
         if op in WATCH:
-            self.answers.put((op, bytes(body)))
             if op == BAR_UPDATE:
                 self.last_bar = bytes(body)
+            elif op == SPEC_SLOTS:
+                got = parse_spec_slots(body)
+                if got:
+                    self.slots[got[0]] = {**self.slots.get(got[0], {}), **got[1]}
+            self.answers.put((op, bytes(body)))
 
     # --- the run ---
     def _run(self):
@@ -157,8 +176,13 @@ class BuildMacro:
             self._drain()
             self.guard.click(*self.layout.at(f"preset{self.preset}"))
             self._wait({"90e2", "0051"}, 3.0, optional=True)
+        specs = [s for s in self.steps if s.kind == "spec"]
+        if any(s.skill not in self.slots for s in specs):
+            self._learn_slots()
         for step in (s for s in self.steps if s.kind == "points"):
             self._points(step)
+        for step in specs:
+            self._spec(step)
         for step in (s for s in self.steps if s.kind in ("place", "clear")):
             self._bar(step)
 
@@ -185,6 +209,87 @@ class BuildMacro:
             have += 1
             time.sleep(0.05)
         self.done_steps += 1
+
+    # --- specializations ---
+    def _learn_slots(self):
+        """What each skill has in its specialization slots: the game sends it all with a preset switch, so switch to
+        another preset and back to yours (nothing else changes)."""
+        active = self.ctl.tuner.active_preset
+        if not active:
+            raise Failed("No sé qué preset tienes puesto: cambia de preset una vez en la ventana Skill y vuelve a "
+                         "intentarlo.")
+        self._say("Leyendo tus especialidades (cambio de preset y vuelta)")
+        for number in (1 if active != 1 else 2, active):
+            if number == active:
+                self.slots = {}                          # only your preset's
+            self._drain()
+            self.guard.click(*self.layout.at(f"preset{number}"))
+            self._wait({"90e2"}, 3.0, what=f"el cambio al preset {number}")
+            self._wait({"0051"}, 3.0, optional=True)    # the skill list closes what a switch sends
+            time.sleep(0.3)
+
+    def _spec(self, step):
+        """Leave the build's specializations in the skill's first slots (in any order: the game keeps them as a
+        set) and the rest of its slots empty."""
+        base, want = step.skill, sorted(set(step.to))
+        name = self.ctl.builds.name_of(base)
+        have = dict(self.slots.get(base) or {})            # a skill the game sent nothing for has them all empty
+        first = range(1, len(want) + 1)
+        extra = sorted(s for s, v in have.items() if v and s not in first)
+        missing = [v for v in want if v not in {have.get(s) for s in first}]
+        free = [s for s in first if have.get(s, 0) not in want]
+        if not extra and not missing:
+            return
+        self._say(step.text)
+        self._open_tab("tab_mastery")
+        self._pick(base, self.ctl.builds.kind_of(base))
+        for slot in extra:                                  # out of the slots past the build's (red button)
+            spots = self._spec_spots()
+            self._drain()
+            self.guard.click(*spots.slot(slot))
+            time.sleep(0.3)
+            self.guard.click(*spots.remove(slot))
+            if not self._wait_slot(base, slot, 0):
+                raise Failed(f"No pude quitar la especialidad de la casilla {slot} de {name}.")
+            time.sleep(0.35)
+        for spec, slot in zip(missing, free):              # the list's line, then the slot
+            spots = self._spec_spots()
+            self._drain()
+            self.guard.click(*spots.row(spec))
+            time.sleep(0.3)
+            self.guard.click(*spots.slot(slot))
+            if not self._wait_slot(base, slot, spec):
+                raise Failed(f"El juego no puso la especialidad {spec} de {name} en su casilla {slot}: ¿la casilla o "
+                             f"la especialidad siguen bloqueadas por el nivel de la skill?")
+            time.sleep(0.35)
+        self.done_steps += 1
+
+    def _spec_spots(self):
+        """Where the slots and the list are now: from the "Specialty" title of the left panel (OCR)."""
+        left, top, right, bottom = self.layout.client
+        scale = (bottom - top) / 1080
+        box = (left, top + round(110 * scale), left + round(450 * scale), bottom - round(40 * scale))
+        lines = self._ocr(box)
+        if lines is None:
+            raise Failed("No puedo leer la pantalla (OCR de Windows) para encontrar las especialidades.")
+        for text, x0, _, y in lines:
+            word = re.sub(r"[^a-zé]", "", text.lower())
+            if word.startswith(SPEC_TITLES) and len(word) <= 16:
+                return SpecSpots(x0, y, scale)
+        raise Failed("No encuentro «Specialty» en el panel de la skill (ventana Skill, a la izquierda).")
+
+    def _wait_slot(self, base, slot, spec, timeout=2.5):
+        """Wait until the game says the skill's slot has that specialization (0 = empty)."""
+        end = time.time() + timeout
+        while time.time() < end:
+            self.guard.check()
+            if (self.slots.get(base) or {}).get(slot, 0) == spec:
+                return True
+            try:
+                self.answers.get(timeout=0.1)
+            except queue.Empty:
+                pass
+        return (self.slots.get(base) or {}).get(slot, 0) == spec
 
     # --- the bar ---
     def _bar(self, step):
@@ -251,26 +356,36 @@ class BuildMacro:
 
     def _read_title(self):
         """The selected skill's name at the top of the left panel (OCR), or None when it cannot be read."""
-        from PIL import Image
-        from . import market_ocr
-        from .minimap import grab
         left, top, right, bottom = self.layout.client
         scale = (bottom - top) / 1080
         box = (left + round(30 * scale), top + round(128 * scale), left + round(420 * scale), top + round(178 * scale))
+        lines = self._ocr(box)
+        if lines is None:
+            return None                             # no OCR: the game's answers still check
+        return " ".join(text for text, *_ in lines).strip()
+
+    def _ocr(self, box):
+        """[(text, left x, right x, middle y)] of a part of the screen (real pixels), or None without OCR."""
+        from PIL import Image
+        from . import market_ocr
+        from .minimap import grab
         path = Path(tempfile.gettempdir()) / f"aiondex_skill_{int(time.time() * 1000)}.png"
+        zoom = 2 if (box[3] - box[1]) < 1200 else 1          # small text reads better twice as big
         try:
             image = grab(box)
-            image = image.resize((image.width * 2, image.height * 2), Image.LANCZOS)
+            if zoom > 1:
+                image = image.resize((image.width * zoom, image.height * zoom), Image.LANCZOS)
             image.save(path)
             lines, _, _ = market_ocr.recognize(path)
-        except Exception:                           # noqa: BLE001 - no OCR: the game's answers still check
+        except Exception:                           # noqa: BLE001
             return None
         finally:
             try:
                 path.unlink()
             except OSError:
                 pass
-        return " ".join(ln.text for ln in lines).strip()
+        return [(ln.text, box[0] + ln.x0 / zoom, box[0] + ln.x1 / zoom, box[1] + (ln.y + ln.h / 2) / zoom)
+                for ln in lines]
 
     def _window_open(self):
         title = self._read_title()
@@ -314,6 +429,25 @@ class BuildMacro:
         if optional:
             return False
         raise Failed(f"El juego no respondió a {what or 'un clic'}.")
+
+
+class SpecSpots:
+    """The specialization block's clicks, from its "Specialty" title (left end x0, middle y) at a scale."""
+
+    def __init__(self, x0, y, scale):
+        self.x0, self.y, self.scale = x0, y, scale
+
+    def _at(self, dx, dy):
+        return round(self.x0 + dx * self.scale), round(self.y + dy * self.scale)
+
+    def slot(self, n):
+        return self._at(SPEC_SLOT[0] + (n - 1) * SPEC_SLOT_STEP, SPEC_SLOT[1])
+
+    def remove(self, n):
+        return self._at(SPEC_SLOT[0] + (n - 1) * SPEC_SLOT_STEP + SPEC_REMOVE[0], SPEC_SLOT[1] + SPEC_REMOVE[1])
+
+    def row(self, spec):
+        return self._at(SPEC_ROW[0], SPEC_ROW[1] + (spec - 1) * SPEC_ROW_STEP)
 
 
 def _same_name(read, name):

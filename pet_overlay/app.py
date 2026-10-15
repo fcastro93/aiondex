@@ -26,8 +26,9 @@ from .roster import (FORCE_INFO_OPCODE, MEMBER_HINT_OPCODES, MEMBER_OPCODES, PAR
                      parse_member_ids,
                      parse_member_stats, parse_party_info, parse_roster)
 from .skills import (BAR_UPDATE_OPCODE, CAST_OPCODE, PRESETS_OPCODE, PRESET_SWITCH_OPCODE, REQUEST_OPCODE,
-                     SKILL_LIST_OPCODE, OwnEntityFinder, caster_of, parse_bar_update, parse_cast, parse_preset_switch,
-                     parse_presets, parse_request, parse_skill_list)
+                     SKILL_LIST_OPCODE, SKILL_UPDATE_OPCODE, SPEC_SLOTS_OPCODE, OwnEntityFinder, caster_of,
+                     parse_bar_update, parse_cast, parse_preset_switch, parse_presets, parse_request, parse_skill_list,
+                     parse_skill_update, parse_spec_slots)
 from .tracker import FIELD_LIST_OPCODE, Tracker, parse_field_list
 from .crafting import Crafting
 from .market_share import SYNC_SECONDS as SHARE_SYNC_SECONDS, MarketShare
@@ -375,6 +376,14 @@ class Bridge(QObject):
             number = parse_preset_switch(body)
             if number:
                 self.own_skill.emit(("preset", number))
+        elif op == SPEC_SLOTS_OPCODE:
+            slots = parse_spec_slots(body)
+            if slots:
+                self.own_skill.emit(("spec_slots", *slots))
+        elif op == SKILL_UPDATE_OPCODE:
+            update = parse_skill_update(body)
+            if update:
+                self.own_skill.emit(("skill_update", *update))
         elif op == PRESETS_OPCODE:
             presets = parse_presets(body)
             if presets and any(presets[1].values()):
@@ -649,6 +658,7 @@ class Controller(QObject):
         # Feature modules, switchable from the app menu. New features register here.
         self.tuner = Afinador(self)
         self.tuner_window = None
+        self._skills_refresh = QTimer(self, singleShot=True, interval=400, timeout=self.tuner_changed)
         from .builds import Builds
         self.builds = Builds(self.data_dir, self.tuner.skills)     # skill builds beyond the game's 3 presets
         self.builds_window = None
@@ -783,6 +793,11 @@ class Controller(QObject):
         elif kind == "bar_update":
             self.tuner.on_bar_update(event[1], event[2])
             QTimer.singleShot(int(STORE_DELAY * 1000) + 200, self.tuner_changed)
+        elif kind == "spec_slots":
+            self.tuner.on_spec_slots(event[1], event[2])
+        elif kind == "skill_update":
+            if self.tuner.on_skill_update(*event[1:]):
+                self._skills_refresh.start()             # a preset switch sends one per skill: refresh once
         elif kind == "preset":
             self.tuner.on_preset_switch(event[1])
             if self.builds_window and self.builds_window.isVisible():
@@ -2342,7 +2357,8 @@ class Controller(QObject):
         def done(ok, text):
             self.bridge.macro = None
             on_done(ok, text)
-        macro = BuildMacro(self, steps, preset, order, layout, hwnd, on_progress, done)
+        macro = BuildMacro(self, steps, preset, order, layout, hwnd, on_progress, done,
+                           slots=self.tuner.spec_slots.get(self.tuner.active_preset))
         self.bridge.macro = macro
         macro.start()
         return None

@@ -5,7 +5,7 @@ import time
 from collections import Counter, deque
 from pathlib import Path
 
-from .skills import SLOT_KEYS, OwnSkill, QuickSlot, base_skill, chain_parents, is_basic_attack
+from .skills import SLOT_KEYS, OwnSkill, QuickSlot, base_skill, chain_parents, is_basic_attack, specializations
 from .tuner import (CALIBRATION_KINDS, CALIBRATION_SECONDS, DEFAULT_BINDINGS, LOW_MP_SHARE, Finding, MacroSetup,
                     TunerSession, analyze, calibration_run, calibration_values, fight_windows, mp_low_intervals,
                     recommend, test_noise, test_summary)
@@ -29,6 +29,7 @@ class Afinador:
         self.last_report = None
         self.own = {}                # base id -> OwnSkill, from the game's skill list
         self.presets = {}            # preset number -> [QuickSlot]
+        self.spec_slots = {}         # preset number -> {base: {slot: specialization}} (0739, per preset)
         self.active_preset = None    # the preset in use in the game when it sent the bars
         self.chosen_preset = None    # the preset picked in the Afinador (None: the game's)
         self.chains = {}             # chain skill base -> (opener base, step)
@@ -116,6 +117,21 @@ class Afinador:
         """One preset's bar changed in the Skill window."""
         self.presets[preset] = slots
         self._got_loadout()
+
+    def on_spec_slots(self, base, slots):
+        """A skill's specialization slots (all after a preset switch, one after a change)."""
+        held = self.spec_slots.setdefault(self.active_preset, {}).setdefault(base, {})
+        held.update(slots)
+
+    def on_skill_update(self, variant, level, points):
+        """A skill's equipped variant changed (its specializations, from the Skill window or a preset switch)."""
+        own = self.own.get(base_skill(variant))
+        if own is None:
+            return False
+        own.specs = specializations(variant) if variant != own.base else []
+        own.level, own.learned = level, points
+        self._store_pending = True
+        return True
 
     def on_preset_switch(self, number):
         """The game switched preset (its skill list follows)."""

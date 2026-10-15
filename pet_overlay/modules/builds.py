@@ -20,8 +20,9 @@ def current_build(ctl):
     if not tuner.own:
         return None
     bar = tuner.presets.get(tuner.active_preset or 1, [])
+    slots = tuner.spec_slots.get(tuner.active_preset)
     for b in ctl.builds.list(my_class(ctl)):
-        steps = ctl.builds.plan(b, tuner.own, bar)
+        steps = ctl.builds.plan(b, tuner.own, bar, slots)
         if not [s for s in steps if s.kind in ("points", "place", "clear", "spec")]:
             return b
     return None

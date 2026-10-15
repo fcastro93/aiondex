@@ -452,7 +452,8 @@ class BuildsWindow(QWidget):
             col.addWidget(label("Entra al juego con tu personaje con AionDex abierto: necesito tus skills para comparar.",
                                 f.small, theme.WARN))
             return panel
-        steps = self.builds.plan(b, tuner.own, tuner.presets.get(preset, []))
+        steps = self.builds.plan(b, tuner.own, tuner.presets.get(preset, []),
+                                 tuner.spec_slots.get(tuner.active_preset))
         col.addWidget(SectionTitle(f"Para usarla en tu preset {preset} (el que tienes puesto)", f))
         if not steps:
             col.addWidget(label("Tu preset ya es esta build.", f.name, theme.GAIN))
@@ -461,7 +462,8 @@ class BuildsWindow(QWidget):
         for step in steps:
             if step.section != section:
                 section = step.section
-                col.addWidget(label(section, f.small, theme.MUTED))
+                col.addWidget(label(section + (" (su número en la lista del juego, de arriba abajo)"
+                                               if section == "Especialidades" else ""), f.small, theme.MUTED))
             line = label(f"•  {step.text}", f.body, theme.TEXT if step.kind != "info" else theme.MUTED)
             line.setWordWrap(True)
             col.addWidget(line)
@@ -475,11 +477,11 @@ class BuildsWindow(QWidget):
         return panel
 
     def _macro_row(self, b, steps, preset):
-        """Aplicar en el juego (the macro does the points and the bar; the specialities stay for you)."""
+        """Aplicar en el juego (the macro does the points, the specialities and the bar)."""
         from ..buildmacro import is_admin
         f = self.fonts
         row = QHBoxLayout()
-        doable = [s for s in steps if s.kind in ("points", "place", "clear")]
+        doable = [s for s in steps if s.kind in ("points", "spec", "place", "clear")]
         if not is_admin():
             note = label("Para que AionDex haga los cambios por ti, ábrelo como administrador (el juego corre como "
                          "administrador y Windows no deja que un programa normal haga clic en él).", f.small, theme.WARN)
@@ -495,8 +497,8 @@ class BuildsWindow(QWidget):
             return row
         apply = QPushButton("Detener (Esc)" if self.running else f"Aplicar en el juego ({len(doable)} cambios)")
         apply.setEnabled(bool(doable) or self.running)
-        apply.setToolTip("Con la ventana Skill del juego abierta: AionDex hace los cambios de puntos y de la barra, "
-                         "comprobando cada uno; mover el ratón o Esc lo detiene. Las especialidades quedan para ti.")
+        apply.setToolTip("Con la ventana Skill del juego abierta: AionDex hace los cambios de puntos, especialidades "
+                         "y barra, comprobando cada uno; mover el ratón o Esc lo detiene.")
         apply.clicked.connect(lambda: self._apply(b["id"], steps, preset))
         row.addWidget(apply)
         found = self.ctl.macro_layout()

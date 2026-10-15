@@ -153,9 +153,11 @@ class Builds:
         bonus = mine.bonus if mine else 0
         return max(1, total - bonus), False
 
-    def plan(self, build, skills, bar):
-        """[Step] from your preset (skills: {base: OwnSkill} with .learned = the points in it, bar: [QuickSlot]) to the
-        build, in the order of the Skill window: points down (they free points), points up, specialities, the bar."""
+    def plan(self, build, skills, bar, slots=None):
+        """[Step] from your preset (skills: {base: OwnSkill} with .learned = the points in it, bar: [QuickSlot], slots:
+        {base: {slot: specialization}} when the game sent them) to the build, in the order of the Skill window: points
+        down (they free points), points up, specialities, the bar. A skill's slots keep their specializations when its
+        level is too low for them (they come back on with the points), so they are what is compared when known."""
         steps = []
         want = {int(b) for b in (build.get("skills") or {})}
         downs, ups = [], []
@@ -180,10 +182,20 @@ class Builds:
             entry = build["skills"][str(base)]
             specs = entry[1] if len(entry) > 1 else []
             mine = skills.get(base)
-            if specs and mine and sorted(mine.specs) != sorted(specs):
-                old = "·".join(map(str, mine.specs)) or "ninguna"
-                steps.append(Step("Especialidades", f"{self.name_of(base)}: {old} → {'·'.join(map(str, specs))}",
-                                  "spec", base, list(mine.specs), list(specs)))
+            if not specs or not mine:
+                continue
+            stigma = self.kind_of(base) == "stigma"         # a stigma's slots always list its four: its variant says
+            held = (slots or {}).get(base) if not stigma else None
+            have = sorted(v for v in held.values() if v) if held is not None else sorted(mine.specs)
+            if have == sorted(specs):
+                continue
+            old, new = "·".join(map(str, have)) or "ninguna", "·".join(map(str, specs))
+            if stigma:
+                steps.append(Step("Especialidades", f"{self.name_of(base)} (estigma): {old} → {new}; esta cámbiala "
+                                  f"tú en la pestaña Stigma", "info", base, have, list(specs)))
+            else:
+                steps.append(Step("Especialidades", f"{self.name_of(base)}: {old} → {new}", "spec", base, have,
+                                  list(specs)))
         if build.get("bar"):
             steps += self.bar_steps(build, bar)
         elif build.get("equipped"):

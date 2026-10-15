@@ -12,6 +12,12 @@
       (0051) again: skill levels and specializations are per preset (2026-10-15).
 93e2  a preset's whole bar, with each change made in the Skill window: u8 1 | u8 n | n x the 8ce2 slot record (type 3
       = a skill, 2 = empty); 0856 comes with it (the change itself).
+0739  a skill's specialization slots: u32 base | u8 n | n x {u8 slot | u32 specialization id (base + 10 x its number
+      in the Skill window's list, 0 = empty)}. Every skill with slots after a preset switch (all of them), and the one
+      slot changed after each change in the Skill window (2026-10-15). The slots keep their specializations when the
+      skill's level is too low for them: only the equipped variant (0f38 / 0051) says which ones are on.
+0f38  a skill's equipped variant changed: u8 1 | u32 variant | u8 level | u8 points | 6 bytes (sent after each
+      specialization change, with 1038 = the variant it replaces, and for every skill after a preset switch).
 
 Skill ids: class prefix (14 = Ranger...) + skill number + 4 variant digits. The variant digits of the equipped id
 are the chosen specializations (14020340 = Snipe with specializations 3 and 4). Skill number 00 is the basic attack.
@@ -28,6 +34,8 @@ SKILL_LIST_OPCODE = bytes.fromhex("0051")
 PRESETS_OPCODE = bytes.fromhex("8ce2")
 PRESET_SWITCH_OPCODE = bytes.fromhex("90e2")
 BAR_UPDATE_OPCODE = bytes.fromhex("93e2")
+SPEC_SLOTS_OPCODE = bytes.fromhex("0739")
+SKILL_UPDATE_OPCODE = bytes.fromhex("0f38")
 REJECT_TOO_SOON = 0x1813    # the most common rejection: pressed 0.1-0.5 s after another cast, skill off cooldown
 # quickslot -> key in the game's bar (checked against the game's bar screen); each slot holds up to 4 skills by
 # priority. The bar shows them as 1-4 | 5-8 | Q E mouse | T.
@@ -185,6 +193,33 @@ def parse_preset_switch(body):
     if len(body) == 6 and body[2] == 2 and 1 <= body[3] <= 3:
         return body[3]
     return None
+
+
+def parse_spec_slots(body):
+    """0739 -> (base, {slot: specialization number, 0 = empty}) or None."""
+    try:
+        base, n = struct.unpack_from("<IB", body, 0)
+        if not is_class_skill(base) or base != base_skill(base) or len(body) != 5 + 5 * n or not n:
+            return None
+        slots = {}
+        for i in range(n):
+            slot, sid = struct.unpack_from("<BI", body, 5 + 5 * i)
+            if sid and (base_skill(sid) != base or sid % 10):
+                return None
+            slots[slot] = (sid - base) // 10 if sid else 0
+    except struct.error:
+        return None
+    return base, slots
+
+
+def parse_skill_update(body):
+    """0f38 -> (variant, level, points) or None."""
+    if len(body) != 13 or body[0] != 1:
+        return None
+    variant = struct.unpack_from("<I", body, 1)[0]
+    if not is_class_skill(variant):
+        return None
+    return variant, body[5], body[6]
 
 
 def _slot_records(body, p, n):
