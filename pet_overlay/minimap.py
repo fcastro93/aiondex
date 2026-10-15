@@ -42,8 +42,8 @@ ACROSS = 296.0                   # metres the minimap shows across at its defaul
 MIN_SCORE = 0.32                 # a match below this is not trusted
 LOCATE_EVERY = 15.0              # seconds between two looks for the minimap (it moves only with the UI)
 READ_EVERY = 1.0
-READ_FAST = 0.33                 # with the route drawn over the minimap
-TRACK_MOSAIC = 560               # pixels searched while following you second by second
+READ_FAST = 0.08                 # with the route drawn over the minimap (a read takes ~60 ms at 4K)
+TRACK_MOSAIC = 512               # pixels searched while following you second by second
 PER_MONITOR_AWARE_V2 = -4
 
 
@@ -88,6 +88,58 @@ def find_box(image, lines):
             continue
         return box, ln.text.strip(), unit
     return None
+
+
+class _BitmapInfo(ctypes.Structure):
+    _fields_ = [("biSize", wintypes.DWORD), ("biWidth", wintypes.LONG), ("biHeight", wintypes.LONG),
+                ("biPlanes", wintypes.WORD), ("biBitCount", wintypes.WORD), ("biCompression", wintypes.DWORD),
+                ("biSizeImage", wintypes.DWORD), ("biXPelsPerMeter", wintypes.LONG),
+                ("biYPelsPerMeter", wintypes.LONG), ("biClrUsed", wintypes.DWORD), ("biClrImportant", wintypes.DWORD),
+                ("bmiColors", wintypes.DWORD * 3)]
+
+
+def _gdi():
+    user32, gdi32 = ctypes.windll.user32, ctypes.windll.gdi32
+    user32.GetDC.restype = wintypes.HDC
+    user32.GetDC.argtypes = [wintypes.HWND]
+    user32.ReleaseDC.argtypes = [wintypes.HWND, wintypes.HDC]
+    gdi32.CreateCompatibleDC.restype = wintypes.HDC
+    gdi32.CreateCompatibleDC.argtypes = [wintypes.HDC]
+    gdi32.CreateCompatibleBitmap.restype = wintypes.HBITMAP
+    gdi32.CreateCompatibleBitmap.argtypes = [wintypes.HDC, ctypes.c_int, ctypes.c_int]
+    gdi32.SelectObject.restype = wintypes.HGDIOBJ
+    gdi32.SelectObject.argtypes = [wintypes.HDC, wintypes.HGDIOBJ]
+    gdi32.BitBlt.argtypes = [wintypes.HDC, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, wintypes.HDC,
+                             ctypes.c_int, ctypes.c_int, wintypes.DWORD]
+    gdi32.GetDIBits.argtypes = [wintypes.HDC, wintypes.HBITMAP, wintypes.UINT, wintypes.UINT, ctypes.c_void_p,
+                                ctypes.c_void_p, wintypes.UINT]
+    gdi32.DeleteObject.argtypes = [wintypes.HGDIOBJ]
+    gdi32.DeleteDC.argtypes = [wintypes.HDC]
+    return user32, gdi32
+
+
+def grab(rect):
+    """The screen inside rect (real pixels) as a PIL picture. Only that part is copied (PIL's ImageGrab copies every
+    screen first: 170 ms with two monitors, against ~3 ms)."""
+    from PIL import Image
+    user32, gdi32 = _gdi()
+    left, top, right, bottom = rect
+    w, h = right - left, bottom - top
+    screen = user32.GetDC(None)
+    memory = gdi32.CreateCompatibleDC(screen)
+    bitmap = gdi32.CreateCompatibleBitmap(screen, w, h)
+    old = gdi32.SelectObject(memory, bitmap)
+    try:
+        gdi32.BitBlt(memory, 0, 0, w, h, screen, left, top, 0x00CC0020)          # SRCCOPY
+        info = _BitmapInfo(biSize=40, biWidth=w, biHeight=-h, biPlanes=1, biBitCount=32, biCompression=0)
+        data = ctypes.create_string_buffer(w * h * 4)
+        gdi32.GetDIBits(memory, bitmap, 0, h, data, ctypes.byref(info), 0)
+    finally:
+        gdi32.SelectObject(memory, old)
+        gdi32.DeleteObject(bitmap)
+        gdi32.DeleteDC(memory)
+        user32.ReleaseDC(None, screen)
+    return Image.frombuffer("RGB", (w, h), data.raw, "raw", "BGRX", 0, 1)
 
 
 def game_window(pids):
@@ -260,6 +312,7 @@ class Tiles:
     def __init__(self, folder):
         self.dir = Path(folder)
         self.missing = set()
+        self.memory = {}                 # decoded tiles (moving on rebuilds the searched square every ~100 m)
 
     def get(self, map_id, x, y):
         from PIL import Image
@@ -276,11 +329,18 @@ class Tiles:
             except Exception:                   # noqa: BLE001 - no tile there (sea, edge) or no connection
                 self.missing.add((map_id, x, y))
                 return None
+        key = (map_id, x, y)
+        if key in self.memory:
+            return self.memory[key]
         try:
-            return Image.open(path).convert("RGB")
+            tile = Image.open(path).convert("RGB")
         except Exception:                       # noqa: BLE001
-            self.missing.add((map_id, x, y))
+            self.missing.add(key)
             return None
+        if len(self.memory) > 80:
+            self.memory.pop(next(iter(self.memory)))
+        self.memory[key] = tile
+        return tile
 
     def area(self, map_id, wx, wy, size=MOSAIC):
         from PIL import Image
@@ -349,7 +409,6 @@ class MinimapReader:
                 self.status = "Minimapa: error al leerlo"
 
     def read_once(self, now=None):
-        from PIL import ImageGrab
         now = now or time.time()
         game_map = self.position.game_map
         if game_map is not None and (GAME_MAPS.get(game_map) is None or game_map not in SPAN):
@@ -381,8 +440,8 @@ class MinimapReader:
             self.status = "Minimapa: algo lo tapa (¿una ventana de AionDex?)"
             return None
         inset = round(INSET * (box[3] - box[1]))
-        shot = ImageGrab.grab(bbox=(box[0] + inset, box[1] + inset, box[2] - inset, box[3] - inset),
-                              all_screens=True).convert("RGB")
+        shot = grab((box[0] + inset, box[1] + inset, box[2] - inset, box[3] - inset))
+        now = time.time()                        # the moment the minimap was seen
         found = self._match(shot, map_id, game_map, unit, now)
         if found is None:
             self._misses += 1
@@ -399,12 +458,11 @@ class MinimapReader:
         return x, y, score
 
     def _locate(self, client, now):
-        from PIL import ImageGrab
         from . import market_ocr
         self._located = now
         left, top, right, bottom = client
         region = (left + (right - left) // 2, top, right, top + (bottom - top) // 2)
-        quarter = ImageGrab.grab(bbox=region, all_screens=True).convert("RGB")
+        quarter = grab(region)
         path = Path(tempfile.gettempdir()) / f"aiondex_minimap_{os.getpid()}_{int(now * 1000)}.png"
         quarter.save(path)
         try:

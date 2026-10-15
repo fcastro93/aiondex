@@ -31,10 +31,12 @@ ROUTE = QColor("#2ec0f2")
 UP = QColor("#3ee6b0")
 GONE = QColor(225, 228, 236)
 NEXT = QColor("#fff27a")
-TICK_MS = 100
+TICK_MS = 33                     # ~30 frames a second
 DATA_EVERY = 1.0                 # seconds between two looks at the nodes
 ROUTE_EVERY = 30.0               # seconds between two route computations (bot marks can change it)
-FOLLOW = 0.35                    # how much of the way to the last position the drawing moves per tick
+FOLLOW = 0.5                     # how much of the way to the predicted position the drawing moves per frame
+AHEAD = 0.5                      # seconds at most that the drawing runs ahead of the last read
+STILL = 1.2                      # m/s under which you count as standing (the reads' own wobble)
 
 
 class MinimapOverlay(QWidget):
@@ -55,6 +57,7 @@ class MinimapOverlay(QWidget):
         self._box = None                 # the minimap on screen (real pixels)
         self._ppm = None                 # minimap pixels per metre
         self._shown = None               # (x, y) metres drawn at the minimap's centre (smoothed)
+        self._track = []                 # [(time, x, y)] the last reads, for your speed
         self._hwnd = None
         self._font = QFont("Segoe UI", 9, QFont.Bold)
         self._timer = QTimer(self, interval=TICK_MS, timeout=self._tick)
@@ -94,7 +97,7 @@ class MinimapOverlay(QWidget):
             self._nodes = [((r[0] - 0.5) * span, (r[1] - 0.5) * span, r[2])
                            for r in ctl.live_nodes(map_id, self.material)]
             self._data_at = now
-        target = (fix[1], fix[2])
+        target = self._predict(fix, now)
         if self._shown is None or math.dist(self._shown, target) > 60:
             self._shown = target
         else:
@@ -108,6 +111,30 @@ class MinimapOverlay(QWidget):
             self._box = box
             self._place(box)
         self.update()
+
+    def _predict(self, fix, now):
+        """Where you are now: the last read moved on by your speed over the last second (the reads arrive a little
+        late and a few times a second; drawing the last one as it is trails behind you)."""
+        if not self._track or self._track[-1][0] != fix[0]:
+            if self._track and math.dist(self._track[-1][1:], fix[1:3]) > 40:        # a teleport: start again
+                self._track = []
+            self._track.append((fix[0], fix[1], fix[2]))
+            self._track = [p for p in self._track if fix[0] - p[0] <= 1.0][-12:]
+        pts = self._track
+        if len(pts) < 3 or pts[-1][0] - pts[0][0] < 0.25:
+            return fix[1], fix[2]
+        t0 = sum(p[0] for p in pts) / len(pts)
+        den = sum((p[0] - t0) ** 2 for p in pts)
+        vx = sum((p[0] - t0) * p[1] for p in pts) / den
+        vy = sum((p[0] - t0) * p[2] for p in pts) / den
+        speed = math.hypot(vx, vy)
+        if speed < STILL or speed > 40:
+            return fix[1], fix[2]
+        # the line through the reads (less wobble than the last read alone), carried to now
+        cx = sum(p[1] for p in pts) / len(pts) + vx * (fix[0] - t0)
+        cy = sum(p[2] for p in pts) / len(pts) + vy * (fix[0] - t0)
+        ahead = min(AHEAD, max(0.0, now - fix[0]))
+        return cx + vx * ahead, cy + vy * ahead
 
     def _load_route(self, map_id, game_map):
         span = SPAN[game_map]
