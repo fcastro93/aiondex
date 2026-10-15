@@ -2340,6 +2340,41 @@ class Controller(QObject):
         macro.start()
         return None
 
+    def read_game_macro(self, build):
+        """The Macro window's steps from the screen: [(number, base, name, delay)], [] when it is not open, None
+        without the game or OCR."""
+        from . import macroread
+        from .minimap import game_window
+        from .sniffer import game_pids
+        from .winput import real_pixels
+        real_pixels()
+        game = game_window(game_pids())
+        if game is None:
+            return None
+        prefixes = {int(s) // 1_000_000 for s in build.get("skills") or {}}
+        names = {int(k): v["name"] for k, v in self.tuner.skills.items() if int(k) // 1_000_000 in prefixes}
+        return macroread.read(game[1], names)
+
+    def macro_to_tuner(self, build):
+        """The build's game macro as the Afinador's in-game macro of the preset on now. -> what was done."""
+        from .tuner import MacroLine
+        tuner = self.tuner
+        bar = [(slot, prio) for slot, _, prio in (build.get("bar") or [])] or \
+              [(q.slot, list(q.priority)) for q in tuner.bar]
+        lines = []
+        for _, base, name, delay in build.get("macro") or []:
+            slot = next((s for s, prio in bar if prio and prio[0] == base), None) or \
+                next((s for s, prio in bar if base in prio), None)
+            if slot is None:
+                return f"{name} no está en la barra: no sé qué tecla pulsa ese paso."
+            prio = next(p for s, p in bar if s == slot)
+            lines.append(MacroLine(list(prio), int(delay or 10), slot))
+        setup = tuner.setup
+        setup.ingame = lines
+        tuner.save()
+        self.tuner_changed()
+        return f"Macro pasado al Afinador (preset {tuner.preset}): {len(lines)} pasos."
+
     def restart_as_admin(self):
         """Open AionDex again as administrator (Windows asks) and close this one: the game runs as administrator, and
         only then can AionDex click on it (build macro) or see the keys you press in it."""

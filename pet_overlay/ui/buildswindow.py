@@ -236,6 +236,7 @@ class BuildsWindow(QWidget):
         self.detail.addWidget(self._skills_panel(b))
         if b.get("bar"):
             self.detail.addWidget(self._bar_panel(b))
+            self.detail.addWidget(self._macro_panel(b))
         elif b.get("source") == "player":
             self.detail.addWidget(label("El perfil oficial no publica la barra ni las especialidades de un jugador.",
                                         f.small, theme.MUTED))
@@ -283,24 +284,107 @@ class BuildsWindow(QWidget):
         return panel
 
     def _bar_panel(self, b):
+        """The bar as the game's Skill window draws it: one column per key, priority 0 at the bottom."""
         f = self.fonts
         panel = QFrame()
         panel.setObjectName("Panel")
         col = QVBoxLayout(panel)
         col.setContentsMargins(14, 10, 14, 12)
-        col.addWidget(SectionTitle("Barra (cada tecla con sus skills por prioridad)", f))
+        col.addWidget(SectionTitle("Barra (como en la ventana Skill: prioridad 0 abajo)", f))
         grid = QGridLayout()
-        grid.setHorizontalSpacing(10)
+        grid.setHorizontalSpacing(6)
         grid.setVerticalSpacing(4)
         by_slot = {slot: prio for slot, _, prio in b["bar"]}
+        rows = 4
         for c, slot in enumerate(SLOT_KEYS):
-            grid.addWidget(label(SLOT_KEYS[slot], f.name, theme.ACCENT), 0, c, Qt.AlignCenter)
-            for r, sid in enumerate(by_slot.get(slot, [])[:4], start=1):
-                icon = self._icon(sid)
-                icon.setToolTip(f"{SLOT_KEYS[slot]} · prioridad {r}: {self.builds.name_of(sid)}")
-                grid.addWidget(icon, r, c, Qt.AlignCenter)
+            column = c + (1 if c >= 4 else 0) + (1 if c >= 8 else 0)            # gaps like the game's groups
+            for r in range(rows):
+                prio = by_slot.get(slot, [])
+                cell = self._icon(prio[r]) if r < len(prio) else _empty_cell()
+                if r < len(prio):
+                    cell.setToolTip(f"{SLOT_KEYS[slot]} · prioridad {r}: {self.builds.name_of(prio[r])}")
+                grid.addWidget(cell, rows - 1 - r, column, Qt.AlignCenter)
+            grid.addWidget(label(SLOT_KEYS[slot], f.name, theme.ACCENT), rows, column, Qt.AlignCenter)
+        for r in range(rows):
+            grid.addWidget(label(str(r), f.small, theme.MUTED), rows - 1 - r, 14, Qt.AlignCenter)
+        grid.setColumnMinimumWidth(4, 10)
+        grid.setColumnMinimumWidth(9, 10)
         col.addLayout(grid)
         return panel
+
+    def _macro_panel(self, b):
+        """The game's skill macro of this build (read from its Macro window), and passing it to the Afinador."""
+        f = self.fonts
+        panel = QFrame()
+        panel.setObjectName("Panel")
+        col = QVBoxLayout(panel)
+        col.setContentsMargins(14, 10, 14, 12)
+        col.addWidget(SectionTitle("Macro del juego", f))
+        steps = b.get("macro") or []
+        if steps:
+            row = QHBoxLayout()
+            row.setSpacing(8)
+            keys = {p: SLOT_KEYS.get(slot) for slot, _, prio in (b.get("bar") or []) for p in prio[:1]}
+            for n, base, name, delay in steps:
+                cell = QVBoxLayout()
+                cell.setSpacing(2)
+                cell.addWidget(self._icon(base), 0, Qt.AlignCenter)
+                key = keys.get(base)
+                cell.addWidget(label(f"{n}. {name}" + (f" ({key})" if key else ""), f.small, theme.TEXT), 0,
+                               Qt.AlignCenter)
+                cell.addWidget(label(f"{delay if delay is not None else '?'} ms", f.small, theme.MUTED), 0,
+                               Qt.AlignCenter)
+                row.addLayout(cell)
+            row.addStretch(1)
+            col.addLayout(row)
+        else:
+            hint = label("Sin macro guardado. En el juego abre la ventana Skill con el preset de esta build, pulsa "
+                         "«Macro» y luego «Leer macro del juego».", f.small, theme.MUTED)
+            hint.setWordWrap(True)
+            col.addWidget(hint)
+        buttons = QHBoxLayout()
+        read = QPushButton("Leer macro del juego")
+        read.setToolTip("Con la ventana Macro del juego abierta: lee sus pasos (si no caben todos, baja la lista del "
+                        "juego y vuelve a leer: se agregan)")
+        read.clicked.connect(lambda: self._read_macro(b))
+        buttons.addWidget(read)
+        if steps:
+            tuner = QPushButton("Pasarlo al Afinador")
+            tuner.setProperty("flat", True)
+            tuner.setToolTip("Pone este macro como el macro del juego del preset activo en el Afinador")
+            tuner.clicked.connect(lambda: self._macro_to_tuner(b))
+            buttons.addWidget(tuner)
+            clear = QPushButton("Borrar macro")
+            clear.setProperty("flat", True)
+            clear.clicked.connect(lambda: self._set_macro(b, []))
+            buttons.addWidget(clear)
+        buttons.addStretch(1)
+        col.addLayout(buttons)
+        return panel
+
+    def _read_macro(self, b):
+        from .. import macroread
+        steps = self.ctl.read_game_macro(b)
+        if steps is None:
+            self.subtitle.setText("No pude leer la pantalla del juego (¿está abierto y sin minimizar?).")
+            return
+        if not steps:
+            self.subtitle.setText("No veo la ventana Macro: en la ventana Skill del juego pulsa «Macro» y vuelve a "
+                                  "intentarlo.")
+            return
+        merged = macroread.merge(b.get("macro"), steps)
+        self._set_macro(b, merged)
+        self.subtitle.setText(f"Macro leído: {len(merged)} pasos. Si tiene más, baja la lista del juego y vuelve a "
+                              f"leer.")
+
+    def _set_macro(self, b, steps):
+        b["macro"] = [list(s) for s in steps]
+        self.builds.save()
+        self._show_detail()
+
+    def _macro_to_tuner(self, b):
+        done = self.ctl.macro_to_tuner(b)
+        self.subtitle.setText(done)
 
     def _plan_panel(self, b):
         f = self.fonts
@@ -522,6 +606,13 @@ class BuildsWindow(QWidget):
         super().showEvent(event)
         if not self.import_server.text():
             self.import_server.setText(str(self._my_server() or ""))
+
+
+def _empty_cell():
+    cell = QLabel()
+    cell.setFixedSize(ICON, ICON)
+    cell.setStyleSheet("background: #121c33; border: 1px solid #1f2b47; border-radius: 6px;")
+    return cell
 
 
 def _clear(layout):
