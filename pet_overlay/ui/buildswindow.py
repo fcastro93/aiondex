@@ -451,16 +451,22 @@ class BuildsWindow(QWidget):
         row.addWidget(cal)
         row.addStretch(1)
         always = QCheckBox("Abrir siempre como administrador")
-        always.setToolTip("Para no tener que reiniciarlo así cada vez (Windows lo pregunta al abrir AionDex). También "
-                          "hace que la ruta del minimapa se mueva con tus teclas.")
+        always.setToolTip("AionDex se abre siempre así (al abrirlo tú, al reiniciarse y tras actualizarse) sin que "
+                          "Windows pregunte: usa una tarea programada de Windows. También hace que la ruta del minimapa "
+                          "se mueva con tus teclas.")
         always.setChecked(bool(self.ctl.settings.get("run_as_admin")))
         always.toggled.connect(self._always_admin)
         row.addWidget(always)
         return row
 
     def _always_admin(self, on):
+        from .. import elevation
         self.ctl.settings["run_as_admin"] = on
         self.ctl.settings.save()
+        if on:
+            elevation.create_task()          # this AionDex is elevated: the task can be made with no prompt
+        else:
+            elevation.delete_task()
 
     def _apply(self, build_id, steps, preset):
         if self.running:

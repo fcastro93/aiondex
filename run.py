@@ -31,6 +31,10 @@ def main():
         return
     if not args.preview and not _single_instance(wait=10.0 if args.restarted else 0.0):
         return
+    if not args.preview and _admin_wanted():
+        from pet_overlay import elevation
+        if elevation.is_admin() and not elevation.task_exists():
+            elevation.create_task()          # from now on, opening AionDex needs no prompt
     seed_user_data()
     _apply_ui_scale()
     logging.basicConfig(filename=DATA_DIR / "overlay.log", level=logging.INFO,
@@ -153,24 +157,22 @@ def _single_instance(wait=0.0):
     return False
 
 
-def _elevate_if_wanted():
-    """'Abrir siempre como administrador' (Builds): the game runs as administrator, and only then can AionDex click
-    on it (the build macro) or see the keys you press in it. True if an elevated AionDex was started instead (Windows
-    asks; if you say no, this one goes on as usual)."""
-    import ctypes
+def _admin_wanted():
     import json
-    from pathlib import Path
     try:
-        wanted = json.loads((DATA_DIR / "settings.json").read_text(encoding="utf-8")).get("run_as_admin")
+        return bool(json.loads((DATA_DIR / "settings.json").read_text(encoding="utf-8")).get("run_as_admin"))
     except (OSError, ValueError):
-        wanted = False
-    if not wanted or ctypes.windll.shell32.IsUserAnAdmin():
         return False
-    if getattr(sys, "frozen", False):
-        program, params = sys.executable, " ".join(sys.argv[1:])
-    else:
-        program, params = sys.executable, " ".join([f'"{Path(sys.argv[0]).resolve()}"'] + sys.argv[1:])
-    return ctypes.windll.shell32.ShellExecuteW(None, "runas", program, params, None, 1) > 32
+
+
+def _elevate_if_wanted():
+    """'Abrir siempre como administrador' (pet_overlay/elevation.py): the game runs as administrator, and only then
+    can AionDex click on it (the build macro) or see the keys you press in it. True if an elevated AionDex was started
+    instead (through the scheduled task with no prompt, else Windows asks; if you say no, this one goes on)."""
+    from pet_overlay import elevation
+    if not _admin_wanted() or elevation.is_admin():
+        return False
+    return elevation.relaunch_elevated()
 
 
 def _apply_ui_scale():

@@ -2376,15 +2376,13 @@ class Controller(QObject):
         return f"Macro pasado al Afinador (preset {tuner.preset}): {len(lines)} pasos."
 
     def restart_as_admin(self):
-        """Open AionDex again as administrator (Windows asks) and close this one: the game runs as administrator, and
-        only then can AionDex click on it (build macro) or see the keys you press in it."""
-        import ctypes
-        if getattr(sys, "frozen", False):
-            program, args = sys.executable, "--restarted"
-        else:
-            program, args = sys.executable, f'"{Path(sys.argv[0]).resolve()}" --restarted'
-        result = ctypes.windll.shell32.ShellExecuteW(None, "runas", program, args, None, 1)
-        if result > 32:
+        """Open AionDex again as administrator and close this one, and keep it so (settings["run_as_admin"]): the game
+        runs as administrator, and only then can AionDex click on it or see the keys you press in it. Windows asks
+        this once; the elevated AionDex then makes the task that opens it with no prompt."""
+        from . import elevation
+        self.settings["run_as_admin"] = True
+        self._save_settings()
+        if elevation.relaunch_elevated():
             log.info("restarting as administrator")
             self.quit()
             return True

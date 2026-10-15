@@ -14,7 +14,6 @@ per game window size; before it, from the 4K layout scaled to your window. Every
 skill's name at the top of the left panel (Windows' OCR) and every change by the game's answer; anything unexpected,
 your mouse moving or Esc stops it. The game runs as administrator, so AionDex must too (Windows does not let a normal
 program click on it)."""
-import ctypes
 import queue
 import re
 import tempfile
@@ -96,10 +95,8 @@ class Layout:
 
 
 def is_admin():
-    try:
-        return bool(ctypes.windll.shell32.IsUserAnAdmin())
-    except OSError:
-        return False
+    from .elevation import is_admin as admin
+    return admin()
 
 
 class Failed(Exception):
