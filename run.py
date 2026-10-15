@@ -27,6 +27,8 @@ def main():
     parser.add_argument("--restarted", action="store_true", help="started by AionDex itself: wait for the old one")
     args = parser.parse_args()
 
+    if not args.preview and _elevate_if_wanted():
+        return
     if not args.preview and not _single_instance(wait=10.0 if args.restarted else 0.0):
         return
     seed_user_data()
@@ -149,6 +151,26 @@ def _single_instance(wait=0.0):
         time.sleep(0.25)
     ctypes.windll.user32.MessageBoxW(None, f"{APP_NAME} ya está abierto (mira el icono en la bandeja).", APP_NAME, 0x40)
     return False
+
+
+def _elevate_if_wanted():
+    """'Abrir siempre como administrador' (Builds): the game runs as administrator, and only then can AionDex click
+    on it (the build macro) or see the keys you press in it. True if an elevated AionDex was started instead (Windows
+    asks; if you say no, this one goes on as usual)."""
+    import ctypes
+    import json
+    from pathlib import Path
+    try:
+        wanted = json.loads((DATA_DIR / "settings.json").read_text(encoding="utf-8")).get("run_as_admin")
+    except (OSError, ValueError):
+        wanted = False
+    if not wanted or ctypes.windll.shell32.IsUserAnAdmin():
+        return False
+    if getattr(sys, "frozen", False):
+        program, params = sys.executable, " ".join(sys.argv[1:])
+    else:
+        program, params = sys.executable, " ".join([f'"{Path(sys.argv[0]).resolve()}"'] + sys.argv[1:])
+    return ctypes.windll.shell32.ShellExecuteW(None, "runas", program, params, None, 1) > 32
 
 
 def _apply_ui_scale():

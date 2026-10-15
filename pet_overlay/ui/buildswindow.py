@@ -4,14 +4,14 @@ changes from your preset to it, in the Skill window's order (and, when it is on,
 import time
 import webbrowser
 
-from PySide6.QtCore import QSize, Qt, QTimer
+from PySide6.QtCore import QObject, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QPixmap
-from PySide6.QtWidgets import (QApplication, QComboBox, QFrame, QGridLayout, QHBoxLayout, QInputDialog, QLabel,
+from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxLayout, QInputDialog, QLabel,
                                QLineEdit, QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
 from ..armory import shugo_url
-from ..builds import Builds, class_of_build
+from ..builds import Builds, class_of_build, entry_levels
 from ..skills import SLOT_KEYS
 from . import theme
 from .mapwindow import STYLE, badge_label
@@ -31,6 +31,12 @@ SOURCE_TEXT = {"own": ("Tu preset", "#7bd88f"), "player": ("Perfil oficial", "#c
 KIND_TITLE = (("active", "Activas"), ("passive", "Pasivas"), ("stigma", "Estigmas"))
 
 
+class _Relay(QObject):
+    """The macro's news from its thread to the window."""
+    progress = Signal(str)
+    done = Signal(bool, str)
+
+
 def _ago(ts):
     days = (time.time() - (ts or 0)) / 86400
     return "hoy" if days < 1 else "ayer" if days < 2 else f"hace {days:.0f} días"
@@ -45,6 +51,11 @@ class BuildsWindow(QWidget):
         self.selected = None
         self.plan_for = None              # build id whose "Usar build" plan is shown
         self.waiting = None               # (name, server, since) of a player profile being fetched
+        self.macro_text = ""              # what the build macro is doing / did
+        self.running = False
+        self._relay = _Relay()
+        self._relay.progress.connect(self._macro_progress)
+        self._relay.done.connect(self._macro_done)
         self.setObjectName("MapWindow")
         self.setWindowTitle(f"{APP_NAME} — Builds")
         self.setWindowIcon(ctl.app_icon)
@@ -239,8 +250,9 @@ class BuildsWindow(QWidget):
         col.setContentsMargins(14, 10, 14, 12)
         equipped = set(b.get("equipped") or [])
         groups = {}
-        for sid, (level, specs) in b.get("skills", {}).items():
-            groups.setdefault(self.builds.kind_of(sid) or "active", []).append((int(sid), level, specs))
+        for sid, entry in b.get("skills", {}).items():
+            points, specs, total = entry_levels(entry)
+            groups.setdefault(self.builds.kind_of(sid) or "active", []).append((int(sid), points, total, specs))
         for kind, title in KIND_TITLE:
             rows = sorted(groups.get(kind, []), key=lambda r: (r[0] not in equipped, r[0]))
             if not rows:
@@ -249,14 +261,16 @@ class BuildsWindow(QWidget):
             grid = QGridLayout()
             grid.setHorizontalSpacing(14)
             grid.setVerticalSpacing(6)
-            for i, (sid, level, specs) in enumerate(rows):
+            for i, (sid, points, total, specs) in enumerate(rows):
                 cell = QHBoxLayout()
                 cell.setSpacing(6)
                 cell.addWidget(self._icon(sid, faded=kind == "stigma" and sid not in equipped))
                 text = QVBoxLayout()
                 text.setSpacing(0)
                 text.addWidget(label(self.builds.name_of(sid), f.small, theme.TEXT, elide=True))
-                extra = f"Lv {level}" + (f" · espec. {'·'.join(map(str, specs))}" if specs else "")
+                extra = (f"Lv {points}" + (f" (total {total})" if total and total != points else "") if points
+                         else f"Lv total {total}")
+                extra += f" · espec. {'·'.join(map(str, specs))}" if specs else ""
                 if kind == "stigma":
                     extra += " · equipado" if sid in equipped else " · no equipado"
                 text.addWidget(label(extra, f.small, theme.MUTED))
@@ -306,16 +320,85 @@ class BuildsWindow(QWidget):
             col.addWidget(label("Tu preset ya es esta build.", f.name, theme.GAIN))
             return panel
         section = None
-        for what, text in steps:
-            if what != section:
-                section = what
-                col.addWidget(label(what, f.small, theme.MUTED))
-            line = label(f"•  {text}", f.body, theme.TEXT)
+        for step in steps:
+            if step.section != section:
+                section = step.section
+                col.addWidget(label(section, f.small, theme.MUTED))
+            line = label(f"•  {step.text}", f.body, theme.TEXT if step.kind != "info" else theme.MUTED)
             line.setWordWrap(True)
             col.addWidget(line)
         col.addWidget(label("Abre la ventana Skill del juego (pestañas Mastery y Stigma) y hazlo en este orden: bajar "
                             "puntos primero libera los que piden las subidas.", f.small, theme.MUTED))
+        col.addLayout(self._macro_row(b, steps, preset))
+        if self.macro_text:
+            status = label(self.macro_text, f.small, theme.ACCENT if self.running else theme.TEXT)
+            status.setWordWrap(True)
+            col.addWidget(status)
         return panel
+
+    def _macro_row(self, b, steps, preset):
+        """Aplicar en el juego (the macro does the points and the bar; the specialities stay for you)."""
+        from ..buildmacro import is_admin
+        f = self.fonts
+        row = QHBoxLayout()
+        doable = [s for s in steps if s.kind in ("points", "place", "clear")]
+        if not is_admin():
+            note = label("Para que AionDex haga los cambios por ti, ábrelo como administrador (el juego corre como "
+                         "administrador y Windows no deja que un programa normal haga clic en él).", f.small, theme.WARN)
+            note.setWordWrap(True)
+            row.addWidget(note, 1)
+            again = QPushButton("Reiniciar como administrador")
+            again.clicked.connect(self.ctl.restart_as_admin)
+            row.addWidget(again)
+            return row
+        apply = QPushButton("Detener (Esc)" if self.running else f"Aplicar en el juego ({len(doable)} cambios)")
+        apply.setEnabled(bool(doable) or self.running)
+        apply.setToolTip("Con la ventana Skill del juego abierta: AionDex hace los cambios de puntos y de la barra, "
+                         "comprobando cada uno; mover el ratón o Esc lo detiene. Las especialidades quedan para ti.")
+        apply.clicked.connect(lambda: self._apply(b["id"], steps, preset))
+        row.addWidget(apply)
+        found = self.ctl.macro_layout()
+        calibrated = bool(found and found[2])
+        cal = QPushButton("Calibrar menú" if not calibrated else "Calibrar menú (hecho)")
+        cal.setProperty("flat", True)
+        cal.setToolTip("Arrastra unos marcadores sobre los botones y celdas del menú Skill: así los clics caen justo "
+                       "ahí con tu resolución.")
+        cal.clicked.connect(self.ctl.open_calibration)
+        row.addWidget(cal)
+        row.addStretch(1)
+        always = QCheckBox("Abrir siempre como administrador")
+        always.setToolTip("Para no tener que reiniciarlo así cada vez (Windows lo pregunta al abrir AionDex). También "
+                          "hace que la ruta del minimapa se mueva con tus teclas.")
+        always.setChecked(bool(self.ctl.settings.get("run_as_admin")))
+        always.toggled.connect(self._always_admin)
+        row.addWidget(always)
+        return row
+
+    def _always_admin(self, on):
+        self.ctl.settings["run_as_admin"] = on
+        self.ctl.settings.save()
+
+    def _apply(self, build_id, steps, preset):
+        if self.running:
+            self.macro_text = "Pulsa Esc o mueve el ratón para detenerlo."
+            self._show_detail()
+            return
+        error = self.ctl.apply_build(steps, None, self._relay.progress.emit, self._relay.done.emit)
+        if error:
+            self.macro_text = error if error != "admin" else "Hace falta abrir AionDex como administrador."
+        else:
+            self.running = True
+            self.macro_text = "Empezando: no muevas el ratón (Esc lo detiene)…"
+        self._show_detail()
+
+    def _macro_progress(self, text):
+        self.macro_text = text
+        self._show_detail()
+
+    def _macro_done(self, ok, text):
+        self.running = False
+        self.macro_text = text
+        self._show_detail()
 
     # --- actions ---
     def _plan(self, build_id):

@@ -8,13 +8,17 @@ Where a build comes from:
   levels and which ones are equipped (actives and stigmas). The profile has no specializations and no quickbar.
 - A code someone shared (Copiar código / Importar código).
 
-What it takes to go from your preset to a build (plan()): the skill points to move, the specializations, the stigmas
-to equip or take off and the keys of the bar, in the order the game's Skill window goes (Mastery, Stigma, the bar).
+Skills are kept as [points, specializations, total level]: the points are what you put in (Lv 10 in the game), the
+total adds your gear's bonus (+6 -> 16, what the official profile shows). A player's build has only the total.
+
+What it takes to go from your preset to a build (plan()): [Step], the points to move, the specializations and the
+bar's cells, in the order the game's Skill window goes; the build macro (buildmacro.py) carries them out.
 """
 import base64
 import json
 import time
 import zlib
+from dataclasses import dataclass
 from pathlib import Path
 
 from .skills import SLOT_KEYS, base_skill
@@ -26,6 +30,13 @@ CLASS_OF_PREFIX = {11: "Gladiador", 12: "Templario", 13: "Asesino", 14: "Cazador
 
 def class_of_skill(skill_id):
     return CLASS_OF_PREFIX.get(int(skill_id) // 1_000_000)
+
+
+def entry_levels(entry):
+    """A build's skill entry -> (points or None, specializations, total level or None); 1.53.0 kept [total, specs]."""
+    if len(entry) >= 3:
+        return entry[0], list(entry[1] or []), entry[2]
+    return None, list(entry[1] or []) if len(entry) > 1 else [], entry[0]
 
 
 def class_of_build(build):
@@ -81,7 +92,7 @@ class Builds:
         """skills: {base: OwnSkill} of that preset; bar: [QuickSlot] of that preset. The 2nd and 3rd hits of a
         chain (not in the skills database) go with the skill that opens it."""
         return {"name": name, "source": "own", "origin": f"{character} · preset {preset}", "at": time.time(),
-                "skills": {str(b): [s.level, list(s.specs)] for b, s in skills.items()
+                "skills": {str(b): [s.learned, list(s.specs), s.level] for b, s in skills.items()
                            if s.level and (not self.skills_db or str(b) in self.skills_db)},
                 "equipped": sorted({base_skill(q.skill) for q in bar} | {p for q in bar for p in q.priority}),
                 "bar": [[q.slot, base_skill(q.skill), list(q.priority)] for q in bar]}
@@ -95,7 +106,7 @@ class Builds:
             if not sid or not s.get("acquired"):
                 continue
             if s.get("skillLevel"):
-                skills[str(base_skill(sid))] = [int(s["skillLevel"]), []]
+                skills[str(base_skill(sid))] = [None, [], int(s["skillLevel"])]      # total level (with gear bonus)
             if s.get("equip"):
                 equipped.append(base_skill(sid))
         who = f"{profile.name}" + (f" ({server_name})" if server_name else "")
@@ -130,48 +141,84 @@ class Builds:
     def kind_of(self, base):
         return (self.skills_db.get(str(base)) or {}).get("type") or ""
 
+    def target_points(self, build, base, mine):
+        """(points the build wants on a skill, exact) - player builds only have their total level (with their gear's
+        bonus): yours is taken off it."""
+        entry = (build.get("skills") or {}).get(str(base))
+        if not entry:
+            return 0, True
+        if len(entry) >= 3 and entry[0] is not None and build.get("source") != "player":
+            return int(entry[0]), True
+        total = int(entry_levels(entry)[2] or 0)
+        bonus = mine.bonus if mine else 0
+        return max(1, total - bonus), False
+
     def plan(self, build, skills, bar):
-        """[(section, text)] of what to change in the game, from your preset (skills: {base: OwnSkill}, bar:
-        [QuickSlot]) to the build. Sections: "Puntos", "Especialidades", "Estigmas", "Barra"."""
+        """[Step] from your preset (skills: {base: OwnSkill} with .learned = the points in it, bar: [QuickSlot]) to the
+        build, in the order of the Skill window: points down (they free points), points up, specialities, the bar."""
         steps = []
-        want = {int(b): v for b, v in (build.get("skills") or {}).items()}
-        # 1. skill points: down first (they give the points the ups need)
+        want = {int(b) for b in (build.get("skills") or {})}
         downs, ups = [], []
-        for base, (level, specs) in sorted(want.items()):
-            have = skills.get(base)
-            now = have.level if have else 0
-            if level < now:
-                downs.append(("Puntos", f"Baja {self.name_of(base)} de Lv {now} a Lv {level}"))
-            elif level > now:
-                ups.append(("Puntos", f"Sube {self.name_of(base)} de Lv {now} a Lv {level}"))
-        for base, have in sorted(skills.items()):
-            if (base not in want and have.level and self.kind_of(base) not in ("stigma", "") and
-                    build.get("source") != "player"):
-                downs.append(("Puntos", f"Baja {self.name_of(base)} de Lv {have.level} a Lv 0 (la build no la usa)"))
+        for base in sorted(want):
+            mine = skills.get(base)
+            have = mine.learned if mine else 0
+            target, exact = self.target_points(build, base, mine)
+            note = "" if exact else " (aprox.: su nivel menos tu bonus)"
+            if target < have:
+                downs.append(Step("Puntos", f"Baja {self.name_of(base)} de {have} a {target} puntos{note}", "points",
+                                  base, have, target))
+            elif target > have:
+                ups.append(Step("Puntos", f"Sube {self.name_of(base)} de {have} a {target} puntos{note}", "points",
+                                base, have, target))
+        if build.get("source") != "player":
+            for base, mine in sorted(skills.items()):
+                if base not in want and mine.learned > 1 and self.kind_of(base) in ("active", "passive"):
+                    downs.append(Step("Puntos", f"Baja {self.name_of(base)} de {mine.learned} a 1 punto (la build no "
+                                      f"la usa)", "points", base, mine.learned, 1))
         steps += downs + ups
-        # 2. specializations (only builds that carry them)
-        for base, (level, specs) in sorted(want.items()):
-            have = skills.get(base)
-            if specs and have and sorted(have.specs) != sorted(specs):
-                old = "·".join(map(str, have.specs)) or "ninguna"
-                steps.append(("Especialidades", f"{self.name_of(base)}: {old} → {'·'.join(map(str, specs))}"))
-        # 3. stigmas: the build's equipped ones against the ones on your bar
-        now_on = {base_skill(q.skill) for q in bar} | {p for q in bar for p in q.priority}
-        want_on = set(build.get("equipped") or [])
-        for base in sorted(want_on - now_on):
-            if self.kind_of(base) == "stigma":
-                steps.append(("Estigmas", f"Equipa {self.name_of(base)}"))
-        for base in sorted(now_on - want_on):
-            if self.kind_of(base) == "stigma" and want_on:
-                steps.append(("Estigmas", f"Quita {self.name_of(base)}"))
-        # 4. the bar, key by key
+        for base in sorted(want):
+            entry = build["skills"][str(base)]
+            specs = entry[1] if len(entry) > 1 else []
+            mine = skills.get(base)
+            if specs and mine and sorted(mine.specs) != sorted(specs):
+                old = "·".join(map(str, mine.specs)) or "ninguna"
+                steps.append(Step("Especialidades", f"{self.name_of(base)}: {old} → {'·'.join(map(str, specs))}",
+                                  "spec", base, list(mine.specs), list(specs)))
         if build.get("bar"):
-            mine = {q.slot: list(q.priority) for q in bar}
-            for slot, skill, prio in sorted(build["bar"], key=lambda r: list(SLOT_KEYS).index(r[0])
-                                            if r[0] in SLOT_KEYS else 99):
-                if mine.get(slot) != list(prio):
-                    names = " → ".join(self.name_of(p) for p in prio)
-                    steps.append(("Barra", f"Tecla {SLOT_KEYS.get(slot, slot)}: {names}"))
-            for slot in sorted(set(mine) - {r[0] for r in build["bar"]}):
-                steps.append(("Barra", f"Tecla {SLOT_KEYS.get(slot, slot)}: vaciar"))
+            steps += self.bar_steps(build, bar)
+        elif build.get("equipped"):
+            used = [self.name_of(b) for b in build["equipped"] if self.kind_of(b) == "stigma"]
+            if used:
+                steps.append(Step("Estigmas", "Usa estos estigmas (el perfil oficial no dice en qué tecla): "
+                                  + ", ".join(used), "info"))
         return steps
+
+    def bar_steps(self, build, bar):
+        """The cells of the bar to fill or empty, key by key, priority by priority."""
+        steps = []
+        mine = {q.slot: list(q.priority) for q in bar}
+        order = list(SLOT_KEYS)
+        target = {slot: list(prio) for slot, _, prio in build["bar"]}
+        for slot in sorted(set(target) | set(mine), key=lambda s: order.index(s) if s in order else 99):
+            want, have = target.get(slot, []), mine.get(slot, [])
+            key = SLOT_KEYS.get(slot, slot)
+            for i, base in enumerate(want):
+                if i >= len(have) or have[i] != base:
+                    steps.append(Step("Barra", f"Tecla {key}, prioridad {i + 1}: {self.name_of(base)}", "place", base,
+                                      slot=slot, row=i))
+            for i in range(len(have) - 1, len(want) - 1, -1):
+                steps.append(Step("Barra", f"Tecla {key}, prioridad {i + 1}: vaciar ({self.name_of(have[i])})",
+                                  "clear", have[i], slot=slot, row=i))
+        return steps
+
+
+@dataclass
+class Step:
+    section: str                 # "Puntos" | "Especialidades" | "Barra" | "Estigmas"
+    text: str
+    kind: str                    # "points" | "spec" | "place" | "clear" | "info"
+    skill: int = 0
+    frm: object = None
+    to: object = None
+    slot: int = None
+    row: int = None

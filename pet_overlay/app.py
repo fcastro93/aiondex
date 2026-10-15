@@ -187,6 +187,7 @@ class Bridge(QObject):
         self.upkeep = upkeep.UpkeepRecorder()    # buffs and consumables of you and your group
         self._upkeep_failed = False
         self.position = whereami.OwnPosition()   # where you are, for the map windows
+        self.macro = None                        # the build macro running (it waits for the game's answers)
         self._position_failed = False
         self.nodes = nodes.NodeTracker()         # the gathering nodes around you
 
@@ -198,6 +199,9 @@ class Bridge(QObject):
     def on_message(self, op, body):
         if self.health:
             self.health.saw(OP_KIND.get(op))
+        macro = self.macro
+        if macro is not None:
+            macro.feed(op, body)
         if self.tracker:
             event = self.tracker.on_message(op, body)
             if event:
@@ -648,6 +652,7 @@ class Controller(QObject):
         from .builds import Builds
         self.builds = Builds(self.data_dir, self.tuner.skills)     # skill builds beyond the game's 3 presets
         self.builds_window = None
+        self.calibration_window = None
         self.diag_window = None
         self.dps_window = None
         self._restore_session()
@@ -2255,6 +2260,100 @@ class Controller(QObject):
         self.builds_window.show()
         self.builds_window.raise_()
         self.builds_window.activateWindow()
+
+    # --- the build macro ---
+    def skill_order(self):
+        """{"active", "passive", "stigma": [base ids]} in the order the Skill window's grids show them (your official
+        profile lists them so), or None while the profile is not read (it is asked for)."""
+        from .skills import base_skill
+        who, c = self.character_name(), self.character
+        if not who or not c:
+            return None
+        profile = self.armory.cached(who, c.server)
+        if profile is None or not profile.skill_list:
+            self.armory.want(who, c.server)
+            return None
+        order = {"active": [], "passive": [], "stigma": []}
+        group = {"Active": "active", "Passive": "passive", "Dp": "stigma"}
+        for s in profile.skill_list:
+            kind = group.get(s.get("category"))
+            if kind and s.get("id"):
+                order[kind].append(base_skill(int(s["id"])))
+        return order
+
+    def macro_layout(self):
+        """(Layout of the Skill window on screen, game window handle, calibrated?) or None without the game."""
+        from .buildmacro import Layout, default_layout
+        from .minimap import game_window
+        from .sniffer import game_pids
+        from .winput import real_pixels
+        real_pixels()
+        game = game_window(game_pids())
+        if game is None:
+            return None
+        hwnd, client = game
+        size = f"{client[2] - client[0]}x{client[3] - client[1]}"
+        saved = (self.settings.get("build_macro") or {}).get("layouts", {}).get(size)
+        points = default_layout(client[2] - client[0], client[3] - client[1])
+        points.update({k: tuple(v) for k, v in (saved or {}).items()})
+        return Layout(client, points), hwnd, bool(saved)
+
+    def open_calibration(self):
+        from .ui.calibrationwindow import CalibrationWindow
+        found = self.macro_layout()
+        if found is None:
+            self.notify("warn", "Builds", "Abre el juego para calibrar el menú de skills.")
+            return None
+        layout, _, _ = found
+        size = f"{layout.client[2] - layout.client[0]}x{layout.client[3] - layout.client[1]}"
+
+        def save(points):
+            self.settings.setdefault("build_macro", {}).setdefault("layouts", {})[size] = \
+                {k: [round(v[0], 5), round(v[1], 5)] for k, v in points.items()}
+            self._save_settings()
+            if self.builds_window and self.builds_window.isVisible():
+                self.builds_window.refresh()
+        self.calibration_window = CalibrationWindow(layout.client, layout.points, save)
+        self.calibration_window.show()
+        return self.calibration_window
+
+    def apply_build(self, steps, preset, on_progress, on_done):
+        """Run the build macro (its own thread); on_progress / on_done are called from it. -> error text or None."""
+        from .buildmacro import BuildMacro, is_admin
+        if self.bridge.macro is not None:
+            return "Ya se está aplicando una build."
+        if not is_admin():
+            return "admin"
+        order = self.skill_order()
+        if order is None:
+            return "Leyendo tu perfil oficial para saber el orden de tus skills: prueba en unos segundos."
+        found = self.macro_layout()
+        if found is None:
+            return "No encuentro la ventana del juego."
+        layout, hwnd, _ = found
+
+        def done(ok, text):
+            self.bridge.macro = None
+            on_done(ok, text)
+        macro = BuildMacro(self, steps, preset, order, layout, hwnd, on_progress, done)
+        self.bridge.macro = macro
+        macro.start()
+        return None
+
+    def restart_as_admin(self):
+        """Open AionDex again as administrator (Windows asks) and close this one: the game runs as administrator, and
+        only then can AionDex click on it (build macro) or see the keys you press in it."""
+        import ctypes
+        if getattr(sys, "frozen", False):
+            program, args = sys.executable, "--restarted"
+        else:
+            program, args = sys.executable, f'"{Path(sys.argv[0]).resolve()}" --restarted'
+        result = ctypes.windll.shell32.ShellExecuteW(None, "runas", program, args, None, 1)
+        if result > 32:
+            log.info("restarting as administrator")
+            self.quit()
+            return True
+        return False                             # the user said no in Windows' prompt
 
     def open_tuner(self):
         self._ensure_skill_icons()
