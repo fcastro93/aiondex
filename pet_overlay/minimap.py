@@ -14,6 +14,10 @@ whereami.py), so between the few messages that tell where you stand, the minimap
   changes it) is searched once and then followed. Error against the game's exact positions: 6-7 m.
 - The camera's view cone: the minimap draws it as a lighter wedge with two white edges from the centre (about 115
   degrees wide); the two strongest white rays are its edges and the lighter side between them is the cone.
+- The monsters' dots: the minimap draws the monsters around you as small filled circles (white, red). Their
+  places are known exactly from the game (mobs.py: where each one is), so each dot paired with a monster says where
+  you are; when at least DOTS_AGREE of them agree within DOTS_CLOSE metres, that is your position (closer than the
+  map's match, a few metres).
 - The quest list: right under the minimap the game lists your quests (a progress bar, then per quest a gold title
   and its step), as long as you have quests. Its lines are read (OCR) every QUEST_EVERY seconds while the pets'
   Modo Focus is on, and where they end is where that list goes (quest_area).
@@ -48,6 +52,10 @@ ACROSS = 296.0                   # metres the minimap shows across at its defaul
 MIN_SCORE = 0.32                 # a match below this is not trusted
 GOOD_SCORE = 0.55                # a match this good confirms the minimap's size
 QUEST_EVERY = 2.0                # seconds between two reads of the quest list under the minimap
+DOT_R = 7.0                      # a monster's dot radius at 4K (minimap 330 px tall)
+DOTS_AGREE = 3                   # dots that must agree to place you by them
+DOTS_CLOSE = 1.5                 # metres they must agree within
+DOTS_REACH = 15.0                # metres from the map's match they can move you
 QUEST_FIRST = 0.6                # the first quest line starts within this many minimap heights under it (the bar
                                  # above the quests is ~0.2-0.3)
 QUEST_GAP = 0.3                  # ... and each next line within this gap of the one before
@@ -427,6 +435,8 @@ class MinimapReader:
                                             # so a failed find (or one on a quest's text) falls back to it
         self.poly = None                    # those corners while they are used (the route is drawn inside them)
         self.quests_wanted = lambda: False  # the pets' Modo Focus: read where the game's quest list ends
+        self.monsters = None                # (x m, y m, reach) -> [(x, y)] monsters in sight (mobs.MobTracker)
+        self.dots = 0                       # dots that placed you at the last read (0: the map's match)
         self.quest_area = None              # (left, top, right, at) under the quest list, screen pixels
         self._quests_at = 0.0
         self._quest_ends = []               # the last reads' ends: a read that misses a line does not move it up
@@ -516,6 +526,9 @@ class MinimapReader:
             return None
         self._misses = 0
         x, y, score = found
+        exact = self._by_dots(shot, x, y)
+        if exact:
+            x, y = exact
         if score >= GOOD_SCORE and not calibrated:
             self._units[(client[2] - client[0], client[3] - client[1])] = unit
             self._good[(client[2] - client[0], client[3] - client[1])] = self._box
@@ -526,6 +539,32 @@ class MinimapReader:
             self.position.cone = (now, *cone)
         self.status = ""
         return x, y, score
+
+    def _by_dots(self, shot, x, y):
+        """Your position from the monsters' dots (the map's match moved a little), or None."""
+        self.dots = 0
+        if self.monsters is None or not self._ppm or not self._scale:
+            return None
+        ppm = self._scale * self._ppm                     # minimap pixels per metre
+        reach = shot.size[0] / ppm / 2 + DOTS_REACH
+        known = self.monsters(x, y, reach)
+        if len(known) < DOTS_AGREE:
+            return None
+        dots = minimap_dots(shot, shot.size[1] / (1 - 2 * INSET) / 330)
+        if len(dots) < DOTS_AGREE:
+            return None
+        cx, cy = shot.size[0] / 2, shot.size[1] / 2
+        votes = [(mx - (dx - cx) / ppm, my - (dy - cy) / ppm) for dx, dy in dots for mx, my in known]
+        votes = [v for v in votes if math.dist(v, (x, y)) <= DOTS_REACH]
+        best, agree = None, []
+        for v in votes:
+            near = [w for w in votes if math.dist(v, w) <= DOTS_CLOSE]
+            if len(near) > len(agree):
+                best, agree = v, near
+        if best is None or len(agree) < DOTS_AGREE:
+            return None
+        self.dots = len(agree)
+        return (round(sum(v[0] for v in agree) / len(agree), 1), round(sum(v[1] for v in agree) / len(agree), 1))
 
     def minimap_box(self, client):
         """The minimap on screen now: your corners, else where it read well, else where it was found, or None."""
@@ -675,6 +714,35 @@ def quest_bottom(lines, box):
             break
         end, gap = max(end, bottom), QUEST_GAP * h
     return round(end + (0.04 if end > box[3] else 0.3) * h)
+
+
+def minimap_dots(image, scale=1.0):
+    """[(x, y)] (image pixels) of the monsters' dots on a minimap picture: small filled white or red circles. Text
+    (white too) and the lines of the view cone are thin, so they never fill the dot's middle."""
+    np = _np()
+    a = np.asarray(image.convert("RGB"), dtype=np.int16)
+    r, g, b = a[..., 0], a[..., 1], a[..., 2]
+    white = (np.minimum(np.minimum(r, g), b) > 215) & (np.maximum(np.maximum(r, g), b) - np.minimum(np.minimum(r, g), b)
+                                                       < 40)
+    red = (r > 180) & (g < 80) & (b < 80)
+    side = max(3, int(round(DOT_R * scale * 1.1)))       # a square inside the dot
+    found = []
+    for mask in (white, red):
+        total = np.pad(mask.astype(np.int32), ((1, 0), (1, 0))).cumsum(0).cumsum(1)
+        h, w = mask.shape
+        if h <= side or w <= side:
+            continue
+        fill = (total[side:, side:] - total[:-side, side:] - total[side:, :-side] + total[:-side, :-side]) / side ** 2
+        ys, xs = np.nonzero(fill >= 0.85)
+        order = np.argsort(-fill[ys, xs])
+        taken = []
+        for i in order:
+            px, py = xs[i] + side / 2, ys[i] + side / 2
+            if all((px - qx) ** 2 + (py - qy) ** 2 > (DOT_R * scale * 1.6) ** 2 for qx, qy in taken):
+                taken.append((px, py))
+        found += taken
+    cx, cy = image.size[0] / 2, image.size[1] / 2
+    return [(x, y) for x, y in found if (x - cx) ** 2 + (y - cy) ** 2 > (DOT_R * scale * 2.5) ** 2]   # not you
 
 
 def fallback_geometry(reader):

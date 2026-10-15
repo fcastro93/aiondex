@@ -292,12 +292,12 @@ class MinimapOverlay(QWidget):
         p.end()
 
     def _draw_mobs(self, p, at, inner, unit, me, centre):
-        """The mob route: its loop, each spawn point's state and the next one to kill."""
-        route = self._mobs.get("route") or []
-        if len(route) > 1:
-            path = QPainterPath(at(*route[0]))
-            for q in route[1:] + route[:1]:
-                path.lineTo(at(*q))
+        """The mob route: the next kills planned (from you, numbered), each spawn point's state, the next one."""
+        plan = self._mobs.get("plan") or []
+        if plan:
+            path = QPainterPath(centre)
+            for x, y, *_ in plan:
+                path.lineTo(at(x, y))
             p.setBrush(Qt.NoBrush)
             p.setPen(QPen(QColor(5, 10, 20, 160), 4.6 * unit))
             p.drawPath(path)
@@ -305,14 +305,12 @@ class MinimapOverlay(QWidget):
             p.drawPath(path)
         now_left = time.time() - self._data_at          # the seconds left were computed this long ago
         r = 4.8 * unit
-        targets = []
         for x, y, state, left, mine, _name in self._mobs.get("points") or []:
             c = at(x, y)
             if state == "up":
                 p.setPen(QPen(QColor(255, 255, 255, 235), 1.5 * unit))
                 p.setBrush(MOB)
                 p.drawEllipse(c, r, r)
-                targets.append((0, x, y))
             elif state in ("dead", "soon"):
                 p.setPen(QPen(MINE if mine else QColor(170, 170, 178), 1.8 * unit))
                 p.setBrush(MOB_DEAD)
@@ -322,25 +320,26 @@ class MinimapOverlay(QWidget):
                     f"{int(seconds)} s" if seconds < 60 else f"{int(seconds) // 60}:{int(seconds) % 60:02d}"
                 self._label(p, c + QPointF(r + 3 * unit, 4 * unit), text, unit * 0.85,
                             MOB if seconds is not None and seconds <= 0 else NEXT)
-                if seconds is not None:
-                    targets.append((max(0.0, seconds), x, y))
             else:                                       # not seen yet / out of sight
                 p.setPen(QPen(MOB, 1.4 * unit))
                 p.setBrush(Qt.NoBrush)
                 p.drawEllipse(c, r * 0.8, r * 0.8)
-        if targets:                                     # alive first (nearest), else the one back soonest
-            wait, nx, ny = min(targets, key=lambda e: (e[0] > 0, e[0], math.dist((e[1], e[2]), me)))
-            target = at(nx, ny)
-            room = inner.adjusted(14 * unit, 14 * unit, -14 * unit, -14 * unit)
-            p.setPen(QPen(MOB, 2 * unit))
-            p.setBrush(Qt.NoBrush)
-            if room.contains(target):
-                p.drawLine(centre, target)
-                p.drawEllipse(target, 9 * unit, 9 * unit)
-            else:
-                edge = _to_edge(centre, target, room)
-                p.drawLine(centre, edge)
-                self._arrow(p, centre, edge, unit)
+        room = inner.adjusted(14 * unit, 14 * unit, -14 * unit, -14 * unit)
+        for i, (x, y, _name, _start, wait) in enumerate(plan):          # 1, 2, 3...: the order of the kills
+            c = at(x, y)
+            if not room.contains(c):
+                if i == 0:                                  # the next one is off the minimap: an arrow to it
+                    edge = _to_edge(centre, c, room)
+                    p.setPen(QPen(MOB, 2 * unit))
+                    self._arrow(p, centre, edge, unit)
+                continue
+            if i == 0:
+                p.setPen(QPen(MOB, 2.2 * unit))
+                p.setBrush(Qt.NoBrush)
+                p.drawEllipse(c, 9 * unit, 9 * unit)
+                if wait > 1:
+                    self._label(p, c + QPointF(-10 * unit, -12 * unit), f"espera {int(wait)} s", unit * 0.85, MOB)
+            self._label(p, c + QPointF(-4 * unit, -7 * unit), str(i + 1), unit * 0.8, QColor(255, 255, 255))
 
     def _arrow(self, p, start, tip, unit):
         angle = math.atan2(tip.y() - start.y(), tip.x() - start.x())

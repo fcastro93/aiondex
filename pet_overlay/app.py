@@ -139,7 +139,7 @@ SEAL_REGIONS = {310: "Verteron", 320: "Altgard"}         # sealed dungeons: Seal
 MY_KILL = 20.0                   # seconds: a monster you hit this recently and that died was your kill
 MOB_SHOWN = 160.0                # metres around you whose mob spawn points the minimap shows
 MOB_CAMP = 120.0                 # metres of the closest camp, when none is around
-MOB_ROUTE = 24                   # spawn points in the route
+MOB_PLAN = 5                     # kills planned ahead (the route drawn)
 MOB_LOST = 45.0                  # seconds past a monster's respawn after which a dead one not seen back is unknown
 EMPTY_RADIUS = 35          # metres: closer than this to a gathering spot, its node would be on screen
 EMPTY_KEEP = 3600          # seconds a spot found empty is remembered
@@ -633,7 +633,9 @@ class Controller(QObject):
         self.minimap = MinimapReader(self.data_dir / "tiles", self.bridge.position, game_pids,
                                      lambda: time.time() < self.minimap_wanted_until, self._zone_spot, self._zone_map)
         self.minimap.corners = self.minimap_corners
+        self.minimap.monsters = lambda x, y, reach: self.bridge.mobs.around(x, y, reach)
         self._my_hits = {}                       # entity -> when you last hit it (who killed a monster)
+        self._first_hits = {}                    # entity -> when you first hit it (how long your kills take)
         self._world_mobs = self._load_world_mobs()   # map -> {monster name: [(u, v)]}: the world map's spawns
         mobs = self.bridge.mobs
         saved = self.settings.get("mobs") or {}
@@ -804,10 +806,14 @@ class Controller(QObject):
             mine = me is not None and hit.kind == "damage" and \
                 self.combat.owners.get(hit.attacker, hit.attacker) == me
             if mine:
-                self._my_hits[hit.target] = time.time()
+                now = time.time()
+                if now - self._my_hits.get(hit.target, 0) > MY_KILL:
+                    self._first_hits[hit.target] = now
+                self._my_hits[hit.target] = now
                 if len(self._my_hits) > 400:
-                    cutoff = time.time() - MY_KILL
+                    cutoff = now - MY_KILL
                     self._my_hits = {k: v for k, v in self._my_hits.items() if v > cutoff}
+                    self._first_hits = {k: v for k, v in self._first_hits.items() if k in self._my_hits}
             if mine and self.tuner.recording and hit.target not in self.combat.players:
                 self.tuner.on_damage(hit.skill, hit.amount)
             finished = self.combat.on_hit(hit)
@@ -857,8 +863,11 @@ class Controller(QObject):
     def on_death(self, eid):
         now = time.time()
         mine = now - self._my_hits.pop(eid, 0) < MY_KILL
+        first = self._first_hits.pop(eid, None)
         name = self.bridge.mobs.on_death(now, eid, mine)
         if name and mine:
+            if first:
+                self.bridge.mobs.on_kill_time(name, now - first)
             self._mob_killed(name)
         if eid is not None and eid == self.combat.self_eid and time.time() - self._last_own_death > 2:
             self._last_own_death = time.time()      # 048d of your own character: always with your HP at 0
@@ -2481,10 +2490,10 @@ class Controller(QObject):
         self.minimap_overlay.set_mobs(on)
 
     def mob_route_data(self, game_map):
-        """What the mob route draws: {"route": [(x m, y m)], "points": [(x, y, state, seconds left, mine, name)]}
-        of the route's monsters near you (state: "up" alive, "dead", "soon" past its usual respawn, "unknown"), or
-        None."""
-        from .gathering import _route
+        """What the mob route draws: {"plan": [(x m, y m, name, starts in s, wait s)] the next kills (mobs.plan_kills),
+        "points": [(x, y, state, seconds left, mine, name)]} of the route's monsters near you (state: "up" alive,
+        "dead", "soon" past its usual respawn, "unknown"), or None."""
+        from .mobs import RUN, plan_kills
         names = self.mob_route_names()
         fix = self.bridge.position.fix
         if not names or not fix:
@@ -2496,7 +2505,6 @@ class Controller(QObject):
         if not near and points:                  # the closest camp, when none is around
             first = min(points, key=lambda p: math.dist((p.x, p.y), me))
             near = [p for p in points if math.dist((p.x, p.y), (first.x, first.y)) <= MOB_CAMP]
-        camp = sorted(near, key=lambda p: math.dist((p.x, p.y), me))[:MOB_ROUTE]
         rows = []
         for p in near:
             respawn = self.bridge.mobs.respawn(p.name)
@@ -2508,7 +2516,11 @@ class Controller(QObject):
             else:
                 state, left = "unknown", None
             rows.append((p.x, p.y, state, left, p.mine, p.name))
-        return {"route": _route([(p.x, p.y) for p in camp]), "points": rows}
+        mobs = self.bridge.mobs
+        overlay = self.minimap_overlay
+        speed = overlay._motion.speed if overlay is not None else RUN
+        plan = plan_kills(me, near, now, mobs.respawn, mobs.kill_time, speed=speed, steps=MOB_PLAN)
+        return {"plan": plan, "points": rows}
 
     # --- the pets' Modo Focus ---
     def set_pets_focus(self, on):
