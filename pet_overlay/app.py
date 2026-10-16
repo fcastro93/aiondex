@@ -655,6 +655,7 @@ class Controller(QObject):
         self.focus_panel = None
         self.bridge.bigfoes.which = self._big_foe
         self.bridge.bigfoes.name_of = lambda eid: self.combat.npc_names.get(eid)
+        self.bridge.bigfoes.current_map = lambda: self.bridge.position.game_map
         QTimer.singleShot(0, self._focus_start)
         self.minimap.start()
         self._ocr = OcrWorker(self.crafting)

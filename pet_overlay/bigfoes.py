@@ -67,15 +67,20 @@ class BigFoes:
         self.game_map = None
         self.which = lambda npc, max_hp: None    # -> (name, boss) or None when it is not one (the Controller)
         self.name_of = lambda eid: None          # a name the rest of AionDex knows for an entity (the DPS)
+        self.current_map = lambda: None          # the map AionDex knows you are on (whereami: kept across a restart
+                                                 # or read from the minimap's title) until a map entry tells
 
     def on_map(self, game_map):
         with self.lock:
             self.game_map = game_map
             self.foes.clear()
 
+    def in_abyss(self):
+        return (self.game_map if self.game_map is not None else self.current_map()) in ABYSS
+
     def on_message(self, op, body, now):
         if op == SPAWN:
-            if self.game_map not in ABYSS:
+            if not self.in_abyss():
                 return
             spawn, hp = parse_spawn_at(body), parse_spawn_hp(body)
             if not spawn or not hp:
@@ -92,7 +97,7 @@ class BigFoes:
                     else:
                         foe.hp, foe.max_hp, foe.x, foe.y, foe.in_sight, foe.seen_at = hp[0], hp[1], x, y, True, now
         elif op == STATS:
-            if self.game_map not in ABYSS:
+            if not self.in_abyss():
                 return
             update = parse_hp(body)
             if not update or update[1] > SANE_HP:
