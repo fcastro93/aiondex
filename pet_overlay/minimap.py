@@ -584,7 +584,8 @@ class MinimapReader:
         if game is None:
             return None
         hwnd, client = game
-        box = self.minimap_box(client)
+        self.game_hwnd, self.client = hwnd, client     # also where read_once returns early (a dungeon: no world map
+        box = self.minimap_box(client)                 # to read you on), the panel needs the game's window
         if box is None:
             if not self._locate(client, now):
                 return None
