@@ -8,6 +8,9 @@ copy its HP). From the game:
 - 4136 it comes into sight: entity | ... | npc | 2 bytes | f32 x, y, z | 4 + 3 bytes | varint HP | varint max HP;
 - 008d its HP (damage.parse_hp), the 1a37 family where it moves, 048d it died, 4236 out of sight (1) or gone (3).
 Out of sight it stays listed for KEEP seconds with its last HP ("fuera de vista hace N s"); dead, for DEAD_FOR.
+One whose coming into sight was missed (AionDex started mid-fight) is taken from its HP updates once they are this
+big (Executor Argo, a rift boss of Chaotic Lower Reshanta, 2026-10-15: 206M -> dead in 26 s); an absurd HP (the
+first update of that fight read 3.1e21) is left out.
 Runs on the capture thread; the overlay reads rows() under the lock."""
 import math
 import threading
@@ -28,6 +31,7 @@ KEEP = 300                       # seconds one out of sight stays listed
 DEAD_FOR = 20
 ROWS = 3
 OBJECTS = range(2_920_000, 2_930_000)
+SANE_HP = 100_000_000_000        # no monster has more
 
 
 def parse_spawn_hp(body):
@@ -62,6 +66,7 @@ class BigFoes:
         self.foes = {}                       # entity -> Foe
         self.game_map = None
         self.which = lambda npc, max_hp: None    # -> (name, boss) or None when it is not one (the Controller)
+        self.name_of = lambda eid: None          # a name the rest of AionDex knows for an entity (the DPS)
 
     def on_map(self, game_map):
         with self.lock:
@@ -86,13 +91,26 @@ class BigFoes:
                         self.foes[eid] = Foe(eid, npc, which[0], which[1], hp[0], hp[1], x, y, now)
                     else:
                         foe.hp, foe.max_hp, foe.x, foe.y, foe.in_sight, foe.seen_at = hp[0], hp[1], x, y, True, now
+        elif op == STATS:
+            if self.game_map not in ABYSS:
+                return
+            update = parse_hp(body)
+            if not update or update[1] > SANE_HP:
+                return
+            eid, hp = update
+            foe = self.foes.get(eid)
+            if foe is None:
+                if hp >= BIG_HP:                     # its coming into sight was missed: from its HP
+                    with self.lock:
+                        self.foes[eid] = Foe(eid, None, self.name_of(eid) or "Jefe", False, hp, hp, 0.0, 0.0, now)
+                        self.foes[eid].x = self.foes[eid].y = None
+                return
+            if hp > foe.max_hp * 1.05 and foe.npc is not None:
+                return
+            foe.hp, foe.seen_at, foe.in_sight = hp, now, True
+            foe.max_hp = max(foe.max_hp, hp)
         elif not self.foes:
             return
-        elif op == STATS:
-            update = parse_hp(body)
-            foe = self.foes.get(update[0]) if update else None
-            if foe:
-                foe.hp, foe.seen_at, foe.in_sight = update[1], now, True
         elif op in MOVE_AT:
             move = parse_move(op, body)
             foe = self.foes.get(move[0]) if move else None
@@ -122,7 +140,7 @@ class BigFoes:
                     continue
                 if not foe.boss and foe.hp >= foe.max_hp and foe.died_at is None:
                     continue                         # a big one never hit: a guard, not a siege's core
-                far = math.dist(me, (foe.x, foe.y)) if me else None
+                far = math.dist(me, (foe.x, foe.y)) if me and foe.x is not None else None
                 out.append((foe.name, foe.hp, foe.max_hp, foe.in_sight, now - foe.seen_at, foe.died_at is not None,
                             far))
         out.sort(key=lambda r: (not r[3], r[6] if r[6] is not None else 0, r[4]))

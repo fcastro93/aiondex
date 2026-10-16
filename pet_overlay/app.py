@@ -654,6 +654,7 @@ class Controller(QObject):
         self.minimap.quests_wanted = lambda: bool(self.settings.get("pets_focus") or self.bridge.bigfoes.foes)
         self.focus_panel = None
         self.bridge.bigfoes.which = self._big_foe
+        self.bridge.bigfoes.name_of = lambda eid: self.combat.npc_names.get(eid)
         QTimer.singleShot(0, self._focus_start)
         self.minimap.start()
         self._ocr = OcrWorker(self.crafting)
