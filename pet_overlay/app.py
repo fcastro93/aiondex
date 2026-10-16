@@ -68,7 +68,7 @@ from .modules.dps import DpsModule
 from .modules.builds import BuildsModule
 from .modules.diagnostics import DiagnosticsModule, open_problems
 from .modules.tracker import TrackerModule
-from .modules.crafting import CraftingModule
+from .modules.crafting import PROFESSION_MODULES, CraftingModule, GatheringModule, LevelingModule, MarketModule
 from .modules.status import StatusModule
 from .modules.missions import AchievementsModule, MissionsModule
 from .modules.passes import PassesModule
@@ -698,7 +698,8 @@ class Controller(QObject):
         self.dps_window = None
         self._restore_session()
         self.modules = [DashboardModule(self), PetsModule(self), DpsModule(self), BuildsModule(self), TrackerModule(self),
-                        CraftingModule(self), StatusModule(self), MissionsModule(self), AchievementsModule(self),
+                        CraftingModule(self), MarketModule(self), LevelingModule(self), GatheringModule(self),
+                        StatusModule(self), MissionsModule(self), AchievementsModule(self),
                         PassesModule(self), EventsModule(self),
                         NotificationsModule(self), DiagnosticsModule(self),
                         SettingsModule(self)]
@@ -921,6 +922,14 @@ class Controller(QObject):
     def open_gather_map(self, material):
         """Where to gather a material: its nodes, the best area with a route, your bot marks."""
         from .ui.gathermap import GatherMapWindow
+        recent = self.crafting.config.setdefault("recent_gather", [])
+        if material in recent:
+            recent.remove(material)
+        recent.insert(0, material)
+        del recent[8:]
+        self._save_settings()
+        if self.active_module.key == "gathering":
+            QTimer.singleShot(0, self.refresh)
         if self.gather_window is None:
             self.gather_window = GatherMapWindow(self)
         self.gather_window.show_material(material)
@@ -929,6 +938,7 @@ class Controller(QObject):
         self.gather_window.activateWindow()
 
     def open_crafting(self, tab=None):
+        """Profesiones y Market: tab is a section (crafting / market / leveling / gathering) or a Market tab."""
         from .ui.craftingwindow import CraftingWindow
         if self.crafting_window is None:
             self.crafting_window = CraftingWindow(self)
@@ -1012,8 +1022,8 @@ class Controller(QObject):
             return
         shot = self.crafting.add_shot(path)
         self._ocr.add(shot)
-        if not from_window and self.active_module.key != "crafting" and self.window.isVisible():
-            self.switch_module("crafting")          # so the overlay shows what each shot read
+        if not from_window and self.active_module.key != "market" and self.window.isVisible():
+            self.switch_module("market")            # so the overlay shows what each shot read
         self._crafting_changed()
 
     def _shot_read(self, shot):
@@ -1022,7 +1032,7 @@ class Controller(QObject):
             return
         if self.crafting_window and self.crafting_window.isVisible():
             self.crafting_window.shot_read(shot)
-        if self.active_module.key == "crafting":
+        if self.active_module.key in PROFESSION_MODULES:
             self.refresh()
 
     def _sales_shot(self, shot):
@@ -1102,7 +1112,7 @@ class Controller(QObject):
     def _crafting_changed(self):
         if self.crafting_window and self.crafting_window.isVisible():
             self.crafting_window.refresh()
-        if self.active_module.key == "crafting" and not self._refreshing:
+        if self.active_module.key in PROFESSION_MODULES and not self._refreshing:
             self.refresh()
 
     def on_items(self, event):
@@ -2871,7 +2881,7 @@ class Controller(QObject):
         menu.addAction("Pets exclusivos (Asmodian / Elyos)", self.open_exclusive_pets)
         menu.addAction("Jugadores de tu party / force", self.open_players)
         menu.addAction("Builds de skills (y Afinador del macro)", self.open_builds)
-        menu.addAction("Abrir Crafting", self.open_crafting)
+        menu.addAction("Profesiones y Market", self.open_crafting)
         menu.addAction(f"Escanear el mercado (Crafting)\t{hk.get('crafting_scan', '')}", self.crafting_scan)
         menu.addAction("Abrir Status de tus personajes", self.open_status)
         menu.addAction("Season Missions", self.open_missions)

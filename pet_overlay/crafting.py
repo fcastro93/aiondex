@@ -368,6 +368,9 @@ class Crafting:
             return None                  # level unknown until the game sends it (login list or 7d8d)
         level, before = entry
         if exp < before + gained:
+            profession = self._ids().get(pid)
+            if profession and gained > 0 and (who, pid) in self._synced:     # what that level asked for
+                self.config.setdefault("level_exp", {})[f"{profession}|{level}"] = int(before + gained - exp)
             level += 1
         stored[str(pid)] = [level, exp]
         self.settings.save()
@@ -828,14 +831,14 @@ class Crafting:
                 listings is not None and listings > len(offers))
 
     # --- recipes -----------------------------------------------------------------------------------------
-    def recipe_rows(self, faction=None, profession=None, at=None):
+    def recipe_rows(self, faction=None, profession=None, at=None, bound=False):
         """One row per product of the profession (the recipe of your side), priced from the samples (the ones before
-        `at` when given)."""
+        `at` when given). bound: also the bound products (they cannot be sold, but you can craft them)."""
         profession = profession or self.profession
         prices = self.latest_prices(at)
         best = {}
         for r in self.recipes:
-            if r["profession"] != profession or "(Bound)" in r["product"]:      # bound items cannot be sold
+            if r["profession"] != profession or ("(Bound)" in r["product"] and not bound):
                 continue
             mine = faction is None or r.get("faction") in (None, faction)
             if faction and not mine and not any(x["product"] == r["product"] and x.get("faction") in (None, faction)
@@ -929,6 +932,55 @@ class Crafting:
         fail_avg = sum(fail) / len(fail) if fail else ok_avg * FAIL_EXP
         s = row.success if row.success is not None else 1
         return s * ok_avg + (1 - s) * fail_avg
+
+    def level_exp(self, profession=None, level=None):
+        """Experience a level of a profession asks for (learnt when you went past it), or None."""
+        profession = profession or self.profession
+        level = level if level is not None else self.level(profession)
+        return self.config.get("level_exp", {}).get(f"{profession}|{level}")
+
+    def exp_estimate(self, row, rows):
+        """(experience per attempt, "visto" | "estimado") for a recipe: what it gave you, else what the recipes you
+        crafted closest to its level give (median, within 10 levels), else (None, None)."""
+        exp = self.expected_exp(row)
+        if exp:
+            return exp, "visto"
+        near = []
+        for other in rows:
+            if other is row or abs(other.needs - row.needs) > NEAR_LEVELS:
+                continue
+            seen = self.exp_seen(other.recipe["id"])
+            ok = seen.get("ok") or [v / FAIL_EXP for v in seen.get("fail") or []]
+            if ok:
+                near.append((abs(other.needs - row.needs), sum(ok) / len(ok)))
+        if not near:
+            return None, None
+        near.sort()
+        values = sorted(v for _, v in near[:5])
+        ok = values[len(values) // 2]
+        s = row.success if row.success is not None else 1
+        return s * ok + (1 - s) * ok * FAIL_EXP, "estimado"
+
+    def leveling_plan(self, rows):
+        """The recipes to level up with, best first: [(row, exp per attempt, "visto"/"estimado"/None, Kinah per
+        attempt (+ you earn, - you lose), Kinah per experience or None)]. The ones you can make near your level (far
+        below give little experience); cheapest per point of experience first, the ones whose experience is unknown
+        after them (cheapest per attempt)."""
+        level = self.level()
+        if level is None:
+            return []
+        able = [r for r in rows if r.can_craft and r.cost is not None]
+        near = [r for r in able if r.needs >= level - NEAR_LEVELS]
+        if not near and able:
+            top = max(r.needs for r in able)
+            near = [r for r in able if r.needs == top]
+        plan = []
+        for r in near:
+            exp, how = self.exp_estimate(r, rows)
+            value = r.profit if r.profit is not None else -r.cost
+            plan.append((r, exp, how, value, value / exp if exp else None))
+        plan.sort(key=lambda e: (e[4] is None, -(e[4] if e[4] is not None else e[3]), -e[0].needs))
+        return plan
 
     def recommend(self, rows, n=3):
         """What to cook: recipes you can make that leave money gathering what you can, those seen selling first,

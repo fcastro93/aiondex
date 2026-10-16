@@ -1,6 +1,12 @@
-"""Crafting window: which recipes of your profession are worth crafting (sorted by profit after the market's tax, with
-what each one needs and where it comes from), the market shots waiting to be processed, the samples taken and each
-item's price over time."""
+"""Profesiones y Market: one window, four sections (the overlay's «Profesiones y Market» menu has one module each).
+
+- Crafting: your profession's recipes with how many of each material you have (bag and storage together) and how many
+  times you can make each one; a click on a material shows its market price (and, if it is gathered, where).
+- Market: which recipes are worth crafting (sorted by profit after the market's tax, with what each one needs and
+  where it comes from), the materials' prices, the market shots waiting to be processed, the samples taken, sales.
+- Levear: what to craft to level the profession up at your level: Kinah per point of experience, with the experience
+  each recipe gave you (or an estimate from the ones near its level) and what each level asks for once seen.
+- Gathering: find a gatherable material by name and open its map."""
 import os
 import time
 import webbrowser
@@ -9,20 +15,27 @@ from pathlib import Path
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
 from PySide6.QtGui import QColor, QIntValidator, QPainter, QPainterPath, QPen, QPixmap, QValidator
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
-                               QPushButton, QScrollArea, QSizePolicy, QSpinBox, QToolTip, QVBoxLayout, QWidget)
+                               QPushButton, QScrollArea, QSizePolicy, QSpinBox, QToolTip, QVBoxLayout, QWidget,
+                               QWidgetAction)
 
 from .. import APP_NAME
-from ..crafting import MATERIALS, SORT_KEYS, RecipeRow, span_text
+from ..crafting import DEFAULT_PROFESSION, MATERIALS, SORT_KEYS, RecipeRow, span_text
 from ..gathering import kills_for, map_open
 from ..professions import NOVICE_MAX, RANKS, level_text, parse_level
 from ..mapdata import MAP_NAMES
 from . import theme
+from .appmenu import styled_menu
 from .mapwindow import STYLE, badge_label
 from .theme import Fonts
 from .tunerwindow import EXTRA_STYLE
 from .widgets import SectionTitle, label
 
-TABS = [("profit", "Rentabilidad"), ("shots", "Capturas"), ("samples", "Muestreos"), ("sales", "Ventas")]
+SECTIONS = [("crafting", "Crafting"), ("market", "Market"), ("leveling", "Levear"), ("gathering", "Gathering")]
+TABS = [("profit", "Productos"), ("materials", "Materiales"), ("shots", "Capturas"), ("samples", "Muestreos"),
+        ("sales", "Ventas")]                                   # the Market's own tabs
+SEARCH_HINT = {"crafting": "Buscar receta o material…", "market": "Buscar objeto o material…",
+               "leveling": "Buscar receta…", "gathering": "Buscar material para recolectar (nombre o nodo)…"}
+PROFESSION_SECTIONS = {"crafting", "leveling"}                 # plus the Market's Productos: they use the profession
 # aion2data's grades in the game's colours (its "Epic" is the game's blue Legend tier)
 GRADE_COLOR = {"Common": "#C3C3C3", "Rare": "#19E048", "Epic": "#379AFF", "Unique": "#FFD02B", "Special": "#00FFD8"}
 SOURCE = {   # how a material is priced -> (chip text, colour)
@@ -88,6 +101,11 @@ class CraftingWindow(QWidget):
         self.crafting = ctl.crafting
         self.fonts = Fonts(1.0)
         self.tab = "shots" if self.crafting.shots else "profit"
+        self.section = "market" if self.crafting.shots else "crafting"
+        if self.crafting.profession == MATERIALS:                # 1.61: the materials are the Market's own tab
+            self.crafting.set_option("profession", DEFAULT_PROFESSION)
+            self.section, self.tab = "market", "materials"
+        self._open_recipes = set()        # recipes of Crafting whose materials are shown
         self._open = set()                # products whose materials are shown
         self._editing = set()             # materials whose price box is open
         self._thumbs = {}                 # shot file -> QPixmap thumbnail
@@ -95,7 +113,7 @@ class CraftingWindow(QWidget):
         self.sales_period = self.crafting.config.get("sales_period", "week")     # Ventas: hoy / 7 / 30 días / todo
         self.chart_window = None
         self.setObjectName("MapWindow")
-        self.setWindowTitle(f"{APP_NAME} — Crafting")
+        self.setWindowTitle(f"{APP_NAME} — Profesiones y Market")
         self.setWindowIcon(ctl.app_icon)
         self.setStyleSheet(STYLE + EXTRA_STYLE + CARD_STYLE)
         self.resize(1180, 860)
@@ -108,9 +126,10 @@ class CraftingWindow(QWidget):
         head.addWidget(badge_label(30, self.devicePixelRatioF()))
         titles = QVBoxLayout()
         titles.setSpacing(0)
-        title = label("Crafting", f.name_big, theme.TEXT)
+        title = label("Profesiones y Market", f.name_big, theme.TEXT)
         title.setAttribute(Qt.WA_TransparentForMouseEvents, False)
-        title.setToolTip("Escanea el mercado, procesa un muestreo y mira qué vale la pena craftear y vender.")
+        title.setToolTip("Tus recetas con lo que tienes, el mercado (qué vale la pena craftear y vender), cómo "
+                         "subir de nivel y dónde recolectar.")
         titles.addWidget(title)
         head.addLayout(titles, 1)
         head.addWidget(label("Personaje:", f.small, theme.MUTED))
@@ -122,7 +141,8 @@ class CraftingWindow(QWidget):
         head.addWidget(label("Profesión:", f.small, theme.MUTED))
         self.profession = QComboBox()
         for key, info in self.crafting.professions.items():
-            self.profession.addItem(info["name"], key)
+            if key != MATERIALS:
+                self.profession.addItem(info["name"], key)
         self.profession.setCurrentIndex(max(0, self.profession.findData(self.crafting.profession)))
         self.profession.currentIndexChanged.connect(self._profession_changed)
         head.addWidget(self.profession)
@@ -147,6 +167,20 @@ class CraftingWindow(QWidget):
         self.scan_button.clicked.connect(self._scan)
         head.addWidget(self.scan_button)
         root.addLayout(head)
+
+        sections = QHBoxLayout()
+        sections.setSpacing(6)
+        self.section_buttons = {}
+        for key, text in SECTIONS:
+            button = QPushButton(text)
+            button.setProperty("tab", True)
+            button.setCheckable(True)
+            button.setMinimumWidth(120)
+            button.clicked.connect(lambda _=False, k=key: self.show_tab(k))
+            sections.addWidget(button)
+            self.section_buttons[key] = button
+        sections.addStretch(1)
+        root.addLayout(sections)
 
         tabs = QHBoxLayout()
         self.tab_buttons = {}
@@ -343,9 +377,15 @@ class CraftingWindow(QWidget):
         return " · ".join(bits)
 
     def show_tab(self, key):
-        self.tab = key
+        """A section (crafting / market / leveling / gathering) or one of the Market's tabs (profit, shots...)."""
+        if key in dict(SECTIONS):
+            self.section = key
+        else:
+            self.section, self.tab = "market", key
         self.refresh()
         self.scroll.verticalScrollBar().setValue(0)
+        if self.section == "gathering":
+            self.search.setFocus()
 
     def _process(self):
         sample = self.crafting.process()
@@ -389,11 +429,24 @@ class CraftingWindow(QWidget):
     def refresh(self):
         counts = {"shots": len(self.crafting.shots), "samples": len(self.crafting.samples),
                   "sales": len(self.crafting.ledger.sales)}
+        market = self.section == "market"
+        for key, button in self.section_buttons.items():
+            button.setChecked(key == self.section)
+            if key == "market" and counts["shots"]:
+                button.setText(f"Market ({counts['shots']})")
+            elif key == "market":
+                button.setText("Market")
         for key, button in self.tab_buttons.items():
             text = dict(TABS)[key]
             button.setText(f"{text} ({counts[key]})" if counts.get(key) else text)
             button.setChecked(key == self.tab)
-        self.search.setVisible(self.tab != "shots")
+            button.setVisible(market)
+        self.search.setVisible(not (market and self.tab == "shots"))
+        self.search.setPlaceholderText(SEARCH_HINT[self.section])
+        uses_profession = self.section in PROFESSION_SECTIONS or (market and self.tab == "profit")
+        for widget in (self.profession, self.who):
+            widget.setEnabled(uses_profession or self.section == "crafting")
+        self.report_button.setVisible(market and self.tab == "profit")
         hk = self.ctl.settings["hotkeys"].get("crafting_scan")
         self.scan_button.setToolTip("Captura la ventana del juego (con el mercado abierto)"
                                     + (f". En el juego: {hk}" if hk else ""))
@@ -403,12 +456,290 @@ class CraftingWindow(QWidget):
         self.share_box.setChecked(self.ctl.market_share.enabled)
         self.share_box.blockSignals(False)
         self.share_status.setText(self._share_text())
+        if not uses_profession:
+            for widget in (self.level_label, self.level, self.level_back):
+                widget.setVisible(False)
         _clear(self.body)
-        {"profit": self._profit_tab, "shots": self._shots_tab, "samples": self._samples_tab,
-         "sales": self._sales_tab}[self.tab]()
+        if market:
+            {"profit": self._profit_tab, "materials": self._market_materials, "shots": self._shots_tab,
+             "samples": self._samples_tab, "sales": self._sales_tab}[self.tab]()
+        else:
+            {"crafting": self._recipes_tab, "leveling": self._leveling_tab,
+             "gathering": self._gathering_tab}[self.section]()
         self.body.addStretch(1)
         if self.chart_window and self.chart_window.isVisible():
             self.chart_window.refresh()
+
+    # --- Crafting: the recipes and what you have ---
+    def _recipes_tab(self):
+        f, crafting = self.fonts, self.crafting
+        query = self.search.text().strip().lower()
+        prof = crafting.professions.get(crafting.profession, {}).get("name", crafting.profession)
+        who = crafting.levels_character or "tu personaje"
+        read = crafting.inventory.read_at(crafting.levels_character)
+        level = crafting.level()
+        if read:
+            self._hint(f"Recetas de {prof} con lo que tiene {who} (bolsa y almacén juntos, leídos del juego "
+                       f"{_ago(read)}; se actualiza al craftear, recoger o comprar). Clic en una receta para ver sus "
+                       f"materiales; clic en un material para ver su precio en el mercado y dónde recolectarlo.")
+        else:
+            self._hint(f"Entra al juego con {who} con AionDex abierto: lee su bolsa y su almacén y aquí verás "
+                       f"cuánto tienes de cada material y cuántas veces puedes hacer cada receta.", theme.WARN)
+        conf = crafting.config.setdefault("recipes_view", {})
+        options = QHBoxLayout()
+        for key, text, tip in (("ready", "Solo las que puedo hacer ya", "Tienes todos sus materiales para 1 intento"),
+                               ("level", f"Solo con mi nivel ({level_text(level)})" if level else "Solo con mi nivel",
+                                "Las recetas de tu nivel de la profesión o menos")):
+            box = QCheckBox(text)
+            box.setToolTip(tip)
+            box.setChecked(bool(conf.get(key)))
+            box.setEnabled(key != "level" or level is not None)
+            box.toggled.connect(lambda on, k=key: (conf.__setitem__(k, on), crafting.settings.save(),
+                                                   QTimer.singleShot(0, self.refresh)))
+            options.addWidget(box)
+        options.addStretch(1)
+        self.body.addLayout(options)
+        rows = crafting.recipe_rows(self.ctl.crafting_faction(), bound=True)
+        if query:
+            rows = [r for r in rows if query in r.product.lower() or any(query in m.name.lower() for m in r.materials)]
+        makes = {r.product: crafting.makes(r) for r in rows}
+        if conf.get("ready"):
+            rows = [r for r in rows if (makes[r.product] or (0,))[0] > 0]
+        if conf.get("level") and level is not None:
+            rows = [r for r in rows if r.can_craft]
+        rows.sort(key=lambda r: (r.can_craft is False, -(makes[r.product] or (0,))[0], -r.needs))   # yours, makeable
+        if not rows:
+            self._hint(f"Nada coincide con «{self.search.text().strip()}»." if query else
+                       "Ninguna receta con esos filtros.")
+            return
+        for row in rows:
+            self.body.addWidget(self._recipe_card(row, makes[row.product]))
+            if row.product in self._open_recipes:
+                self.body.addWidget(self._recipe_materials(row, makes[row.product]))
+
+    def _recipe_card(self, row, makes):
+        f = self.fonts
+        card = QFrame()
+        card.setObjectName("Row")
+        card.setProperty("open", row.product in self._open_recipes)
+        card.setCursor(Qt.PointingHandCursor)
+        card.mousePressEvent = lambda e, p=row.product: (self._open_recipes.symmetric_difference_update({p}),
+                                                         QTimer.singleShot(0, self.refresh))
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(12, 6, 12, 6)
+        lay.setSpacing(1)
+        head = QHBoxLayout()
+        color = QColor(GRADE_COLOR.get(row.recipe.get("grade"), "#D6DAE3"))
+        arrow = "▾ " if row.product in self._open_recipes else "▸ "
+        name = row.product.replace(" (Bound)", "") + (" · ligado" if "(Bound)" in row.product else "")
+        head.addWidget(label(arrow + name + (f"  × {row.count}" if row.count > 1 else ""), f.name, color, elide=True),
+                       1)
+        need = label(level_text(row.needs), f.small, theme.COMBAT if row.can_craft is False else theme.MUTED)
+        need.setToolTip("El nivel de la profesión que pide" +
+                        (" (aún no lo tienes)" if row.can_craft is False else ""))
+        head.addWidget(need)
+        if makes is None:
+            head.addWidget(label("—", f.name, theme.MUTED))
+        else:
+            times, limit = makes
+            text = f"Puedes hacer {times}" if times else "Te faltan materiales"
+            badge = label(text, f.name, theme.GAIN if times else theme.MUTED)
+            if times and len(row.materials) > 1:
+                badge.setToolTip(f"Te limita {limit.replace(' (Bound)', '')}")
+            head.addWidget(badge)
+        lay.addLayout(head)
+        bits = []
+        for m in row.materials:
+            owned = self.crafting.owned(m.name)
+            have = owned[0] if owned else None
+            short = m.name.replace(" (Bound)", "")
+            if have is None:
+                bits.append(f"{m.count}× {short}")
+            else:
+                ok = have >= m.count
+                bits.append(f"<span style='color:{(theme.GAIN if ok else theme.COMBAT).name()}'>{m.count}× {short} "
+                            f"({have:,})</span>")
+        lay.addWidget(label(" · ".join(bits), f.small, theme.MUTED))
+        return card
+
+    def _recipe_materials(self, row, makes):
+        """One recipe's materials: per attempt, what you have (bag + storage), the market price, what is missing."""
+        f = self.fonts
+        frame = QFrame()
+        frame.setObjectName("Detail")
+        col = QVBoxLayout(frame)
+        col.setContentsMargins(16, 10, 16, 10)
+        col.setSpacing(6)
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(16)
+        grid.setVerticalSpacing(3)
+        for c, text in enumerate(("Material", "Por intento", "Tienes", "Precio mercado", "Para 10 intentos")):
+            grid.addWidget(label(text, f.small, theme.MUTED), 0, c, Qt.AlignLeft if c == 0 else Qt.AlignRight)
+        prices = self.crafting.latest_prices()
+        for r, m in enumerate(row.materials, start=1):
+            grid.addWidget(self._material_name(m.name, m.name.replace(" (Bound)", "")), r, 0)
+            grid.addWidget(label(f"{m.count}", f.body, theme.TEXT), r, 1, Qt.AlignRight)
+            grid.addWidget(self._have_cell(m.name, m.count), r, 2, Qt.AlignRight)
+            price = prices.get(m.name)
+            cell = label(_kinah(price[0]) if price else ("NPC " + _kinah(m.unit) if m.how == "npc" else "—"), f.body,
+                         theme.TEXT if price or m.how == "npc" else theme.MUTED)
+            if price:
+                cell.setToolTip(f"El más bajo, {_ago(price[1])}")
+            grid.addWidget(cell, r, 3, Qt.AlignRight)
+            owned = self.crafting.owned(m.name)
+            missing = max(0, m.count * 10 - (owned[0] if owned else 0))
+            grid.addWidget(label(f"te faltan {missing:,}" if missing else "✓", f.small,
+                                 theme.WARN if missing else theme.GAIN), r, 4, Qt.AlignRight)
+        grid.setColumnStretch(0, 1)
+        col.addLayout(grid)
+        text, tip = self._makes_text(row)
+        note = label(text, f.small, theme.MUTED)
+        note.setToolTip(tip)
+        col.addWidget(note)
+        market = QPushButton("Ver en Market: ¿vale la pena venderlo?")
+        market.setProperty("flat", True)
+        market.clicked.connect(lambda _=False, p=row.product: self._find_in_market(p))
+        col.addWidget(market, 0, Qt.AlignLeft)
+        return frame
+
+    # --- Levear ---
+    def _leveling_tab(self):
+        f, crafting = self.fonts, self.crafting
+        query = self.search.text().strip().lower()
+        prof = crafting.professions.get(crafting.profession, {}).get("name", crafting.profession)
+        level = crafting.level()
+        if level is None:
+            self._hint(f"Falta tu nivel de {prof}: entra al juego con el personaje (AionDex lo lee) o escríbelo "
+                       f"arriba.", theme.WARN)
+            return
+        rows = crafting.recipe_rows(self.ctl.crafting_faction(), bound=True)
+        plan = crafting.leveling_plan(rows)
+        if query:
+            plan = [e for e in plan if query in e[0].product.lower()]
+        card = QFrame()
+        card.setObjectName("Card")
+        col = QVBoxLayout(card)
+        col.setContentsMargins(14, 10, 14, 10)
+        col.setSpacing(3)
+        exp_now = crafting.game_exp()
+        needed = crafting.level_exp()
+        line = f"{prof}: {level_text(level)}"
+        if exp_now is not None:
+            line += f" · {exp_now:,} de experiencia en el nivel"
+            if needed:
+                line += f" de {needed:,} (faltan {max(0, needed - exp_now):,})"
+        col.addWidget(label(line, f.name, theme.TEXT))
+        best = next((e for e in plan if e[1]), None)
+        wrap = lambda w: (w.setWordWrap(True), w)[1]          # noqa: E731 - long lines wrap in the card
+        if best:
+            row, exp, how, value, per = best
+            makes = crafting.makes(row)
+            left = max(0, needed - exp_now) if needed and exp_now is not None else None
+            tries = f" · unos {left / exp:.0f} intentos para subir" if left and exp else ""
+            col.addWidget(wrap(label(f"Para subir ahora: {row.product.replace(' (Bound)', '')}  —  {exp:.0f} exp por "
+                                     f"intento ({how}) · {_kinah(value, sign=True)} por intento · "
+                                     f"{_kinah(per, sign=True)} por punto de exp{tries}", f.body, theme.GAIN)))
+            if makes is not None:
+                col.addWidget(label(f"Con lo que tienes: {makes[0]} intentos" if makes[0] else
+                                    "Con lo que tienes: ninguno (mira sus materiales en Crafting)", f.small,
+                                    theme.TEXT if makes[0] else theme.WARN))
+        col.addWidget(wrap(label("Cuenta lo que te cuesta cada intento (o lo que ganas vendiéndolo) entre la "
+                                 "experiencia que da: las recetas muy por debajo de tu nivel dan poca. La experiencia "
+                                 "de cada receta la aprende AionDex cuando la crafteas; las que aún no hiciste se "
+                                 "estiman con las de nivel parecido. Lo que pide cada nivel se aprende al subirlo.",
+                                 f.small, theme.MUTED)))
+        self.body.addWidget(card)
+        if not plan:
+            self._hint("No hay recetas de tu nivel con precio de materiales: escanea el mercado (Market) o mira sus "
+                       "materiales en Crafting.")
+            return
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(16)
+        grid.setVerticalSpacing(4)
+        heads = ("Receta", "Pide", "Éxito", "Exp por intento", "Por intento", "Kinah por exp", "Puedes hacer")
+        for c, text in enumerate(heads):
+            grid.addWidget(label(text, f.small, theme.MUTED), 0, c, Qt.AlignLeft if c == 0 else Qt.AlignRight)
+        for r, (row, exp, how, value, per) in enumerate(plan[:30], start=1):
+            name = label(row.product.replace(" (Bound)", ""), f.body,
+                         QColor(GRADE_COLOR.get(row.recipe.get("grade"), "#D6DAE3")))
+            grid.addWidget(name, r, 0)
+            grid.addWidget(label(level_text(row.needs), f.small, theme.MUTED), r, 1, Qt.AlignRight)
+            grid.addWidget(label("—" if row.success is None else f"{row.success:.0%}", f.body, theme.TEXT), r, 2,
+                           Qt.AlignRight)
+            cell = label("?" if not exp else f"{exp:.0f}" if how == "visto" else f"~{exp:.0f}", f.name,
+                         theme.TEXT if how == "visto" else theme.MUTED)
+            cell.setToolTip("Lo que te dio" if how == "visto" else
+                            "Estimada con las recetas de nivel parecido que ya crafteaste" if how else
+                            "Aún no se sabe: craftéala una vez y AionDex lo aprende")
+            grid.addWidget(cell, r, 3, Qt.AlignRight)
+            grid.addWidget(label(_kinah(value, sign=True), f.body, theme.GAIN if value >= 0 else theme.COMBAT), r, 4,
+                           Qt.AlignRight)
+            grid.addWidget(label("—" if per is None else _kinah(per, sign=True), f.name,
+                                 theme.GAIN if per is not None and per >= 0 else theme.TEXT), r, 5, Qt.AlignRight)
+            makes = self.crafting.makes(row)
+            grid.addWidget(label("—" if makes is None else str(makes[0]), f.body,
+                                 theme.GAIN if makes and makes[0] else theme.MUTED), r, 6, Qt.AlignRight)
+        grid.setColumnStretch(0, 1)
+        self.body.addLayout(grid)
+
+    # --- Gathering ---
+    def _gathering_tab(self):
+        f, g, crafting = self.fonts, self.ctl.gathering, self.crafting
+        query = self.search.text().strip().lower()
+        recent = [n for n in crafting.config.get("recent_gather", []) if g.has(n)]
+        if recent and not query:
+            self.body.addWidget(SectionTitle("Vistos hace poco", f))
+            row = QHBoxLayout()
+            row.setSpacing(6)
+            for name in recent[:8]:
+                button = QPushButton(f"⌖ {name}")
+                button.setProperty("flat", True)
+                button.clicked.connect(lambda _=False, n=name: self.ctl.open_gather_map(n))
+                row.addWidget(button)
+            row.addStretch(1)
+            self.body.addLayout(row)
+        names = sorted(n for n in g.materials if g.has(n))
+        if query:
+            names = [n for n in names if query in n.lower() or query in (g.info(n).get("node") or "").lower()]
+        self._hint(f"{len(names)} materiales que se recolectan o sueltan monstruos" +
+                   (f" con «{self.search.text().strip()}»" if query else "") +
+                   ". Clic en uno para abrir su mapa: sus puntos, la mejor zona y una ruta (también en el minimapa).")
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(16)
+        grid.setVerticalSpacing(4)
+        for c, text in enumerate(("Material", "De", "Mapas", "Tienes", "Mercado")):
+            grid.addWidget(label(text, f.small, theme.MUTED), 0, c, Qt.AlignRight if c >= 3 else Qt.AlignLeft)
+        prices = crafting.latest_prices()
+        for r, name in enumerate(names[:200], start=1):
+            info = g.info(name)
+            link = label(f"⌖ {name}", f.body, theme.ACCENT)
+            link.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+            link.setCursor(Qt.PointingHandCursor)
+            link.mousePressEvent = lambda e, n=name: (self.ctl.open_gather_map(n)
+                                                      if e.button() == Qt.LeftButton else None)
+            grid.addWidget(link, r, 0)
+            if g.is_drop(name):
+                best = g.best_drop(name)
+                where = f"lo sueltan monstruos · {best[0]['name']} {best[0]['chance']:g}%" if best else \
+                    "lo sueltan monstruos"
+            else:
+                where = f"nodo {info.get('node') or '—'}" + (f" · nivel {info['level']}" if info.get("level")
+                                                               else "")
+            where_label = label(where, f.small, theme.MUTED, elide=True)
+            where_label.setMaximumWidth(330)
+            grid.addWidget(where_label, r, 1)
+            maps = [(MAP_NAMES.get(m["map"], m["map"]).split(" (")[0], len(m["points"]))
+                    for m in info.get("maps", []) if m["points"]]
+            grid.addWidget(label(" · ".join(f"{n} {c}" for n, c in maps[:3]) or "—", f.small, theme.TEXT,
+                                 elide=True), r, 2)
+            grid.addWidget(self._have_cell(name), r, 3, Qt.AlignRight)
+            price = prices.get(name)
+            grid.addWidget(label(_kinah(price[0]) if price else "—", f.body, theme.TEXT if price else theme.MUTED),
+                           r, 4, Qt.AlignRight)
+        if len(names) > 200:
+            grid.addWidget(label(f"y {len(names) - 200} más: escribe para buscar", f.small, theme.MUTED), 201, 0)
+        grid.setColumnStretch(2, 1)
+        self.body.addLayout(grid)
 
     def _hint(self, text, color=None):
         hint = label(text, self.fonts.body, color or theme.MUTED)
@@ -437,12 +768,6 @@ class CraftingWindow(QWidget):
             last = crafting.pool[-1]
             others = crafting.shared_count
             whose = f"tus muestreos y {others} de otros usuarios" if others else "tus muestreos"
-            if crafting.profession == MATERIALS:
-                self._hint(f"Precios de {whose} (el último: {_clock(last['at'])}, {_ago(last['at'])}): el más bajo "
-                           f"de cada material y su media de los últimos 7 días (en verde, más barato que su media). "
-                           f"Clic en «Gráfica de precio» para verlo en el tiempo.")
-                self._materials_tab(query)
-                return
             hint = self._hint(f"Precios de {whose} (el último: {_clock(last['at'])}, {_ago(last['at'])}). "
                               f"Ganancia media por intento, con tu % de éxito y el {crafting.fee:.0%} del mercado.  ⓘ")
             hint.setAttribute(Qt.WA_TransparentForMouseEvents, False)
@@ -451,9 +776,6 @@ class CraftingWindow(QWidget):
                             f"<b>Recolectando</b>: lo que se recolecta no te cuesta y lo que se fabrica, a su coste.<br>"
                             f"<b>Comprando</b>: todos los materiales al precio del mercado (lo de NPC a su precio; lo "
                             f"procesado, por el camino más barato).<br>Clic en una receta para ver sus materiales.")
-        if crafting.profession == MATERIALS:
-            self._materials_tab(query)
-            return
         if level is None:
             self._hint(f"Falta tu nivel de {prof}: escríbelo arriba (o craftea algo de {prof} y AionDex lo aprende). "
                        f"Mientras, se usa el % de éxito más bajo.", theme.WARN)
@@ -516,6 +838,22 @@ class CraftingWindow(QWidget):
             if row.product in self._open:
                 self.body.addWidget(self._detail(row))
         self._materials(query)
+
+    def _market_materials(self):
+        """Market > Materiales: every material's price (and its week), the ones not priced yet to scan."""
+        crafting = self.crafting
+        query = self.search.text().strip().lower()
+        if not crafting.pool:
+            self._hint("Aún no hay muestreos. " + self._how_to())
+        else:
+            last = crafting.pool[-1]
+            others = crafting.shared_count
+            whose = f"tus muestreos y {others} de otros usuarios" if others else "tus muestreos"
+            self._hint(f"Precios de {whose} (el último: {_clock(last['at'])}, {_ago(last['at'])}): el más bajo de "
+                       f"cada material y su media de los últimos 7 días (en verde, más barato que su media). Clic en "
+                       f"un material para ver su precio y dónde recolectarlo; «Gráfica de precio» lo muestra en el "
+                       f"tiempo.")
+        self._materials_tab(query)
 
     def _materials_tab(self, query):
         """«Materiales»: every material the recipes use, with filters (kind, the profession that uses it, only
@@ -1010,24 +1348,78 @@ class CraftingWindow(QWidget):
                       f"aunque falle.")
 
     def _material_name(self, name, text, color=None):
-        """A material's name; one you can gather opens the map of where to gather it, and one that monsters drop
-        shows the best drop rate you can farm now."""
+        """A material's name: a click shows its market price, how many you have and (one you can gather) a button to
+        the map of where to gather it; one that monsters drop shows the best drop rate you can farm now."""
         g = self.ctl.gathering
-        if not g.has(name):
-            return label(text, self.fonts.body, color or theme.TEXT)
-        best = g.best_drop(name)
+        gather = g.has(name)
+        best = g.best_drop(name) if gather else None
         rate = ""
         if best:
             mob, reachable = best
             rate = (f"  <span style='color:{theme.GOLD.name() if reachable is True else theme.MUTED.name()}'>"
                     f"{mob['chance']:g}%</span>")
-        link = label(f"{text}  ⌖{rate}", self.fonts.body, theme.ACCENT)
+        link = label(f"{text}  ⌖{rate}" if gather else text, self.fonts.body,
+                     theme.ACCENT if gather else (color or theme.TEXT))
         link.setAttribute(Qt.WA_TransparentForMouseEvents, False)
         link.setCursor(Qt.PointingHandCursor)
-        link.setToolTip(_drop_tip(g, name) if best else
-                        f"Ver en el mapa dónde recolectar {name}: sus puntos, la mejor zona y una ruta")
-        link.mousePressEvent = lambda e, n=name: self.ctl.open_gather_map(n) if e.button() == Qt.LeftButton else None
+        link.setToolTip((_drop_tip(g, name) + "\n" if best else "") +
+                        f"Clic: precio de {name} en el mercado" + (" y dónde recolectarlo" if gather else ""))
+        link.mousePressEvent = lambda e, n=name, w=link: (self._material_menu(n, w)
+                                                           if e.button() == Qt.LeftButton else None)
         return link
+
+    def _material_menu(self, name, widget):
+        """A material's market price (lowest now, its week, offers), what you have, and its map and chart."""
+        crafting, g, f = self.crafting, self.ctl.gathering, self.fonts
+        menu = styled_menu(self)
+        box = QWidget()
+        col = QVBoxLayout(box)
+        col.setContentsMargins(12, 8, 12, 6)
+        col.setSpacing(2)
+        col.addWidget(label(name.replace(" (Bound)", ""), f.name, theme.TEXT))
+        price = crafting.latest_prices().get(name)
+        if price:
+            lowest, at = price
+            shared = " (de otro usuario)" if crafting.price_is_shared(name) else ""
+            col.addWidget(label(f"Mercado: {_kinah(lowest)} el más bajo · {_ago(at)}{shared}", f.body, theme.GOLD))
+            avg, n = crafting.week_average(name)
+            if avg is not None and n >= 2:
+                diff = (lowest - avg) / avg if avg else 0
+                col.addWidget(label(f"Media 7 días: {_kinah(avg)} ({diff:+.0%} ahora, {n} lecturas)", f.small,
+                                    theme.GAIN if diff <= -0.05 else theme.COMBAT if diff >= 0.05 else theme.MUTED))
+            listings = crafting._latest_field(name, "listings")
+            supply = crafting.supply(name)
+            bits = ([f"{listings} ofertas"] if listings is not None else []) + \
+                ([f"{supply[0]}{'+' if supply[2] else ''} uds. a la venta"] if supply else [])
+            if bits:
+                col.addWidget(label(" · ".join(bits), f.small, theme.MUTED))
+        else:
+            npc = next((m.get("npc_price") for r in crafting.recipes for m in r["materials"]
+                        if m["name"] == name and m.get("npc_price")), None)
+            col.addWidget(label(f"Lo vende un NPC a {_kinah(npc)}" if npc else
+                                "Sin precio del mercado: escanéalo en el mercado (Market > Capturas)", f.small,
+                                theme.TEXT if npc else theme.WARN))
+        owned = crafting.owned(name)
+        if owned is not None:
+            total, where = owned
+            parts = " · ".join(f"{k} {v:,}" for k, v in sorted(where.items()))
+            col.addWidget(label(f"Tienes {total:,}" + (f" ({parts})" if parts else ""), f.small,
+                                theme.GAIN if total else theme.MUTED))
+        holder = QWidgetAction(menu)
+        holder.setDefaultWidget(box)
+        menu.addAction(holder)
+        menu.addSeparator()
+        if g.has(name):
+            verb = "conseguir" if g.is_drop(name) else "recolectar"
+            menu.addAction(f"⌖  Ver en el mapa dónde {verb}", lambda: self.ctl.open_gather_map(name))
+        if crafting.history(name):
+            menu.addAction("Gráfica de precio", lambda: self.open_chart(name))
+        menu.addAction("Ver en Market", lambda: self._find_in_market(name))
+        menu.exec(widget.mapToGlobal(widget.rect().bottomLeft()))
+
+    def _find_in_market(self, name):
+        self.search.setText(name.replace(" (Bound)", ""))
+        self.show_tab("materials" if not any(r["product"] == name for r in self.crafting.recipes) else "profit")
 
     def _exp_badge(self, row):
         """The little EXP mark of the recipe to level up with."""
