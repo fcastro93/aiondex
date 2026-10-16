@@ -1887,6 +1887,14 @@ class Controller(QObject):
         self.minimap_wanted_until = time.time() + 3
         return self.bridge.position.where()
 
+    def set_show_me(self, on):
+        """«Mostrar mi ubicación» of the map windows: read where you are (and show it) or not."""
+        self.settings["show_me"] = bool(on)
+        self._save_settings()
+        for window in (self.map_window, self.gather_window, self.world_window):
+            if window is not None and window.isVisible() and hasattr(window, "_show_you"):
+                window._show_you()
+
     def route_on_minimap(self, material):
         """Draw a material's route over the game's minimap (None: stop)."""
         if self.minimap_overlay is None:

@@ -89,7 +89,7 @@ def build_app_menu(ctl, fonts, parent=None):
         members = [m for m in ctl.modules if m.key in g[2]]
         active = next((m for m in members if m is ctl.active_module), None)
         sub = styled_menu(menu)
-        sub.setTitle(g[0] + (f" · {active.title}" if active else ""))
+        sub.setTitle(g[0])                           # the module on is the gold one inside (a longer title cut)
         sub.setIcon(members[0].icon())
         for m in members:
             sub.addAction(module_action(m, sub))

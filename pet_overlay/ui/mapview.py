@@ -4,7 +4,8 @@ import time
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QPen, QRadialGradient
-from PySide6.QtWidgets import QGraphicsEllipseItem, QGraphicsItem, QGraphicsScene, QGraphicsView, QPushButton
+from PySide6.QtWidgets import (QCheckBox, QGraphicsEllipseItem, QGraphicsItem, QGraphicsScene, QGraphicsView,
+                               QPushButton)
 
 from ..mapdata import MAP_NAMES
 from . import theme
@@ -116,6 +117,7 @@ class YouMarker(QGraphicsItem):
 
 class MapView(QGraphicsView):
     zoom_changed = Signal(float)
+    show_me_changed = Signal(bool)       # «Mostrar mi ubicación» ticked or not (every map window shares it)
 
     def __init__(self, tiles, parent=None):
         super().__init__(parent)
@@ -149,6 +151,21 @@ class MapView(QGraphicsView):
             f"QPushButton:hover {{ background: rgba(40,20,48,235); }}")
         self.locate.clicked.connect(self._locate_clicked)
         self.locate.hide()
+        self.me_box = QCheckBox("Mostrar mi ubicación", self)
+        self.me_box.setChecked(True)
+        self.me_box.setCursor(Qt.PointingHandCursor)
+        self.me_box.setToolTip("Lee del juego dónde estás (sus mensajes y el minimapa) mientras el mapa está abierto y "
+                               "te pone en el mapa. Desmárcalo y no se lee (la ruta sobre el minimapa y el Modo Focus "
+                               "lo siguen leyendo si están puestos).")
+        self.me_box.setStyleSheet(
+            f"QCheckBox {{ background: rgba(11,18,34,225); color: {theme.TEXT.name()}; border: 1px solid "
+            f"{YOU.name()}; border-radius: 8px; padding: 5px 10px; font-weight: 600; }} "
+            f"QCheckBox::indicator {{ width: 12px; height: 12px; border: 1.5px solid {YOU.name()}; border-radius: 3px;"
+            f" background: transparent; }} QCheckBox::indicator:checked {{ background: {YOU.name()}; }}")
+        self.me_box.toggled.connect(self.show_me_changed.emit)
+        self.me_box.adjustSize()
+        self.me_box.move(12, 12)
+        self._me_bound = False
 
     # --- map & tiles ---------------------------------------------------------------------
     def set_map(self, map_id):
@@ -338,7 +355,19 @@ class MapView(QGraphicsView):
 
 def show_you(view, ctl, map_id, tab_maps, go_to_tab):
     """Your position on a map window: on the map shown when you are there; else, when one of its tabs is the map you
-    are on, a button to it (go_to_tab(index)). Called about once a second."""
+    are on, a button to it (go_to_tab(index)). Called about once a second. Nothing, and no reading, with «Mostrar mi
+    ubicación» off (one setting for every map window)."""
+    on = bool(ctl.settings.get("show_me", True)) if hasattr(ctl, "settings") else True
+    if view.me_box.isChecked() != on:
+        view.me_box.blockSignals(True)
+        view.me_box.setChecked(on)
+        view.me_box.blockSignals(False)
+    if not view._me_bound and hasattr(ctl, "set_show_me"):
+        view.show_me_changed.connect(ctl.set_show_me)
+        view._me_bound = True
+    if not on:
+        view.set_you(None)
+        return
     here = ctl.where_am_i() if hasattr(ctl, "where_am_i") else None
     if not here:
         view.set_you(None)
