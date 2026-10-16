@@ -3,7 +3,7 @@ always in view while you fight around them, so a PvP fight does not make you los
 
 Which: in the Abyss (Reshanta), the monsters the game shows you that are bosses (npc_db: Hero / Legend, or the
 Tracker's field bosses), always; and the ones with at least BIG_HP of HP (a siege's core or gate, whatever its name)
-once they take damage (a town's guards have 20M HP and are never hit). Never the objects a boss leaves (292xxxx: they
+once they have lost 1% of it (a town's guards have 20M HP and are never hit). Never the objects a boss leaves (292xxxx: they
 copy its HP). From the game:
 - 4136 it comes into sight: entity | ... | npc | 2 bytes | f32 x, y, z | 4 + 3 bytes | varint HP | varint max HP;
 - 008d its HP (damage.parse_hp), the 1a37 family where it moves, 048d it died, 4236 out of sight (1) or gone (3).
@@ -32,6 +32,7 @@ DEAD_FOR = 20
 ROWS = 3
 OBJECTS = range(2_920_000, 2_930_000)
 SANE_HP = 100_000_000_000        # no monster has more
+HIT = 0.99                       # a big one that is not a boss shows once it has lost this much (1%)
 
 
 def parse_spawn_hp(body):
@@ -143,8 +144,9 @@ class BigFoes:
                         not foe.in_sight and now - foe.seen_at > KEEP:
                     del self.foes[eid]
                     continue
-                if not foe.boss and foe.hp >= foe.max_hp and foe.died_at is None:
-                    continue                         # a big one never hit: a guard, not a siege's core
+                if not foe.boss and foe.hp > foe.max_hp * HIT and foe.died_at is None:
+                    continue                         # a big one barely scratched: a guard or a structure (two of
+                                                     # 160M at 159.99M stood in the rift fights), not a siege core
                 far = math.dist(me, (foe.x, foe.y)) if me and foe.x is not None else None
                 out.append((foe.name, foe.hp, foe.max_hp, foe.in_sight, now - foe.seen_at, foe.died_at is not None,
                             far))
