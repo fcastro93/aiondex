@@ -201,7 +201,7 @@ class Bridge(QObject):
         self._position_failed = False
         self.nodes = nodes.NodeTracker()         # the gathering nodes around you
         self.mobs = MobTracker()                 # the monsters around you: spawn points, deaths, respawns
-        self.bigfoes = BigFoes()                 # the Abyss's bosses and siege cores around you (their HP)
+        self.bigfoes = BigFoes()                 # the bosses and siege cores around you (their HP)
 
     def take_hits(self):
         with self._hits_lock:
@@ -2548,7 +2548,7 @@ class Controller(QObject):
         plan = plan_kills(me, near, now, mobs.respawn, mobs.kill_time, speed=speed, steps=MOB_PLAN)
         return {"plan": plan, "points": rows}
 
-    # --- the pets' Modo Focus, and the Abyss's bosses under the minimap ---
+    # --- the pets' Modo Focus, and the bosses under the minimap ---
     def set_pets_focus(self, on):
         """Modo Focus: your pets listed under the game's quest list, like a quest (ui/focuspanel.py)."""
         self.settings["pets_focus"] = bool(on)
@@ -2585,7 +2585,7 @@ class Controller(QObject):
         return name or f"Objetivo de {max_hp / 1e6:.1f}M HP", boss
 
     def boss_rows(self):
-        """The Abyss's bosses and siege cores around you as rows of the panel under the quest list."""
+        """The bosses and siege cores around you as rows of the panel under the quest list."""
         from .ui.focuspanel import FocusRow
         foes = self.bridge.bigfoes
         if not foes.foes or not self.settings.get("abyss_bosses"):

@@ -339,8 +339,8 @@ class DpsPanel(QWidget):
         bosses = bool(self.ctl.settings.get("abyss_bosses"))
         lay.addWidget(Pill("◉ Jefes" if bosses else "Jefes", self.fonts,
                            lambda: self.ctl.toggle_setting("abyss_bosses"), color=theme.GOLD if bosses else None,
-                           tip="Jefes bajo misiones: en el Abismo, la vida de los world bosses y los cores de "
-                               "asedio que tienes cerca, "
+                           tip="Jefes bajo misiones: la vida de los jefes que tienes cerca (mazmorras, world "
+                               "bosses, el Abismo y sus cores de asedio), "
                                "siempre a la vista debajo de tus misiones (bajo el minimapa), como el Modo Focus de "
                                "los pets. Clic para " + ("quitarlo" if bosses else "ponerlo") + "."))
         lay.addWidget(Pill("Historial", self.fonts, self._open_history,

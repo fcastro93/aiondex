@@ -1,7 +1,7 @@
-"""The Abyss's world bosses and siege cores under the minimap (with the pets' Modo Focus, ui/focuspanel.py): their HP
+"""Bosses and siege cores under the minimap (the Abyss, dungeons and the open world since 1.62.5) (with the pets' Modo Focus, ui/focuspanel.py): their HP
 always in view while you fight around them, so a PvP fight does not make you lose track of the boss.
 
-Which: in the Abyss (Reshanta), the monsters the game shows you that are bosses (npc_db: Hero / Legend, or the
+Which: the monsters the game shows you that are bosses (npc_db: Hero / Legend, or the
 Tracker's field bosses), always; and the ones with at least BIG_HP of HP (a siege's core or gate, whatever its name)
 once they have lost 1% of it (a town's guards have 20M HP and are never hit). Never the objects a boss leaves (292xxxx: they
 copy its HP). From the game:
@@ -79,9 +79,13 @@ class BigFoes:
     def in_abyss(self):
         return (self.game_map if self.game_map is not None else self.current_map()) in ABYSS
 
+    def active(self):
+        """Every map: the Abyss, dungeons and the open world (1.62.5; it was only the Abyss)."""
+        return True
+
     def on_message(self, op, body, now):
         if op == SPAWN:
-            if not self.in_abyss():
+            if not self.active():
                 return
             spawn, hp = parse_spawn_at(body), parse_spawn_hp(body)
             if not spawn or not hp:
@@ -98,7 +102,7 @@ class BigFoes:
                     else:
                         foe.hp, foe.max_hp, foe.x, foe.y, foe.in_sight, foe.seen_at = hp[0], hp[1], x, y, True, now
         elif op == STATS:
-            if not self.in_abyss():
+            if not self.active():
                 return
             update = parse_hp(body)
             if not update or update[1] > SANE_HP:
