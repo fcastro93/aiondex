@@ -172,6 +172,11 @@ class SettingsPanel(QWidget):
         note = label(text, f.small, theme.GAIN if sizes else theme.MUTED)
         note.setWordWrap(True)
         self.content.addWidget(note)
+        self.content.addWidget(self._toggle("Vida de jefes y cores del Abismo bajo el minimapa", "abyss_bosses"))
+        hint = label("En el Abismo, los world bosses y los cores de asedio que tienes cerca, con su vida siempre a la "
+                     "vista bajo tus misiones (y fuera de vista, la última que se vio).", f.small, theme.MUTED)
+        hint.setWordWrap(True)
+        self.content.addWidget(hint)
         row = QHBoxLayout()
         row.addWidget(PillButton("Calibrar esquinas", f, self.ctl.open_minimap_calibration, small=True))
         if sizes:

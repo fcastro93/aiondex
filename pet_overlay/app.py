@@ -16,6 +16,7 @@ from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 from .character import CHARACTER_OPCODE, COMBAT_POWER_OPCODE, CharacterInfo, parse_character, parse_combat_power
 from .world import MAP_ENTER_OPCODE, SPAWN_OPCODE, WorldTracker, game_map_faction, parse_map_enter, parse_spawn_full
 from .mobs import MobTracker
+from .bigfoes import BigFoes
 from .combat import (ABYSS_MAPS, PLAYER_SPAWN_OPCODE, REVIVE_SKILLS, SELF_REVIVE, CombatTracker, in_instance,
                      parse_player)
 from .damage import (DAMAGE_OPCODES, DEATH_OPCODE, READY as DAMAGE_READY, STATS_OPCODE, parse_hp,
@@ -136,6 +137,7 @@ WORLD_REGIONS = {1010: "Verteron", 1110: "Altgard"}      # open-world map ids (2
 SEAL_REGIONS = {310: "Verteron", 320: "Altgard"}         # sealed dungeons: Seal_Verteron 3100NN, Seal_Altgard 3200NN
 
 
+BIG_HP = 1_000_000               # in the Abyss, a monster with this much HP is shown under the minimap (siege cores)
 MY_KILL = 20.0                   # seconds: a monster you hit this recently and that died was your kill
 MOB_SHOWN = 160.0                # metres around you whose mob spawn points the minimap shows
 MOB_CAMP = 120.0                 # metres of the closest camp, when none is around
@@ -199,6 +201,7 @@ class Bridge(QObject):
         self._position_failed = False
         self.nodes = nodes.NodeTracker()         # the gathering nodes around you
         self.mobs = MobTracker()                 # the monsters around you: spawn points, deaths, respawns
+        self.bigfoes = BigFoes()                 # the Abyss's bosses and siege cores around you (their HP)
 
     def take_hits(self):
         with self._hits_lock:
@@ -244,7 +247,10 @@ class Bridge(QObject):
                 entry = parse_map_enter(body)
                 if entry:
                     self.mobs.on_map(entry[1])
-            self.mobs.on_message(op, body, time.time())
+                    self.bigfoes.on_map(entry[1])
+            now = time.time()
+            self.mobs.on_message(op, body, now)
+            self.bigfoes.on_message(op, body, now)
         except Exception:                # noqa: BLE001
             if not self._position_failed:
                 self._position_failed = True
@@ -645,10 +651,10 @@ class Controller(QObject):
         self._mob_names()
         if (self.settings.get("mob_route") or {}).get("on"):
             QTimer.singleShot(0, self._mob_overlay)
-        self.minimap.quests_wanted = lambda: bool(self.settings.get("pets_focus"))
+        self.minimap.quests_wanted = lambda: bool(self.settings.get("pets_focus") or self.bridge.bigfoes.foes)
         self.focus_panel = None
-        if self.settings.get("pets_focus"):
-            QTimer.singleShot(0, lambda: self.set_pets_focus(True))
+        self.bridge.bigfoes.which = self._big_foe
+        QTimer.singleShot(0, self._focus_start)
         self.minimap.start()
         self._ocr = OcrWorker(self.crafting)
         self._ocr.read.connect(self._shot_read)
@@ -2540,20 +2546,62 @@ class Controller(QObject):
         plan = plan_kills(me, near, now, mobs.respawn, mobs.kill_time, speed=speed, steps=MOB_PLAN)
         return {"plan": plan, "points": rows}
 
-    # --- the pets' Modo Focus ---
+    # --- the pets' Modo Focus, and the Abyss's bosses under the minimap ---
     def set_pets_focus(self, on):
         """Modo Focus: your pets listed under the game's quest list, like a quest (ui/focuspanel.py)."""
         self.settings["pets_focus"] = bool(on)
         self._save_settings()
+        self._focus_start()
+        self.refresh()
+
+    def _focus_start(self):
+        """The panel under the quest list runs while the pets' Modo Focus or the Abyss's boss HP is on (it hides
+        itself when it has nothing to show)."""
+        on = bool(self.settings.get("pets_focus")) or bool(self.settings.get("abyss_bosses", True))
         if on:
             if self.focus_panel is None:
                 from .ui.focuspanel import FocusPanel
                 self.focus_panel = FocusPanel(self)
-            self.focus_panel.set_rows(self.focus_rows())
+                self.focus_panel.boss_rows = self.boss_rows
+            self.focus_panel.set_rows(self.focus_rows() if self.settings.get("pets_focus") else [])
             self.focus_panel.start()
         elif self.focus_panel is not None:
             self.focus_panel.stop()
-        self.refresh()
+
+    def _big_foe(self, npc_id, max_hp):
+        """(name to show, a boss?) for a monster in the Abyss that is a boss or may be a siege object (big HP), or
+        None (capture thread)."""
+        if not self.settings.get("abyss_bosses", True):
+            return None
+        tracked = self.tracker.by_npc.get(npc_id)
+        boss = bool(tracked) or self.npc_db.is_boss(npc_id)
+        if not boss and (max_hp or 0) < BIG_HP:
+            return None
+        slug = self.mapdata.db.get("npcs", {}).get(str(npc_id))
+        name = (self.mapdata.monsters.get(slug, {}).get("name") if slug else None) or self.npc_db.name(npc_id) or \
+            (tracked.name if tracked else None) or self.boss_names.get(npc_id)
+        return name or f"Objetivo de {max_hp / 1e6:.1f}M HP", boss
+
+    def boss_rows(self):
+        """The Abyss's bosses and siege cores around you as rows of the panel under the quest list."""
+        from .ui.focuspanel import FocusRow
+        foes = self.bridge.bigfoes
+        if not foes.foes or not self.settings.get("abyss_bosses", True):
+            return []
+        fix = self.bridge.position.fix
+        me = (fix[1], fix[2]) if fix and time.time() - fix[0] < 30 else None
+        rows = []
+        for name, hp, top, in_sight, since, dead, far in foes.rows(time.time(), me):
+            ratio = hp / top if top else 0.0
+            if dead:
+                sub = "muerto"
+            elif not in_sight:
+                sub = f"fuera de vista hace {int(since)} s · {_short_hp(hp)} HP"
+            else:
+                sub = f"{_short_hp(hp)} / {_short_hp(top)} HP" + (f" · a {far:.0f} m" if far is not None else "")
+            rows.append(FocusRow(0, name, "muerto" if dead else f"{ratio:.1%}", ratio, sub, kind="boss",
+                                 faded=dead or not in_sight))
+        return rows
 
     def focus_rows(self):
         """The pets of the Modo Focus: the pinned one, then the ones of your zone (the last killed first)."""
@@ -2735,6 +2783,8 @@ class Controller(QObject):
     def toggle_setting(self, key):
         self.settings[key] = not self.settings.get(key, True)
         self._save_settings()
+        if key == "abyss_bosses":
+            self._focus_start()
         self.refresh()
 
     def npcap_installed(self):
@@ -2986,3 +3036,13 @@ def _load_json(path):
         return json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
+
+
+def _short_hp(value):
+    """4,512,000 -> '4.51M', 812,000 -> '812K'."""
+    if value >= 1_000_000:
+        return f"{value / 1e6:.2f}M"
+    if value >= 10_000:
+        return f"{value / 1e3:.0f}K"
+    return f"{value:,}"
+

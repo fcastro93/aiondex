@@ -1,6 +1,8 @@
 """Modo Focus of the pets: the pets you are farming listed right under the game's quest list (under the minimap),
 drawn like the game's quests so it looks part of it: the dark band with the gold title (the pet, its count), the
-lighter line under it with a key-like chip (what you got this session) and what to kill.
+lighter line under it with a key-like chip (what you got this session) and what to kill. Above them, in the Abyss,
+the world bosses and siege cores around you (bigfoes.py): their name, HP % and a red HP bar, how far, or how long
+since they went out of sight.
 
 Where: minimap.py reads where the quest list ends (quest_area, every 2 s; it grows and shrinks with your quests).
 The window lets clicks through and screen captures leave it out (SetWindowDisplayAffinity): the quest reader does
@@ -30,6 +32,8 @@ ROWS = 5                         # pets listed
 REFERENCE = 497.0                # the minimap's width at 4K: the quest list's sizes below are for it
 TITLE_H, SUB_H, GAP = 50, 34, 8  # a pet's band, its line under it and the space to the next (4K pixels)
 GOLD = QColor(255, 211, 95)      # the game's quest title (measured on the user's screenshot)
+FOE = QColor(255, 128, 112)      # a boss's name
+HP = QColor(229, 57, 80)         # its HP bar
 WHITE = QColor(242, 242, 240)
 BAND = QColor(10, 10, 10, 160)   # the title's band: the world behind at ~37%
 SUB_BAND = QColor(10, 10, 10, 85)
@@ -51,6 +55,8 @@ class FocusRow:
     chip: str = ""               # "+32" this session
     maxed: bool = False
     flash_at: float = 0.0
+    kind: str = "pet"            # "pet" | "boss" (a boss / siege core: red, a thicker HP bar, no portrait)
+    faded: bool = False          # out of sight or dead
 
 
 def _font(px, bold=True):
@@ -73,6 +79,8 @@ class FocusPanel(QWidget):
         self.setAttribute(Qt.WA_TransparentForMouseEvents)
         self.ctl = ctl
         self.rows = []
+        self.pet_rows = []               # the pets (Modo Focus on), set on each overlay refresh
+        self.boss_rows = lambda: []      # the bosses around you (asked every tick: their HP moves)
         self._flash = {}                 # pet id -> when it got a kill
         self._rect = None                # where it is (real pixels)
         self._k = 1.0
@@ -96,14 +104,26 @@ class FocusPanel(QWidget):
         now = time.time()
         for pid in flashed:
             self._flash[pid] = now
-        self.rows = rows[:ROWS]
-        self._fit()
-        self.update()
+        self.pet_rows = rows[:ROWS]
+        self._compose()
+
+    def _compose(self):
+        rows = self.boss_rows() + self.pet_rows
+        if rows != self.rows:
+            resize = len(rows) != len(self.rows)
+            self.rows = rows
+            if resize:
+                self._fit()
+            self.update()
 
     # --- where ---
     def _tick(self):
         ctl = self.ctl
         now = time.time()
+        self._compose()
+        if not self.rows:
+            self.hide()
+            return
         ctl.minimap_wanted_until = max(getattr(ctl, "minimap_wanted_until", 0), now + 3)
         area = ctl.minimap.quest_area
         if area and now - self._looked_at > 0.5:
@@ -178,18 +198,25 @@ class FocusPanel(QWidget):
         now = time.time()
         y = 0.0
         for row in self.rows:
-            flash = now - self._flash.get(row.pet_id, 0) < FLASH_FOR
+            boss = row.kind == "boss"
+            p.setOpacity(0.55 if row.faded else 1.0)
+            flash = not boss and now - self._flash.get(row.pet_id, 0) < FLASH_FOR
             band = QRectF(0, y, width, TITLE_H * k)
             p.fillRect(band, FLASH if flash else BAND)
-            bar = QRectF(0, band.bottom() - 3 * k, width, 3 * k)          # progress, thin along the band
-            p.fillRect(bar, QColor(255, 255, 255, 28))
-            p.fillRect(QRectF(bar.left(), bar.top(), bar.width() * max(0.0, min(1.0, row.ratio)), bar.height()),
-                       QColor(GOLD.red(), GOLD.green(), GOLD.blue(), 200))
-            self._icon(p, row, QPointF(32 * k, y + TITLE_H * k / 2), 20 * k)
+            thick = (7 if boss else 3) * k                                 # progress (HP), along the band
+            bar = QRectF(0, band.bottom() - thick, width, thick)
+            p.fillRect(bar, QColor(255, 255, 255, 40 if boss else 28))
+            fill = HP if boss else QColor(GOLD.red(), GOLD.green(), GOLD.blue(), 200)
+            p.fillRect(QRectF(bar.left(), bar.top(), bar.width() * max(0.0, min(1.0, row.ratio)), bar.height()), fill)
+            if boss:
+                self._diamond(p, QPointF(32 * k, y + TITLE_H * k / 2 - 2 * k), 15 * k)
+            else:
+                self._icon(p, row, QPointF(32 * k, y + TITLE_H * k / 2), 20 * k)
             count_w = QFontMetricsF(count_font).horizontalAdvance(row.count) + 12 * k
-            self._text(p, QRectF(72 * k, y, width - 72 * k - count_w, TITLE_H * k), row.title, title_font, GOLD)
-            self._text(p, QRectF(width - count_w, y, count_w - 10 * k, TITLE_H * k), row.count, count_font,
-                       GOLD if row.maxed else WHITE, Qt.AlignRight)
+            self._text(p, QRectF(72 * k, y, width - 72 * k - count_w, TITLE_H * k - (thick if boss else 0)),
+                       row.title, title_font, FOE if boss else GOLD)
+            self._text(p, QRectF(width - count_w, y, count_w - 10 * k, TITLE_H * k - (thick if boss else 0)),
+                       row.count, count_font, GOLD if row.maxed else WHITE, Qt.AlignRight)
             sub = QRectF(0, band.bottom(), width, SUB_H * k)
             p.fillRect(sub, SUB_BAND)
             if row.chip:                                        # like the game's key hint ("Alt + 1")
@@ -202,8 +229,21 @@ class FocusPanel(QWidget):
                 p.setPen(QColor(20, 20, 20))
                 p.drawText(chip, Qt.AlignCenter, row.chip)
             self._text(p, QRectF(72 * k, sub.top(), width - 80 * k, SUB_H * k), row.sub, sub_font, WHITE)
+            p.setOpacity(1.0)
             y += (TITLE_H + SUB_H + GAP) * k
         p.end()
+
+    def _diamond(self, p, centre, r):
+        """A boss's mark, like the game's quest diamond, in red."""
+        shape = QPainterPath()
+        shape.moveTo(centre + QPointF(0, -r))
+        shape.lineTo(centre + QPointF(r * 0.8, 0))
+        shape.lineTo(centre + QPointF(0, r))
+        shape.lineTo(centre + QPointF(-r * 0.8, 0))
+        shape.closeSubpath()
+        p.setPen(QPen(QColor(255, 220, 200, 230), 1.4 * self._k))
+        p.setBrush(HP)
+        p.drawPath(shape)
 
     def _text(self, p, rect, text, font, color, align=Qt.AlignLeft):
         metrics = QFontMetricsF(font)

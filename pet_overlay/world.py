@@ -1,7 +1,8 @@
 """Where the player is: map entry (2136) and nearby NPC spawns/despawns (4136/4236).
 
 2136 map entry:  u32 seq | u32 map_id | u32 ? | u32 0 | f32 x, y, z | f32 heading ...   (seq 1 = login)
-4136 NPC spawn:  varint entity | u16 flags | u8 has_name [u8 len, name] | u32 npc_id | 2 bytes | f32 x, y, z ...
+4136 NPC spawn:  varint entity | u16 flags | u8 has_name [u8 len, name] | u32 npc_id | u8 move | u8 | f32 x, y, z |
+                 f32 heading | [move & 8: 12 bytes, where it is going] | 3 bytes | varint HP | varint max HP ...
 4236 despawn:    varint entity | 00 | u8 reason (1 out of range, 3 dead, 7 summon expired)
 Validated against LOXIN fight logs (entity -> npc ids, deaths) on the user's captures.
 """
@@ -40,9 +41,15 @@ def parse_spawn(body):
     return eid, struct.unpack_from("<I", body, p)[0]
 
 
+def spawn_hp_at(body, p):
+    """Where the HP varint of a 4136 is, from the offset of its npc id: a monster on the move carries 12 more bytes
+    (2026-10-15: without them a walking Modified Lupyllini read 122,963,139 max HP for 119,700)."""
+    return p + 4 + 2 + 12 + 4 + (12 if p + 4 < len(body) and body[p + 4] & 8 else 0) + 3
+
+
 def parse_spawn_full(body):
     """4136 -> (entity id, npc id, owner name or None, max hp or None); summons carry their owner's name.
-    After npc_id: 2 bytes | f32 x,y,z | 4 bytes | 3 bytes | varint hp | varint max hp."""
+    After npc_id: u8 move | u8 | f32 x,y,z | f32 heading | [move & 8: 12 bytes] | 3 bytes | varint hp | varint max."""
     eid, p = read_varint(body, 0)
     if eid is None or p + 3 > len(body):
         return None
@@ -61,7 +68,7 @@ def parse_spawn_full(body):
         return None
     npc_id = struct.unpack_from("<I", body, p)[0]
     max_hp = None
-    q = p + 4 + 2 + 12 + 4 + 3
+    q = spawn_hp_at(body, p)
     if q < len(body):
         _, q = read_varint(body, q)
         max_hp, _ = read_varint(body, q) if q < len(body) else (None, q)
