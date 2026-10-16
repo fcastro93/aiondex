@@ -33,6 +33,7 @@ DEFAULTS = {
     "market_share": None,   # share your market samples and use the others' (None = not asked yet)
     "install_id": "",       # random id of this install for the shared samples (the server keeps only its hash)
     "status": {},
+    "abyss_bosses": False,  # the Abyss's bosses and siege cores under the quest list (DPS: «Jefes bajo misiones»)
     "players": {},          # the players window's filters: min_cp, min_ilvl           # alerts on, membership, character name -> {"at", "tickets": {id: [count, bonus, ms, at]}}
     "hotkeys": {
         "toggle_visible": "Alt+Shift+P",
@@ -55,8 +56,8 @@ class Settings(dict):
         for key, value in stored.items():
             if key == "hotkeys" and isinstance(value, dict):
                 merged["hotkeys"].update(value)
-            elif key in merged:
-                merged[key] = value
+            else:              # every key kept, also the ones with no default (1.62.2: they were dropped at each
+                merged[key] = value      # start: calibrations, run_as_admin, learned respawns, the Modo Focus...)
         super().__init__(merged)
 
     def save(self):

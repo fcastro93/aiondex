@@ -336,6 +336,13 @@ class DpsPanel(QWidget):
             name = session["name"] if len(session["name"]) <= 16 else session["name"][:15] + "…"
             lay.addWidget(Pill(f"● {name} ({len(session['fights'])})", self.fonts, self.ctl.ask_session,
                                color=theme.GOLD, tip="Sesión en marcha: clic para terminarla y ver su informe"))
+        bosses = bool(self.ctl.settings.get("abyss_bosses"))
+        lay.addWidget(Pill("◉ Jefes" if bosses else "Jefes", self.fonts,
+                           lambda: self.ctl.toggle_setting("abyss_bosses"), color=theme.GOLD if bosses else None,
+                           tip="Jefes bajo misiones: en el Abismo, la vida de los world bosses y los cores de "
+                               "asedio que tienes cerca, "
+                               "siempre a la vista debajo de tus misiones (bajo el minimapa), como el Modo Focus de "
+                               "los pets. Clic para " + ("quitarlo" if bosses else "ponerlo") + "."))
         lay.addWidget(Pill("Historial", self.fonts, self._open_history,
                            tip="Tus peleas de las últimas 48 horas (y las que marcaste con ★)"))
         self.content.addWidget(row)

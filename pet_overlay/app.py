@@ -2559,7 +2559,7 @@ class Controller(QObject):
     def _focus_start(self):
         """The panel under the quest list runs while the pets' Modo Focus or the Abyss's boss HP is on (it hides
         itself when it has nothing to show)."""
-        on = bool(self.settings.get("pets_focus")) or bool(self.settings.get("abyss_bosses", True))
+        on = bool(self.settings.get("pets_focus")) or bool(self.settings.get("abyss_bosses"))
         if on:
             if self.focus_panel is None:
                 from .ui.focuspanel import FocusPanel
@@ -2573,7 +2573,7 @@ class Controller(QObject):
     def _big_foe(self, npc_id, max_hp):
         """(name to show, a boss?) for a monster in the Abyss that is a boss or may be a siege object (big HP), or
         None (capture thread)."""
-        if not self.settings.get("abyss_bosses", True):
+        if not self.settings.get("abyss_bosses"):
             return None
         tracked = self.tracker.by_npc.get(npc_id)
         boss = bool(tracked) or self.npc_db.is_boss(npc_id)
@@ -2588,7 +2588,7 @@ class Controller(QObject):
         """The Abyss's bosses and siege cores around you as rows of the panel under the quest list."""
         from .ui.focuspanel import FocusRow
         foes = self.bridge.bigfoes
-        if not foes.foes or not self.settings.get("abyss_bosses", True):
+        if not foes.foes or not self.settings.get("abyss_bosses"):
             return []
         fix = self.bridge.position.fix
         me = (fix[1], fix[2]) if fix and time.time() - fix[0] < 30 else None
