@@ -20,7 +20,10 @@ whereami.py), so between the few messages that tell where you stand, the minimap
   map's match, a few metres).
 - The quest list: right under the minimap the game lists your quests (a progress bar, then per quest a gold title
   and its step), as long as you have quests. Its lines are read (OCR) every QUEST_EVERY seconds while the pets'
-  Modo Focus is on, and where they end is where that list goes (quest_area).
+  Modo Focus is on, and where they end is where that list goes (quest_area). The list also has a see-through dark
+  panel behind it, whose left edge is the minimap's: a dungeon's done objectives are struck through and greyed, so
+  the OCR does not read them, but the panel goes on behind them (2026-10-15, Ferocious Horn Den: 14 done steps,
+  read 1 line) - the list ends where the lower of the two ends (panel_bottom).
 - It runs on its own thread, about once a second (three times with the route drawn over the minimap), only while
   a map window or the route over the minimap is on, and skips a read when another window (AionDex's own too)
   covers the minimap: it would read that window instead. The route's window over the minimap is left out of
@@ -596,7 +599,8 @@ class MinimapReader:
         if covered(hwnd, region, self.ignore):
             return self.quest_area                       # something over it: keep the last one
         path = Path(tempfile.gettempdir()) / f"aiondex_quests_{os.getpid()}_{int(now * 1000)}.png"
-        grab(region).save(path)
+        shot = grab(region)
+        shot.save(path)
         try:
             lines, _, _ = market_ocr.recognize(path)
         finally:
@@ -606,6 +610,11 @@ class MinimapReader:
                 pass
         bottom = quest_bottom([(region[0] + ln.x0, region[1] + ln.y, region[1] + ln.y + ln.h, ln.text)
                                for ln in lines], box)
+        np = _np()
+        panel = panel_bottom(np, np.asarray(shot.convert("L"), dtype=np.float32), box[0] - region[0],
+                             box[2] - region[0], 0, h)
+        if panel:
+            bottom = max(bottom, region[1] + panel[0] + round(0.03 * h))
         self._quest_ends = (self._quest_ends + [bottom])[-3:]
         self.quest_area = (box[0], max(self._quest_ends), box[2], now)
         return self.quest_area
@@ -700,6 +709,43 @@ class MinimapReader:
             return None
         self._scale, self._ppm = scale, ppm
         return round(float(x), 1), round(float(y), 1), round(score, 3)
+
+
+def panel_bottom(np, gray, left, right, top, unit, first=QUEST_FIRST, gap=0.12, dark=0.85):
+    """(bottom y, top y) of the quest list's dark panel (image pixels; its left edge near `left`, the minimap's
+    right edge `right`): the longest run of rows, starting within first*unit under `top`, that are darker just
+    inside the left edge than just outside it AND carry text (a dungeon's struck-through steps too: many sharp
+    jumps of brightness along the row), with holes up to gap*unit. Text keeps a world darker on one side out
+    (2026-10-15: a sunlit ledge read as a panel down to y 980), the darkness keeps the world's own detail out."""
+    h, w = gray.shape
+    cols = [x for x in range(left - 8, left + 9) if 8 <= x < w - 8]
+    if not cols or right - left < 40:
+        return None
+
+    def dark_rows(x):
+        inside = gray[:, x + 1:x + 7].mean(axis=1)
+        outside = gray[:, x - 7:x - 1].mean(axis=1)
+        return np.convolve((inside + 1) / (outside + 1), np.ones(5) / 5, mode="same") < dark
+    edge = max((dark_rows(x) for x in cols), key=lambda r: r[top:].sum())
+    band = gray[:, left + round(0.12 * (right - left)):right - 10]
+    jumps = (np.abs(np.diff(band, axis=1)) > 35).sum(axis=1)
+    text = np.convolve(jumps >= 10, np.ones(9), mode="same") > 0         # a text line and the gap around it
+    rows = edge & text
+    best = start = end = None
+    for y in range(top, h):
+        if rows[y]:
+            if start is None:
+                if y - top > first * unit:
+                    break
+                start = y
+            end = y
+        elif start is not None and y - end > gap * unit:
+            if best is None or end - start > best[0] - best[1]:
+                best = (end, start)
+            start = end = None
+    if start is not None and (best is None or end - start > best[0] - best[1]):
+        best = (end, start)
+    return best
 
 
 def quest_bottom(lines, box):
