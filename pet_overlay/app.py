@@ -2471,14 +2471,28 @@ class Controller(QObject):
         on disk is older than half an hour."""
         from .upgrades import character_stats
         gear = self.settings.get("gear", {}).get(name) or {}
-        server = (self.settings.get("characters", {}).get(name) or {}).get("server") or (
-            self.character.server if self.character else None)
+        server = self._server_of(name)
         profile = self.armory.cached(name, server) if server else None
         if server and time.time() - self._profile_asked.get(name, 0) > 30 * 60:     # at most every half hour
             self._profile_asked[name] = time.time()
             self.armory.want(name, server)
         live = self.own_cp if name == self.character_name() else None
         return character_stats(gear, profile, self.gear_db, self.upgrades_role(name), live)
+
+    def _server_of(self, name):
+        return (self.settings.get("characters", {}).get(name) or {}).get("server") or (
+            self.character.server if self.character else None)
+
+    def upgrades_refresh(self, name=None):
+        """Mejoras' «Actualizar»: the plan made again now and the official profile (item level, CP) asked for again;
+        Mejoras is redrawn once more when it comes."""
+        name = name or self.character_name() or self.settings.get("last_character")
+        server = self._server_of(name) if name else None
+        if server:
+            self._profile_asked[name] = time.time()
+            self.armory.want(name, server, refresh=True)
+        self._upgrade_bosses = None
+        self.upgrades_changed()
 
     def upgrade_bosses(self):
         """The Tracker's field and Abyss bosses with what they drop, for Mejoras (a fresh copy each time)."""

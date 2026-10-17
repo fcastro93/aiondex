@@ -163,8 +163,6 @@ class UpgradesWindow(QWidget):
         titles = QVBoxLayout()
         titles.setSpacing(0)
         titles.addWidget(label("Mejoras", f.name_big, theme.TEXT))
-        self.subtitle = label("", f.small, theme.MUTED)
-        titles.addWidget(self.subtitle)
         head.addLayout(titles, 1)
         head.addWidget(label("Personaje:", f.small, theme.MUTED))
         self.who = QComboBox()
@@ -182,7 +180,18 @@ class UpgradesWindow(QWidget):
                           "conviene comprar")
         prices.clicked.connect(lambda: self.ctl.open_crafting("gear"))
         head.addWidget(prices)
+        self.update_button = QPushButton("↻ Actualizar")
+        self.update_button.setToolTip("Rehace todo ahora con lo último que leí del juego y vuelve a pedir tu perfil "
+                                      "oficial (nivel de objeto y CP). Tu equipo, tu bolsa y tus almacenes se leen "
+                                      "solos mientras juegas; si algo no aparece, cambia de canal y el juego los "
+                                      "manda de nuevo.")
+        self.update_button.setMinimumWidth(self.update_button.fontMetrics().horizontalAdvance("Actualizando…") + 36)
+        self.update_button.clicked.connect(self._update_now)
+        head.addWidget(self.update_button)
         root.addLayout(head)
+        self.subtitle = label("", f.small, theme.MUTED)       # its own line: a long one wraps, never widens the window
+        self.subtitle.setWordWrap(True)
+        root.addWidget(self.subtitle)
 
         self.resources = QGridLayout()
         self.resources.setSpacing(6)
@@ -243,6 +252,17 @@ class UpgradesWindow(QWidget):
         self.character = self.who.currentData()
         self.refresh()
 
+    def _update_now(self):
+        self.ctl.upgrades_refresh(self._shown)
+        self.update_button.setEnabled(False)
+        self.update_button.setText("Actualizando…")
+        self.refresh()
+        QTimer.singleShot(1500, self._update_done)
+
+    def _update_done(self):
+        self.update_button.setEnabled(True)
+        self.update_button.setText("↻ Actualizar")
+
     def _role_changed(self, _):
         if self._shown:
             self.ctl.set_upgrades_role(self._shown, self.role.currentData())
@@ -287,6 +307,8 @@ class UpgradesWindow(QWidget):
                 else f" (perfil oficial {_ago(me.at)})") + (f" · CP {me.cp:,}" if me.cp else "")
         else:
             stats = "nivel de objeto: aún no lo sé (cargando tu perfil oficial)"
+        if self.ctl.armory.loading(plan.character):
+            stats += " · pidiendo tu perfil oficial…"
         bits = [plan.character, stats, f"bolsa y almacén leídos {_ago(plan.read_at)}"]
         if not (me and me.alt):
             bits.append(f"{len(prices)} precios de equipo" if prices else "sin precios de equipo (Market › Equipo)")
