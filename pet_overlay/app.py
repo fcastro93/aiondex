@@ -936,6 +936,26 @@ class Controller(QObject):
         self.world_window.raise_()
         self.world_window.activateWindow()
 
+    def boss_on_map(self, entry):
+        """Has this Tracker boss a spawn point on your world map (data/world_db.json «Named Monsters»)?"""
+        from .gathering import GAME_MAPS
+        if not hasattr(self, "_named_on_map"):
+            try:
+                db = json.loads((self.data_dir / "world_db.json").read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                db = {}
+            self._named_on_map = {(m, n) for m, cats in db.get("points", {}).items()
+                                  for name, _ in cats.get("named", []) for n in name.split(" / ")}
+        return (GAME_MAPS.get(entry.map_id), entry.name) in self._named_on_map
+
+    def open_boss_map(self, entry=None):
+        """The Mapa del mundo with the Tracker's bosses and their state; on one boss when given."""
+        self.open_world_map()
+        if entry is not None:
+            self.world_window.focus_boss(entry)
+        elif not self.world_window.bosses_check.isChecked():
+            self.world_window.bosses_check.setChecked(True)
+
     def open_gather_map(self, material):
         """Where to gather a material: its nodes, the best area with a route, your bot marks."""
         from .ui.gathermap import GatherMapWindow

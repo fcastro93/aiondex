@@ -1,6 +1,7 @@
 """Mapa del mundo: the 9 world maps with the points of the user's own map export (data/world_db.json, built by
 tools/build_world_db.py): services, places, collectables, NPCs, gathering nodes and monsters, each category on or
-off, the zones' names and outlines, a search by name, and where you are.
+off, the zones' names and outlines, a search by name, and where you are; and the Tracker's field and Abyss bosses with
+their state live (alive, back in 12 min...) over their spawn points (BossLabel; the Tracker's «Mapa» opens it on one).
 
 All the points of a map are one scene item (AtlasItem) drawn with cosmetic pens (a fixed size on screen at any zoom),
 so even the 20,000 of Altgard pan and zoom smoothly; hovering one says what it is."""
@@ -17,6 +18,7 @@ from .. import APP_NAME
 from ..gathering import MAP_SIDE, SIDES
 from ..mapdata import MAP_NAMES
 from ..paths import DATA_DIR
+from ..tracker import countdown
 from . import theme
 from .mapview import WORLD, MapView, show_you
 from .mapwindow import STYLE, badge_label
@@ -163,6 +165,74 @@ class ZoneLabel(QGraphicsItem):
         p.drawPath(self.path)
 
 
+class BossLabel(QGraphicsItem):
+    """A Tracker boss over its spawn point: a pill with a dot of its state's colour, its name and its state, the same
+    size at any zoom, just above the point."""
+    PAD = 6
+
+    def __init__(self, entry):
+        super().__init__()
+        self.entry = entry
+        self.setFlag(QGraphicsItem.ItemIgnoresTransformations)
+        self.setZValue(70)
+        self.font = QFont("Segoe UI", 8, QFont.DemiBold)
+        self.small = QFont("Segoe UI", 8)
+        self.name, self.state, self.color = entry.name, "", QColor(theme.MUTED)
+        self._box = QRectF()
+        self._layout()
+
+    def set_state(self, text, color):
+        if text != self.state or color != self.color:
+            self.prepareGeometryChange()
+            self.state, self.color = text, QColor(color)
+            self._layout()
+            self.update()
+
+    def _layout(self):
+        from PySide6.QtGui import QFontMetricsF
+        w = QFontMetricsF(self.font).horizontalAdvance(self.name) + \
+            (QFontMetricsF(self.small).horizontalAdvance("  " + self.state) if self.state else 0)
+        h = QFontMetricsF(self.font).height()
+        self._box = QRectF(-(w + 2 * self.PAD + 10) / 2, -h - 18, w + 2 * self.PAD + 10, h + 6)
+
+    def boundingRect(self):
+        return self._box.adjusted(-2, -2, 2, 14)
+
+    def paint(self, p, _option, _widget=None):
+        p.setRenderHint(QPainter.Antialiasing)
+        box = self._box
+        p.setPen(QPen(QColor(self.color.red(), self.color.green(), self.color.blue(), 200), 1.2))
+        p.setBrush(QColor(10, 16, 30, 225))
+        p.drawRoundedRect(box, box.height() / 2, box.height() / 2)
+        p.drawLine(QPointF(0, box.bottom()), QPointF(0, -4))                  # a stem down to the point
+        p.setPen(Qt.NoPen)
+        p.setBrush(self.color)
+        p.drawEllipse(QPointF(box.left() + self.PAD + 3, box.center().y()), 3.2, 3.2)
+        x = box.left() + self.PAD + 10
+        p.setFont(self.font)
+        p.setPen(QColor("#FFFFFF"))
+        p.drawText(QRectF(x, box.top(), box.width(), box.height()), Qt.AlignLeft | Qt.AlignVCenter, self.name)
+        if self.state:
+            from PySide6.QtGui import QFontMetricsF
+            x += QFontMetricsF(self.font).horizontalAdvance(self.name)
+            p.setFont(self.small)
+            p.setPen(self.color)
+            p.drawText(QRectF(x, box.top(), box.width(), box.height()), Qt.AlignLeft | Qt.AlignVCenter,
+                       "  " + self.state)
+
+
+def boss_state(tracker, entry, now):
+    """(short text, colour) of a Tracker boss for its map label."""
+    st = tracker.status(entry, now)
+    if st.state in ("vivo", "en curso"):
+        return "vivo", theme.GAIN
+    if st.state in ("debería estar", "quizá"):
+        return "¿vivo?", theme.WARN
+    if st.start is not None and st.start > now:
+        return f"en {countdown(st.start - now)}", theme.GOLD
+    return "¿?", theme.MUTED
+
+
 class WorldMapWindow(QWidget):
     def __init__(self, ctl):
         super().__init__(None, Qt.Window)
@@ -181,6 +251,7 @@ class WorldMapWindow(QWidget):
         self.map_id = None
         self.atlas = None
         self.zone_items = []             # (item, rank)
+        self.boss_items = []             # BossLabel of the Tracker's bosses on this map
         self.checks = {}
         self.setObjectName("MapWindow")
         self.setWindowIcon(ctl.app_icon)
@@ -255,6 +326,13 @@ class WorldMapWindow(QWidget):
         self.zones_check.setChecked(saved.get("zones", True))
         self.zones_check.toggled.connect(self._zones_toggled)
         sv.addWidget(self.zones_check)
+        self.bosses_check = QCheckBox("Jefes del Tracker con su estado en vivo")
+        self.bosses_check.setToolTip("Los jefes de campo y del Abismo del Tracker sobre su punto: vivo, cuánto falta para "
+                                     "que vuelva o «¿?» si aún no lo sabe (abre en el juego la lista de monstruos de "
+                                     "campo, M)")
+        self.bosses_check.setChecked(saved.get("bosses", True))
+        self.bosses_check.toggled.connect(self._bosses_toggled)
+        sv.addWidget(self.bosses_check)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -308,10 +386,14 @@ class WorldMapWindow(QWidget):
         for item, _ in self.zone_items:
             scene.removeItem(item)
         self.zone_items = []
+        for item in self.boss_items:
+            scene.removeItem(item)
+        self.boss_items = []
         self.atlas = AtlasItem(self.db, self.map_id)
         self.atlas.shown = self.shown
         scene.addItem(self.atlas)
         self._zones()
+        self._bosses()
         self._fill_panel()
         names = sorted({n for _, _, ns in self.atlas.layers.values() for name in ns for n in name.split(" / ")} |
                        {self.cats.get(c, (c,))[0] for c in self.atlas.layers})
@@ -326,6 +408,60 @@ class WorldMapWindow(QWidget):
     def _show_you(self):
         if self.isVisible() and self.map_id:
             show_you(self.view, self.ctl, self.map_id, self.maps, self.tabs.setCurrentIndex)
+            self._tick_bosses()
+
+    # --- the Tracker's bosses ---
+    def _bosses(self):
+        """A BossLabel over each spawn point of the Tracker's bosses of this map (your map's «Named Monsters»)."""
+        from ..gathering import GAME_MAPS
+        scene = self.view.scene()
+        for item in self.boss_items:
+            scene.removeItem(item)
+        self.boss_items = []
+        if not self.bosses_check.isChecked():
+            return
+        named = {}
+        for name, pts in self.db.get("points", {}).get(self.map_id, {}).get("named", []):
+            for n in name.split(" / "):
+                named.setdefault(n, []).extend(pts)
+        for entry in self.ctl.tracker.entries:
+            if entry.kind == "event" or GAME_MAPS.get(entry.map_id) != self.map_id:
+                continue
+            for u, v in named.get(entry.name, []):
+                item = BossLabel(entry)
+                item.setPos(u * WORLD, v * WORLD)
+                item.setToolTip(" · ".join(x for x in (entry.name, f"Nv. {entry.level}" if entry.level else "",
+                                                       entry.sub) if x))
+                scene.addItem(item)
+                self.boss_items.append(item)
+        self._tick_bosses()
+
+    def _tick_bosses(self):
+        import time
+        now = time.time()
+        for item in self.boss_items:
+            item.set_state(*boss_state(self.ctl.tracker, item.entry, now))
+
+    def _bosses_toggled(self, on):
+        self.ctl.settings["world_map"]["bosses"] = on
+        self.ctl.settings.save()
+        self._bosses()
+
+    def focus_boss(self, entry):
+        """Show a Tracker boss: its map, its labels on, the search on its name (ringed, zoomed in)."""
+        from ..gathering import GAME_MAPS
+        map_id = GAME_MAPS.get(entry.map_id)
+        if map_id is None:
+            return False
+        if not self.bosses_check.isChecked():
+            self.bosses_check.setChecked(True)
+        if map_id != self.map_id:
+            self._pick_side(MAP_SIDE.get(map_id, self.side), keep_map=map_id)
+        self.search.blockSignals(True)
+        self.search.setText(entry.name)
+        self.search.blockSignals(False)
+        self._find(entry.name)
+        return True
 
     # --- zones ---
     def _zones(self):

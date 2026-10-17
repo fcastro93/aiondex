@@ -103,6 +103,11 @@ class TrackerWindow(QWidget):
             tabs.addWidget(button)
             self.tab_buttons[key] = button
         tabs.addStretch(1)
+        boss_map = QPushButton("Mapa de jefes")
+        boss_map.setProperty("tab", True)
+        boss_map.setToolTip("El Mapa del mundo con los jefes del Tracker sobre su punto y su estado en vivo")
+        boss_map.clicked.connect(lambda: self.ctl.open_boss_map())
+        tabs.addWidget(boss_map)
         self.upgrades_only = QPushButton("Solo con mejoras")
         self.upgrades_only.setProperty("tab", True)
         self.upgrades_only.setCheckable(True)
@@ -307,6 +312,12 @@ class TrackerWindow(QWidget):
         if sub:
             names.addWidget(label(sub, f.small, QColor("#AEB6C6"), elide=True))
         row.addLayout(names, 1)
+        if entry.kind != "event" and self.ctl.boss_on_map(entry):
+            where = QPushButton("Mapa")
+            where.setProperty("bell", True)
+            where.setToolTip("Abre el Mapa del mundo en este jefe, con su estado y tu posición")
+            where.clicked.connect(lambda _=False, e=entry: self.ctl.open_boss_map(e))
+            row.addWidget(where)
         bell = QPushButton("Avisarme")
         bell.setProperty("bell", True)
         bell.setCheckable(True)
