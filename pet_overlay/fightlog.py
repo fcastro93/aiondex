@@ -50,7 +50,8 @@ def summary(enc, group):
             "damage": mine, "dps": mine / enc.fight_time(group), "share": mine / total, "players": len(enc.dealers()),
             "pinned": enc.pinned, "place": enc.place, "map_id": enc.map_id, "instance": in_instance(enc.map_id),
             "boss": enc.activity(group).boss, "final": enc.final, "replay": bool(enc.replay),
-            "deaths": sum(a.deaths for a in enc.actors.values() if a.is_self or a.name in group)}
+            "deaths": sum(a.deaths for a in enc.actors.values() if a.is_self or a.name in group),
+            "who": me.name if me else ""}
 
 
 # --- (de)serialising ---

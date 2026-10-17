@@ -6,11 +6,36 @@ What it reads:
 - what you have to spend (inventory: Kina, Enhance Stones, Transfer Stones, Gear Change Vouchers, Soul Codex,
   Philosopher's Stones, Amplify Stones, manastones...);
 - the market's gear prices (your market samples: Market > Equipo);
-- the dungeons you run (the final bosses you killed in them, fights/index.json; or the ones you pick);
+- the dungeons you run (the final bosses this character killed in them, fights/index.json; or the ones you pick);
+- who the character is (Me): level, item level and CP (the official profile's, the item level moved by the gear
+  changed since it was read: character_stats), and whether it is your main or an alt;
+- the Tracker's field and Abyss bosses with what they drop;
 - data/upgrades_db.json (tools/build_upgrades_db.py, aion2data's tables of the global client): what each enhancement
   level costs, what a transfer takes, where each piece drops, every dungeon cube's guaranteed reward, the Substance
-  Morph recipes (3 Gear Change Vouchers: Ferocious Horn Den + 2,000,000 Kina = Nuakum Guard...) and each piece's soul
-  binding stat pool.
+  Morph recipes (3 Gear Change Vouchers: Ferocious Horn Den + 2,000,000 Kina = Nuakum Guard...), each piece's soul
+  binding stat pool, and every activity with what it asks for and gives (dungeon modes, Ascension Trial, Nightmare,
+  the Abyss, the Daily Dungeon, the Arena...) and the shops' goods.
+
+What you can do: every activity a step sends you to is checked against what it asks for (can_do: the dungeon mode's
+equipped Item Level and level, the Abyss entrance's Item Level or its Item Level / Combat Power limit, the Ascension
+Trial tier, Nightmare's Suggested Item Level): Ferocious Horn Den (2,100) is a goal for a character at 1,539 ("te
+faltan 561 de nivel de objeto"), never a place to farm. «Contenido» (plan.content) lists every activity of the game
+with whether you can do it, why not, and what it gives you.
+
+What a step raises (Step.boosts): item level (the game's sum of the pieces' item level and their +N: new gear,
+enhancing, Arcana) and/or CP (everything that adds stats: soul binding, manastones, Amp - which adds no item level -,
+Theostones, Potential, Daevanion, stigmas, wings).
+
+Kina: the fees (enhancing, Substance Morph, soul binding, Theostones) take Kina and Kina (Bound) (the game's "Kina
+(All)", bound first: the official note of the 2026-03-25 Korean update); the market only Kina. A main uses everything;
+an alt only what is bound: its Kina (Bound) and the items no one can trade, never the market (its tradeable Kina and
+items are listed for the main: plan.for_main). What is counted per server - every character of yours shares it: duty
+missions and the Dimensional Invasion's keys (the client's checklist), the Daily Dungeon's entries (metabot.gg's
+weekly checklist), shop goods limited "per server" - is for the main: an alt is not sent to it (PER_SERVER).
+
+Item level comes from the pieces, their +N and the Arcana (aion2data's reading of the client); some guides add
+manastones, Daevanion Crystals or wings, but two of the user's characters with different manastones and Daevanion
+nodes had the same official item level over that sum (431, 2026-10-17), so those stay CP.
 
 Soul binding (kanonxo's "Aion 2 Bible", the Global PvE guide, and the game's own window): a piece's stat lines come
 from its pool; each line shows value/highest and the Soul Binding Rate is the average of how far each line is from its
@@ -70,6 +95,48 @@ IDEAL = {
 IDEAL["guard"] = IDEAL["weapon"]
 GUIDE = {"text": "Líneas buscadas y reglas de Soul Binding: Aion 2 Bible de kanonxo",
          "url": "https://docs.google.com/document/d/11u4wLCG1WfL-xSka2Aze0rI9vYRa7mq3N3Gp1bt0AWY/edit"}
+ILVL, CP = "ilvl", "cp"
+BOTH = (ILVL, CP)
+BOOSTS = {"own": BOTH, "voucher": BOTH, "enhance": BOTH, "morph": BOTH, "buy": BOTH, "save": BOTH, "farm": BOTH,
+          "boss": BOTH, "arcana": BOTH, "soul": (CP,), "manastone": (CP,), "soulstone": (CP,), "amp": (CP,),
+          "theostone": (CP,)}
+# what a shop good is for: (pattern, use, what it raises, Spanish); the first that matches
+GOODS = ((r"Soul Codex: Reset", "soul_reset", (CP,), "el Reset de Soul Binding"),
+         (r"Soul Codex", "soul_codex", (CP,), "Bind"),
+         (r"Philosopher's Stone", "philosopher", (CP,), "la línea extra de Soul Binding"),
+         (r"Amplify Stone", "amp", (CP,), "el Amp"),
+         (r"Manastone", "manastone", (CP,), "manastones"),
+         (r"Soulstone", "soulstone", (CP,), "soulstones"),
+         (r"Theostone", "theostone", (CP,), "la Theostone"),
+         (r"Potential Stone", "potential", (CP,), "Potencial (PvP)"),
+         (r"Enhance Scroll", "scroll", BOTH, "encantar tu amuleto"),
+         (r"Daevanion Crystal", "daevanion", (CP,), "los tableros Daevanion"),
+         (r"Stigma Shard", "stigma", (CP,), "tus stigmas"),
+         (r"Wings", "wings", (CP,), "alas (su efecto de tenerlas)"),
+         (r"Wrathful|Refining Stone", "craft", BOTH, "los crafts Splendent"),
+         (r"Enhance Stone", "enhance", BOTH, "encantar"),
+         (r"Transfer Stone", "transfer", BOTH, "transfer"),
+         (r"Sync Stone", "sync", (CP,), "Sync"))
+ALWAYS = {"daevanion", "stigma"}      # every character wants them (232 Daevanion Crystals fill Azphel's board)
+# currency -> the activities (content kinds) that pay it and its shops
+CURRENCIES = (("Phantasmal Fragment", ("nightmare",), ("Trade Shop (nightmare)",)),
+              ("Abyss Points", ("abyss", "arena", "duty"), ("Trade Shop (abyss)",)),
+              ("Centuryroot Token", ("invasion",), ("Centuryroot Token Shop", "Festival Shop")),
+              ("CoinDungeon1", (), ("Season Shop",)),
+              ("A2 Mileage", (), ("A2 Mileage",)))
+SHOP_NAME = {"Trade Shop (nightmare)": "Tienda de Nightmare", "Trade Shop (abyss)": "Tienda del Abismo",
+             "Trade Shop (arena)": "Tienda de la Arena", "Centuryroot Token Shop": "Tienda de Centuryroot",
+             "Festival Shop": "Tienda del Festival", "Season Shop": "Tienda de temporada",
+             "A2 Mileage": "Tienda de A2 Mileage", "Festive Bell Shop": "Tienda de Festive Bell (evento)",
+             "Fortune Pouch Shop": "Tienda de Fortune Pouch (evento)"}
+CURRENCY_NAME = {"CoinDungeon1": "moneda de temporada"}
+GROUP = {"Expedition": "Expedición", "Transcendence": "Trascendencia", "Sanctuary": "Santuario",
+         "Subjugation": "Subjugation", "Ascension Trial": "Ascension Trial (torres)", "Abyss": "Abismo"}
+ARCANA = {41: "Chalice", 42: "Parchment", 43: "Compass", 44: "Bell", 45: "Mirror"}
+ARCANA_LEVEL = {"Common": 20, "Rare": 40, "Epic": 60, "Unique": 80}
+FIELD_FACTION = {1010: "E", 1110: "A"}           # Verteron: Elyos, Altgard: Asmodian (the Abyss: both)
+LOWER_ABYSS = "Chaotic Lower Reshanta"
+PER_SERVER = {"duty", "invasion", "daily"}      # activities every character of yours shares: for the main
 
 
 @dataclass
@@ -120,13 +187,44 @@ class Option:
     enchant: int = 0            # an owned piece's +N
     ladder: bool = False        # Dragon Lord line: goes on to item level 102
     chance: float = None        # drop: per clear
-    source: str = ""            # voucher / drop: the dungeon
+    source: str = ""            # voucher / drop: the dungeon; boss: its name
     need: int = 0               # voucher: how many it takes
+    mode: str = ""              # drop: the dungeon's mode it drops in
+
+
+@dataclass
+class Me:
+    """What activities ask of the character."""
+    level: int = 0
+    item_level: int = None      # the official one, moved by the gear changed since it was read; None: unknown
+    cp: int = None
+    official: int = None        # the official profile's item level
+    at: float = None            # when the official profile was read
+    role: str = "main"          # main: uses everything | alt: only what is bound
+
+    @property
+    def alt(self):
+        return self.role == "alt"
+
+
+@dataclass
+class Activity:
+    """A row of «Contenido»: an activity, whether you can do it and what it gives you."""
+    group: str                  # Expedición, Trascendencia, Nightmare, Jefes de campo, Tiendas...
+    name: str
+    mode: str = ""
+    needs: str = ""             # "Nv. 45 · 2,100 de nivel de objeto · 1–5 jugadores"
+    reason: str = None          # None: you can do it; else why not ("te faltan 561 de nivel de objeto")
+    closed: bool = False        # not open on the global servers yet
+    gives: str = ""             # what it gives you
+    boosts: tuple = ()
+    useful: int = 0             # how many things in it improve you
 
 
 @dataclass
 class Step:
-    kind: str       # own | voucher | enhance | soul | manastone | amp | morph | buy | save | farm | spare | theostone
+    kind: str       # own | voucher | enhance | soul | manastone | amp | morph | buy | save | farm | boss | arcana |
+    #                 content (an activity you can do) | shop | goal (one you cannot do yet) | spare | theostone
     title: str
     detail: str
     gain: int = 0
@@ -137,6 +235,8 @@ class Step:
     key: str = ""               # what «No quiero hacer este paso» skips
     parts: list = field(default_factory=list)       # a card of several: [(key, text)] each one skippable
     summary: str = ""           # the step in one short line (the window shows it; the detail opens on a click)
+    boosts: tuple = ()          # what it raises: ILVL and / or CP (BOOSTS by kind when empty)
+    uses: tuple = ()            # what it spends (soul_codex, amp, manastone...): the shops' goods worth buying
 
 
 @dataclass
@@ -175,6 +275,14 @@ class Plan:
     skipped: set = field(default_factory=set)         # the keys of the steps you do not want
     item_level: int = 0
     read_at: float = None                             # when your items were read
+    me: Me = None
+    currencies: dict = field(default_factory=dict)    # Phantasmal Fragment, Abyss Points, Oath Coin... -> count
+    for_main: dict = field(default_factory=dict)      # an alt's tradeable Kina and items: for the main
+    alts_kina: int = 0                                # a main: the tradeable Kina your alts hold
+    locked: dict = field(default_factory=dict)        # (dungeon, mode) -> [Option] of a mode you cannot enter yet
+    gains: dict = field(default_factory=dict)         # (dungeon, mode) -> [Option] of every mode (Contenido)
+    bosses: dict = field(default_factory=dict)        # field / Abyss boss name -> its record (from the Tracker)
+    content: list = field(default_factory=list)       # Activity rows of «Contenido»
 
     def have(self, kind):
         return self.resources.get(kind, 0)
@@ -187,7 +295,7 @@ class UpgradesDB:
         except (OSError, ValueError):
             data = {}
         self.credit = data.get("credit") or {"text": "aion2data.com", "url": "https://aion2data.com"}
-        self.tracked = {int(k): tuple(v) for k, v in data.get("tracked", {}).items()}
+        self.tracked = {int(k): tuple(v) + (0,) * (3 - len(v)) for k, v in data.get("tracked", {}).items()}
         self.enhance = data.get("enhance", {})
         self.decompose = data.get("decompose", {})
         self.transfer = data.get("transfer", {})
@@ -198,6 +306,11 @@ class UpgradesDB:
         self.pools = data.get("pools", [])
         self.pool_of = {int(k): v for k, v in data.get("pool_of", {}).items()}
         self.props = {int(k): v for k, v in data.get("props", {}).items()}
+        self.content = data.get("content", [])
+        self.nightmare = data.get("nightmare", [])
+        self.awakening = data.get("awakening", {})
+        self.shops = {s["name"]: s for s in data.get("shops", [])}
+        self.arcana = data.get("arcana", [])
         self._tables = {}
         for group in self.enhance:
             m = re.match(r"Enchant_(\w+?)_(\d+)$", group)
@@ -207,7 +320,15 @@ class UpgradesDB:
             levels.sort()
 
     def tracked_names(self):
-        return {i: name for i, (_, name) in self.tracked.items()}
+        return {i: v[1] for i, v in self.tracked.items()}
+
+    def mode(self, dungeon, mode):
+        """The content record of a dungeon's mode (what it asks for), or None."""
+        return next((c for c in self.content if c["kind"] == "dungeon" and c["name"] == dungeon and c["mode"] == mode),
+                    None)
+
+    def entry(self, kind, name):
+        return next((c for c in self.content if c["kind"] == kind and c["name"] == name), None)
 
     def pool(self, item_id):
         """[(stat, lowest, highest)] a piece's soul binding lines come from (percents x100), or []."""
@@ -291,6 +412,88 @@ def dungeons_you_run(fights_index, now=None, seen=None):
     return found
 
 
+def character_stats(gear, profile, gear_db, role="main", live_cp=None):
+    """Me of a character: its level, its official item level and CP (armory.Profile) and, when its gear changed since
+    the profile was read, that item level moved by the change (each piece's item level and +N, the same reading on
+    both sides: the official number is more than that plain sum, so only the difference is used)."""
+    me = Me(level=(gear or {}).get("level") or (profile.level if profile else 0) or 0, role=role)
+    if profile is not None and profile.item_level:
+        def measure(rows):
+            return sum((gear_db.by_id[i].level if i in gear_db.by_id else 0) + (n or 0) for i, n in rows)
+
+        me.official, me.at, me.cp = profile.item_level, profile.at, profile.cp
+        me.item_level = profile.item_level
+        if gear and (gear.get("at") or 0) > (profile.at or 0):
+            now = measure((raw[0], raw[1]) for raw in gear.get("slots", {}).values())
+            then = measure((e.get("id"), (e.get("enchantLevel") or 0) + (e.get("exceedLevel") or 0))
+                           for e in profile.items.values() if e.get("id"))
+            me.item_level += now - then
+    if live_cp:
+        me.cp = live_cp
+    return me
+
+
+def can_do(entry, me):
+    """None when the character can do this activity, else why not, in Spanish. An unknown item level passes (the
+    window says it does not know it)."""
+    if not entry:
+        return None
+    if not entry.get("open", True):
+        return "aún no abre en Global"
+    if entry.get("level") and me.level and me.level < entry["level"]:
+        return f"pide nivel {entry['level']}"
+    il = me.item_level
+    if il is not None:
+        if entry.get("il") and il < entry["il"]:
+            return f"te faltan {entry['il'] - il:,} de nivel de objeto (pide {entry['il']:,})"
+        if entry.get("il_max") and il > entry["il_max"]:
+            return f"tu nivel de objeto pasa su límite ({entry['il_max']:,})"
+    if entry.get("cp_max") and me.cp and me.cp > entry["cp_max"]:
+        return f"tu CP pasa su límite ({entry['cp_max']:,})"
+    return None
+
+
+def needs_text(entry):
+    """What an activity asks for, in one line."""
+    bits = []
+    if entry.get("level"):
+        bits.append(f"Nv. {entry['level']}" if entry["level"] < 99 else "nivel por encima del máximo actual")
+    if entry.get("il"):
+        bits.append(f"{entry['il']:,} de nivel de objeto")
+    if entry.get("il_max"):
+        bits.append(f"hasta {entry['il_max']:,} de nivel de objeto")
+    if entry.get("cp_max"):
+        bits.append(f"hasta {entry['cp_max']:,} de CP")
+    lo, hi = entry.get("players") or (1, 1)
+    if 1 < hi <= 10:
+        bits.append(f"{lo}–{hi} jugadores" if lo != hi else f"{hi} jugadores")
+    return " · ".join(bits) or "sin requisitos"
+
+
+def good_use(name):
+    """(use, what it raises, Spanish) of a shop good, or None."""
+    for pattern, use, boosts, text in GOODS:
+        if re.search(pattern, name):
+            return use, boosts, text
+    return None
+
+
+def limit_es(text):
+    """A shop limit in Spanish ("5 per character, weekly" -> "5 por personaje a la semana")."""
+    if not text:
+        return ""
+    out = text.replace(" per character", " por personaje").replace(" per server", " por servidor")
+    for en, es in ((", weekly", " a la semana"), (", daily", " al día"), (", monthly", " al mes")):
+        out = out.replace(en, es)
+    return out
+
+
+def missing_il(reason):
+    """The item level a reason says you lack (for sorting the goals), else a big number."""
+    m = re.match(r"te faltan ([\d,]+) de nivel", reason or "")
+    return int(m.group(1).replace(",", "")) if m else 10 ** 6
+
+
 def kinah_text(value):
     if value is None:
         return "?"
@@ -372,23 +575,35 @@ def option_key(o):
 
 
 def build_plan(name, gear, gear_db, db, inventory, prices=None, dungeons=None, levels=None, recipes=None,
-               skipped=None):
+               skipped=None, me=None, bosses=None, alts_kina=0, now=None):
     """The Plan for a character. gear: settings["gear"][name]; inventory: the app's Inventory (bag and storage);
     prices: {item name: (lowest, when)} of the market; dungeons: the ones you run; levels: {profession: level};
-    recipes: crafting_db's (the Dragon Lord pieces' Splendent step); skipped: the keys of the steps you do not want."""
+    recipes: crafting_db's (the Dragon Lord pieces' Splendent step); skipped: the keys of the steps you do not want;
+    me: Me (level, item level, CP, main or alt); bosses: the Tracker's field and Abyss bosses [{"name", "where",
+    "level", "abyss", "map_id", "items": [(piece, chance %)], "respawn"}]; alts_kina: a main's alts' tradeable Kina."""
     gear = gear or {}
     plan = Plan(name)
     plan.skipped = set(skipped or ())
     plan.dungeons = list(dungeons or [])
     plan.read_at = inventory.read_at(name) if inventory else None
+    plan.me = me = me or Me(level=gear.get("level") or 0)
+    plan.alts_kina = 0 if me.alt else alts_kina
+    faction = gear.get("faction")
     counted = set()
-    for item_id, (kind, item_name) in db.tracked.items():
+    for item_id, (kind, item_name, trade) in db.tracked.items():
         if item_name in counted:                    # one name, several ids (owned() counts them all)
             continue
         counted.add(item_name)
         have = inventory.owned(name, item_name) if inventory else None
         if not have or not have[0]:
             continue
+        if me.alt and trade:                        # an alt keeps what can be traded for the main
+            plan.for_main[item_name] = have[0]
+            continue
+        if kind in ("currency", "abyss_points"):
+            plan.currencies[item_name] = have[0]
+            if kind == "currency":
+                continue
         if kind == "enhance_scroll":
             plan.scrolls[item_name] = have[0]
         elif kind == "voucher":
@@ -403,7 +618,7 @@ def build_plan(name, gear, gear_db, db, inventory, prices=None, dungeons=None, l
             if kind == "amplify_fragment" and "(Unique)" not in item_name:
                 key = "amplify_fragment_other"
             plan.resources[key] = plan.resources.get(key, 0) + have[0]
-    kina = plan.have("kina")
+    kina, bound = plan.have("kina"), plan.have("kina_bound")
     stones = plan.have("enhance_stone")
 
     stored = inventory.pieces(name) if inventory else []
@@ -466,8 +681,8 @@ def build_plan(name, gear, gear_db, db, inventory, prices=None, dungeons=None, l
                                f"{need} Gear Change Voucher de {dungeon} + {kinah_text(fee)} Kinah (Substance Morph); "
                                f"tienes {count}.", source=dungeon, need=need))
 
-    # the market
-    for item_name, (lowest, _) in (prices or {}).items():
+    # the market (a main's: an alt spends only what is bound)
+    for item_name, (lowest, _) in ({} if me.alt else prices or {}).items():
         item = gear_db.named(item_name, gear.get("faction"))
         if item is None or not _wearable(item, gear) or item.slot not in POSITIONS:
             continue
@@ -485,29 +700,53 @@ def build_plan(name, gear, gear_db, db, inventory, prices=None, dungeons=None, l
             plan.options.setdefault(piece.pos, []).append(Option("market", piece.pos, item, gain, lowest, text,
                                                                  ladder=ladder))
 
-    # the dungeons you run
+    # every dungeon mode: the ones you run and can enter give options; one you cannot enter yet, a goal
     for item_id, (kind, source, detail, chance, per) in db.drops.items():
-        if kind != "dungeon clear" or source not in plan.dungeons:
+        if kind != "dungeon clear":
             continue
         item = gear_db.by_id.get(item_id)
         if item is None or not _wearable(item, gear) or item.slot not in POSITIONS:
             continue
         piece, gain = gain_over(item)
-        if piece and gain > 0:
-            pity = db.cube_for(source, item.name)
-            text = f"{source} ({detail}): {chance * 100:.1f}% por {'clear' if per == 'clear' else per}"
-            if pity:
-                text += " · garantizado: " + ", ".join(f"{m} cada {n} cubos" for m, n, _ in
-                                                       sorted(pity, key=lambda x: x[1]))
-            plan.options.setdefault(piece.pos, []).append(Option("drop", piece.pos, item, gain, None, text,
-                                                                 chance=chance, source=source))
-    order = {"own": 0, "voucher": 1, "drop": 2, "market": 3}
+        if not piece or gain <= 0:
+            continue
+        pity = db.cube_for(source, item.name)
+        text = f"{source} ({detail}): {chance * 100:.1f}% por {'clear' if per == 'clear' else per}"
+        if pity:
+            text += " · garantizado: " + ", ".join(f"{m} cada {n} cubos" for m, n, _ in
+                                                   sorted(pity, key=lambda x: x[1]))
+        o = Option("drop", piece.pos, item, gain, None, text, chance=chance, source=source, mode=detail)
+        plan.gains.setdefault((source, detail), []).append(o)
+        if can_do(db.mode(source, detail), me):
+            plan.locked.setdefault((source, detail), []).append(o)
+        elif source in plan.dungeons:
+            plan.options.setdefault(piece.pos, []).append(o)
+    # the Tracker's field and Abyss bosses you can reach (an Abyss one: the Lower Abyss's entrance; a field one: your
+    # faction's map)
+    for b in bosses or []:
+        b["reason"] = boss_reason(b, me, db, faction)
+        known = plan.bosses.get(b["name"])            # one name on both factions' maps (Silent Dartan): yours wins
+        if known is None or known["reason"] and not b["reason"]:
+            plan.bosses[b["name"]] = b
+        for item_name, chance in b.get("items", []):
+            item = gear_db.named(item_name, faction)
+            if item is None or not _wearable(item, gear) or item.slot not in POSITIONS:
+                continue
+            piece, gain = gain_over(item)
+            if piece and gain > 0:
+                o = Option("boss", piece.pos, item, gain, None, f"{b['name']}: {chance:.1f}% por muerte",
+                           chance=chance / 100, source=b["name"])
+                b.setdefault("useful", []).append(o)
+                if not b["reason"]:
+                    plan.options.setdefault(piece.pos, []).append(o)
+    order = {"own": 0, "voucher": 1, "drop": 2, "boss": 2, "market": 3}
     skip = plan.skipped
     for pos, opts in plan.options.items():
         best = {}
         for o in opts:                                          # one option per piece and kind (the cheapest)
             if option_key(o) in skip or o.kind == "voucher" and f"voucher-dungeon:{o.source}" in skip or \
-                    o.kind == "drop" and f"farm-dungeon:{o.source}" in skip:
+                    o.kind == "drop" and f"farm-dungeon:{o.source}" in skip or \
+                    o.kind == "boss" and f"boss:{o.source}" in skip:
                 continue                                        # you said no to it
             key = (o.kind, o.item.name)
             if key not in best or (o.kinah or 0) < (best[key].kinah or 0):
@@ -531,9 +770,40 @@ def build_plan(name, gear, gear_db, db, inventory, prices=None, dungeons=None, l
         plan.spare.append(Spare(item, enchant, level, cont, s.rate if s and s.lines else 0.0))
     plan.spare.sort(key=lambda x: (x.enchant, x.level, x.rate))
 
-    plan.steps = _steps(plan, by_pos, kina, stones, db, levels or {}, prices or {}, recipes, gear_db,
-                        gear.get("faction"))
+    arcana = _arcana(plan, gear, gear_db, db, me)
+    plan.steps = _steps(plan, by_pos, kina, bound, stones, db, levels or {}, prices or {}, recipes, gear_db,
+                        faction, arcana, now or time.time())
+    plan.content = _content(plan, db, me, arcana, faction, now or time.time())
     return plan
+
+
+def boss_reason(b, me, db, faction):
+    """None when you can go to this boss, else why not."""
+    if b.get("abyss"):
+        return can_do(db.entry("abyss", b.get("where") or LOWER_ABYSS) or db.entry("abyss", LOWER_ABYSS), me)
+    side = FIELD_FACTION.get(b.get("map_id"))
+    if side and faction and side != faction:
+        return "es del mapa del otro bando"
+    return None
+
+
+def _arcana(plan, gear, gear_db, db, me):
+    """Per Arcana slot (Transcendence's cards): (pos, the card you wear or None, its item level, [(card name, grade,
+    item level, dungeon, stage, chance, reason)] of the better ones, the ones you can get first)."""
+    out = []
+    slots = gear.get("slots", {})
+    for pos, kind in ARCANA.items():
+        raw = slots.get(str(pos))
+        item = gear_db.by_id.get(raw[0]) if raw else None
+        level = item.level if item else 0
+        better = []
+        for card, grade, dungeon, stage, chance, _ in db.arcana:
+            lv = ARCANA_LEVEL.get(grade, 0)
+            if card.startswith(kind + " ") and lv > level:
+                better.append((card, grade, lv, dungeon, stage, chance, can_do(db.mode(dungeon, stage), me)))
+        better.sort(key=lambda c: (c[6] is not None, -c[2], -c[5]))
+        out.append((pos, item, level, better))
+    return out
 
 
 def splendent_step(name, recipes):
@@ -558,8 +828,9 @@ def _lost_on_transfer(piece):
     return f" Con transfer pasan {keep}" + (f"; se pierden {' y '.join(lost)}" if lost else "") + "."
 
 
-def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, faction):
+def _steps(plan, by_pos, kina, bound, stones, db, levels, prices, recipes, gear_db, faction, arcana, now):
     steps = []
+    fees = kina + bound                 # enhancing, Substance Morph, soul binding: Kina and Kina (Bound)
     transfer = plan.have("transfer_stone")
     # 1. wear what you have
     for pos, opts in plan.options.items():
@@ -585,13 +856,15 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
             n = min(count, len(cheap))
             parts.append(f"con 1 voucher + {kinah_text(cheap[0].kinah)} cada pieza: " +
                          ", ".join(f"{o.item.name} (+{o.gain})" for o in cheap[:max(n, 1)]))
+        conquest = can_do(db.mode(dungeon, "Conquest"), plan.me)
         for o in big:
             missing = o.need - count
             parts.append(f"con {o.need} vouchers + {kinah_text(o.kinah)}: {o.item.name} (+{o.gain})" +
                          (f" · te falta{'n' if missing > 1 else ''} {missing}: el garantizado de Conquest de "
-                          f"{dungeon} ofrece el voucher" if missing > 0 else ""))
+                          f"{dungeon} ofrece el voucher" + (f" (aún no puedes entrar: {conquest})" if conquest else "")
+                          if missing > 0 else ""))
         best = max(picks, key=lambda o: o.gain if o.need <= count else -1)
-        ready = best.need <= count and kina >= (best.kinah or 0)
+        ready = best.need <= count and fees >= (best.kinah or 0)
         steps.append(Step("voucher", f"Tus {count} Gear Change Voucher de {dungeon}",
                           "; ".join(parts) + "." + _lost_on_transfer(by_pos[best.pos]), best.gain, best.kinah,
                           ready=ready, pos=best.pos, key=f"voucher-dungeon:{dungeon}",
@@ -616,8 +889,9 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
                     f"{cost_s:,} Enhance Stones" + (f" y {extra} {scroll.replace(' (Bound)', '')} (tienes {have})"
                                                      if extra else ""))
             enh.append(Step("enhance", f"Encanta {piece.item.name}", text, n, cost_k, cost_s,
-                            ready=kina >= cost_k and stones >= cost_s and have >= extra, pos=piece.pos,
+                            ready=fees >= cost_k and stones >= cost_s and have >= extra, pos=piece.pos,
                             key=f"enhance:{piece.item.name}:{piece.pos}",
+                            uses=("enhance", f"scroll:{piece.item.name}") if extra else ("enhance",),
                             summary=f"+{piece.enchant} → +{piece.safe} · {kinah_text(cost_k)} Kinah · "
                                     f"{cost_s:,} piedras"))
     enh.sort(key=lambda s: s.kinah / max(1, s.gain))
@@ -631,9 +905,10 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
                                  f"{plan.scrolls.get(by_pos[s.pos].item.name + ' Enhance Scroll (Bound)', 0)}"
                                  if by_pos[s.pos].to_safe[2] else "") + ")" for s in enh)
                           + f". En total {kinah_text(total_k)} Kinah y {total_s:,} Enhance Stones (tienes "
-                            f"{kinah_text(kina)} y {stones:,}); de arriba abajo si no te alcanza.",
+                            f"{kinah_text(fees)} de Kinah, ligada o no, y {stones:,}); de arriba abajo si no te "
+                            f"alcanza.",
                           sum(s.gain for s in enh), total_k, total_s, ready=enh[0].ready, pos=enh[0].pos,
-                          key="enhance-group",
+                          key="enhance-group", uses=tuple({u for s in enh for u in s.uses}),
                           summary=f"{len(enh)} piezas a +10 · {kinah_text(total_k)} Kinah · {total_s:,} piedras",
                           parts=[(s.key, f"{by_pos[s.pos].item.name} +{by_pos[s.pos].enchant}→+{by_pos[s.pos].safe}")
                                  for s in enh]))
@@ -671,7 +946,8 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
             soul.append((0, Step("soul", f"Línea extra en {piece.item.name}",
                                  f"Soul Binding al 100%: {FUSE_STONES} Philosopher's Stones + {kinah_text(FUSE_KINA)} "
                                  f"le dan una línea más (tienes {fuse}); esa línea no pasa con un transfer.",
-                                 1, FUSE_KINA, ready=fuse >= FUSE_STONES and kina >= FUSE_KINA, pos=piece.pos,
+                                 1, FUSE_KINA, ready=fuse >= FUSE_STONES and fees >= FUSE_KINA, pos=piece.pos,
+                                 uses=("philosopher",),
                                  summary=f"Al 100% · {FUSE_STONES} Philosopher's Stones + {kinah_text(FUSE_KINA)} "
                                          f"(tienes {fuse})")))
             continue
@@ -681,7 +957,8 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
                                  f"Soul Binding {s.rate:.0%} ({lines}): {len(s.bad)} líneas que no son las buscadas "
                                  f"({', '.join(s.bad)}). Reset las vuelve a tirar todas: 1 Soul Codex: Reset + "
                                  f"{kinah_text(RESET_KINA)} Kinah (tienes {resets}). Después, Bind.",
-                                 len(s.bad), RESET_KINA, ready=resets >= 1 and kina >= RESET_KINA, pos=piece.pos,
+                                 len(s.bad), RESET_KINA, ready=resets >= 1 and fees >= RESET_KINA, pos=piece.pos,
+                                 uses=("soul_reset", "soul_codex"),
                                  summary=f"{s.rate:.0%} · {len(s.bad)} líneas a cambiar · 1 Reset + "
                                          f"{kinah_text(RESET_KINA)}")))
         elif s.bad:                                       # keep the good lines: reroll the bad ones one by one
@@ -700,7 +977,7 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
                                  f"se quedan) comiéndose una pieza del mismo tipo y grado, o una Sync Stone, por "
                                  f"intento. {how} Después, Bind.", len(s.bad),
                                  ready=bool(eat or sync or any(x.item.grade == "Unique" for x in plan.spare)),
-                                 pos=piece.pos,
+                                 pos=piece.pos, uses=("sync", "soul_codex"),
                                  summary=f"{s.rate:.0%} · cambiar {', '.join(s.bad)} · comida: "
                                          + (", ".join(f"{x.item.name} +{x.enchant}" for x in eat) if eat
                                             else "una Sync Stone"))))
@@ -709,7 +986,7 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
                                  f"Soul Binding {s.rate:.0%} ({lines}): sus líneas ya son de las buscadas. Bind las "
                                  f"sube: {kinah_text(BIND_KINA)} Kinah + Soul Codex por intento, más cada vez "
                                  f"(tienes {codex}).", round((1 - s.rate) * 10), BIND_KINA,
-                                 ready=codex > 0 and kina >= BIND_KINA, pos=piece.pos,
+                                 ready=codex > 0 and fees >= BIND_KINA, pos=piece.pos, uses=("soul_codex",),
                                  summary=f"{s.rate:.0%} · líneas buenas: súbelas con Bind (tienes {codex} Soul Codex)")))
     soul.sort(key=lambda x: (x[0], x[1].pos not in (1, 2), -x[1].gain))
     for _, s in soul:
@@ -731,6 +1008,7 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
                           + f". Tienes {sup} {word} Superior y {sum(have.values()) - sup} de otros grados. Cada "
                             f"piedra que pones vuelve a tirar todos los huecos de la pieza: ponlas en las que vas a "
                             f"conservar (se pierden con un transfer).", gain=total, ready=sup > 0 or bool(have),
+                          uses=(kind,),
                           summary=f"{total} huecos en {len(empty)} piezas · tienes {sup} {word} Superior"))
     # 6. Amp the weapon (+16..+20 of a Unique piece)
     weapon = by_pos.get(1)
@@ -744,7 +1022,7 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
                               f"{plan.have('amplify_stone')} Amplify Stone (Unique) y con tus {frags} fragmentos haces "
                               f"{make} más ({AMPLIFY_RECIPE[0]} fragmentos + {AMPLIFY_RECIPE[1]:,} Enhance Stones cada "
                               f"una, Substance Morph). El Amp pasa con un transfer.", top - amp,
-                              ready=plan.have("amplify_stone") > 0 or make > 0, pos=1, key="amp",
+                              ready=plan.have("amplify_stone") > 0 or make > 0, pos=1, key="amp", uses=("amp",),
                               summary=f"Amp {amp}/{top} · {plan.have('amplify_stone')} Amplify Stone (+{make} con tus "
                                       f"fragmentos)"))
     # 7. buy: the most item level for the Kina, and the piece of the Dragon Lord line worth saving for
@@ -801,8 +1079,12 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
                       f"({piece.base}) y, con transfer crafting, sigue hasta {LADDER_TOP} sin perder el encantamiento."
                     + (f" Te faltan {kinah_text(cost - kina)}." if kina < cost else ""),
                     reach - piece.base, cost, ready=kina >= cost, pos=o.pos, key=option_key(o),
+                    uses=("craft",) if how else (),
                     summary=f"{reach} hoy y hasta {LADDER_TOP} con transfer crafting"
                             + (f" · te faltan {kinah_text(cost - kina)}" if kina < cost else "")))
+                if kina < cost and plan.alts_kina:
+                    steps[-1].detail += (f" Tus alts tienen {kinah_text(plan.alts_kina)} de Kinah comerciable que "
+                                         f"pueden pasarte.")
     # 8. farm: what your dungeons give for your weakest pieces, one card per dungeon
     drops = sorted((o for opts in plan.options.values() for o in opts if o.kind == "drop"), key=lambda o: -o.gain)
     by_dungeon, seen = {}, set()
@@ -820,6 +1102,39 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
                           summary=f"{len(opts)} piezas que te sirven"
                                   + (f" · garantizado cada {pity[0][1]} cubos ({pity[0][0]})" if pity else ""),
                           parts=[(option_key(o), f"{o.item.name} (+{o.gain})") for o in opts]))
+    # field and Abyss bosses you can reach whose loot improves you, the best first
+    by_boss = {}
+    for o in sorted((o for opts in plan.options.values() for o in opts if o.kind == "boss"), key=lambda o: -o.gain):
+        if all(x.item.name != o.item.name for x in by_boss.get(o.source, [])):
+            by_boss.setdefault(o.source, []).append(o)
+    for boss, opts in sorted(by_boss.items(), key=lambda x: (-x[1][0].gain, -len(x[1])))[:4]:
+        b = plan.bosses.get(boss, {})
+        where = b.get("where") or ""
+        steps.append(Step("boss", f"Jefe: {boss}",
+                          f"{'Jefe del Abismo' if b.get('abyss') else 'Jefe de campo'}{f' en {where}' if where else ''}"
+                          + (f", nivel {b['level']}" if b.get("level") else "") + ". Suelta: "
+                          + ", ".join(f"{o.item.name} (+{o.gain}, {o.chance * 100:.1f}% por muerte)" for o in opts)
+                          + (f". {b['respawn']}" if b.get("respawn") else "") + ". El Tracker te avisa cuándo sale "
+                            "y el Mapa del mundo te dice dónde.", opts[0].gain, ready=True, pos=opts[0].pos,
+                          key=f"boss:{boss}",
+                          summary=f"{len(opts)} pieza{'s' if len(opts) > 1 else ''} que te sirve{'n' if len(opts) > 1 else ''}"
+                                  f" · la mejor {opts[0].item.name} (+{opts[0].gain})",
+                          parts=[(option_key(o), f"{o.item.name} (+{o.gain})") for o in opts]))
+    # Arcana: Transcendence's cards (item level), the better ones you can get
+    up = [(pos, item, level, [c for c in better if c[6] is None]) for pos, item, level, better in arcana]
+    up = [(pos, item, level, cards) for pos, item, level, cards in up if cards]
+    if up and "arcana" not in plan.skipped:
+        gain = sum(cards[0][2] - level for _, _, level, cards in up)
+        steps.append(Step("arcana", f"Arcana: {len(up)} hueco{'s' if len(up) > 1 else ''} a mejorar en Trascendencia",
+                          "; ".join(f"{ARCANA[pos]}: {cards[0][0]} {cards[0][1]} ({cards[0][2]}) contra "
+                                    + (f"tu {item.name} {item.grade} ({level})" if item else "el hueco vacío")
+                                    + f" — {cards[0][3]}, {cards[0][4]} ({cards[0][5] * 100:.0f}% por clear)"
+                                    for pos, item, level, cards in up)
+                          + ". Cada Arcana suma su nivel de objeto; dos y cuatro del mismo tipo (Vigor o Magic) dan su "
+                            "bonus de set.", gain, ready=True, pos=up[0][0], key="arcana",
+                          summary=f"+{gain} de nivel de objeto en {', '.join(ARCANA[p] for p, *_ in up)}"))
+    steps += _activities(plan, steps, db, faction, now)
+    steps += _goals(plan, arcana, db)
     # 9. what the rest of your spare pieces are worth: a Sync Stone or a Transfer Stone each
     rest = [x for x in plan.spare if not x.use and x.item.grade == "Unique"]
     if rest:
@@ -843,13 +1158,301 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
             steps.append(Step("theostone", f"Theostone para {piece.item.name}",
                               f"No tiene ninguna: grabar una cuesta {kinah_text(THEOSTONE_KINA)} Kinah (tienes "
                               f"{plan.have('theostone')}). Aporta menos del 1% del daño y se pierde con un transfer.",
-                              0, THEOSTONE_KINA, ready=plan.have("theostone") > 0, pos=pos, key=f"theostone:{pos}",
+                              0, THEOSTONE_KINA, ready=plan.have("theostone") > 0 and fees >= THEOSTONE_KINA, pos=pos,
+                              key=f"theostone:{pos}", uses=("theostone",),
                               summary=f"Sin Theostone · {kinah_text(THEOSTONE_KINA)} Kinah · menos del 1% del daño"))
+    for s in steps:
+        s.boosts = s.boosts or BOOSTS.get(s.kind, ())
     return [s for s in steps if s.key not in plan.skipped]
+
+
+def _goods(plan, db, shops, currency, needs, faction, now):
+    """[(needed, item, per purchase, price, limit, (use, boosts, text))] of the shops' goods paid with a currency that
+    help you, the ones your plan uses first, then the cheapest; one row per good (its cheapest price). An alt leaves
+    the goods limited per server to the main."""
+    today = time.strftime("%Y-%m-%d", time.localtime(now))
+    best = {}
+    for shop in shops:
+        s = db.shops.get(shop)
+        if not s or s["faction"] not in ("both", {"A": "Asmodian", "E": "Elyos"}.get(faction, s["faction"])):
+            continue
+        for item, per, price, limit, requires, sale_to in s["goods"]:
+            use = good_use(item)
+            cost = [a for c, a in price if c == currency]
+            if not use or not cost or len(price) > 1 or sale_to and sale_to < today or requires or \
+                    plan.me.alt and "per server" in limit:
+                continue
+            needed = use[0] in needs or use[0] in ALWAYS or use[0] == "scroll" and any(
+                n.startswith("scroll:") and item.startswith(n[7:]) for n in needs)
+            if item not in best or cost[0] < best[item][3]:
+                best[item] = (needed, item, per, cost[0], limit, use)
+    return sorted(best.values(), key=lambda g: (not g[0], g[5][0] in ALWAYS, g[3]))
+
+
+def _goods_text(goods, currency, n=6):
+    name = CURRENCY_NAME.get(currency, currency)
+    return "; ".join(f"{g[1].replace(' (Bound)', '')}{f' ×{g[2]}' if g[2] > 1 else ''} por {g[3]:,} {name}"
+                     + (f" ({limit_es(g[4])})" if g[4] else "") + f", para {g[5][2]}" for g in goods[:n])
+
+
+def _activities(plan, steps, db, faction, now):
+    """What you can do each week and what it gives you: Nightmare, the Abyss / Arena / duty missions (Abyss Points),
+    the Dimensional Invasion (Centuryroot Tokens), the season's shop, the Ascension Trial and the Daily Dungeon
+    (Enhance Stones, Amplify Stone Fragments), each with the shop goods your plan uses; a shop step when you already
+    have the currency for one of them."""
+    me, out = plan.me, []
+    needs = {u for s in steps for u in s.uses}
+    for currency, kinds, shops in CURRENCIES:
+        goods = _goods(plan, db, shops, currency, needs, faction, now)
+        if not goods:
+            continue
+        have = plan.currencies.get(currency)
+        name = CURRENCY_NAME.get(currency, currency)
+        shop = " / ".join(SHOP_NAME.get(s, s) for s in shops)
+        boosts = tuple(sorted({b for g in goods if g[0] for b in g[5][1]}, key=lambda b: b != ILVL))
+        cheapest = min((g[3] for g in goods if g[0]), default=None)
+        if have and cheapest and have >= cheapest:
+            buy = [g for g in goods if g[0] and g[3] <= have]
+            out.append(Step("shop", f"Gasta tus {have:,} {name}",
+                            f"En la {shop}: " + _goods_text(buy, currency) + ".", 0, ready=True,
+                            key=f"shop:{currency}", boosts=boosts,
+                            summary=f"{SHOP_NAME.get(shops[0], shops[0])}: "
+                                    + ", ".join(g[1].replace(" (Bound)", "") for g in buy[:3])))
+        what = f"En la {shop}: {_goods_text(goods, currency)}." + (f" Tienes {have:,}." if have is not None else "")
+        if currency == "Phantasmal Fragment":
+            step = _nightmare(plan, db, what, boosts)
+            if step:
+                out.append(step)
+            continue
+        acts = [c for c in db.content if c["kind"] in kinds and not (me.alt and c["kind"] in PER_SERVER)]
+        ok = [c for c in acts if not can_do(c, me)]
+        if not acts:
+            if any(g[0] for g in goods) and (have or currency == "CoinDungeon1"):
+                out.append(Step("content", SHOP_NAME.get(shops[0], shops[0]),
+                                what + (" Con la moneda de la temporada, mientras dure." if currency == "CoinDungeon1"
+                                        else ""), 0, ready=bool(have), key=f"content:{currency}", boosts=boosts,
+                                summary=", ".join(g[1].replace(" (Bound)", "") for g in goods if g[0])[:90]))
+            continue
+        if not ok:
+            continue
+        where = "; ".join(_act_text(c) for c in ok)
+        out.append(Step("content", f"{name}: " + ", ".join(_act_name(c) for c in ok),
+                        f"{where}. {what}", 0, ready=True, key=f"content:{currency}", boosts=boosts,
+                        summary=f"para {', '.join(dict.fromkeys(g[5][2] for g in goods if g[0]))}"[:100]))
+    trial = _trial(plan, db, now)
+    if trial:
+        out.append(trial)
+    daily = db.entry("daily", "Daeva Bio-Research Base: Unknown Fissure")
+    if daily and not can_do(daily, me) and not me.alt and "content:daily" not in plan.skipped:
+        out.append(Step("content", "Mazmorra diaria: Unknown Fissure",
+                        "14 entradas a la semana, compartidas con las demás mazmorras diarias y entre tus personajes "
+                        "(por servidor): 3,000 Enhance Stones con 100 puntos y hasta 10,000 con 10,000, para encantar.",
+                        0, ready=True, key="content:daily", boosts=BOTH,
+                        summary="Enhance Stones: 3,000 a los 100 puntos, 10,000 a los 10,000"))
+    return out
+
+
+def _act_name(c):
+    return {"abyss": c["name"].replace("Chaotic ", ""), "arena": "Arena", "duty": "misiones de deber",
+            "invasion": "Invasión dimensional"}.get(c["kind"], c["name"])
+
+
+def _act_text(c):
+    if c["kind"] == "abyss":
+        return f"{c['name']} ({c['limit'].replace('h a week', 'h a la semana')})"
+    if c["kind"] == "duty":
+        return "misiones de deber: 1,000 Abyss Points y 50,000 Kina (Bound) cada una, 5 al día"
+    if c["kind"] == "arena":
+        return "Arena: premio por las primeras 30 victorias y 10 partidas de la semana"
+    if c["kind"] == "invasion":
+        return "Invasión dimensional: 1 llave al día (hasta 7)"
+    return c["name"]
+
+
+def _nightmare(plan, db, shop_text, boosts):
+    """Nightmare: the highest challenge level whose Suggested Item Level you reach, on the Layer I bosses that need
+    nothing to open (the rest open with level 10 of the ones before)."""
+    il = plan.me.item_level
+    free = [b for b in db.nightmare if not b.get("unlock")]
+    if not free or "content:Phantasmal Fragment" in plan.skipped:
+        return None
+    first = min(lv[1] for b in free for lv in b["levels"])
+    if il is not None and il < first:
+        return None                          # a goal (_goals)
+    best = []
+    for b in free:
+        reach = [lv for lv in b["levels"] if il is None or lv[1] <= il]
+        if reach:
+            best.append((b, reach[-1]))
+    level = min(lv[0] for _, lv in best)
+    lo = sum(lv[3] for _, lv in best) // len(best)
+    hi = sum(lv[4] for _, lv in best) // len(best)
+    names = ", ".join(b["boss"] for b, _ in best)
+    return Step("content", f"Nightmare hasta el nivel {level}",
+                f"{names} (Layer I, en el nivel {level} sugieren {max(lv[1] for _, lv in best):,} de nivel de objeto): "
+                f"{lo:,}–{hi:,} Phantasmal Fragment por intento según la nota, más el primer clear de cada nivel. "
+                f"2 intentos al día, hasta 14 guardados. Con el nivel 10 de dos de ellos se abren Notun y Gerod. "
+                + shop_text, 0, ready=True, key="content:Phantasmal Fragment", boosts=boosts,
+                summary=f"{lo:,}–{hi:,} Phantasmal Fragment por intento · 2 intentos al día")
+
+
+def _trial(plan, db, now):
+    """The Ascension Trial (the towers): the hardest tier you can do, this week's tower, its weekly rewards."""
+    if "content:trial" in plan.skipped:
+        return None
+    tiers = [c for c in db.content if c["kind"] == "awakening"]
+    ok = [c for c in tiers if not can_do(c, plan.me)]
+    if not ok:
+        return None
+    top = max(ok, key=lambda c: c["il"])
+    stamp = time.strftime("%Y-%m-%d %H:%M", time.localtime(now))
+    week = next((t for f, to, t in db.awakening.get("weeks", []) if f <= stamp < to), None)
+    rewards = db.awakening.get("rewards", [])
+    top_reward = rewards[-1] if rewards else None
+    text = (f"Hasta {top['mode']} ({top['il']:,}); {top['limit'].replace('3 entries a week, shared by all 6 dungeons', '3 entradas a la semana entre las 6 torres')}"
+            + (f"; esta semana: {week}" if week else "") + ". Premios de la semana por puntos: "
+            + (", ".join(f"{n:,} {i.replace(' (Bound)', '')}" for i, n in top_reward[1]) + f" con {top_reward[0]:,} "
+               f"puntos" if top_reward else "Enhance Stones y Amplify Stone Fragments") + ".")
+    return Step("content", f"Ascension Trial: {top['mode']}" + (f" en {week}" if week else ""), text, 0, ready=True,
+                key="content:trial", boosts=BOTH, summary="Enhance Stones y Amplify Stone Fragments (Unique) cada semana")
+
+
+def _goals(plan, arcana, db):
+    """What you cannot do yet and would improve you: the item level you lack for each, the closest first."""
+    me, goals = plan.me, []
+    by_dungeon = {}
+    for (dungeon, mode), opts in plan.locked.items():
+        reason = can_do(db.mode(dungeon, mode), me)
+        if reason and db.mode(dungeon, mode).get("open"):
+            by_dungeon.setdefault(dungeon, []).append((mode, reason, opts))
+    for dungeon, modes in by_dungeon.items():
+        mode, reason, _ = min(modes, key=lambda m: missing_il(m[1]))
+        opts = {o.item.name: o for _, _, os in modes for o in os}
+        best = max(opts.values(), key=lambda o: o.gain)
+        goals.append((missing_il(reason), Step(
+            "goal", f"{dungeon}: {reason}",
+            f"{dungeon} ({mode}) te daría {len(opts)} pieza{'s' if len(opts) > 1 else ''}: "
+            + ", ".join(f"{o.item.name} (+{o.gain})" for o in sorted(opts.values(), key=lambda o: -o.gain)[:6])
+            + ". Hasta entonces, sube tu nivel de objeto con los pasos de arriba.", best.gain, ready=False,
+            key=f"goal:{dungeon}", boosts=BOTH,
+            summary=f"{len(opts)} piezas que te sirven · la mejor {best.item.name} (+{best.gain})")))
+    cards = [(pos, item, level, better) for pos, item, level, better in arcana
+             if better and not any(c[6] is None for c in better)]
+    if cards:
+        reason = min((c[6] for *_, cs in cards for c in cs), key=missing_il)
+        first = can_do(db.mode("Deus Research Base", "Transcendence Stage 1"), me)
+        goals.append((missing_il(reason), Step(
+            "goal", f"Arcana en Trascendencia: {reason}",
+            "Los Arcana salen en Deus Research Base (Chalice, Bell, Compass) y Shattered Arkanis (Mirror, Parchment), "
+            "Common desde Stage 2, Rare en Stage 3, Epic y Unique en Stage 4"
+            + (f" (Stage 1 pide 1,600: {first})" if first else " (ya entras en Stage 1)") + ": "
+            + ", ".join(f"{ARCANA[pos]} ({'vacío' if not item else f'{item.grade} {level}'})" for pos, item, level, _ in
+                        cards) + " suben hasta 80 de nivel de objeto cada uno.", 0, ready=False, key="goal:arcana",
+            boosts=BOTH, summary="Arcana: hasta 80 de nivel de objeto por hueco")))
+    lower = db.entry("abyss", LOWER_ABYSS)
+    reason = can_do(lower, me)
+    if reason:
+        goals.append((missing_il(reason), Step(
+            "goal", f"Abismo: {reason}", "Chaotic Lower Reshanta: Abyss Points (manastones, soulstones, Theostones y "
+            "Potencial en su tienda) y los jefes del Abismo.", 0, ready=False, key="goal:abyss", boosts=BOTH,
+            summary="Abyss Points y los jefes del Abismo")))
+    return [s for _, s in sorted(goals, key=lambda g: g[0])[:5] if s.key not in plan.skipped]
+
+
+def _content(plan, db, me, arcana, faction, now):
+    """Every activity of «Contenido»: whether you can do it, why not, and what it gives you."""
+    rows = []
+    for c in db.content:
+        if c["kind"] != "dungeon":
+            continue
+        reason = can_do(c, me)
+        opts = {o.item.name: o for o in plan.gains.get((c["name"], c["mode"]), [])}
+        gives, boosts = [], ()
+        if opts:
+            best = max(opts.values(), key=lambda o: o.gain)
+            gives.append(f"{len(opts)} pieza{'s' if len(opts) > 1 else ''} que te sirve{'n' if len(opts) > 1 else ''} "
+                         f"(la mejor {best.item.name} +{best.gain})")
+            boosts = BOTH
+        pity = [x for x in db.cubes if x["dungeon"] == c["name"] and x["mode"] == c["mode"]]
+        if pity and pity[0]["choices"]:
+            gives.append(f"garantizado cada {pity[0]['ceiling']} cubos: " + ", ".join(pity[0]["choices"][:3])
+                         + ("…" if len(pity[0]["choices"]) > 3 else ""))
+        if c["category"] == "Transcendence":
+            cards = sorted({f"{card} {grade}" for card, grade, d, stage, *_ in db.arcana
+                            if d == c["name"] and stage == c["mode"]})
+            if cards:
+                gives.append("Arcana: " + ", ".join(cards))
+                boosts = BOTH
+        if c["category"] == "Subjugation" and not gives:
+            gives.append("sus premios no están en las tablas del cliente")
+        rows.append(Activity(GROUP.get(c["category"], c["category"]), c["name"], c["mode"], needs_text(c), reason,
+                             not c["open"], " · ".join(gives), boosts, len(opts)))
+    tiers = {}
+    for c in db.content:
+        if c["kind"] == "awakening":
+            tiers.setdefault(c["mode"], c)
+    for mode, c in tiers.items():
+        rows.append(Activity(GROUP["Ascension Trial"], "6 torres (una por semana)", mode, needs_text(c),
+                             can_do(c, me), not c["open"], "Enhance Stones, Amplify Stone Fragments (Unique), cofres "
+                             "de mascota; 3 entradas a la semana", BOTH))
+    for b in db.nightmare:
+        levels = b["levels"]
+        il = me.item_level
+        reach = [lv for lv in levels if il is None or lv[1] <= il]
+        unlock = b.get("unlock")
+        needs = f"sugerido {levels[0][1]:,}–{levels[-1][1]:,}" + (
+            f" · se abre con el nivel {unlock['level']} de {' y '.join(unlock['bosses'])}" if unlock else "")
+        reason = None if reach else f"te faltan {levels[0][1] - il:,} para el nivel 1 (sugerido)"
+        lv = reach[-1] if reach else levels[0]
+        rows.append(Activity("Nightmare", b["boss"], b["layer"], needs, reason, False,
+                             (f"hasta el nivel {lv[0]}: " if reach else "") + f"{lv[3]:,}–{lv[4]:,} Phantasmal "
+                             f"Fragment por intento (Soul Codex, Reset y Amplify Stone Fragments en su tienda)", (CP,)))
+    for c in db.content:
+        if c["kind"] in ("abyss", "daily", "arena", "duty", "invasion"):
+            gives = {"abyss": "Abyss Points (manastones, soulstones, Theostones, Potencial y Daevanion: Azphel en su "
+                              "tienda) y los jefes del Abismo",
+                     "daily": "Enhance Stones: 3,000 con 100 puntos y hasta 10,000 con 10,000; 14 entradas a la "
+                              "semana", "arena": "Abyss Points", "duty": "Abyss Points y Kina (Bound)",
+                     "invasion": "Centuryroot Tokens (Soul Codex, Daevanion Crystals y stigmas en sus tiendas)"}[c["kind"]]
+            group = {"abyss": "Abismo", "daily": "Diario", "arena": "PvP", "duty": "Diario",
+                     "invasion": "Eventos"}[c["kind"]]
+            shared = c["kind"] in PER_SERVER
+            rows.append(Activity(group, _act_name(c) if c["kind"] != "abyss" else c["name"], "", needs_text(c),
+                                 can_do(c, me), False, gives + (
+                                     " · por servidor (lo comparten tus personajes): " + (
+                                         "mejor para tu main" if me.alt else "úsalo en tu main") if shared else ""),
+                                 BOTH if c["kind"] == "daily" else (CP,)))
+    useful = [b for b in plan.bosses.values() if b.get("useful")]
+    for b in sorted(useful, key=lambda b: -max(o.gain for o in b["useful"])):
+        opts = {o.item.name: o for o in b["useful"]}
+        best = max(opts.values(), key=lambda o: o.gain)
+        rows.append(Activity("Jefes del Abismo" if b.get("abyss") else "Jefes de campo", b["name"], b.get("where", ""),
+                             f"Nv. {b['level']}" if b.get("level") else "", b.get("reason"), False,
+                             f"{len(opts)} pieza{'s' if len(opts) > 1 else ''} que te sirve{'n' if len(opts) > 1 else ''}"
+                             f" (la mejor {best.item.name} +{best.gain})", BOTH, len(opts)))
+    rest = len(plan.bosses) - len(useful)
+    if rest:
+        rows.append(Activity("Jefes de campo", f"Otros {rest} jefes del Tracker", "", "", None, False,
+                             "nada de lo que sueltan mejora tu equipo", ()))
+    needs = {u for s in plan.steps for u in s.uses}
+    for name, s in db.shops.items():
+        currencies = sorted({c for g in s["goods"] for c, _ in g[2]})
+        cur = next((c for c in currencies if c != "Silver Medal of Merit"), currencies[0])
+        goods = _goods(plan, db, [name], cur, needs, faction, now)
+        if not goods:
+            continue
+        have = plan.currencies.get(cur)
+        rows.append(Activity("Tiendas", SHOP_NAME.get(name, name), CURRENCY_NAME.get(cur, cur),
+                             f"tienes {have:,}" if have is not None else "", None, False,
+                             ", ".join(dict.fromkeys(g[1].replace(" (Bound)", "") for g in goods))[:160],
+                             tuple(sorted({b for g in goods for b in g[5][1]}, key=lambda b: b != ILVL)),
+                             sum(1 for g in goods if g[0])))
+    return rows
 
 
 def next_steps(plan, n=3):
     """The first n steps you can do now (then the rest), for the module's panel."""
-    ready = [s for s in plan.steps if s.ready and s.kind not in ("farm", "theostone", "spare")]
+    ready = [s for s in plan.steps if s.ready and s.kind not in ("farm", "boss", "content", "goal", "theostone",
+                                                                  "spare")]
     rest = [s for s in plan.steps if s not in ready]
     return (ready + rest)[:n]

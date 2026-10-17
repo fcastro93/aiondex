@@ -4,10 +4,13 @@
 
 The folder holds aion2data's raw data (https://aion2data.com/raw/index.json, read from the AION 2 global client and
 free to use with a link, credited in the app): items, enhance, gear-transfer, old-gear, drop-rates, odyle-energy,
-substance-morph, boxes and index .json. What goes in:
-- tracked: the items AionDex counts in your bag and storage for Mejoras (Kina, Enhance Stones, Transfer Stones,
-  Amplify Stones and their fragments, Soul Codex, the dungeons' Gear Change Vouchers, the belts', amulets' and runes'
-  Enhance Scrolls), id -> [kind, name].
+substance-morph, boxes, party-content, awakening, nightmare, abyss, shops, checklist and index .json. What goes in:
+- tracked: the items AionDex counts in your bag and storage for Mejoras (Kina and Kina (Bound), Enhance Stones,
+  Transfer Stones, Amplify Stones and their fragments, Soul Codex, the dungeons' Gear Change Vouchers, the belts',
+  amulets' and runes' Enhance Scrolls, and every currency the shops take: Abyss Points, Phantasmal Fragment,
+  Centuryroot Token, Silver Medal of Merit...), id -> [kind, name, tradeable]: tradeable 1 when it can go to the
+  market or another character (item-uses tradeStatus "Exchangeable", or no status, no "(Bound)" and not a currency):
+  an alt spends only what is not (Mejoras: a main uses everything).
 - enhance: every enhancement table by its group name, per level: [Kinah, Enhance Stones, chance %, extra items].
 - decompose: what breaking a piece gives at +0, per grade and item level: [Enhance Stones, Kinah fee].
 - transfer: per category (the gear table's: Top, Legs, Mace...) the item-level tiers and the Transfer Stones a
@@ -18,6 +21,17 @@ substance-morph, boxes and index .json. What goes in:
   Transfer Stone, fragments -> Amplify Stone), and the selection chests' choices.
 - pools / pool_of / props: every gear piece's soul binding stat pool ([[stat, lowest, highest]], percents x100 as
   the game sends them) and how many properties one binding gives it (items.json soulBindProperties).
+- content: every activity with what it asks for, so Mejoras only sends you where you can go: the dungeon modes
+  (Expedition, Transcendence, Sanctuary, Subjugation: equipped Item Level, level, players, open at the level cap and
+  their reward limit), the Ascension Trial towers by difficulty, the Abyss entrances (Item Level needed, or the Item
+  Level and Combat Power above which Upper Reshanta refuses you), the Daily Dungeon, the Arena, duty missions and the
+  Dimensional Invasion, with what each one gives.
+- nightmare: each Nightmare boss with its layer, what unlocks it and per challenge level the Suggested Item Level and
+  the Phantasmal Fragments of a first and a repeat clear; awakening: the Ascension Trial's weekly reward steps and
+  tower rotation.
+- shops: the goods of every shop that help a character get stronger (Soul Codex, Reset, Amplify Stone Fragments,
+  manastones, soulstones, Theostones, Potential Stones, Philosopher's Stones, Daevanion Crystals, Stigma Shards,
+  wings, enhance scrolls, the Splendent crafts' materials) with their price, currency, limit and sale dates.
 """
 import json
 import re
@@ -33,6 +47,11 @@ CATEGORY = {   # gear_items category -> the transfer tables' name
     "Spellbook": "Magicbook", "Orb": "Orb", "Mace": "Mace", "Staff": "Staff",
 }
 GEAR_TYPES = {"Weapons", "Armor", "Accessories"}
+NOT_CURRENCY = {"Kina (All)", "Quna", "#Cash", "Duty Quest Completion Count Reset", "Soul Crystal Point"}
+# shop goods worth listing: what makes a character stronger (gear, its upgrades, Daevanion, stigmas, wings)
+USEFUL = re.compile(r"Soul Codex|Philosopher's Stone|Amplify Stone|Manastone|Soulstone|Theostone|Potential Stone|"
+                    r"(?<!Battle )Enhance Scroll|Daevanion Crystal|Stigma Shard|Wings \(Bound\)|Wrathful (Mind|Will|Ego)|"
+                    r"Refining Stone|Enhance Stone|Transfer Stone|Sync Stone")
 
 
 def tracked_kind(item):
@@ -71,7 +90,13 @@ def tracked_kind(item):
         return "sync_stone"
     if name.endswith("Enhance Scroll (Bound)") and category == "Miscellaneous":
         return "enhance_scroll"           # a belt's, an amulet's or a rune's: their tables take one per level
+    if category == "Currencies" and name not in NOT_CURRENCY:
+        return "currency"                 # what the shops take (Abyss Points, Phantasmal Fragment, Oath Coin...)
     return None
+
+
+def slug(name):
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
 
 def main(folder):
@@ -81,7 +106,16 @@ def main(folder):
         return json.loads((raw / f"{name}.json").read_text(encoding="utf-8"))
 
     items = load("items")["records"]
-    tracked = {str(i["id"]): [kind, i["name"]] for i in items if (kind := tracked_kind(i))}
+    trade = {r["id"]: r.get("tradeStatus") for r in load("item-uses")["records"]}
+
+    def tradeable(i, kind):
+        status = trade.get(i["id"])
+        if status:
+            return int(status == "Exchangeable")
+        return int("(Bound)" not in i["name"] and kind not in ("currency", "kina_bound", "enhance_stone",
+                                                                 "abyss_points"))
+
+    tracked = {str(i["id"]): [kind, i["name"], tradeable(i, kind)] for i in items if (kind := tracked_kind(i))}
 
     enhance = {}
     for r in load("enhance")["records"]:
@@ -113,11 +147,15 @@ def main(folder):
     for tiers in transfer.values():
         tiers.sort()
 
-    drops = {}
+    drops, arcana = {}, []
     for r in load("drop-rates")["records"]:
         if r.get("type") in GEAR_TYPES or tracked.get(str(r["itemId"])):
             drops[str(r["itemId"])] = [r["bestSourceKind"], r["bestSource"], r.get("bestSourceDetail"),
                                        round(r["chance"], 5), r["per"]]
+        elif r["item"].startswith("Arcana: ") and r["bestSourceKind"] == "dungeon clear":
+            # an Arcana card (Transcendence): [card name, grade, dungeon, stage, chance per clear, other sources]
+            arcana.append([re.sub(r"^Arcana: | \(Bound\)$", "", r["item"]), r["grade"], r["bestSource"],
+                           r.get("bestSourceDetail"), round(r["chance"], 5), r.get("otherSources") or 0])
 
     cubes = []
     for r in load("odyle-energy")["records"]:
@@ -164,6 +202,81 @@ def main(folder):
                 pools.append(pool)
             pool_of[str(i["id"])] = seen[key]
 
+    # what each activity asks for and gives
+    limits = {}
+    for r in load("checklist")["records"]:
+        if r.get("kind") == "limit":
+            limits[r["id"]] = r
+    content = []
+    for r in load("party-content")["records"]:
+        if r["kind"] != "mode":
+            continue
+        cat = r["category"]
+        lim = limits.get(f"{slug(r['dungeon'])}-{r['mode']}") or limits.get(
+            f"{slug(r['dungeon'])}-{cat}") or (limits.get("subjugation") if cat == "Subjugation" else None)
+        content.append({"kind": "dungeon", "category": cat, "name": r["dungeon"], "mode": r["mode"],
+                        "il": r["itemLevel"], "level": r["level"], "players": [r["minPlayers"], r["maxPlayers"]],
+                        "open": bool(r["open"]), "limit": (lim or {}).get("limit", "")})
+    trial = limits.get("ascension-trial", {}).get("limit", "")
+    aw = load("awakening")["records"]
+    for r in aw:
+        if r["kind"] == "tier":
+            content.append({"kind": "awakening", "category": "Ascension Trial", "name": r["tower"],
+                            "mode": r["difficulty"], "il": r["itemLevel"], "level": 45, "players": [1, 1],
+                            "open": bool(r["open"]), "limit": trial})
+    abyss = load("abyss")["records"]
+    hours = {t.get("map"): t["hoursPerWeek"] for t in abyss if t["kind"] == "ticket"}
+    for r in abyss:
+        if r["kind"] == "entrance" and r.get("map") and "Reshanta" in r["map"]:
+            content.append({"kind": "abyss", "category": "Abyss", "name": r["map"], "mode": "",
+                            "il": r["needItemLevel"], "il_max": r["limitItemLevel"], "cp_max": r["limitCombatPower"],
+                            "level": r["minLevel"], "players": [1, r["maxPlayers"]], "open": True,
+                            "limit": f"{hours.get(r['map'], 7)} h a week", "gives": ["Abyss Points"]})
+    for key, kind, gives in (("daeva-bio-research-base-Unknown Fissure", "daily", ["Enhance Stone"]),
+                             ("arena-single", "arena", ["Abyss Points"]),
+                             ("duty-missions", "duty", ["Abyss Points", "Kina (Bound)"]),
+                             ("invasion-key", "invasion", ["Centuryroot Token"])):
+        r = limits.get(key)
+        if r:
+            content.append({"kind": kind, "category": r.get("group", ""), "name": r["name"], "mode": "", "il": 0,
+                            "level": r.get("level") or 0, "players": [1, 1], "open": True,
+                            "limit": r.get("limit", ""), "text": r.get("rewardText") or r.get("detail") or "",
+                            "gives": gives})
+    nightmare, bosses = [], {}
+    for r in load("nightmare")["records"]:
+        if "totals" in r:
+            bosses[r["boss"]] = {"boss": r["boss"], "layer": r["layer"], "place": r["place"], "grade": r["grade"],
+                                 "unlock": r.get("unlock"), "levels": []}
+            nightmare.append(bosses[r["boss"]])
+    for r in load("nightmare")["records"]:
+        if "level" in r and r["boss"] in bosses:
+            first = sum(x["count"] for x in r.get("firstClear", []) if x["item"] == "Phantasmal Fragment")
+            rep = [x for x in r.get("repeatClear", []) if x["item"] == "Phantasmal Fragment"]
+            bosses[r["boss"]]["levels"].append([r["level"], r["suggestedItemLevel"], first,
+                                                rep[0]["min"] if rep else 0, rep[0]["max"] if rep else 0])
+    for b in nightmare:
+        b["levels"].sort()
+    awakening = {"rewards": [[r["points"], [[x["item"], x["count"]] for x in r["rewards"]]]
+                             for r in aw if r["kind"] == "reward"],
+                 "weeks": [[r["from"], r["to"], r["tower"]] for r in aw if r["kind"] == "week"]}
+    shops = []
+    for r in load("shops")["records"]:
+        if r["kind"] in ("random",) or r["name"] in ("Quna Shop", "Subscribe", "Event", "Atelier"):
+            continue
+        goods, seen_goods = [], set()
+        for g in r.get("goods", []):
+            price = [[p["currency"], p["amount"]] for p in g.get("price", [])]
+            if not price or not USEFUL.search(g["item"]):
+                continue
+            row = [g["item"], g.get("perPurchase") or 1, price, g.get("limit") or "", g.get("requires") or [],
+                   g.get("saleTo") or ""]
+            key = json.dumps(row)
+            if key not in seen_goods:
+                seen_goods.add(key)
+                goods.append(row)
+        if goods:
+            shops.append({"name": r["name"], "kind": r["kind"], "faction": r["faction"], "goods": goods})
+
     index = load("index")
     db = {
         "generated_at": int(time.time()),
@@ -173,12 +286,14 @@ def main(folder):
         "tracked": tracked, "enhance": enhance, "decompose": decompose, "transfer": transfer, "drops": drops,
         "cubes": cubes, "conversions": conversions, "chests": chests,
         "pools": pools, "pool_of": pool_of, "props": props,
+        "arcana": arcana, "content": content, "nightmare": nightmare, "awakening": awakening, "shops": shops,
     }
     path = ROOT / "data" / "upgrades_db.json"
     path.write_text(json.dumps(db, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"{path}: {len(tracked)} tracked items, {len(enhance)} enhance tables, {len(transfer)} transfer categories, "
           f"{len(drops)} drops, {len(cubes)} cubes, {len(conversions)} conversions, {len(chests)} chests, "
-          f"{len(pools)} stat pools for {len(pool_of)} pieces, "
+          f"{len(pools)} stat pools for {len(pool_of)} pieces, {len(arcana)} Arcana drops, {len(content)} activities, "
+          f"{len(nightmare)} Nightmare bosses, {sum(len(s['goods']) for s in shops)} goods in {len(shops)} shops, "
           f"{path.stat().st_size // 1024} KB")
 
 

@@ -1,7 +1,8 @@
-"""Mejoras window: what you have to spend and four tabs - your route (the plan of upgrades.py: «Lo siguiente» big,
-then one short row per step, grouped, whose detail opens on a click), your pieces (a tile each: +N, item level, soul
-binding and sockets as bars and dots, the best replacement), the food for upgrades, and your preferences (the dungeons
-you run, the steps you said no to)."""
+"""Mejoras window: who the character is (item level, CP, main or alt), what it has to spend and five tabs - your route
+(the plan of upgrades.py: «Lo siguiente» big, then one short row per step, grouped, whose detail opens on a click,
+each with what it raises: ↑ ilvl / ↑ CP), your pieces (a tile each: +N, item level, soul binding and sockets as bars
+and dots, the best replacement), «Contenido» (every activity of the game: what it asks for, whether you can do it and
+what it gives you), the food for upgrades, and your preferences (the dungeons you run, the steps you said no to)."""
 import time
 import webbrowser
 
@@ -11,7 +12,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxL
                                QScrollArea, QSizePolicy, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
-from ..upgrades import GUIDE, kinah_text, stat_value
+from ..upgrades import GUIDE, can_do, kinah_text, stat_value
 from . import theme
 from .mapwindow import STYLE, badge_label
 from .theme import Fonts
@@ -23,20 +24,32 @@ KIND = {   # step kind -> (chip text, colour)
     "morph": ("Subir de grado", "#2ec0f2"), "soul": ("Soul Binding", "#c38bff"), "manastone": ("Manastones", "#8fb3ff"),
     "soulstone": ("Soulstones", "#8fb3ff"), "amp": ("Amp", "#2ec0f2"), "buy": ("Comprar", "#f0c24e"),
     "save": ("Ahorrar", "#e0a050"), "farm": ("Farmear", "#7bd88f"), "spare": ("Piedras", "#8a93a8"),
-    "theostone": ("Theostone", "#8a93a8"),
+    "theostone": ("Theostone", "#8a93a8"), "boss": ("Jefe", "#7bd88f"), "arcana": ("Arcana", "#2ec0f2"),
+    "content": ("Actividad", "#5fd3c6"), "shop": ("Tienda", "#f0c24e"), "goal": ("Meta", "#e06c6c"),
 }
 GROUPS = (("now", "Para hacer ya", "Tienes todo lo que piden"),
           ("later", "Te falta algo", "Kinah, piedras o materiales"),
           ("buy", "Comprar en el market", "Con los precios de tus muestreos"),
-          ("farm", "Farmear", "En las mazmorras que haces"),
+          ("farm", "Farmear", "Tus mazmorras y los jefes a los que llegas"),
+          ("week", "Cada semana", "Lo que puedes hacer y lo que te da"),
+          ("locked", "Cuando subas tu nivel de objeto", "Aún no puedes entrar: lo que te falta"),
           ("extra", "Extras", ""))
-OPTION = {"own": "La tienes", "voucher": "Voucher", "drop": "Mazmorra", "market": "Market"}
+OPTION = {"own": "La tienes", "voucher": "Voucher", "drop": "Mazmorra", "market": "Market", "boss": "Jefe"}
+BOOST = {"ilvl": ("↑ ilvl", "#5fb8ff", "Sube tu nivel de objeto: lo que piden las mazmorras, la Trascendencia y el "
+                                       "Abismo (la suma del nivel de tus piezas y su +N)"),
+         "cp": ("↑ CP", "#c38bff", "Sube tu CP (Combat Power): todo lo que te da estadísticas")}
+ROLE_TIP = ("Main: Mejoras usa todo lo que tienes (Kinah comerciable y ligada, el market y los materiales que se "
+            "pueden vender). Alt: solo lo ligado (Kina (Bound) y lo que no se puede comerciar), nada del market: lo "
+            "comerciable de un alt es para tu main.")
 GRADE = {"Unique": "#FFD02B", "Epic": "#379AFF", "Rare": "#19E048", "Special": "#00FFD8"}
-TILES = (("kina", "Kinah", kinah_text), ("enhance_stone", "Enhance Stones", lambda v: f"{v:,}"),
+TILES = (("kina", "Kinah", kinah_text), ("kina_bound", "Kinah ligada", kinah_text),
+         ("enhance_stone", "Enhance Stones", lambda v: f"{v:,}"),
          ("transfer_stone", "Transfer Stones", str), ("soul_codex", "Soul Codex", str),
          ("soul_reset", "Codex: Reset", str), ("sync_stone", "Sync Stones", str),
          ("philosopher", "Philosopher's", str), ("amplify_stone", "Amplify Stones", str))
-TABS = (("route", "Tu ruta"), ("pieces", "Tus piezas"), ("food", "Comida"), ("prefs", "Preferencias"))
+TABS = (("route", "Tu ruta"), ("pieces", "Tus piezas"), ("content", "Contenido"), ("food", "Comida"),
+        ("prefs", "Preferencias"))
+STATUS = {"ok": QColor("#7bd88f"), "no": QColor("#e0a050"), "closed": QColor("#4a5470")}
 CARD_STYLE = """
 QFrame#Card { background: #121c33; border: 1px solid #1f2b47; border-radius: 8px; }
 QFrame#Hero { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #1b2440, stop:1 #121c33);
@@ -157,6 +170,13 @@ class UpgradesWindow(QWidget):
         self.who = QComboBox()
         self.who.currentIndexChanged.connect(self._who_changed)
         head.addWidget(self.who)
+        self.role = QComboBox()
+        self.role.addItem("Main: usa todo", "main")
+        self.role.addItem("Alt: solo lo ligado", "alt")
+        self.role.setToolTip(ROLE_TIP)
+        self.role.currentIndexChanged.connect(self._role_changed)
+        head.addWidget(self.role)
+        self._shown = None                  # the character whose plan is on screen
         prices = QPushButton("Precios de equipo")
         prices.setToolTip("Market › Equipo: escanea en el juego las listas de equipo del mercado y aquí verás qué "
                           "conviene comprar")
@@ -223,6 +243,11 @@ class UpgradesWindow(QWidget):
         self.character = self.who.currentData()
         self.refresh()
 
+    def _role_changed(self, _):
+        if self._shown:
+            self.ctl.set_upgrades_role(self._shown, self.role.currentData())
+            QTimer.singleShot(0, self.refresh)
+
     def _fill_who(self):
         names = self.ctl.gear_characters()
         playing = self.ctl.character_name()
@@ -250,19 +275,37 @@ class UpgradesWindow(QWidget):
                        "y aquí te digo qué hacer primero.", theme.WARN)
             self.body.addStretch(1)
             return
+        self._shown = plan.character
+        self.role.blockSignals(True)
+        self.role.setCurrentIndex(max(0, self.role.findData(self.ctl.upgrades_role(plan.character))))
+        self.role.blockSignals(False)
         prices = self.ctl.gear_prices()
-        bits = [plan.character, f"bolsa y almacén leídos {_ago(plan.read_at)}",
-                f"{len(prices)} precios de equipo" if prices else "sin precios de equipo (Market › Equipo)"]
+        me = plan.me
+        if me and me.item_level is not None:
+            stats = f"nivel de objeto {me.item_level:,}" + (
+                f" (≈: el oficial {me.official:,} de {_ago(me.at)} y tus cambios)" if me.item_level != me.official
+                else f" (perfil oficial {_ago(me.at)})") + (f" · CP {me.cp:,}" if me.cp else "")
+        else:
+            stats = "nivel de objeto: aún no lo sé (cargando tu perfil oficial)"
+        bits = [plan.character, stats, f"bolsa y almacén leídos {_ago(plan.read_at)}"]
+        if not (me and me.alt):
+            bits.append(f"{len(prices)} precios de equipo" if prices else "sin precios de equipo (Market › Equipo)")
         self.subtitle.setText(" · ".join(bits))
         counts = {"route": len(plan.steps), "food": len(plan.spare),
-                  "prefs": len(self.ctl.upgrades_config().get("skipped", {}))}
+                  "content": sum(1 for a in plan.content if not a.reason and not a.closed),
+                  "prefs": len(self.ctl.upgrades_skipped(plan.character))}
         for key, text in TABS:
             n = counts.get(key)
             self.tab_buttons[key].setText(f"{text} ({n})" if n else text)
         self._resources(plan)
         if plan.read_at is None:
             self._hint("Aún no leí tu bolsa ni tu almacén: cambia de canal o vuelve a entrar al personaje.", theme.WARN)
-        {"route": self._route, "pieces": self._pieces, "food": self._food, "prefs": self._prefs}[self.tab](plan)
+        if me and me.alt and self.tab == "route":
+            keep = [f"{kinah_text(n)} Kinah" if k == "Kina" else f"{n:,} {k}" for k, n in plan.for_main.items()]
+            self._hint("Alt: solo cuento lo ligado (Kina (Bound) y lo que no se puede comerciar) y nada del market."
+                       + (f" Comerciable, para tu main: {', '.join(keep[:6])}." if keep else ""))
+        {"route": self._route, "pieces": self._pieces, "content": self._content, "food": self._food,
+         "prefs": self._prefs}[self.tab](plan)
         self.body.addStretch(1)
         QTimer.singleShot(0, lambda: self.scroll.verticalScrollBar().setValue(bar))
 
@@ -273,8 +316,11 @@ class UpgradesWindow(QWidget):
 
     def _resources(self, plan):
         f = self.fonts
+        alt = plan.me is not None and plan.me.alt
+        always = ("kina_bound", "enhance_stone", "transfer_stone") if alt else ("kina", "enhance_stone",
+                                                                                 "transfer_stone")
         pills = [(fmt(plan.have(key)), text) for key, text, fmt in TILES
-                 if plan.have(key) or key in ("kina", "enhance_stone", "transfer_stone")]
+                 if (plan.have(key) or key in always) and not (alt and key == "kina")]
         pills += [(str(n), f"Vouchers {d}") for d, n in plan.vouchers.items()]
         sup = sum(c for n, c in plan.stones.items() if n.startswith("Superior Manastone"))
         if sup:
@@ -295,8 +341,12 @@ class UpgradesWindow(QWidget):
     def _group(self, step):
         if step.kind in ("buy", "save"):
             return "buy"
-        if step.kind == "farm":
+        if step.kind in ("farm", "boss", "arcana"):
             return "farm"
+        if step.kind == "content":
+            return "week"
+        if step.kind == "goal":
+            return "locked"
         if step.kind in ("spare", "theostone"):
             return "extra"
         return "now" if step.ready else "later"
@@ -307,6 +357,9 @@ class UpgradesWindow(QWidget):
             self._hint("Nada que mejorar con lo que sé: escanea precios de equipo en el market o marca las mazmorras "
                        "que haces (Preferencias).")
             return
+        self._hint("Cada paso dice qué sube: ↑ ilvl (tu nivel de objeto, lo que piden las mazmorras) y / o ↑ CP. Las "
+                   "actividades y las mazmorras que te recomiendo son las que tu personaje puede hacer; las demás "
+                   "están en «Cuando subas tu nivel de objeto» con lo que te falta.")
         first = next((s for s in plan.steps if s.ready and self._group(s) == "now"), plan.steps[0])
         self._hero(first)
         rest = [s for s in plan.steps if s is not first]
@@ -358,7 +411,10 @@ class UpgradesWindow(QWidget):
     def _chips(self, step):
         f = self.fonts
         out = []
-        if step.gain and step.kind in ("own", "voucher", "buy", "save", "farm", "enhance"):
+        for boost in step.boosts:
+            text, color, tip = BOOST[boost]
+            out.append(_chip(text, color, f, tip=tip))
+        if step.gain and step.kind in ("own", "voucher", "buy", "save", "farm", "enhance", "boss", "arcana", "goal"):
             out.append(_chip(f"+{step.gain} nivel", "#7bd88f", f))
         if step.kinah:
             out.append(_chip(f"{kinah_text(step.kinah)}", "#f0c24e", f, tip="Kinah que cuesta"))
@@ -496,6 +552,81 @@ class UpgradesWindow(QWidget):
             tile.setToolTip("\n".join(tips).strip())
         return tile
 
+    # --- Contenido ---
+    def _content(self, plan):
+        """Every activity: what it asks for, whether you can do it (or why not) and what it gives you."""
+        f = self.fonts
+        rows = plan.content
+        me = plan.me
+        can = sum(1 for a in rows if not a.reason and not a.closed)
+        self._hint(f"Todo el contenido del juego, {len(rows)} actividades, con lo que pide y si "
+                   f"{plan.character} puede hacerlo"
+                   + (f" ({me.item_level:,} de nivel de objeto, nivel {me.level})" if me and me.item_level else "")
+                   + f": puedes {can}. «Te da» es lo que mejora lo que llevas puesto. Las que aún no abren en Global, "
+                     "juntas al final de cada grupo.")
+        for group in dict.fromkeys(a.group for a in rows):
+            mine = [a for a in rows if a.group == group]
+            live = [a for a in mine if not a.closed]
+            closed = [a for a in mine if a.closed]
+            ok = sum(1 for a in live if not a.reason)
+            head = QHBoxLayout()
+            head.setContentsMargins(2, 8, 0, 0)
+            head.addWidget(label(group, f.name, theme.TEXT))
+            head.addWidget(label(f"puedes {ok} de {len(live)}" if live else "aún no abre", f.small,
+                                 STATUS["ok"] if ok else theme.MUTED))
+            head.addStretch(1)
+            self.body.addLayout(head)
+            card = QFrame()
+            card.setObjectName("Card")
+            lay = QVBoxLayout(card)
+            lay.setContentsMargins(10, 6, 10, 6)
+            lay.setSpacing(2)
+            for a in live:
+                lay.addWidget(self._activity(a))
+            if closed:
+                by_mode = {}
+                for a in closed:
+                    by_mode.setdefault(a.mode, []).append(a.name)
+                more = label(f"Aún no abren en Global ({len(closed)}): " + "; ".join(
+                    (f"{mode}: " if mode else "") + ", ".join(dict.fromkeys(names)) for mode, names in by_mode.items()),
+                    f.small, theme.MUTED)
+                more.setWordWrap(True)
+                more.setContentsMargins(4, 4, 0, 2)
+                lay.addWidget(more)
+            self.body.addWidget(card)
+
+    def _activity(self, a):
+        f = self.fonts
+        row = QWidget()
+        lay = QHBoxLayout(row)
+        lay.setContentsMargins(2, 3, 2, 3)
+        lay.setSpacing(10)
+        color = STATUS["ok"] if not a.reason else STATUS["no"]
+        dot = label("●", f.small, color)
+        dot.setFixedWidth(12)
+        lay.addWidget(dot, 0, Qt.AlignTop)
+        name = QVBoxLayout()
+        name.setContentsMargins(0, 0, 0, 0)
+        name.setSpacing(0)
+        name.addWidget(label(a.name + (f" · {a.mode}" if a.mode else ""), f.name, theme.TEXT, elide=True))
+        if a.needs:
+            name.addWidget(label(a.needs, f.small, theme.MUTED, elide=True))
+        box = QWidget()
+        box.setLayout(name)
+        box.setFixedWidth(330)
+        lay.addWidget(box, 0, Qt.AlignTop)
+        status = label("Puedes" if not a.reason else a.reason, f.small, color)
+        status.setWordWrap(True)
+        status.setFixedWidth(220)
+        lay.addWidget(status, 0, Qt.AlignTop)
+        gives = label(a.gives, f.small, theme.TEXT if a.useful else theme.MUTED)
+        gives.setWordWrap(True)
+        lay.addWidget(gives, 1, Qt.AlignTop)
+        for boost in a.boosts:
+            text, c, tip = BOOST[boost]
+            lay.addWidget(_chip(text, c, f, tip=tip), 0, Qt.AlignTop)
+        return row
+
     # --- Comida ---
     def _food(self, plan):
         f = self.fonts
@@ -535,26 +666,37 @@ class UpgradesWindow(QWidget):
     # --- Preferencias ---
     def _prefs(self, plan):
         f = self.fonts
-        self.body.addWidget(SectionTitle("Mazmorras que haces", f))
-        auto = self.ctl.upgrades_auto_dungeons()
-        chosen = self.ctl.upgrades_config().get("dungeons")
-        self._hint("De ellas salen las piezas que te dice que farmees y sus garantizados. "
+        self.body.addWidget(SectionTitle("Main o alt", f))
+        self._hint(ROLE_TIP + f" {plan.character} es {'alt' if plan.me and plan.me.alt else 'main'}: se cambia arriba, "
+                   "junto al personaje.")
+        self.body.addWidget(SectionTitle(f"Mazmorras que hace {plan.character}", f))
+        auto = self.ctl.upgrades_auto_dungeons(plan.character)
+        _, chosen = self.ctl.upgrades_dungeons(plan.character)
+        self._hint("De ellas salen las piezas que te dice que farmees y sus garantizados (cada personaje las suyas). "
                    + (f"Detecté: {', '.join(auto)}. " if auto else "")
-                   + ("Elegidas a mano." if chosen is not None else "Automático: las que detecto."))
+                   + ("Elegidas a mano." if chosen else "Automático: las que detecto.")
+                   + " Una en la que aún no puedes entrar no se farmea: sale como meta.")
         boxes = QGridLayout()
         boxes.setHorizontalSpacing(16)
-        for i, dungeon in enumerate(self.ctl.upgrades_db.dungeons()):
-            box = QCheckBox(dungeon + (" (detectada)" if dungeon in auto else ""))
+        db = self.ctl.upgrades_db
+        for i, dungeon in enumerate(db.dungeons()):
+            modes = [c for c in db.content if c["kind"] == "dungeon" and c["name"] == dungeon and c["open"]]
+            reasons = [can_do(c, plan.me) for c in modes]
+            locked = modes and all(reasons)
+            box = QCheckBox(dungeon + (" (detectada)" if dungeon in auto else "")
+                            + (" · aún no puedes" if locked else ""))
+            if locked:
+                box.setToolTip(min(reasons, key=len))
             box.setChecked(dungeon in plan.dungeons)
             box.toggled.connect(lambda on, d=dungeon: self._toggle_dungeon(d, on))
             boxes.addWidget(box, i // 3, i % 3)
         self.body.addLayout(boxes)
-        if chosen is not None:
+        if chosen:
             reset = QPushButton("Automático")
             reset.clicked.connect(lambda: self._set_dungeons(None))
             self.body.addWidget(reset, 0, Qt.AlignLeft)
-        self.body.addWidget(SectionTitle("Pasos que no quieres hacer", f))
-        skipped = self.ctl.upgrades_config().get("skipped", {})
+        self.body.addWidget(SectionTitle(f"Pasos que {plan.character} no quiere hacer", f))
+        skipped = self.ctl.upgrades_skipped(plan.character)
         if not skipped:
             self._hint("Ninguno. En cada paso de tu ruta, «No quiero hacer este paso» lo quita y la rehace sin él.")
             return
@@ -576,11 +718,11 @@ class UpgradesWindow(QWidget):
             self.body.addWidget(every, 0, Qt.AlignLeft)
 
     def _skip(self, key, title):
-        self.ctl.upgrades_skip(key, title)
+        self.ctl.upgrades_skip(key, title, self._shown)
         QTimer.singleShot(0, self.refresh)
 
     def _unskip(self, key=None):
-        self.ctl.upgrades_unskip(key)
+        self.ctl.upgrades_unskip(key, self._shown)
         QTimer.singleShot(0, self.refresh)
 
     def _toggle_dungeon(self, dungeon, on):
@@ -592,5 +734,5 @@ class UpgradesWindow(QWidget):
         self._set_dungeons(current)
 
     def _set_dungeons(self, dungeons):
-        self.ctl.set_upgrades_dungeons(dungeons)
+        self.ctl.set_upgrades_dungeons(dungeons, self._shown)
         QTimer.singleShot(0, self.refresh)

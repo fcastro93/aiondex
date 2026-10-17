@@ -629,6 +629,8 @@ class Controller(QObject):
         self.crafting.gear_names = set(self.gear_db.by_name)                 # the market OCR reads gear too
         self.upgrades_window = None
         self._plan_cache = (0.0, None, None)                                 # (when, character, plan)
+        self._upgrade_bosses = None                                          # the Tracker's bosses for Mejoras
+        self._profile_asked = {}                                             # name -> when Mejoras asked for it
         self.market_share = MarketShare(self.data_dir, self.settings, online=self.persist)
         self.market_share.changed.connect(self._shared_changed)
         self._share_timer = QTimer(self, interval=SHARE_SYNC_SECONDS * 1000, timeout=self.sync_market)
@@ -1720,6 +1722,8 @@ class Controller(QObject):
         for window in (self.players_window, self.arena_window, getattr(self, "builds_window", None)):
             if window is not None:
                 window.profile_ready(name)
+        if name in self.settings.get("gear", {}):          # one of yours: its item level and CP for Mejoras
+            self.upgrades_changed()
         if self.arena() and self.active_module.key == "dps" and not self._refreshing:
             self.refresh()
 
@@ -2414,19 +2418,83 @@ class Controller(QObject):
     def upgrades_config(self):
         return self.settings.setdefault("upgrades", {})
 
-    def upgrades_auto_dungeons(self):
-        """The dungeons you run, from the final bosses you killed (kept 14 days: the fight log keeps 48 hours)."""
-        from .upgrades import dungeons_you_run
-        return dungeons_you_run(self.fights.index, seen=self.upgrades_config().setdefault("seen", {}))
+    def _fight_who(self, entry):
+        """The character who fought a saved fight (the index says it since 1.63.3; before, its file)."""
+        if "who" not in entry:
+            enc = self.fights.load(entry["id"])
+            me = next((a for a in enc.actors.values() if a.is_self), None) if enc else None
+            entry["who"] = me.name if me else ""
+        return entry["who"]
 
-    def set_upgrades_dungeons(self, dungeons):
-        """The dungeons you picked in Mejoras (None: the detected ones)."""
+    def upgrades_auto_dungeons(self, name=None):
+        """The dungeons a character runs, from the final bosses it killed (kept 14 days per character: the fight log
+        keeps 48 hours)."""
+        from .upgrades import dungeons_you_run
+        name = name or self.character_name() or self.settings.get("last_character")
+        if not name:
+            return []
+        cfg = self.upgrades_config()
+        cfg.pop("seen", None)                # before 1.63.3: every character's dungeons together
+        mine = [f for f in self.fights.index if f.get("instance") and f.get("final") and f.get("killed")
+                and self._fight_who(f) == name]
+        return dungeons_you_run(mine, seen=cfg.setdefault("seen_by", {}).setdefault(name, {}))
+
+    def upgrades_dungeons(self, name):
+        """(the dungeons Mejoras farms for a character, picked by hand?)"""
+        chosen = self.upgrades_config().get("dungeons_by", {}).get(name)
+        return (chosen, True) if chosen is not None else (self.upgrades_auto_dungeons(name), False)
+
+    def set_upgrades_dungeons(self, dungeons, name=None):
+        """The dungeons you picked in Mejoras for a character (None: the detected ones)."""
+        name = name or self.character_name() or self.settings.get("last_character")
+        by = self.upgrades_config().setdefault("dungeons_by", {})
+        self.upgrades_config().pop("dungeons", None)          # before 1.63.3: one choice for every character
         if dungeons is None:
-            self.upgrades_config().pop("dungeons", None)
+            by.pop(name, None)
         else:
-            self.upgrades_config()["dungeons"] = list(dungeons)
+            by[name] = list(dungeons)
         self._save_settings()
         self.upgrades_changed()
+
+    def upgrades_role(self, name):
+        """"main" (uses everything: tradeable and bound) or "alt" (only what is bound)."""
+        return self.upgrades_config().get("roles", {}).get(name, "main")
+
+    def set_upgrades_role(self, name, role):
+        self.upgrades_config().setdefault("roles", {})[name] = role
+        self._save_settings()
+        self.upgrades_changed()
+
+    def upgrades_me(self, name):
+        """upgrades.Me of one of your characters: level, the official item level (moved by the gear changed since)
+        and CP (the live one when it is the character you play), main or alt. Asks for a fresh profile when the one
+        on disk is older than half an hour."""
+        from .upgrades import character_stats
+        gear = self.settings.get("gear", {}).get(name) or {}
+        server = (self.settings.get("characters", {}).get(name) or {}).get("server") or (
+            self.character.server if self.character else None)
+        profile = self.armory.cached(name, server) if server else None
+        if server and time.time() - self._profile_asked.get(name, 0) > 30 * 60:     # at most every half hour
+            self._profile_asked[name] = time.time()
+            self.armory.want(name, server)
+        live = self.own_cp if name == self.character_name() else None
+        return character_stats(gear, profile, self.gear_db, self.upgrades_role(name), live)
+
+    def upgrade_bosses(self):
+        """The Tracker's field and Abyss bosses with what they drop, for Mejoras (a fresh copy each time)."""
+        if self._upgrade_bosses is None:
+            out = []
+            for e in self.tracker.entries:
+                items = [(i["name"], i.get("chance") or 0) for d in e.drops for i in d.get("items", [])]
+                if e.kind == "event" or not items:
+                    continue
+                respawn = (f"Vuelve {e.respawn_min} min después de morir" if e.respawn_min else
+                           "Sale a horas fijas" if e.slots else "")
+                out.append({"name": e.name, "where": e.sub.split(" · ")[-1] if e.sub else "", "level": e.level,
+                            "abyss": e.kind == "abyss" or e.map_id == 20, "map_id": e.map_id, "items": items,
+                            "respawn": respawn})
+            self._upgrade_bosses = out
+        return [dict(b) for b in self._upgrade_bosses]
 
     def gear_characters(self):
         return sorted(self.settings.get("gear", {}))
@@ -2447,28 +2515,40 @@ class Controller(QObject):
         at, who, plan = self._plan_cache
         if who == name and plan is not None and time.time() - at < 2:
             return plan
-        chosen = self.upgrades_config().get("dungeons")
-        dungeons = chosen if chosen is not None else self.upgrades_auto_dungeons()
+        dungeons, _ = self.upgrades_dungeons(name)
         crafting = self.crafting
         levels = {prof: crafting.game_level(prof, name) or 0 for prof in crafting.professions}
+        alts = [n for n in self.gear_characters() if n != name and self.upgrades_role(n) == "alt"]
+        alts_kina = sum((crafting.inventory.owned(n, "Kina") or (0,))[0] for n in alts)
         plan = build_plan(name, gear, self.gear_db, self.upgrades_db, crafting.inventory, crafting.latest_prices(),
-                          dungeons, levels, crafting.recipes, skipped=set(self.upgrades_config().get("skipped", {})))
+                          dungeons, levels, crafting.recipes, skipped=set(self.upgrades_skipped(name)),
+                          me=self.upgrades_me(name), bosses=self.upgrade_bosses(), alts_kina=alts_kina)
         self._plan_cache = (time.time(), name, plan)
         return plan
 
-    def upgrades_skip(self, key, title):
-        """«No quiero hacer este paso»: the plan is made again without it (title: what the list of skipped says)."""
-        self.upgrades_config().setdefault("skipped", {})[key] = title
+    def upgrades_skipped(self, name):
+        """{key: title} of the steps a character does not want (and the ones said no to before 1.63.3, for every
+        character)."""
+        cfg = self.upgrades_config()
+        return {**cfg.get("skipped", {}), **cfg.get("skipped_by", {}).get(name, {})}
+
+    def upgrades_skip(self, key, title, name=None):
+        """«No quiero hacer este paso» for a character: its plan is made again without it (title: what the list of
+        skipped says)."""
+        name = name or self.character_name() or self.settings.get("last_character")
+        self.upgrades_config().setdefault("skipped_by", {}).setdefault(name, {})[key] = title
         self._save_settings()
         self.upgrades_changed()
 
-    def upgrades_unskip(self, key=None):
+    def upgrades_unskip(self, key=None, name=None):
         """Take a skipped step (every one when None) into account again."""
-        skipped = self.upgrades_config().setdefault("skipped", {})
-        if key is None:
-            skipped.clear()
-        else:
-            skipped.pop(key, None)
+        name = name or self.character_name() or self.settings.get("last_character")
+        cfg = self.upgrades_config()
+        for skipped in (cfg.setdefault("skipped", {}), cfg.setdefault("skipped_by", {}).setdefault(name, {})):
+            if key is None:
+                skipped.clear()
+            else:
+                skipped.pop(key, None)
         self._save_settings()
         self.upgrades_changed()
 

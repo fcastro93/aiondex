@@ -35,7 +35,13 @@ class UpgradesPanel(QWidget):
             self._line("Entra al juego con tu personaje: leo tu equipo, tu bolsa y tu almacén y te digo qué mejorar "
                        "primero.", theme.MUTED)
         else:
-            bits = [f"{kinah_text(plan.have('kina'))} Kinah", f"{plan.have('enhance_stone'):,} Enhance Stones"]
+            me = plan.me
+            bits = [f"Alt · {kinah_text(plan.have('kina_bound'))} Kinah ligada" if me and me.alt else
+                    f"{kinah_text(plan.have('kina'))} Kinah" + (f" + {kinah_text(plan.have('kina_bound'))} ligada"
+                                                                 if plan.have("kina_bound") else ""),
+                    f"{plan.have('enhance_stone'):,} Enhance Stones"]
+            if me and me.item_level:
+                bits.insert(0, f"nivel de objeto {me.item_level:,}")
             bits += [f"{n} vouchers" for n in plan.vouchers.values()][:1]
             self._line(" · ".join(bits), theme.TEXT)
             self.content.addWidget(SectionTitle("Siguiente", f))
@@ -76,5 +82,6 @@ class UpgradesModule(Module):
         plan = self.ctl.upgrade_plan()
         if plan is None:
             return ModuleView()
-        ready = sum(1 for s in plan.steps if s.ready and s.kind not in ("farm", "spare", "theostone"))
+        ready = sum(1 for s in plan.steps if s.ready and s.kind not in ("farm", "boss", "content", "goal", "spare",
+                                                                        "theostone"))
         return ModuleView(summary=f"{ready} para hacer ya" if ready else "")
