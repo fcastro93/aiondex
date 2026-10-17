@@ -27,6 +27,8 @@ log = logging.getLogger(__name__)
 FEE = 0.10                      # the market keeps 10% of every sale (the screen says it: "Current Tax Rate 10%")
 DEFAULT_PROFESSION = "Cooking"
 MATERIALS = "Materials"         # not a profession: the materials' own prices (Odyle, Wrathful Ego / Mind, ores...)
+GEAR = "Gear"                   # not a profession either: the market's gear lists (Market > Equipo, for Mejoras)
+GEAR_SHARE = 0.6                # a sample whose names are mostly gear is the gear one
 WEEK_SECONDS = 7 * 86400
 TIME_SLACK = 1.5                # hours: the market shows the time left rounded ("2d 17h")
 MIN_RATE_HOURS = 6              # a per-day rate needs samples spanning this long (1 offer in 1 h is not "24 a day")
@@ -246,6 +248,7 @@ class Crafting:
                             MATERIALS: {"name": "Materiales",
                                         "market": "materiales (Odyle, Ego, Mind, minerales, plantas…)"}}
         self.names = db.get("names", {})
+        self.gear_names = set()               # every gear piece's name (the app's GearDB): the OCR snaps to them too
         self.inventory = Inventory(settings, db.get("ids", {}))      # your bag and storage, from the game
         self.credit = db.get("credit")
         self.character = None            # who you are playing: profession levels are per character
@@ -451,7 +454,7 @@ class Crafting:
     def read_shot(self, shot):
         """OCR of one shot (slow: run it off the UI thread)."""
         try:
-            screen = market_ocr.read_screen(self.path(shot), list(self.names))
+            screen = market_ocr.read_screen(self.path(shot), list(self.names) + sorted(self.gear_names - set(self.names)))
             shot.kind, shot.rows, shot.error = screen.kind, [list(r) for r in screen.rows], ""
             shot.tax, shot.info = screen.tax, dict(screen.info)
             if screen.kind == "unknown":
@@ -700,7 +703,10 @@ class Crafting:
         if not shots:
             return None
         taken = min(s.at for s in shots) if now is None else now
-        sample = next((s for s in self.samples if s.get("profession") == self.profession and
+        names = [r[0] for s in shots for r in s.rows]
+        gear = self.gear_names and names and sum(1 for n in names if n in self.gear_names) >= GEAR_SHARE * len(names)
+        profession = GEAR if gear else self.profession          # the gear lists are a sample of their own
+        sample = next((s for s in self.samples if s.get("profession") == profession and
                        abs(s["at"] - taken) <= MERGE_MINUTES * 60), None)
         items = json.loads(json.dumps(sample["items"])) if sample else {}
         for shot in sorted(shots, key=lambda s: s.at):
@@ -727,7 +733,7 @@ class Crafting:
             sample["tax"] = sample.get("tax") if tax is None else tax
             sample["merged"] = True             # for the notice: "added to the sample of 00:56"
         else:
-            sample = {"at": taken, "profession": self.profession, "shots": len(shots), "items": items, "tax": tax}
+            sample = {"at": taken, "profession": profession, "shots": len(shots), "items": items, "tax": tax}
             self.samples.append(sample)
             self.samples.sort(key=lambda s: s["at"])
         self._pool = None

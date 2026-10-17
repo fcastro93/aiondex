@@ -141,6 +141,9 @@ class PetsPanel(QWidget):
         info, name = self.ctl.pet_info(pet.pet_id)
         if local_mobs:
             info = {**info, "mob": "Mata: " + ", ".join(local_mobs)}
+        family = self.ctl.pet_family(pet.pet_id)
+        if family:
+            info = {**info, "mob": f"{family} · {info.get('mob') or ''}".rstrip(" ·")}
         row = PetRow(pet, info, name, self.fonts, self.ctl.icons_dir,
                      self.ctl.session.per_pet.get(pet.pet_id, 0), side=self.ctl.pet_exclusive(pet.pet_id))
         row.on_click = lambda pid=pet.pet_id: self.ctl.open_map(pid)   # shell calls this on a plain click
@@ -213,6 +216,17 @@ class PetsPanel(QWidget):
             grid.addWidget(label(f"{share:.0f}%", f.body, theme.MUTED), i, 3, Qt.AlignRight)
         grid.setColumnStretch(1, 1)
         self.content.addWidget(grid_host)
+        stats = self.ctl.pet_family_stats()
+        if stats:
+            line = label("Al máximo: " + " · ".join(f"{fam} {maxed}/{total}" for fam, (_, maxed, total)
+                                                    in stats.items()), f.small, theme.ACCENT)
+            line.setContentsMargins(f.px(4), f.px(2), 0, 0)
+            line.setToolTip("Cada pet al nivel máximo suma su stat para siempre: "
+                            + ", ".join(f"cada {fam} +1 {stat} (llevas +{maxed})" for fam, (stat, maxed, _)
+                                        in stats.items())
+                            + ". Súbelos primero (guía de kanonxo).")
+            line.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+            self.content.addWidget(line)
         if state.zone_name and state.zone_maxed:
             self._note(f"En {state.zone_name} ya tienes al máximo todos los pets ({state.zone_maxed}).",
                        theme.GAIN)

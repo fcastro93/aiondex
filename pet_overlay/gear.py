@@ -79,6 +79,79 @@ def parse_equipped(body):
     return out
 
 
+def parse_soul(body, q):
+    """What a gear record holds after its item level, from its slot byte at q: u8 slot (0 when not worn) | u8 n
+    sockets | n x 7 B (u32 manastone / soulstone id, 0 when empty | u16 its stat | u8 its grade) | u64 soul binding
+    (0: none) | u8 state (10 at 100%: Enraged Kromede Warhammer, its three lines at their highest; 1 below) | u8 3 |
+    u32 Theostone engraved (only weapons and guards have one: 19,950,016 on the Kromede Warhammer, 19,950,014 on the
+    Spiritforged Guard; 0 elsewhere) | 9 B | u8 n | n x (u16 stat, u32 value: the soul binding lines, percents x100)
+    | u8 n | n x (u16, u32 0) | u8 k | k x (u32 skill, u8 level: the skill effects) | u8 k | ...
+    -> {"state", "lines": [[stat id, value]], "skills", "sockets": [[stone id, stat, grade]], "theostone"} or None
+    when it does not fit. Stat ids are the client's own (193 HP, 317 Attack, 307 Defense, 6 Willpower...):
+    upgrades.py names them from the piece's stat pool (the value falls in one stat's range)."""
+    n = body[q + 1] if q + 1 < len(body) else 99
+    if n > 8:
+        return None
+    r = q + 2 + 7 * n
+    if r + 24 > len(body) or body[r + 9] != 3:
+        return None
+    sockets = [[_u32(body, q + 2 + 7 * i), int.from_bytes(body[q + 6 + 7 * i:q + 8 + 7 * i], "little"),
+                body[q + 8 + 7 * i]] for i in range(n)]
+    out = {"state": 0, "lines": [], "skills": 0, "sockets": sockets, "theostone": _u32(body, r + 10)}
+    if not any(body[r:r + 8]):
+        return out
+    state, s = body[r + 8], r + 23
+    lines = body[s]
+    if lines > 8 or s + 1 + 6 * lines >= len(body):
+        return None
+    stats = [(int.from_bytes(body[s + 1 + 6 * i:s + 3 + 6 * i], "little"), _u32(body, s + 3 + 6 * i))
+             for i in range(lines)]
+    s += 1 + 6 * lines
+    if body[s] != lines:
+        return None
+    s += 1 + 6 * lines
+    skills = body[s] if s < len(body) else 0
+    out.update(state=state, lines=[list(x) for x in stats], skills=skills if skills <= 8 else 0)
+    return out
+
+
+def parse_owned_gear(body, by_id, update=False):
+    """1156 (or a 1b56 change) -> [(stack, container, item id, enchant, item level, count, soul)] of every gear piece,
+    equipped or not (bag 1, storage 15...): the same record as an equipped one, but with 0 instead of the slot after
+    its item level (2026-10-17: the bag's second Nuakum Pauldrons +0 at 86, the storage's Kromede weapons of other
+    classes). The bit byte before the enchant, when there is one, moves it and the level by one: the level is found
+    where it is at least the piece's base level (by_id: GearDB.by_id). soul: parse_soul() (soul binding, manastones,
+    Theostone) or None. In a change a piece that left has count 0."""
+    out, p, end = [], 8, len(body) - 48
+    while p < end:
+        item = _u32(body, p)
+        info = by_id.get(item) if 100_000_000 <= item < 900_000_000 else None
+        count = _u32(body, p + 4)
+        if info is None or count > 1 or (count == 0 and not update) or any(body[p + 8:p + 12]) or body[p + 12] >= 64:
+            p += 1
+            continue
+        cont, pos = body[p + 12], body[p + 13]
+        hit = None
+        for s1 in (0, 1):
+            level = _u32(body, p + 40 + s1)
+            if not info.level <= level <= info.level + 150:
+                continue
+            after = pos if cont == EQUIPPED else 0
+            slots = [s2 for s2 in (0, 1) if body[p + 44 + s1 + s2] == after]
+            if slots:
+                soul = next((x for x in (parse_soul(body, p + 44 + s1 + s2) for s2 in slots) if x is not None), None)
+                hit = (s1, body[p + 26 + s1], level, soul)
+                break
+        if hit is None:
+            p += 1
+            continue
+        s1, enchant, level, soul = hit
+        stack = f"{_u32(body, p - 8)}:{int.from_bytes(body[p - 3:p - 1], 'little')}"
+        out.append((stack, cont, item, enchant if enchant <= 30 else 0, level, count, soul))
+        p += 46 + s1
+    return out
+
+
 # --- 3336: the visible table -----------------------------------------------------------------------------
 SUB_ENTRY = 28
 SCAN_COST = 10.0

@@ -67,6 +67,7 @@ from .modules.pets import PetsModule
 from .modules.settings import SettingsModule
 from .modules.dps import DpsModule
 from .modules.builds import BuildsModule
+from .modules.upgrades import UpgradesModule
 from .modules.diagnostics import DiagnosticsModule, open_problems
 from .modules.tracker import TrackerModule
 from .modules.crafting import PROFESSION_MODULES, CraftingModule, GatheringModule, LevelingModule, MarketModule
@@ -621,6 +622,13 @@ class Controller(QObject):
         self.bridge.field_list.connect(lambda event: self._tracker_changed(self.tracker.on_field_list(*event)))
         self.crafting = Crafting(self.data_dir, self.settings)
         self.crafting_window = None
+        from .upgrades import UpgradesDB
+        self.upgrades_db = UpgradesDB(self.data_dir / "upgrades_db.json")    # Mejoras (upgrades.py)
+        self.crafting.inventory.track(self.upgrades_db.tracked_names())     # Kina, Enhance / Transfer Stones...
+        self.crafting.inventory.gear_ids = self.gear_db.by_id                # every gear piece, with its soul
+        self.crafting.gear_names = set(self.gear_db.by_name)                 # the market OCR reads gear too
+        self.upgrades_window = None
+        self._plan_cache = (0.0, None, None)                                 # (when, character, plan)
         self.market_share = MarketShare(self.data_dir, self.settings, online=self.persist)
         self.market_share.changed.connect(self._shared_changed)
         self._share_timer = QTimer(self, interval=SHARE_SYNC_SECONDS * 1000, timeout=self.sync_market)
@@ -705,7 +713,8 @@ class Controller(QObject):
         self.diag_window = None
         self.dps_window = None
         self._restore_session()
-        self.modules = [DashboardModule(self), PetsModule(self), DpsModule(self), BuildsModule(self), TrackerModule(self),
+        self.modules = [DashboardModule(self), PetsModule(self), DpsModule(self), UpgradesModule(self),
+                        BuildsModule(self), TrackerModule(self),
                         CraftingModule(self), MarketModule(self), LevelingModule(self), GatheringModule(self),
                         StatusModule(self), MissionsModule(self), AchievementsModule(self),
                         PassesModule(self), EventsModule(self),
@@ -1118,6 +1127,7 @@ class Controller(QObject):
         self._crafting_changed()
 
     def _crafting_changed(self):
+        self.upgrades_changed()                  # your items and the prices are Mejoras' too
         if self.crafting_window and self.crafting_window.isVisible():
             self.crafting_window.refresh()
         if self.active_module.key in PROFESSION_MODULES and not self._refreshing:
@@ -1777,6 +1787,7 @@ class Controller(QObject):
         self.settings["gear"][name] = {"at": time.time(), "job": job, "level": level,
                                        "faction": faction or saved.get("faction"), "slots": new}
         self._save_settings()
+        self.upgrades_changed()
         if self.tracker_window and self.tracker_window.isVisible():
             self.tracker_window.refresh()
 
@@ -2082,6 +2093,28 @@ class Controller(QObject):
         info = self.db.get(str(pet_id), {})
         return info, self.custom_names.get(str(pet_id)) or info.get("name") or f"#{pet_id}"
 
+    def pet_family(self, pet_id):
+        """Cogni / Fera / Natura / Varian / Special (data/pet_families.json), or None."""
+        if not hasattr(self, "_pet_families"):
+            try:
+                data = json.loads((self.data_dir / "pet_families.json").read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                data = {}
+            self._pet_families = data.get("families", {}), data.get("stats", {})
+        return self._pet_families[0].get(str(pet_id))
+
+    def pet_family_stats(self):
+        """Per family whose pets add a stat at their highest level (Cogni: Might, Natura: Precision): (stat, pets at
+        the highest level, pets of the family)."""
+        self.pet_family(0)
+        families, stats = self._pet_families
+        out = {}
+        for family, stat in stats.items():
+            ids = [pid for pid, f in families.items() if f == family]
+            maxed = sum(1 for pid in ids if (p := self.collection.pets.get(int(pid))) is not None and p.is_max)
+            out[family] = (stat, maxed, len(ids))
+        return out
+
     def pet_exclusive(self, pet_id):
         return self.mapdata.exclusive(pet_id)
 
@@ -2356,6 +2389,71 @@ class Controller(QObject):
         if on_done:
             self._tracker_image_thread.done.connect(on_done)
         self._tracker_image_thread.start()
+
+    # --- Mejoras (upgrades.py) ---------------------------------------------------------------------------------
+    def upgrades_config(self):
+        return self.settings.setdefault("upgrades", {})
+
+    def upgrades_auto_dungeons(self):
+        """The dungeons you run, from the final bosses you killed (kept 14 days: the fight log keeps 48 hours)."""
+        from .upgrades import dungeons_you_run
+        return dungeons_you_run(self.fights.index, seen=self.upgrades_config().setdefault("seen", {}))
+
+    def set_upgrades_dungeons(self, dungeons):
+        """The dungeons you picked in Mejoras (None: the detected ones)."""
+        if dungeons is None:
+            self.upgrades_config().pop("dungeons", None)
+        else:
+            self.upgrades_config()["dungeons"] = list(dungeons)
+        self._save_settings()
+        self.upgrades_changed()
+
+    def gear_characters(self):
+        return sorted(self.settings.get("gear", {}))
+
+    def gear_prices(self):
+        """{gear piece: (lowest price, when)} of the market samples (yours and the shared ones)."""
+        names = self.crafting.gear_names
+        return {n: v for n, v in self.crafting.latest_prices().items() if n in names}
+
+    def upgrade_plan(self, name=None):
+        """The Mejoras plan of a character (the one you play when None), or None without their gear. Built at most
+        every 2 seconds (the panel and the window both ask)."""
+        from .upgrades import build_plan
+        name = name or self.character_name() or self.settings.get("last_character")
+        gear = self.settings.get("gear", {}).get(name)
+        if not name or not gear:
+            return None
+        at, who, plan = self._plan_cache
+        if who == name and plan is not None and time.time() - at < 2:
+            return plan
+        chosen = self.upgrades_config().get("dungeons")
+        dungeons = chosen if chosen is not None else self.upgrades_auto_dungeons()
+        crafting = self.crafting
+        levels = {prof: crafting.game_level(prof, name) or 0 for prof in crafting.professions}
+        plan = build_plan(name, gear, self.gear_db, self.upgrades_db, crafting.inventory, crafting.latest_prices(),
+                          dungeons, levels, crafting.recipes)
+        self._plan_cache = (time.time(), name, plan)
+        return plan
+
+    def upgrades_changed(self):
+        """Items, gear or prices changed: Mejoras is built again."""
+        self._plan_cache = (0.0, None, None)
+        if self.upgrades_window is not None:
+            self.upgrades_window.changed()
+        module = getattr(self, "active_module", None)
+        if module is not None and module.key == "upgrades" and not getattr(self, "_refreshing", False):
+            self.refresh()
+
+    def open_upgrades(self):
+        from .ui.upgradeswindow import UpgradesWindow
+        if self.upgrades_window is None:
+            self.upgrades_window = UpgradesWindow(self)
+        else:
+            self.upgrades_window.refresh()
+        self.upgrades_window.show()
+        self.upgrades_window.raise_()
+        self.upgrades_window.activateWindow()
 
     def open_builds(self, build=None, plan=False, tab="builds"):
         """Builds: your skill setups beyond the game's 3 presets, and the Afinador of the macro (its second tab)."""

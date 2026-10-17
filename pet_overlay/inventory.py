@@ -10,16 +10,23 @@ you can make a recipe (2026-10-12; the bag's Kina in the login list matched the 
   container 15 too.
 - 1b56 when items change (craft, loot, NPC purchase, moving them): u8 n | n x {u8 kind (0 new, 1 changed or moved,
   2 gone, with count 0) | the same record}.
-Only the items that recipes use or make are kept (data/crafting_db.json "ids").
+Only the items that recipes use or make are kept (data/crafting_db.json "ids"), plus what Mejoras counts
+(data/upgrades_db.json "tracked": Kina 930100031 - 55,321,245 in the bag on 2026-10-17 -, Enhance Stones 930100023,
+Transfer Stones, Amplify Stones, Soul Codex, the dungeons' Gear Change Vouchers) and every gear piece with its +N and
+item level (gear.parse_owned_gear: the bag's and the storage's, for Mejoras). Container 17 held the three Vakron +10
+pieces just broken (decomposed) and nothing else: what can still be recovered, not yours, so not counted.
 """
 import struct
+
+from .gear import parse_owned_gear
 
 LIST_OPCODE = bytes.fromhex("1156")
 UPDATE_OPCODE = bytes.fromhex("1b56")
 BAG = 1
-NOT_COUNTED = {0, 4, 11, 14}      # 4: an item passing through (seen created and gone at once), 11 equipped, 14 Arcana
+NOT_COUNTED = {0, 4, 11, 14, 17, 18}     # 4: an item passing through (seen created and gone at once), 11 equipped,
+                                         # 14 Arcana, 17/18 broken pieces that can still be recovered
 CLAIM_SECONDS = 30
-MAX_COUNT = 10 ** 9
+MAX_COUNT = 10 ** 11
 
 
 def parse_items(body, ids, update=False):
@@ -47,31 +54,44 @@ class Inventory:
     def __init__(self, settings, ids):
         self.settings = settings
         self.ids = {int(k): v for k, v in ids.items()}          # item id -> name
-        self._pending = None             # (time, records) of a login list waiting for the character it belongs to
+        self.gear_ids = {}               # gear item id -> gear.Item (the app's GearDB.by_id): the pieces kept too
+        self._pending = None             # (time, records, gear) of a login list waiting for the character it belongs to
 
     @property
     def _store(self):
         return self.settings.setdefault("crafting", {}).setdefault("inventory", {})
 
+    def track(self, ids):
+        """More items to count (Mejoras: Kina, Enhance Stones...), id -> name."""
+        self.ids.update({int(k): v for k, v in ids.items()})
+
+    def _gear(self, body, update=False):
+        """{stack: [item id, enchant, item level, container, soul, count]} of the gear pieces of a list or change
+        (soul: gear.parse_soul, the soul binding lines, manastones and Theostone)."""
+        return {s: [item, enchant, level, c, soul, n] for s, c, item, enchant, level, n, soul in
+                parse_owned_gear(body, self.gear_ids, update)} if self.gear_ids else {}
+
     # --- readings ---
     def on_list(self, at, body):
-        self._pending = (at, parse_items(body, self.ids))
+        self._pending = (at, parse_items(body, self.ids), self._gear(body))
 
     def claim(self, name, at):
         """The game named your character: the item list read just before is theirs."""
         if not (self._pending and name and 0 <= at - self._pending[0] <= CLAIM_SECONDS):
             return False
-        read_at, records = self._pending
+        read_at, records, gear = self._pending
         self._pending = None
-        self._store[name] = {"at": read_at, "stacks": {s: [item, n, c] for s, c, item, n in records}}
+        self._store[name] = {"at": read_at, "stacks": {s: [item, n, c] for s, c, item, n in records},
+                             "gear": {s: g[:5] for s, g in gear.items()}}
         self.settings.save()
         return True
 
     def on_update(self, at, body, name):
         """Items changed: for the list still waiting for its name, or the character you are playing. True if a known
-        item changed."""
+        item (or a gear piece) changed."""
         records = parse_items(body, self.ids, update=True)
-        if not records:
+        gear = self._gear(body, update=True)
+        if not records and not gear:
             return False
         if self._pending and at - self._pending[0] <= CLAIM_SECONDS:
             stacks = {s: (c, item, n) for s, c, item, n in self._pending[1]}
@@ -80,7 +100,13 @@ class Inventory:
                     stacks[s] = (c, item, n)
                 else:
                     stacks.pop(s, None)
-            self._pending = (self._pending[0], [(s, c, i, n) for s, (c, i, n) in stacks.items()])
+            pieces = dict(self._pending[2])
+            for s, g in gear.items():
+                if g[5]:
+                    pieces[s] = g
+                else:
+                    pieces.pop(s, None)
+            self._pending = (self._pending[0], [(s, c, i, n) for s, (c, i, n) in stacks.items()], pieces)
             return False
         entry = self._store.get(name) if name else None
         if entry is None or "stacks" not in entry:
@@ -90,6 +116,12 @@ class Inventory:
                 entry["stacks"][s] = [item, n, c]
             else:
                 entry["stacks"].pop(s, None)
+        pieces = entry.setdefault("gear", {})
+        for s, g in gear.items():
+            if g[5]:
+                pieces[s] = g[:5]
+            else:
+                pieces.pop(s, None)
         entry["at"] = at
         self.settings.save()
         return True
@@ -110,6 +142,19 @@ class Inventory:
             if cont not in NOT_COUNTED and self.ids.get(item) == item_name:
                 where[place(cont)] = where.get(place(cont), 0) + n
         return sum(where.values()), where
+
+    def owned_gear(self, name):
+        """[(item id, enchant, item level, container, soul)] of the gear pieces this character has in the bag and the
+        storage (not the ones worn), or None if their items were never read with the pieces."""
+        return [g for g in self.pieces(name) if g[3] not in NOT_COUNTED] if self.known_gear(name) else None
+
+    def known_gear(self, name):
+        return "gear" in self._store.get(name, {})
+
+    def pieces(self, name):
+        """Every gear piece read for this character, worn ones too: [(item id, enchant, item level, container,
+        soul)] (soul None from an older AionDex)."""
+        return [tuple(g) + (None,) * (5 - len(g)) for g in self._store.get(name, {}).get("gear", {}).values()]
 
     def makes(self, name, materials):
         """(times you can make it with what you have, the material that limits it) or None without a reading.

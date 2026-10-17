@@ -134,6 +134,12 @@ class BuildsWindow(QWidget):
         go = QPushButton("Traer build")
         go.clicked.connect(self._import_player)
         row.addWidget(go)
+        meter = QPushButton("Builds de notmeter")
+        meter.setProperty("flat", True)
+        meter.setToolTip("Las builds y equipos que corren los jugadores de cada clase (notmeter, lo recomienda la guía "
+                         "de kanonxo): ábrelo, elige una y tráela con el nombre del jugador")
+        meter.clicked.connect(lambda: webbrowser.open("https://notmeter.com/?view=setup-guide"))
+        row.addWidget(meter)
         self.import_status = label("Del perfil oficial de NCSOFT (lo mismo que muestra shugo.gg): sus skills, niveles "
                                    "y estigmas equipados. No trae especialidades ni barra.", f.small, theme.MUTED)
         self.import_status.setWordWrap(True)

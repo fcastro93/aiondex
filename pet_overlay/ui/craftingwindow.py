@@ -31,8 +31,10 @@ from .tunerwindow import EXTRA_STYLE
 from .widgets import SectionTitle, label
 
 SECTIONS = [("crafting", "Crafting"), ("market", "Market"), ("leveling", "Levear"), ("gathering", "Gathering")]
-TABS = [("profit", "Productos"), ("materials", "Materiales"), ("shots", "Capturas"), ("samples", "Muestreos"),
-        ("sales", "Ventas")]                                   # the Market's own tabs
+TABS = [("profit", "Productos"), ("materials", "Materiales"), ("gear", "Equipo"), ("shots", "Capturas"),
+        ("samples", "Muestreos"), ("sales", "Ventas")]          # the Market's own tabs
+VERDICT_TEXT = {"upgrade": ("Te sirve", "#7bd88f"), "base": ("Mejor base", "#f0c24e"), "no": ("No", "#8a93a8"),
+                "class": ("Otra clase", "#8a93a8"), "level": ("Nivel", "#8a93a8"), "faction": ("Otra facción", "#8a93a8")}
 SEARCH_HINT = {"crafting": "Buscar receta o material…", "market": "Buscar objeto o material…",
                "leveling": "Buscar receta…", "gathering": "Buscar material para recolectar (nombre o nodo)…"}
 PROFESSION_SECTIONS = {"crafting", "leveling"}                 # plus the Market's Productos: they use the profession
@@ -428,7 +430,7 @@ class CraftingWindow(QWidget):
     # --- content -----------------------------------------------------------------------------------------
     def refresh(self):
         counts = {"shots": len(self.crafting.shots), "samples": len(self.crafting.samples),
-                  "sales": len(self.crafting.ledger.sales)}
+                  "sales": len(self.crafting.ledger.sales), "gear": len(self.ctl.gear_prices())}
         market = self.section == "market"
         for key, button in self.section_buttons.items():
             button.setChecked(key == self.section)
@@ -461,8 +463,8 @@ class CraftingWindow(QWidget):
                 widget.setVisible(False)
         _clear(self.body)
         if market:
-            {"profit": self._profit_tab, "materials": self._market_materials, "shots": self._shots_tab,
-             "samples": self._samples_tab, "sales": self._sales_tab}[self.tab]()
+            {"profit": self._profit_tab, "materials": self._market_materials, "gear": self._gear_tab,
+             "shots": self._shots_tab, "samples": self._samples_tab, "sales": self._sales_tab}[self.tab]()
         else:
             {"crafting": self._recipes_tab, "leveling": self._leveling_tab,
              "gathering": self._gathering_tab}[self.section]()
@@ -854,6 +856,102 @@ class CraftingWindow(QWidget):
                        f"un material para ver su precio y dónde recolectarlo; «Gráfica de precio» lo muestra en el "
                        f"tiempo.")
         self._materials_tab(query)
+
+    def _gear_tab(self):
+        """Market > Equipo: every gear piece with a price in the samples, and whether it is an upgrade for the
+        character (gear.verdict against the gear AionDex read), for Mejoras."""
+        from ..gear import POSITIONS, SLOTS, verdict
+        f, crafting, ctl = self.fonts, self.crafting, self.ctl
+        conf = crafting.config.setdefault("gear_view", {})
+        query = self.search.text().strip().lower()
+        prices = ctl.gear_prices()
+        who = crafting.levels_character or ctl.character_name()
+        gear = ctl.settings.get("gear", {}).get(who) if who else None
+        hk = ctl.settings["hotkeys"].get("crafting_scan")
+        self._hint("Precios del equipo para Mejoras. En el juego, abre el mercado en una categoría de equipo (Collar, "
+                   "Aretes, Anillo, Grebas…) y pulsa Escanear" + (f" o {hk}" if hk else "") + " en cada página; en "
+                   "Capturas, Procesar. AionDex lee el nombre, las ofertas y el precio más bajo de cada pieza y te dice "
+                   "si te sirve" + (f" a {who}" if who else "") + ".")
+        bar = QHBoxLayout()
+        bar.setSpacing(8)
+        bar.addWidget(label("Pieza", f.small, theme.MUTED))
+        kind = QComboBox()
+        kind.addItem("Todas", "all")
+        for key in dict.fromkeys(SLOTS[p][0] for p in sorted(SLOTS)):
+            kind.addItem(SLOTS[POSITIONS[key][0]][1], key)
+        kind.setCurrentIndex(max(0, kind.findData(conf.get("slot", "all"))))
+        kind.currentIndexChanged.connect(lambda _: self._gear_option("slot", kind.currentData()))
+        bar.addWidget(kind)
+        useful = QCheckBox(f"Solo las que le sirven a {who}" if who else "Solo las que me sirven")
+        useful.setEnabled(gear is not None)
+        useful.setChecked(bool(conf.get("useful")) and gear is not None)
+        useful.toggled.connect(lambda on: self._gear_option("useful", on))
+        bar.addWidget(useful)
+        bar.addStretch(1)
+        rows = []
+        for name, (lowest, at) in prices.items():
+            item = ctl.gear_db.named(name, (gear or {}).get("faction"))
+            if item is None or query and query not in name.lower():
+                continue
+            if conf.get("slot", "all") != "all" and item.slot != conf["slot"]:
+                continue
+            v = verdict(item, gear, ctl.gear_db) if gear else None
+            if conf.get("useful") and gear and (v is None or v.kind not in ("upgrade", "base")):
+                continue
+            rows.append((item, lowest, at, v))
+        bar.addWidget(label(f"{len(rows)} piezas con precio", f.small, theme.MUTED))
+        self.body.addLayout(bar)
+        if not prices:
+            self._hint("Aún no hay precios de equipo: escanea una lista de equipo del mercado.", theme.WARN)
+            return
+        if not rows:
+            self._hint("Nada con esos filtros.")
+            return
+        order = {key: i for i, key in enumerate(dict.fromkeys(SLOTS[p][0] for p in sorted(SLOTS)))}
+        rows.sort(key=lambda r: (order.get(r[0].slot, 99), -r[0].level, r[1]))
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(16)
+        grid.setVerticalSpacing(4)
+        for c, text in enumerate(("Equipo", "Pieza", "Nivel", "Más bajo", "Media 7 días", "Ofertas",
+                                  f"Para {who}" if who else "Para ti")):
+            grid.addWidget(label(text, f.small, theme.ACCENT), 0, c, Qt.AlignRight if 1 < c < 6 else Qt.AlignLeft)
+        for r, (item, lowest, at, v) in enumerate(rows, start=1):
+            grid.addWidget(label(item.name, f.name, QColor(GRADE_COLOR.get(item.grade, "#D6DAE3"))), r, 0)
+            positions = POSITIONS.get(item.slot) or [0]
+            grid.addWidget(label(SLOTS.get(positions[0], ("", item.category))[1], f.body, theme.MUTED), r, 1)
+            grid.addWidget(label(str(item.level), f.body, theme.TEXT), r, 2, Qt.AlignRight)
+            price = label(_kinah(lowest), f.name, theme.TEXT)
+            price.setToolTip(f"precio {_ago(at)}" + (" (de otro usuario)" if crafting.price_is_shared(item.name) else ""))
+            price.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+            grid.addWidget(price, r, 3, Qt.AlignRight)
+            avg, n = crafting.week_average(item.name)
+            if avg and n >= 2:
+                diff = (lowest - avg) / avg
+                color = theme.GAIN if diff <= -0.05 else theme.COMBAT if diff >= 0.05 else theme.MUTED
+                grid.addWidget(label(f"{_kinah(avg)} ({diff:+.0%})", f.body, color), r, 4, Qt.AlignRight)
+            else:
+                grid.addWidget(label("—", f.body, theme.MUTED), r, 4, Qt.AlignRight)
+            listings = crafting._latest_field(item.name, "listings")
+            grid.addWidget(label("—" if listings is None else str(listings), f.body, theme.TEXT), r, 5, Qt.AlignRight)
+            if v is not None:
+                text, color = VERDICT_TEXT.get(v.kind, (v.kind, "#8a93a8"))
+                cell = label(text, f.small, QColor(color))
+                cell.setToolTip(v.text)
+                cell.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+            else:
+                cell = label("—", f.small, theme.MUTED)
+            grid.addWidget(cell, r, 6)
+            grid.addWidget(self._chart_button(item.name), r, 7)
+        grid.setColumnStretch(6, 1)
+        self.body.addLayout(grid)
+        link = QPushButton("Abrir Mejoras")
+        link.clicked.connect(ctl.open_upgrades)
+        self.body.addWidget(link, 0, Qt.AlignLeft)
+
+    def _gear_option(self, key, value):
+        self.crafting.config.setdefault("gear_view", {})[key] = value
+        self.crafting.settings.save()
+        QTimer.singleShot(0, self.refresh)
 
     def _materials_tab(self, query):
         """«Materiales»: every material the recipes use, with filters (kind, the profession that uses it, only
@@ -1718,7 +1816,8 @@ class CraftingWindow(QWidget):
             line.mousePressEvent = lambda e, s=sample: self._select_sample(s)
             lay = QHBoxLayout(line)
             lay.setContentsMargins(12, 6, 12, 6)
-            prof = crafting.professions.get(sample.get("profession"), {}).get("name", sample.get("profession", ""))
+            prof = crafting.professions.get(sample.get("profession"), {}).get(
+                "name", "Equipo" if sample.get("profession") == "Gear" else sample.get("profession", ""))
             lay.addWidget(label(f"{_clock(sample['at'])}  ·  {prof}", f.name,
                                 theme.GOLD if sample is self._sample else theme.TEXT), 1)
             n = len(sample["items"])
