@@ -5,6 +5,9 @@
      | u32 item level (base + enchant + socketed stones) | [bit byte] | u8 pos | u8 n sockets | n x 7 B ...
 3336 own character: the visible equipment table (weapon, armor, cloak, necklace, earrings) with +N, re-sent about
      every minute. 1c56: a visible equipment change (old -> new records), seen for other players.
+1b56 your items changing: an equipped piece you enchant or put on comes as its record in container 0x0b with its
+     slot (2026-10-17: Gartua Ring +5 -> +10, item level 84 -> 89). A teleport sends no 1156, so the hidden slots
+     (rings, bracelets, belt, amulet, runes, Arcana) only stay right with these (GearReader.feed_update).
 Records carry one extra "bit byte" at varying places, so the parsers try both alignments and check the structure.
 Checked on 19 logins of three characters: 1156 and 3336 agree item by item, the gear is the same login after login.
 Item data (aion2data.com raw/items.json, the game's own tables) in data/gear_items.json.
@@ -116,7 +119,8 @@ def parse_soul(body, q):
 
 
 def parse_owned_gear(body, by_id, update=False):
-    """1156 (or a 1b56 change) -> [(stack, container, item id, enchant, item level, count, soul)] of every gear piece,
+    """1156 (or a 1b56 change) -> [(stack, container, item id, enchant, item level, count, soul, slot)] of every gear
+    piece (slot: the equipment position of a worn one, else 0),
     equipped or not (bag 1, storage 15...): the same record as an equipped one, but with 0 instead of the slot after
     its item level (2026-10-17: the bag's second Nuakum Pauldrons +0 at 86, the storage's Kromede weapons of other
     classes). The bit byte before the enchant, when there is one, moves it and the level by one: the level is found
@@ -147,7 +151,8 @@ def parse_owned_gear(body, by_id, update=False):
             continue
         s1, enchant, level, soul = hit
         stack = f"{_u32(body, p - 8)}:{int.from_bytes(body[p - 3:p - 1], 'little')}"
-        out.append((stack, cont, item, enchant if enchant <= 30 else 0, level, count, soul))
+        out.append((stack, cont, item, enchant if enchant <= 30 else 0, level, count, soul,
+                    pos if cont == EQUIPPED else 0))
         p += 46 + s1
     return out
 
@@ -261,6 +266,8 @@ class GearReader:
         self.name = None
         self.slots = {}
         self.full = False        # the slots include this session's login list (rings, belt...)
+        self.by_id = {}          # gear item id -> Item (the app's GearDB.by_id): reads the worn pieces of a 1b56
+        self.info = None         # (name, job, level, faction) of the last 3336, for a change between two of them
 
     def feed_inventory(self, now, body):
         equipped = parse_equipped(body)
@@ -284,6 +291,17 @@ class GearReader:
                     self.slots.pop(pos, None)
                 elif not old or old[:2] != new[:2]:
                     self.slots[pos] = new           # changed since login: item level unknown until the next one
+        return self.slots if self.slots != before else None
+
+    def feed_update(self, body):
+        """1b56: a worn piece enchanted or put on -> its slot now (item, +N, item level); the slots when they
+        changed, else None."""
+        if not self.name or not self.by_id:
+            return None
+        before = dict(self.slots)
+        for _, cont, item, enchant, level, count, _, slot in parse_owned_gear(body, self.by_id, update=True):
+            if cont == EQUIPPED and count == 1 and slot in SLOTS:
+                self.slots[slot] = (item, enchant, level)
         return self.slots if self.slots != before else None
 
 

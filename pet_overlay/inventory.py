@@ -68,7 +68,7 @@ class Inventory:
     def _gear(self, body, update=False):
         """{stack: [item id, enchant, item level, container, soul, count]} of the gear pieces of a list or change
         (soul: gear.parse_soul, the soul binding lines, manastones and Theostone)."""
-        return {s: [item, enchant, level, c, soul, n] for s, c, item, enchant, level, n, soul in
+        return {s: [item, enchant, level, c, soul, n] for s, c, item, enchant, level, n, soul, _ in
                 parse_owned_gear(body, self.gear_ids, update)} if self.gear_ids else {}
 
     # --- readings ---

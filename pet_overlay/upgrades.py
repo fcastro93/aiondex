@@ -46,8 +46,10 @@ one more line. A transfer keeps the +N, the Amp levels and the lines, never that
 Theostone or Potential. Each manastone (weapons, armor) or soulstone (accessories) you use rerolls every socket of the
 piece. The lines worth having per piece are the guide's (IDEAL), skill effects included.
 
-Steps you do not want («No quiero hacer este paso», kept in settings "upgrades" "skipped") are left out and the plan
-is made again without them: a piece or a voucher you will not get no longer counts as "about to be replaced", so its
+Kinds of upgrade you switch off (CATEGORIES: Soul Binding, Market, Jefes..., per character, settings "upgrades"
+"off_by") are left out the same way: no soul binding frees the pieces its Syncs were going to eat, and the shops stop
+offering its Soul Codex. Steps you do not want («No quiero hacer este paso», kept per character in settings
+"upgrades" "skipped_by") are left out and the plan is made again without them: a piece or a voucher you will not get no longer counts as "about to be replaced", so its
 enhancing and soul binding come back; a Sync you skip frees the piece it was going to eat.
 
 The plan, in order: wear what you already have that is better; spend your vouchers; enhance up to the level that
@@ -137,6 +139,14 @@ ARCANA_LEVEL = {"Common": 20, "Rare": 40, "Epic": 60, "Unique": 80}
 FIELD_FACTION = {1010: "E", 1110: "A"}           # Verteron: Elyos, Altgard: Asmodian (the Abyss: both)
 LOWER_ABYSS = "Chaotic Lower Reshanta"
 PER_SERVER = {"duty", "invasion", "daily"}      # activities every character of yours shares: for the main
+# the kinds of upgrade you can switch off: key, Spanish, the step kinds in it
+CATEGORIES = (("own", "Equipar lo que tienes", ("own",)), ("voucher", "Vouchers", ("voucher",)),
+              ("enhance", "Encantar", ("enhance", "morph")), ("soul", "Soul Binding", ("soul",)),
+              ("stones", "Manastones y soulstones", ("manastone", "soulstone")), ("amp", "Amp", ("amp",)),
+              ("market", "Market", ("buy", "save")), ("farm", "Mazmorras", ("farm",)), ("boss", "Jefes", ("boss",)),
+              ("arcana", "Arcana", ("arcana",)), ("week", "Actividades y tiendas", ("content", "shop")),
+              ("goal", "Metas", ("goal",)), ("extra", "Theostones y piezas sobrantes", ("theostone", "spare")))
+CATEGORY_OF = {kind: key for key, _, kinds in CATEGORIES for kind in kinds}
 
 
 @dataclass
@@ -273,6 +283,8 @@ class Plan:
     scrolls: dict = field(default_factory=dict)       # Enhance Scroll name -> count (belts, amulets, runes)
     replace: set = field(default_factory=set)         # positions about to get another piece
     skipped: set = field(default_factory=set)         # the keys of the steps you do not want
+    off: set = field(default_factory=set)             # the CATEGORIES you switched off
+    counts: dict = field(default_factory=dict)        # category -> its steps (switched off ones too)
     item_level: int = 0
     read_at: float = None                             # when your items were read
     me: Me = None
@@ -575,15 +587,17 @@ def option_key(o):
 
 
 def build_plan(name, gear, gear_db, db, inventory, prices=None, dungeons=None, levels=None, recipes=None,
-               skipped=None, me=None, bosses=None, alts_kina=0, now=None):
+               skipped=None, me=None, bosses=None, alts_kina=0, now=None, off=None):
     """The Plan for a character. gear: settings["gear"][name]; inventory: the app's Inventory (bag and storage);
     prices: {item name: (lowest, when)} of the market; dungeons: the ones you run; levels: {profession: level};
     recipes: crafting_db's (the Dragon Lord pieces' Splendent step); skipped: the keys of the steps you do not want;
     me: Me (level, item level, CP, main or alt); bosses: the Tracker's field and Abyss bosses [{"name", "where",
-    "level", "abyss", "map_id", "items": [(piece, chance %)], "respawn"}]; alts_kina: a main's alts' tradeable Kina."""
+    "level", "abyss", "map_id", "items": [(piece, chance %)], "respawn"}]; alts_kina: a main's alts' tradeable Kina;
+    off: the CATEGORIES you switched off."""
     gear = gear or {}
     plan = Plan(name)
     plan.skipped = set(skipped or ())
+    plan.off = set(off or ())
     plan.dungeons = list(dungeons or [])
     plan.read_at = inventory.read_at(name) if inventory else None
     plan.me = me = me or Me(level=gear.get("level") or 0)
@@ -992,6 +1006,10 @@ def _steps(plan, by_pos, kina, bound, stones, db, levels, prices, recipes, gear_
     for _, s in soul:
         s.key = f"soul:{by_pos[s.pos].item.name}:{s.pos}"
         steps.append(s)
+    if "soul" in plan.off:               # no soul binding for now: the pieces its Syncs were going to eat are free
+        for x in plan.spare:
+            if x.use.startswith("Sync"):
+                x.use = ""
     # 5. manastones / soulstones on the pieces you keep (each stone rerolls every socket of the piece)
     for kind, keys, word in (("manastone", MANA_SLOTS, "Manastone"), ("soulstone", SOUL_SLOTS, "Soulstone")):
         empty = [(p, p.soul.empty) for p in plan.pieces if p.soul and p.soul.empty and p.key in keys
@@ -1163,7 +1181,8 @@ def _steps(plan, by_pos, kina, bound, stones, db, levels, prices, recipes, gear_
                               summary=f"Sin Theostone · {kinah_text(THEOSTONE_KINA)} Kinah · menos del 1% del daño"))
     for s in steps:
         s.boosts = s.boosts or BOOSTS.get(s.kind, ())
-    return [s for s in steps if s.key not in plan.skipped]
+        plan.counts[CATEGORY_OF.get(s.kind)] = plan.counts.get(CATEGORY_OF.get(s.kind), 0) + 1
+    return [s for s in steps if s.key not in plan.skipped and CATEGORY_OF.get(s.kind) not in plan.off]
 
 
 def _goods(plan, db, shops, currency, needs, faction, now):
@@ -1201,7 +1220,7 @@ def _activities(plan, steps, db, faction, now):
     (Enhance Stones, Amplify Stone Fragments), each with the shop goods your plan uses; a shop step when you already
     have the currency for one of them."""
     me, out = plan.me, []
-    needs = {u for s in steps for u in s.uses}
+    needs = {u for s in steps if CATEGORY_OF.get(s.kind) not in plan.off for u in s.uses}
     for currency, kinds, shops in CURRENCIES:
         goods = _goods(plan, db, shops, currency, needs, faction, now)
         if not goods:

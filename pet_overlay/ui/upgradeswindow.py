@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxL
                                QScrollArea, QSizePolicy, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
-from ..upgrades import GUIDE, can_do, kinah_text, stat_value
+from ..upgrades import CATEGORIES, GUIDE, can_do, kinah_text, stat_value
 from . import theme
 from .mapwindow import STYLE, badge_label
 from .theme import Fonts
@@ -373,8 +373,37 @@ class UpgradesWindow(QWidget):
             return "extra"
         return "now" if step.ready else "later"
 
+    def _categories(self, plan):
+        """A check per kind of upgrade: what you switch off is left out of your route (this character's)."""
+        f = self.fonts
+        card = QFrame()
+        card.setObjectName("Card")
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(12, 6, 12, 8)
+        lay.setSpacing(4)
+        off = [text for key, text, _ in CATEGORIES if key in plan.off]
+        lay.addWidget(label("Qué tener en cuenta" + (f" · sin {', '.join(off)}" if off else "") + " (solo para "
+                            f"{plan.character}):", f.small, theme.MUTED))
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(14)
+        grid.setVerticalSpacing(2)
+        for i, (key, text, _) in enumerate(CATEGORIES):
+            n = plan.counts.get(key, 0)
+            box = QCheckBox(f"{text} ({n})" if n else text)
+            box.setChecked(key not in plan.off)
+            box.setToolTip("Desmárcalo y tu ruta se rehace sin esto (lo de Soul Binding deja libre su comida)")
+            box.toggled.connect(lambda on, k=key: self._category(k, on))
+            grid.addWidget(box, i // 5, i % 5)
+        lay.addLayout(grid)
+        self.body.addWidget(card)
+
+    def _category(self, key, on):
+        self.ctl.set_upgrades_category(self._shown, key, on)
+        QTimer.singleShot(0, self.refresh)
+
     def _route(self, plan):
         f = self.fonts
+        self._categories(plan)
         if not plan.steps:
             self._hint("Nada que mejorar con lo que sé: escanea precios de equipo en el market o marca las mazmorras "
                        "que haces (Preferencias).")

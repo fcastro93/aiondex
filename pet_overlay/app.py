@@ -413,6 +413,9 @@ class Bridge(QObject):
             self.items.emit(("list", time.time(), body))
         elif op == ITEMS_UPDATE_OPCODE:
             self.items.emit(("update", time.time(), body))
+            slots = self.gear_reader.feed_update(body)          # a worn piece enchanted or put on
+            if slots and self.gear_reader.info:
+                self.gear.emit((*self.gear_reader.info, dict(slots), self.gear_reader.full))
         elif op == CHARACTER_OPCODE:
             info = parse_character(body)
             if info:
@@ -423,9 +426,9 @@ class Bridge(QObject):
                 if levels:
                     self.profession.emit(("levels", info.name, levels))
                 slots = self.gear_reader.feed_character(time.time(), body, info)
+                self.gear_reader.info = (info.name, info.job, info.level, own_faction(body, info.name))
                 if slots:
-                    self.gear.emit((info.name, info.job, info.level, own_faction(body, info.name), dict(slots),
-                                    self.gear_reader.full))
+                    self.gear.emit((*self.gear_reader.info, dict(slots), self.gear_reader.full))
 
     def _know_members(self, body):
         """Your group's members by entity id, from the group lists: their hits count (and are named) even when the
@@ -626,6 +629,7 @@ class Controller(QObject):
         self.upgrades_db = UpgradesDB(self.data_dir / "upgrades_db.json")    # Mejoras (upgrades.py)
         self.crafting.inventory.track(self.upgrades_db.tracked_names())     # Kina, Enhance / Transfer Stones...
         self.crafting.inventory.gear_ids = self.gear_db.by_id                # every gear piece, with its soul
+        self.bridge.gear_reader.by_id = self.gear_db.by_id                   # worn pieces enchanted between logins
         self.crafting.gear_names = set(self.gear_db.by_name)                 # the market OCR reads gear too
         self.upgrades_window = None
         self._plan_cache = (0.0, None, None)                                 # (when, character, plan)
@@ -2536,9 +2540,21 @@ class Controller(QObject):
         alts_kina = sum((crafting.inventory.owned(n, "Kina") or (0,))[0] for n in alts)
         plan = build_plan(name, gear, self.gear_db, self.upgrades_db, crafting.inventory, crafting.latest_prices(),
                           dungeons, levels, crafting.recipes, skipped=set(self.upgrades_skipped(name)),
-                          me=self.upgrades_me(name), bosses=self.upgrade_bosses(), alts_kina=alts_kina)
+                          me=self.upgrades_me(name), bosses=self.upgrade_bosses(), alts_kina=alts_kina,
+                          off=self.upgrades_off(name))
         self._plan_cache = (time.time(), name, plan)
         return plan
+
+    def upgrades_off(self, name):
+        """The kinds of upgrade (upgrades.CATEGORIES) a character switched off."""
+        return set(self.upgrades_config().get("off_by", {}).get(name, []))
+
+    def set_upgrades_category(self, name, key, on):
+        off = self.upgrades_off(name)
+        off.discard(key) if on else off.add(key)
+        self.upgrades_config().setdefault("off_by", {})[name] = sorted(off)
+        self._save_settings()
+        self.upgrades_changed()
 
     def upgrades_skipped(self, name):
         """{key: title} of the steps a character does not want (and the ones said no to before 1.63.3, for every
