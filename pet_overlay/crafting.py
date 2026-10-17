@@ -492,6 +492,35 @@ class Crafting:
         return new
 
     # --- what you bought and what you farmed (Ventas: the real profit) ------------------------------------------
+    def material_info(self, name):
+        """A material's entry in the recipes (source, and where it drops: "drop", "mobs", "combo_of"), or {}."""
+        if not hasattr(self, "_mat_info"):
+            self._mat_info = {}
+            for r in self.recipes:
+                for m in r["materials"]:
+                    self._mat_info.setdefault(m["name"], m)
+        return self._mat_info.get(name, {})
+
+    def source_text(self, name):
+        """Where a material comes from besides the market, in a line: the monsters that drop it, the dungeon, the
+        chest or the recipe it is the combo of (crafting_db, from aion2data's drop tables), or ""."""
+        m = self.material_info(name)
+        parts = []
+        if m.get("source") == "combo" and m.get("combo_of"):
+            parts.append(f"Sale como combo (25%) al craftear {m['combo_of']}.")
+        mobs = m.get("mobs") or []
+        if mobs:
+            parts.append("Lo sueltan: " + "; ".join(
+                f"{n} ({chance:g}%{f', nivel {lv[0]}–{lv[1]}' if lv else ''}{f', {where}' if where else ''})"
+                for n, chance, lv, _, where in mobs) + ".")
+        drop = m.get("drop")
+        if drop and not (drop[0] == "monster" and mobs):
+            kind, source, detail, chance, per = drop
+            what = {"monster": "Lo suelta", "dungeon clear": "Sale en", "chest": "Sale de"}.get(kind, "Sale de")
+            per = {"kill": "por kill", "clear": "por clear", "opening": "por cofre"}.get(per, per)
+            parts.append(f"{what} {source}{f' ({detail})' if detail else ''}: {chance * 100:g}% {per}.")
+        return " ".join(parts)
+
     def mat_choice(self, name, source):
         """"buy" or "farm" for a material, as you marked it. Not marked: what is gathered or crafted is yours, and
         the rest (monster drops, market only) is bought. NPC ingredients are always bought."""

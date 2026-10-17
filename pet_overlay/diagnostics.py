@@ -464,7 +464,9 @@ def diagnose_crash(ctl):
         for line in prev["errors"][-2:]:
             d.checks.append(Check("Error de esa sesión", "warn", _short(line[24:], 140)))
     elif prev and prev["clean"]:
-        d.checks.append(Check("Último cierre", "ok", "Normal (con «Salir» o al actualizarse)."))
+        updated = any("installing update" in line for line in prev.get("tail", []))
+        d.checks.append(Check("Último cierre", "ok", "Se cerró para instalar una actualización y volver a abrirse."
+                              if updated else "Normal (con «Salir» o al actualizarse)."))
     elif prev:
         d.checks.append(Check("Último cierre", "info", f"La versión anterior ({prev['version']}) no registraba cómo se "
                                                        f"cerraba; desde esta versión sí."))
@@ -562,6 +564,7 @@ def report(ctl, diagnosis=None):
     if prev:
         lines += ["", f"## Sesión anterior ({prev['version']}, cierre normal={prev['clean']})"]
         lines += [_short(x, 300) for x in prev["errors"]]
+        lines += ["últimas líneas:"] + [_short(x, 200) for x in prev.get("tail", [])]
         if prev["crash"]:
             lines += ["fallo grave:", prev["crash"][-800:]]
     return _anonymize(ctl, "\n".join(lines))

@@ -42,7 +42,7 @@ class UpgradesPanel(QWidget):
             for n, step in enumerate(next_steps(plan, 2 if compact else SHOWN), start=1):
                 self._line(f"{n}. {step.title}", theme.GOLD if step.ready else theme.TEXT, f.name)
                 if not compact:
-                    detail = label(step.detail, f.small, theme.MUTED, elide=True)
+                    detail = label(step.summary or step.detail, f.small, theme.MUTED, elide=True)
                     detail.setContentsMargins(f.px(14), 0, 0, 0)
                     self.content.addWidget(detail)
         link = label("Abrir Mejoras", f.name, theme.ACCENT)

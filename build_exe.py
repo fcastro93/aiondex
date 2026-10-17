@@ -26,10 +26,38 @@ ISCC_CANDIDATES = [
 ]
 
 
+def version_file():
+    """The exe's version resource (product, description, version, copyright): an exe without one looks more like
+    malware to Windows Defender's heuristics (1.63.1: a player's Windows removed AionDex)."""
+    nums = tuple(int(x) for x in __version__.split(".")) + (0,) * (4 - len(__version__.split(".")))
+    text = f"""VSVersionInfo(
+  ffi=FixedFileInfo(filevers={nums}, prodvers={nums}, mask=0x3f, flags=0x0, OS=0x40004, fileType=0x1,
+                    subtype=0x0, date=(0, 0)),
+  kids=[
+    StringFileInfo([StringTable('040904B0', [
+      StringStruct('CompanyName', 'fcastro93'),
+      StringStruct('FileDescription', '{APP_NAME}: overlay para AION 2 (pets, DPS, mejoras)'),
+      StringStruct('FileVersion', '{__version__}'),
+      StringStruct('InternalName', '{APP_NAME}'),
+      StringStruct('LegalCopyright', 'fcastro93 - github.com/fcastro93/aiondex'),
+      StringStruct('OriginalFilename', '{APP_NAME}.exe'),
+      StringStruct('ProductName', '{APP_NAME}'),
+      StringStruct('ProductVersion', '{__version__}')])]),
+    VarFileInfo([VarStruct('Translation', [1033, 1200])])
+  ]
+)
+"""
+    path = ROOT / "build" / "version_info.txt"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
 def build_app():
     PyInstaller.__main__.run([
         str(ROOT / "run.py"),
         "--name", APP_NAME,
+        "--version-file", str(version_file()),
         "--windowed",
         "--noconfirm",
         "--clean",

@@ -2432,9 +2432,25 @@ class Controller(QObject):
         crafting = self.crafting
         levels = {prof: crafting.game_level(prof, name) or 0 for prof in crafting.professions}
         plan = build_plan(name, gear, self.gear_db, self.upgrades_db, crafting.inventory, crafting.latest_prices(),
-                          dungeons, levels, crafting.recipes)
+                          dungeons, levels, crafting.recipes, skipped=set(self.upgrades_config().get("skipped", {})))
         self._plan_cache = (time.time(), name, plan)
         return plan
+
+    def upgrades_skip(self, key, title):
+        """«No quiero hacer este paso»: the plan is made again without it (title: what the list of skipped says)."""
+        self.upgrades_config().setdefault("skipped", {})[key] = title
+        self._save_settings()
+        self.upgrades_changed()
+
+    def upgrades_unskip(self, key=None):
+        """Take a skipped step (every one when None) into account again."""
+        skipped = self.upgrades_config().setdefault("skipped", {})
+        if key is None:
+            skipped.clear()
+        else:
+            skipped.pop(key, None)
+        self._save_settings()
+        self.upgrades_changed()
 
     def upgrades_changed(self):
         """Items, gear or prices changed: Mejoras is built again."""
@@ -2867,12 +2883,21 @@ class Controller(QObject):
         else:
             self.open_map()
 
-    def toggle_visible(self):
+    def toggle_visible(self, source="menú"):
+        """Show or hide the overlay. source (atajo / bandeja / menú) goes to the log and, on hiding by the hotkey or a
+        click on the tray icon, a notice says how to get it back (1.63.1: players saw it "hide by itself")."""
         self.settings["visible"] = not self.window.isVisible()
         self.window.setVisible(self.settings["visible"])
+        log.info("overlay %s (%s)", "shown" if self.settings["visible"] else "hidden", source)
         if self.settings["visible"]:
             self.window.setWindowOpacity(1.0)       # whatever left it see-through, showing it brings it back
             self.window.apply_lock(self.settings["locked"])
+        elif source != "menú":
+            hk = self.settings["hotkeys"].get("toggle_visible")
+            how = "con el atajo" if source == "atajo" else "con un clic en el icono de AionDex de la bandeja"
+            self.notify("info", "AionDex oculto",
+                        f"Lo ocultaste {how}. Para verlo otra vez: " + (f"{hk} o " if hk else "")
+                        + "clic en el icono de AionDex junto al reloj. Puedes cambiar o quitar el atajo en Ajustes.")
         self._save_settings()
 
     def toggle_lock(self):
@@ -2988,7 +3013,11 @@ class Controller(QObject):
         self._save_settings()
 
     def on_hotkey(self, hotkey_id):
-        getattr(self, HOTKEY_ACTIONS[hotkey_id - 1])()
+        action = HOTKEY_ACTIONS[hotkey_id - 1]
+        if action == "toggle_visible":
+            self.toggle_visible("atajo")
+        else:
+            getattr(self, action)()
 
     def quit(self):
         log.info("AionDex closing")
@@ -3083,7 +3112,7 @@ class Controller(QObject):
         menu.addAction("Salir", self.quit)
         self.tray.setContextMenu(menu)
         self.tray.activated.connect(
-            lambda reason: self.toggle_visible() if reason == QSystemTrayIcon.Trigger else None)
+            lambda reason: self.toggle_visible("bandeja") if reason == QSystemTrayIcon.Trigger else None)
         self._tray_menu = menu
         self.tray.show()
 

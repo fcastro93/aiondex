@@ -43,13 +43,18 @@ GRADE_COLOR = {"Common": "#C3C3C3", "Rare": "#19E048", "Epic": "#379AFF", "Uniqu
 SOURCE = {   # how a material is priced -> (chip text, colour)
     "npc": ("NPC", "#2ec0f2"), "gather": ("Recolectas", "#7bd88f"), "craft": ("Lo fabricas", "#c38bff"),
     "market": ("Mercado", "#f0c24e"), "manual": ("Tu precio", "#e0a050"), "unknown": ("Sin precio", "#ff7a59"),
+    "drop": ("Mobs / mercado", "#ff9f6e"), "dungeon": ("Mazmorra / mercado", "#8fb3ff"),
+    "chest": ("Cofre / mercado", "#c9a46b"), "combo": ("Combo / mercado", "#c38bff"),
 }
+FARMED = {"drop", "dungeon", "chest"}       # not sold, gathered or crafted, but they drop (1.63.1: were «Mercado»)
 PROFESSION_ES = {"Cooking": "Cocina", "Alchemy": "Alquimia", "Blacksmithing": "Herrería",
                  "Armorsmithing": "Armería", "Handicrafting": "Artesanía"}
 VERDICT_COLOR = {"good": theme.GAIN, "bad": theme.COMBAT, "none": theme.MUTED}
-MAT_KINDS = [("all", "Todos"), ("gather", "Recolectados"), ("market", "Solo del mercado"), ("craft", "Procesados")]
-MAT_KIND_CHIP = {"gather": ("Recolectado", "#7bd88f"), "market": ("Mercado", "#f0c24e"),
-                 "craft": ("Procesado", "#c38bff")}
+MAT_KINDS = [("all", "Todos"), ("gather", "Recolectados"), ("farm", "De mobs, mazmorras o cofres"),
+             ("combo", "Combo de craft"), ("market", "Solo del mercado"), ("craft", "Procesados")]
+MAT_KIND_CHIP = {"gather": ("Recolectado", "#7bd88f"), "market": ("Solo mercado", "#f0c24e"),
+                 "craft": ("Procesado", "#c38bff"), "drop": ("Mobs", "#ff9f6e"), "dungeon": ("Mazmorra", "#8fb3ff"),
+                 "chest": ("Cofre", "#c9a46b"), "combo": ("Combo de craft", "#c38bff")}
 COLUMNS = (("Precio", 74), ("Recibes", 74), ("Fallo", 96), ("Recolectando", 108), ("Comprando", 108),
            ("¿Se vende?", 146))
 SORTABLE = {"Objeto": "name", "Precio": "price", "Recibes": "net", "Fallo": "fail", "Recolectando": "gather",
@@ -990,7 +995,9 @@ class CraftingWindow(QWidget):
             box.toggled.connect(lambda on, k=key: self._mat_option(k, on))
             bar.addWidget(box)
         bar.addStretch(1)
-        if conf.get("kind", "all") != "all":
+        if conf.get("kind", "all") == "farm":
+            rows = [m for m in rows if m[1] in FARMED]
+        elif conf.get("kind", "all") != "all":
             rows = [m for m in rows if m[1] == conf["kind"]]
         if conf.get("prof", "all") != "all":
             rows = [m for m in rows if conf["prof"] in used_by.get(m[0], set())]
@@ -1046,7 +1053,7 @@ class CraftingWindow(QWidget):
 
         order = {k: i for i, (k, _) in enumerate(MAT_KINDS)}
         return {"name": (lambda m: m[0].lower(), False),
-                "kind": (lambda m: (order.get(m[1], 9), m[0].lower()), False),
+                "kind": (lambda m: (order.get("farm" if m[1] in FARMED else m[1], 9), m[0].lower()), False),
                 "have": (owned, True),
                 "price": (lambda m: m[2], True),
                 "avg": (change, False),
@@ -1077,7 +1084,12 @@ class CraftingWindow(QWidget):
             grid.addWidget(self._material_name(name, name, QColor(GRADE_COLOR.get(self._grade(name), "#D6DAE3"))),
                            r, 0)
             text, color = MAT_KIND_CHIP.get(source, ("—", "#8a93a6"))
-            grid.addWidget(_chip(text, color, f), r, 1)
+            chip = _chip(text, color, f)
+            where = crafting.source_text(name)
+            if where:
+                chip.setToolTip(where)
+                chip.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+            grid.addWidget(chip, r, 1)
             grid.addWidget(self._have_cell(name), r, 2, Qt.AlignRight)
             if lowest is None:
                 grid.addWidget(label("sin precio", f.small, theme.WARN), r, 3, Qt.AlignRight)
@@ -1129,7 +1141,12 @@ class CraftingWindow(QWidget):
             grid.addWidget(self._material_name(name, name, QColor(GRADE_COLOR.get(self._grade(name), "#D6DAE3"))),
                            r, 0)
             text, color = SOURCE.get(source if source != "market" else "market", SOURCE["unknown"])
-            grid.addWidget(_chip(text if source != "market" else "Del juego / mercado", color, f), r, 1)
+            chip = _chip(text if source != "market" else "Del juego / mercado", color, f)
+            where = crafting.source_text(name)
+            if where:
+                chip.setToolTip(where)
+                chip.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+            grid.addWidget(chip, r, 1)
             grid.addWidget(self._have_cell(name), r, 2, Qt.AlignRight)
             price = label(_kinah(lowest), f.name, theme.TEXT)
             price.setToolTip(f"precio {_ago(at)}")

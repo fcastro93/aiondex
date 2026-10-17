@@ -21,6 +21,10 @@ one more line. A transfer keeps the +N, the Amp levels and the lines, never that
 Theostone or Potential. Each manastone (weapons, armor) or soulstone (accessories) you use rerolls every socket of the
 piece. The lines worth having per piece are the guide's (IDEAL), skill effects included.
 
+Steps you do not want («No quiero hacer este paso», kept in settings "upgrades" "skipped") are left out and the plan
+is made again without them: a piece or a voucher you will not get no longer counts as "about to be replaced", so its
+enhancing and soul binding come back; a Sync you skip frees the piece it was going to eat.
+
 The plan, in order: wear what you already have that is better; spend your vouchers; enhance up to the level that
 never fails (+10 for Unique and Epic gear, +5 below); soul binding and manastones on the pieces you keep; Amp your
 weapon; buy (the piece that gives the most for its price, and the one of the Dragon Lord line, which goes on to item
@@ -130,6 +134,9 @@ class Step:
     stones: int = None
     ready: bool = True          # you can do it now with what you have
     pos: int = None
+    key: str = ""               # what «No quiero hacer este paso» skips
+    parts: list = field(default_factory=list)       # a card of several: [(key, text)] each one skippable
+    summary: str = ""           # the step in one short line (the window shows it; the detail opens on a click)
 
 
 @dataclass
@@ -165,6 +172,7 @@ class Plan:
     spare: list = field(default_factory=list)         # owned pieces you do not need: Spare (food for upgrades)
     scrolls: dict = field(default_factory=dict)       # Enhance Scroll name -> count (belts, amulets, runes)
     replace: set = field(default_factory=set)         # positions about to get another piece
+    skipped: set = field(default_factory=set)         # the keys of the steps you do not want
     item_level: int = 0
     read_at: float = None                             # when your items were read
 
@@ -358,12 +366,19 @@ def amp_max(item):
     return 3
 
 
-def build_plan(name, gear, gear_db, db, inventory, prices=None, dungeons=None, levels=None, recipes=None):
+def option_key(o):
+    """The skip key of an option: you do not want that piece that way ("market:Argo Earrings")."""
+    return f"{o.kind}:{o.item.name}"
+
+
+def build_plan(name, gear, gear_db, db, inventory, prices=None, dungeons=None, levels=None, recipes=None,
+               skipped=None):
     """The Plan for a character. gear: settings["gear"][name]; inventory: the app's Inventory (bag and storage);
     prices: {item name: (lowest, when)} of the market; dungeons: the ones you run; levels: {profession: level};
-    recipes: crafting_db's (the Dragon Lord pieces' Splendent step)."""
+    recipes: crafting_db's (the Dragon Lord pieces' Splendent step); skipped: the keys of the steps you do not want."""
     gear = gear or {}
     plan = Plan(name)
+    plan.skipped = set(skipped or ())
     plan.dungeons = list(dungeons or [])
     plan.read_at = inventory.read_at(name) if inventory else None
     counted = set()
@@ -487,9 +502,13 @@ def build_plan(name, gear, gear_db, db, inventory, prices=None, dungeons=None, l
             plan.options.setdefault(piece.pos, []).append(Option("drop", piece.pos, item, gain, None, text,
                                                                  chance=chance, source=source))
     order = {"own": 0, "voucher": 1, "drop": 2, "market": 3}
+    skip = plan.skipped
     for pos, opts in plan.options.items():
         best = {}
         for o in opts:                                          # one option per piece and kind (the cheapest)
+            if option_key(o) in skip or o.kind == "voucher" and f"voucher-dungeon:{o.source}" in skip or \
+                    o.kind == "drop" and f"farm-dungeon:{o.source}" in skip:
+                continue                                        # you said no to it
             key = (o.kind, o.item.name)
             if key not in best or (o.kinah or 0) < (best[key].kinah or 0):
                 best[key] = o
@@ -550,7 +569,8 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
                 steps.append(Step("own", f"Ponte {o.item.name} +{o.enchant}",
                                   f"La tienes en la bolsa o el almacén: {o.item.level} de base contra tu "
                                   f"{piece.item.name if piece.item else 'hueco'} ({piece.level} ahora).",
-                                  o.gain, 0, pos=pos))
+                                  o.gain, 0, pos=pos, key=option_key(o),
+                                  summary=f"Guardada: {o.item.level} de base contra {piece.base}"))
                 break
     # 2. vouchers: the pieces they give and what you lack for the best one
     for dungeon, count in plan.vouchers.items():
@@ -574,11 +594,20 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
         ready = best.need <= count and kina >= (best.kinah or 0)
         steps.append(Step("voucher", f"Tus {count} Gear Change Voucher de {dungeon}",
                           "; ".join(parts) + "." + _lost_on_transfer(by_pos[best.pos]), best.gain, best.kinah,
-                          ready=ready, pos=best.pos))
+                          ready=ready, pos=best.pos, key=f"voucher-dungeon:{dungeon}",
+                          summary=" · ".join(
+                              [f"{cheap[0].item.name} por {kinah_text(cheap[0].kinah)}"] if cheap else [])
+                          + "".join(f" · {o.need} = {o.item.name}" + (f" (te falta{'n' if o.need - count > 1 else ''} "
+                                                                    f"{o.need - count})" if o.need > count else "")
+                                    for o in big[:1]),
+                          parts=[(option_key(o), f"{o.item.name} (+{o.gain}) con {o.need} voucher"
+                                                 f"{'s' if o.need > 1 else ''}") for o in picks]))
     # 3. enhance up to the level that never fails, cheapest per level first, on the pieces you keep
     enh = []
     for piece in plan.pieces:
-        if piece.item and piece.to_safe and piece.enchant < piece.safe and piece.pos not in plan.replace:
+        if piece.item and piece.to_safe and piece.enchant < piece.safe and piece.pos not in plan.replace \
+                and "enhance-group" not in plan.skipped \
+                and f"enhance:{piece.item.name}:{piece.pos}" not in plan.skipped:
             cost_k, cost_s, extra = piece.to_safe
             n = piece.safe - piece.enchant
             scroll = f"{piece.item.name} Enhance Scroll (Bound)"
@@ -587,7 +616,10 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
                     f"{cost_s:,} Enhance Stones" + (f" y {extra} {scroll.replace(' (Bound)', '')} (tienes {have})"
                                                      if extra else ""))
             enh.append(Step("enhance", f"Encanta {piece.item.name}", text, n, cost_k, cost_s,
-                            ready=kina >= cost_k and stones >= cost_s and have >= extra, pos=piece.pos))
+                            ready=kina >= cost_k and stones >= cost_s and have >= extra, pos=piece.pos,
+                            key=f"enhance:{piece.item.name}:{piece.pos}",
+                            summary=f"+{piece.enchant} → +{piece.safe} · {kinah_text(cost_k)} Kinah · "
+                                    f"{cost_s:,} piedras"))
     enh.sort(key=lambda s: s.kinah / max(1, s.gain))
     if len(enh) > 2:                     # one card: every piece, cheapest per level first, and the total
         total_k, total_s = sum(s.kinah for s in enh), sum(s.stones for s in enh)
@@ -600,7 +632,11 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
                                  if by_pos[s.pos].to_safe[2] else "") + ")" for s in enh)
                           + f". En total {kinah_text(total_k)} Kinah y {total_s:,} Enhance Stones (tienes "
                             f"{kinah_text(kina)} y {stones:,}); de arriba abajo si no te alcanza.",
-                          sum(s.gain for s in enh), total_k, total_s, ready=enh[0].ready, pos=enh[0].pos))
+                          sum(s.gain for s in enh), total_k, total_s, ready=enh[0].ready, pos=enh[0].pos,
+                          key="enhance-group",
+                          summary=f"{len(enh)} piezas a +10 · {kinah_text(total_k)} Kinah · {total_s:,} piedras",
+                          parts=[(s.key, f"{by_pos[s.pos].item.name} +{by_pos[s.pos].enchant}→+{by_pos[s.pos].safe}")
+                                 for s in enh]))
     else:
         steps.extend(enh)
     # belts and amulets at +10: Substance Morph into the next grade (the guide)
@@ -608,7 +644,9 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
         if piece.item and piece.item.category in ("Belt", "Amulet") and piece.enchant >= piece.top > 0:
             steps.append(Step("morph", f"Sube de grado {piece.item.name}",
                               f"Ya está a +{piece.enchant}: con Substance Morph pasa al grado siguiente (Heroic es el "
-                              f"máximo) y vuelve a encantarse.", 0, ready=True, pos=piece.pos))
+                              f"máximo) y vuelve a encantarse.", 0, ready=True, pos=piece.pos,
+                              key=f"morph:{piece.item.name}:{piece.pos}",
+                              summary="Al máximo: pásalo al grado siguiente"))
     # 4. soul binding, on the pieces you keep
     codex, resets, sync = plan.have("soul_codex"), plan.have("soul_reset"), plan.have("sync_stone")
 
@@ -623,8 +661,9 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
     soul = []
     for piece in plan.pieces:
         s = piece.soul
-        if not piece.item or not s or not s.lines or piece.pos in plan.replace:
-            continue
+        if not piece.item or not s or not s.lines or piece.pos in plan.replace or \
+                f"soul:{piece.item.name}:{piece.pos}" in plan.skipped:
+            continue                     # (a skipped Sync does not eat its piece: it stays for the next one)
         lines = ", ".join(f"{n or '?'} {x[4] * 100:.0f}%" if x[4] is not None else f"{n or '?'}"
                           for x in s.lines for n in [x[0]])
         if s.locked:
@@ -632,7 +671,9 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
             soul.append((0, Step("soul", f"Línea extra en {piece.item.name}",
                                  f"Soul Binding al 100%: {FUSE_STONES} Philosopher's Stones + {kinah_text(FUSE_KINA)} "
                                  f"le dan una línea más (tienes {fuse}); esa línea no pasa con un transfer.",
-                                 1, FUSE_KINA, ready=fuse >= FUSE_STONES and kina >= FUSE_KINA, pos=piece.pos)))
+                                 1, FUSE_KINA, ready=fuse >= FUSE_STONES and kina >= FUSE_KINA, pos=piece.pos,
+                                 summary=f"Al 100% · {FUSE_STONES} Philosopher's Stones + {kinah_text(FUSE_KINA)} "
+                                         f"(tienes {fuse})")))
             continue
         good = len(s.lines) - len(s.bad) + s.skills
         if len(s.bad) >= 2 and good < len(s.bad):       # more to throw away than to keep: reroll them all
@@ -640,7 +681,9 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
                                  f"Soul Binding {s.rate:.0%} ({lines}): {len(s.bad)} líneas que no son las buscadas "
                                  f"({', '.join(s.bad)}). Reset las vuelve a tirar todas: 1 Soul Codex: Reset + "
                                  f"{kinah_text(RESET_KINA)} Kinah (tienes {resets}). Después, Bind.",
-                                 len(s.bad), RESET_KINA, ready=resets >= 1 and kina >= RESET_KINA, pos=piece.pos)))
+                                 len(s.bad), RESET_KINA, ready=resets >= 1 and kina >= RESET_KINA, pos=piece.pos,
+                                 summary=f"{s.rate:.0%} · {len(s.bad)} líneas a cambiar · 1 Reset + "
+                                         f"{kinah_text(RESET_KINA)}")))
         elif s.bad:                                       # keep the good lines: reroll the bad ones one by one
             eat = food(piece, len(s.bad))
             if eat:
@@ -657,15 +700,21 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
                                  f"se quedan) comiéndose una pieza del mismo tipo y grado, o una Sync Stone, por "
                                  f"intento. {how} Después, Bind.", len(s.bad),
                                  ready=bool(eat or sync or any(x.item.grade == "Unique" for x in plan.spare)),
-                                 pos=piece.pos)))
+                                 pos=piece.pos,
+                                 summary=f"{s.rate:.0%} · cambiar {', '.join(s.bad)} · comida: "
+                                         + (", ".join(f"{x.item.name} +{x.enchant}" for x in eat) if eat
+                                            else "una Sync Stone"))))
         else:
             soul.append((3, Step("soul", f"Bind: {piece.item.name}",
                                  f"Soul Binding {s.rate:.0%} ({lines}): sus líneas ya son de las buscadas. Bind las "
                                  f"sube: {kinah_text(BIND_KINA)} Kinah + Soul Codex por intento, más cada vez "
                                  f"(tienes {codex}).", round((1 - s.rate) * 10), BIND_KINA,
-                                 ready=codex > 0 and kina >= BIND_KINA, pos=piece.pos)))
+                                 ready=codex > 0 and kina >= BIND_KINA, pos=piece.pos,
+                                 summary=f"{s.rate:.0%} · líneas buenas: súbelas con Bind (tienes {codex} Soul Codex)")))
     soul.sort(key=lambda x: (x[0], x[1].pos not in (1, 2), -x[1].gain))
-    steps.extend(s for _, s in soul)
+    for _, s in soul:
+        s.key = f"soul:{by_pos[s.pos].item.name}:{s.pos}"
+        steps.append(s)
     # 5. manastones / soulstones on the pieces you keep (each stone rerolls every socket of the piece)
     for kind, keys, word in (("manastone", MANA_SLOTS, "Manastone"), ("soulstone", SOUL_SLOTS, "Soulstone")):
         empty = [(p, p.soul.empty) for p in plan.pieces if p.soul and p.soul.empty and p.key in keys
@@ -675,11 +724,14 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
         have = {n: c for n, c in plan.stones.items() if word in n}
         sup = sum(c for n, c in have.items() if n.startswith("Superior"))
         total = sum(n for _, n in empty)
-        steps.append(Step(kind, f"{total} huecos de {word.lower()} vacíos",
+        if kind in plan.skipped:
+            continue
+        steps.append(Step(kind, f"{total} huecos de {word.lower()} vacíos", key=kind, detail=
                           ", ".join(f"{p.item.name} ({n})" for p, n in empty)
                           + f". Tienes {sup} {word} Superior y {sum(have.values()) - sup} de otros grados. Cada "
                             f"piedra que pones vuelve a tirar todos los huecos de la pieza: ponlas en las que vas a "
-                            f"conservar (se pierden con un transfer).", total, ready=sup > 0 or bool(have)))
+                            f"conservar (se pierden con un transfer).", gain=total, ready=sup > 0 or bool(have),
+                          summary=f"{total} huecos en {len(empty)} piezas · tienes {sup} {word} Superior"))
     # 6. Amp the weapon (+16..+20 of a Unique piece)
     weapon = by_pos.get(1)
     if weapon and weapon.item and weapon.item.grade == "Unique" and weapon.enchant >= 15 and 1 not in plan.replace:
@@ -692,7 +744,9 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
                               f"{plan.have('amplify_stone')} Amplify Stone (Unique) y con tus {frags} fragmentos haces "
                               f"{make} más ({AMPLIFY_RECIPE[0]} fragmentos + {AMPLIFY_RECIPE[1]:,} Enhance Stones cada "
                               f"una, Substance Morph). El Amp pasa con un transfer.", top - amp,
-                              ready=plan.have("amplify_stone") > 0 or make > 0, pos=1))
+                              ready=plan.have("amplify_stone") > 0 or make > 0, pos=1, key="amp",
+                              summary=f"Amp {amp}/{top} · {plan.have('amplify_stone')} Amplify Stone (+{make} con tus "
+                                      f"fragmentos)"))
     # 7. buy: the most item level for the Kina, and the piece of the Dragon Lord line worth saving for
     market = [o for opts in plan.options.values() for o in opts if o.kind == "market" and o.kinah]
     if market:
@@ -715,7 +769,9 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
             if o.ladder:
                 detail += " Es de la línea Dragon Lord: con transfer crafting sigue subiendo hasta 102."
             steps.append(Step("buy", f"Compra {o.item.name}", detail, o.gain, o.kinah, ready=kina >= o.kinah,
-                              pos=o.pos))
+                              pos=o.pos, key=option_key(o),
+                              summary=f"{o.item.level} contra {piece.base} · {kinah_text(o.kinah / o.gain)} por nivel"
+                                      + (" · línea Dragon Lord" if o.ladder else "")))
         routes = []                         # the Dragon Lord line: (level it reaches now, Kina, option, how)
         for o in market:
             if not o.ladder:
@@ -744,7 +800,9 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
                     + f" La que más te sirve a futuro: {reach} contra tu {piece.item.name if piece.item else 'hueco'} "
                       f"({piece.base}) y, con transfer crafting, sigue hasta {LADDER_TOP} sin perder el encantamiento."
                     + (f" Te faltan {kinah_text(cost - kina)}." if kina < cost else ""),
-                    reach - piece.base, cost, ready=kina >= cost, pos=o.pos))
+                    reach - piece.base, cost, ready=kina >= cost, pos=o.pos, key=option_key(o),
+                    summary=f"{reach} hoy y hasta {LADDER_TOP} con transfer crafting"
+                            + (f" · te faltan {kinah_text(cost - kina)}" if kina < cost else "")))
     # 8. farm: what your dungeons give for your weakest pieces, one card per dungeon
     drops = sorted((o for opts in plan.options.values() for o in opts if o.kind == "drop"), key=lambda o: -o.gain)
     by_dungeon, seen = {}, set()
@@ -757,7 +815,11 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
         steps.append(Step("farm", f"Farmea en {dungeon}",
                           ", ".join(f"{o.item.name} (+{o.gain}, {o.chance * 100:.1f}% por clear)" for o in opts)
                           + (". Garantizado (eliges una): " + ", ".join(f"{m} cada {n} cubos" for m, n in pity)
-                             if pity else "") + ".", opts[0].gain, ready=True, pos=opts[0].pos))
+                             if pity else "") + ".", opts[0].gain, ready=True, pos=opts[0].pos,
+                          key=f"farm-dungeon:{dungeon}",
+                          summary=f"{len(opts)} piezas que te sirven"
+                                  + (f" · garantizado cada {pity[0][1]} cubos ({pity[0][0]})" if pity else ""),
+                          parts=[(option_key(o), f"{o.item.name} (+{o.gain})") for o in opts]))
     # 9. what the rest of your spare pieces are worth: a Sync Stone or a Transfer Stone each
     rest = [x for x in plan.spare if not x.use and x.item.grade == "Unique"]
     if rest:
@@ -772,7 +834,8 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
                           f"Sync Stones; un transfer a nivel 86+ pide 2. Primero las +0: las encantadas devuelven "
                           f"Enhance Stones si las rompes." + (f" Si haces con transfer todos los cambios que te "
                                                               f"recomiendo, te harían falta unas {need}." if need
-                                                              else ""), 0, ready=True))
+                                                              else ""), 0, ready=True, key="spare",
+                          summary=f"{len(rest)} piezas → 1 Transfer Stone o 1 Sync Stone cada una"))
     # 10. Theostones: weapons and guards, under 1% of the damage (the guide): last
     for pos in (1, 2):
         piece = by_pos.get(pos)
@@ -780,8 +843,9 @@ def _steps(plan, by_pos, kina, stones, db, levels, prices, recipes, gear_db, fac
             steps.append(Step("theostone", f"Theostone para {piece.item.name}",
                               f"No tiene ninguna: grabar una cuesta {kinah_text(THEOSTONE_KINA)} Kinah (tienes "
                               f"{plan.have('theostone')}). Aporta menos del 1% del daño y se pierde con un transfer.",
-                              0, THEOSTONE_KINA, ready=plan.have("theostone") > 0, pos=pos))
-    return steps
+                              0, THEOSTONE_KINA, ready=plan.have("theostone") > 0, pos=pos, key=f"theostone:{pos}",
+                              summary=f"Sin Theostone · {kinah_text(THEOSTONE_KINA)} Kinah · menos del 1% del daño"))
+    return [s for s in steps if s.key not in plan.skipped]
 
 
 def next_steps(plan, n=3):

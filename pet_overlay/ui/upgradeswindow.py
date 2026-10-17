@@ -1,12 +1,14 @@
-"""Mejoras window: what you have to spend, your route (the plan of upgrades.py, in order) and every piece with its
-+N, item level, soul binding, manastones and its best replacement; the dungeons you run decide what you can farm."""
+"""Mejoras window: what you have to spend and four tabs - your route (the plan of upgrades.py: «Lo siguiente» big,
+then one short row per step, grouped, whose detail opens on a click), your pieces (a tile each: +N, item level, soul
+binding and sockets as bars and dots, the best replacement), the food for upgrades, and your preferences (the dungeons
+you run, the steps you said no to)."""
 import time
 import webbrowser
 
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QColor
+from PySide6.QtCore import QRectF, Qt, QTimer
+from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton,
-                               QScrollArea, QVBoxLayout, QWidget)
+                               QScrollArea, QSizePolicy, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
 from ..upgrades import GUIDE, kinah_text, stat_value
@@ -16,34 +18,49 @@ from .theme import Fonts
 from .tunerwindow import EXTRA_STYLE
 from .widgets import SectionTitle, label
 
-CARD_STYLE = """
-QFrame#Card { background: #121c33; border: 1px solid #1f2b47; border-radius: 8px; }
-QFrame#Step { background: #101a30; border: 1px solid #1a2643; border-radius: 6px; }
-QFrame#Step[ready="true"] { border-color: #3a3218; }
-QFrame#Tile { background: #121c33; border: 1px solid #1f2b47; border-radius: 6px; }
-"""
 KIND = {   # step kind -> (chip text, colour)
     "own": ("Equipar", "#7bd88f"), "voucher": ("Voucher", "#f0c24e"), "enhance": ("Encantar", "#2ec0f2"),
     "morph": ("Subir de grado", "#2ec0f2"), "soul": ("Soul Binding", "#c38bff"), "manastone": ("Manastones", "#8fb3ff"),
     "soulstone": ("Soulstones", "#8fb3ff"), "amp": ("Amp", "#2ec0f2"), "buy": ("Comprar", "#f0c24e"),
-    "save": ("Ahorrar", "#e0a050"), "farm": ("Farmear", "#7bd88f"), "spare": ("Transfer Stones", "#8a93a8"),
+    "save": ("Ahorrar", "#e0a050"), "farm": ("Farmear", "#7bd88f"), "spare": ("Piedras", "#8a93a8"),
     "theostone": ("Theostone", "#8a93a8"),
 }
+GROUPS = (("now", "Para hacer ya", "Tienes todo lo que piden"),
+          ("later", "Te falta algo", "Kinah, piedras o materiales"),
+          ("buy", "Comprar en el market", "Con los precios de tus muestreos"),
+          ("farm", "Farmear", "En las mazmorras que haces"),
+          ("extra", "Extras", ""))
 OPTION = {"own": "La tienes", "voucher": "Voucher", "drop": "Mazmorra", "market": "Market"}
+GRADE = {"Unique": "#FFD02B", "Epic": "#379AFF", "Rare": "#19E048", "Special": "#00FFD8"}
 TILES = (("kina", "Kinah", kinah_text), ("enhance_stone", "Enhance Stones", lambda v: f"{v:,}"),
          ("transfer_stone", "Transfer Stones", str), ("soul_codex", "Soul Codex", str),
-         ("soul_reset", "Soul Codex: Reset", str), ("sync_stone", "Sync Stones", str),
-         ("philosopher", "Philosopher's Stones", str), ("amplify_stone", "Amplify Stones", str))
+         ("soul_reset", "Codex: Reset", str), ("sync_stone", "Sync Stones", str),
+         ("philosopher", "Philosopher's", str), ("amplify_stone", "Amplify Stones", str))
+TABS = (("route", "Tu ruta"), ("pieces", "Tus piezas"), ("food", "Comida"), ("prefs", "Preferencias"))
+CARD_STYLE = """
+QFrame#Card { background: #121c33; border: 1px solid #1f2b47; border-radius: 8px; }
+QFrame#Hero { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #1b2440, stop:1 #121c33);
+    border: 1px solid #3a3218; border-radius: 10px; }
+QFrame#Row { background: #101a30; border: 1px solid #1a2643; border-radius: 6px; }
+QFrame#Row:hover { border-color: #2c4170; }
+QFrame#Tile { background: #121c33; border: 1px solid #1f2b47; border-radius: 8px; }
+QFrame#Pill { background: #101a30; border: 1px solid #1a2643; border-radius: 6px; }
+QPushButton[link="true"] { background: transparent; border: none; color: #8a93a8; padding: 2px 4px; }
+QPushButton[link="true"]:hover { color: #e8ecf4; }
+"""
 
 
-def _chip(text, color, fonts):
+def _chip(text, color, fonts, tip=""):
     c = QColor(color)
     chip = QLabel(text)
     chip.setFont(fonts.small)
     chip.setStyleSheet(f"color: {c.name()}; background: rgba({c.red()},{c.green()},{c.blue()},0.12); "
                        f"border: 1px solid rgba({c.red()},{c.green()},{c.blue()},0.5); border-radius: 8px; "
                        f"padding: 0px 7px;")
-    chip.setAttribute(Qt.WA_TransparentForMouseEvents)
+    if tip:
+        chip.setToolTip(tip)
+    else:
+        chip.setAttribute(Qt.WA_TransparentForMouseEvents)
     return chip
 
 
@@ -72,17 +89,57 @@ def _ago(ts):
     return f"hace {mins / 1440:.0f} días"
 
 
+def _link(text, action, tip=""):
+    button = QPushButton(text)
+    button.setProperty("link", True)
+    button.setCursor(Qt.PointingHandCursor)
+    if tip:
+        button.setToolTip(tip)
+    button.clicked.connect(action)
+    return button
+
+
+class Bar(QWidget):
+    """A thin progress bar, with an optional mark (the +N that never fails)."""
+
+    def __init__(self, ratio, color, mark=None, height=6, parent=None):
+        super().__init__(parent)
+        self.ratio, self.color, self.mark = max(0.0, min(1.0, ratio)), QColor(color), mark
+        self.setFixedHeight(height)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+    def paintEvent(self, _):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        radius = r.height() / 2
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(255, 255, 255, 22))
+        p.drawRoundedRect(r, radius, radius)
+        if self.ratio > 0:
+            p.setBrush(self.color)
+            p.drawRoundedRect(QRectF(r.x(), r.y(), max(r.height(), r.width() * self.ratio), r.height()), radius,
+                              radius)
+        if self.mark is not None and 0 < self.mark < 1:
+            p.setBrush(QColor(255, 255, 255, 150))
+            x = r.x() + r.width() * self.mark
+            p.drawRect(QRectF(x - 0.75, r.y() - 1, 1.5, r.height() + 2))
+        p.end()
+
+
 class UpgradesWindow(QWidget):
     def __init__(self, ctl):
         super().__init__(None, Qt.Window)
         self.ctl = ctl
         self.fonts = Fonts(1.0)
         self.character = None              # None: the one you play
+        self.tab = "route"
+        self._open = set()                 # step keys whose detail is open
         self.setObjectName("MapWindow")
         self.setWindowTitle(f"{APP_NAME} — Mejoras")
         self.setWindowIcon(ctl.app_icon)
         self.setStyleSheet(STYLE + EXTRA_STYLE + CARD_STYLE)
-        self.resize(1180, 900)
+        self.resize(1100, 860)
         f = self.fonts
 
         root = QVBoxLayout(self)
@@ -107,12 +164,30 @@ class UpgradesWindow(QWidget):
         head.addWidget(prices)
         root.addLayout(head)
 
+        self.resources = QGridLayout()
+        self.resources.setSpacing(6)
+        root.addLayout(self.resources)
+
+        tabs = QHBoxLayout()
+        tabs.setSpacing(6)
+        self.tab_buttons = {}
+        for key, text in TABS:
+            button = QPushButton(text)
+            button.setProperty("tab", True)
+            button.setCheckable(True)
+            button.setMinimumWidth(130)
+            button.clicked.connect(lambda _=False, k=key: self.show_tab(k))
+            tabs.addWidget(button)
+            self.tab_buttons[key] = button
+        tabs.addStretch(1)
+        root.addLayout(tabs)
+
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         holder = QWidget()
         self.body = QVBoxLayout(holder)
-        self.body.setSpacing(10)
+        self.body.setSpacing(8)
         scroll.setWidget(holder)
         self.scroll = scroll
         root.addWidget(scroll, 1)
@@ -124,8 +199,8 @@ class UpgradesWindow(QWidget):
             link.clicked.connect(lambda _=False, u=credit["url"]: webbrowser.open(u))
             foot.addWidget(link)
         foot.addStretch(1)
-        foot.addWidget(label("Todo sale de tu tráfico (equipo, bolsa y almacén) y de tus muestreos del market: nada sale "
-                             "de tu PC.", f.small, theme.MUTED))
+        foot.addWidget(label("Todo sale de tu tráfico y de tus muestreos del market: nada sale de tu PC.", f.small,
+                             theme.MUTED))
         root.addLayout(foot)
         self._timer = QTimer(self, singleShot=True, interval=300, timeout=self.refresh)
         self.refresh()
@@ -138,6 +213,11 @@ class UpgradesWindow(QWidget):
         """Something it shows changed (items, gear, prices): one redraw shortly after."""
         if self.isVisible():
             self._timer.start()
+
+    def show_tab(self, key):
+        self.tab = key
+        self.refresh()
+        self.scroll.verticalScrollBar().setValue(0)
 
     def _who_changed(self, _):
         self.character = self.who.currentData()
@@ -157,218 +237,353 @@ class UpgradesWindow(QWidget):
 
     # --- content ---
     def refresh(self):
-        f = self.fonts
         self._fill_who()
         bar = self.scroll.verticalScrollBar().value()
         _clear(self.body)
+        _clear(self.resources)
         plan = self.ctl.upgrade_plan(self.character)
+        for key, button in self.tab_buttons.items():
+            button.setChecked(key == self.tab)
         if plan is None:
             self.subtitle.setText("")
             self._hint("Entra al juego con tu personaje con AionDex abierto: leo tu equipo, tu bolsa y tus almacenes "
-                       "(con el Soul Binding, las manastones y la Theostone de cada pieza) y aquí te digo qué hacer "
-                       "primero.", theme.WARN)
+                       "y aquí te digo qué hacer primero.", theme.WARN)
             self.body.addStretch(1)
             return
         prices = self.ctl.gear_prices()
-        bits = [plan.character, f"bolsa y almacén leídos {_ago(plan.read_at)}"]
-        bits.append(f"{len(prices)} precios de equipo" if prices else "sin precios de equipo (Market › Equipo)")
+        bits = [plan.character, f"bolsa y almacén leídos {_ago(plan.read_at)}",
+                f"{len(prices)} precios de equipo" if prices else "sin precios de equipo (Market › Equipo)"]
         self.subtitle.setText(" · ".join(bits))
-        if plan.read_at is None:
-            self._hint("Aún no leí tu bolsa ni tu almacén: cambia de canal o vuelve a entrar al personaje y aparecerán "
-                       "tu Kinah, tus piedras, tus vouchers y lo que tienes guardado.", theme.WARN)
+        counts = {"route": len(plan.steps), "food": len(plan.spare),
+                  "prefs": len(self.ctl.upgrades_config().get("skipped", {}))}
+        for key, text in TABS:
+            n = counts.get(key)
+            self.tab_buttons[key].setText(f"{text} ({n})" if n else text)
         self._resources(plan)
-        self._route(plan)
-        self._pieces(plan)
-        self._food(plan)
-        self._dungeons(plan)
+        if plan.read_at is None:
+            self._hint("Aún no leí tu bolsa ni tu almacén: cambia de canal o vuelve a entrar al personaje.", theme.WARN)
+        {"route": self._route, "pieces": self._pieces, "food": self._food, "prefs": self._prefs}[self.tab](plan)
         self.body.addStretch(1)
         QTimer.singleShot(0, lambda: self.scroll.verticalScrollBar().setValue(bar))
 
     def _hint(self, text, color=None):
-        lbl = label(text, self.fonts.body, color or theme.MUTED)
+        lbl = label(text, self.fonts.small, color or theme.MUTED)
         lbl.setWordWrap(True)
         self.body.addWidget(lbl)
 
     def _resources(self, plan):
         f = self.fonts
-        self.body.addWidget(SectionTitle("Lo que tienes", f))
-        grid = QGridLayout()
-        grid.setSpacing(8)
-        tiles = [(text, fmt(plan.have(key))) for key, text, fmt in TILES if plan.have(key) or key in
-                 ("kina", "enhance_stone", "transfer_stone")]
-        for dungeon, count in plan.vouchers.items():
-            tiles.append((f"Vouchers: {dungeon}", str(count)))
-        frags = plan.have("amplify_fragment")
-        if frags:
-            tiles.append(("Amplify Fragments (Unique)", str(frags)))
-        sup = {n: c for n, c in plan.stones.items() if n.startswith("Superior")}
-        for name, count in sorted(sup.items()):
-            tiles.append((name.replace(" (Bound)", ""), str(count)))
-        for i, (title, value) in enumerate(tiles):
-            tile = QFrame()
-            tile.setObjectName("Tile")
-            lay = QVBoxLayout(tile)
-            lay.setContentsMargins(10, 6, 10, 6)
-            lay.setSpacing(0)
-            lay.addWidget(label(value, f.name_big, theme.GOLD))
-            lay.addWidget(label(title, f.small, theme.MUTED))
-            grid.addWidget(tile, i // 6, i % 6)
-        for c in range(6):
-            grid.setColumnStretch(c, 1)
-        self.body.addLayout(grid)
+        pills = [(fmt(plan.have(key)), text) for key, text, fmt in TILES
+                 if plan.have(key) or key in ("kina", "enhance_stone", "transfer_stone")]
+        pills += [(str(n), f"Vouchers {d}") for d, n in plan.vouchers.items()]
+        sup = sum(c for n, c in plan.stones.items() if n.startswith("Superior Manastone"))
+        if sup:
+            pills.append((str(sup), "Manastones Sup."))
+        for i, (value, text) in enumerate(pills[:16]):
+            pill = QFrame()
+            pill.setObjectName("Pill")
+            lay = QHBoxLayout(pill)
+            lay.setContentsMargins(8, 3, 8, 3)
+            lay.setSpacing(6)
+            lay.addWidget(label(value, f.name, theme.GOLD))
+            lay.addWidget(label(text, f.small, theme.MUTED), 1)
+            self.resources.addWidget(pill, i // 8, i % 8)
+        for c in range(8):
+            self.resources.setColumnStretch(c, 1)
+
+    # --- Tu ruta ---
+    def _group(self, step):
+        if step.kind in ("buy", "save"):
+            return "buy"
+        if step.kind == "farm":
+            return "farm"
+        if step.kind in ("spare", "theostone"):
+            return "extra"
+        return "now" if step.ready else "later"
 
     def _route(self, plan):
         f = self.fonts
-        self.body.addWidget(SectionTitle("Tu ruta", f))
         if not plan.steps:
             self._hint("Nada que mejorar con lo que sé: escanea precios de equipo en el market o marca las mazmorras "
-                       "que haces.")
+                       "que haces (Preferencias).")
             return
-        self._hint("En orden: lo de arriba primero. En dorado lo que ya puedes hacer con lo que tienes.")
-        for n, step in enumerate(plan.steps, start=1):
-            card = QFrame()
-            card.setObjectName("Step")
-            card.setProperty("ready", step.ready)
-            lay = QVBoxLayout(card)
-            lay.setContentsMargins(12, 8, 12, 8)
-            lay.setSpacing(3)
-            top = QHBoxLayout()
-            top.setSpacing(8)
-            top.addWidget(label(f"{n}.", f.name, theme.MUTED))
-            top.addWidget(label(step.title, f.name, theme.GOLD if step.ready else theme.TEXT), 1)
-            text, color = KIND.get(step.kind, (step.kind, "#8a93a8"))
-            top.addWidget(_chip(text, color, f))
-            if step.gain and step.kind in ("own", "voucher", "buy", "save", "farm", "enhance"):
-                top.addWidget(_chip(f"+{step.gain} nivel", "#7bd88f", f))
-            if step.kinah:
-                top.addWidget(_chip(f"{kinah_text(step.kinah)} Kinah", "#f0c24e", f))
-            lay.addLayout(top)
-            detail = label(step.detail, f.body, theme.TEXT if step.ready else theme.MUTED)
-            detail.setWordWrap(True)
-            lay.addWidget(detail)
-            self.body.addWidget(card)
+        first = next((s for s in plan.steps if s.ready and self._group(s) == "now"), plan.steps[0])
+        self._hero(first)
+        rest = [s for s in plan.steps if s is not first]
+        for key, title, sub in GROUPS:
+            steps = [s for s in rest if self._group(s) == key]
+            if not steps:
+                continue
+            head = QHBoxLayout()
+            head.setContentsMargins(2, 8, 0, 0)
+            head.addWidget(label(f"{title}  ·  {len(steps)}", f.name, theme.TEXT))
+            if sub:
+                head.addWidget(label(sub, f.small, theme.MUTED))
+            head.addStretch(1)
+            self.body.addLayout(head)
+            for step in steps:
+                self.body.addWidget(self._row(step, plan.steps.index(step) + 1))
 
+    def _hero(self, step):
+        """«Lo siguiente»: the first step you can do now, in big, with its detail."""
+        f = self.fonts
+        card = QFrame()
+        card.setObjectName("Hero")
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(16, 12, 16, 12)
+        lay.setSpacing(6)
+        top = QHBoxLayout()
+        top.addWidget(label("LO SIGUIENTE", f.small, theme.GOLD))
+        text, color = KIND.get(step.kind, (step.kind, "#8a93a8"))
+        top.addWidget(_chip(text, color, f))
+        top.addStretch(1)
+        for chip in self._chips(step):
+            top.addWidget(chip)
+        lay.addLayout(top)
+        lay.addWidget(label(step.title, f.name_big, theme.TEXT))
+        if step.summary:
+            lay.addWidget(label(step.summary, f.body, theme.GOLD if step.ready else theme.MUTED))
+        detail = label(step.detail, f.small, theme.MUTED)
+        detail.setWordWrap(True)
+        lay.addWidget(detail)
+        self._parts(lay, step)
+        actions = QHBoxLayout()
+        actions.addStretch(1)
+        if step.key:
+            actions.addWidget(_link("No quiero hacer este paso", lambda _=False: self._skip(step.key, step.title),
+                                    "Lo quito de tu ruta y la rehago sin él; lo recuperas en Preferencias"))
+        lay.addLayout(actions)
+        self.body.addWidget(card)
+
+    def _chips(self, step):
+        f = self.fonts
+        out = []
+        if step.gain and step.kind in ("own", "voucher", "buy", "save", "farm", "enhance"):
+            out.append(_chip(f"+{step.gain} nivel", "#7bd88f", f))
+        if step.kinah:
+            out.append(_chip(f"{kinah_text(step.kinah)}", "#f0c24e", f, tip="Kinah que cuesta"))
+        return out
+
+    def _row(self, step, n):
+        """One step in a short row: number, title and its one line; «ver cómo» opens the detail."""
+        f = self.fonts
+        text, color = KIND.get(step.kind, (step.kind, "#8a93a8"))
+        row = QFrame()
+        row.setObjectName("Row")
+        row.setStyleSheet(f"QFrame#Row {{ border-left: 3px solid {color}; }}")
+        lay = QVBoxLayout(row)
+        lay.setContentsMargins(10, 6, 10, 6)
+        lay.setSpacing(3)
+        top = QHBoxLayout()
+        top.setSpacing(8)
+        top.addWidget(label(str(n), f.small, theme.MUTED))
+        title = QVBoxLayout()
+        title.setSpacing(0)
+        title.addWidget(label(step.title, f.name, theme.GOLD if step.ready else theme.TEXT, elide=True))
+        if step.summary:
+            title.addWidget(label(step.summary, f.small, theme.MUTED, elide=True))
+        top.addLayout(title, 1)
+        top.addWidget(_chip(text, color, f), 0, Qt.AlignVCenter)
+        for chip in self._chips(step):
+            top.addWidget(chip, 0, Qt.AlignVCenter)
+        is_open = step.key in self._open
+        toggle = _link("▾ ocultar" if is_open else "▸ ver cómo", lambda _=False: self._toggle(step.key))
+        top.addWidget(toggle, 0, Qt.AlignVCenter)
+        lay.addLayout(top)
+        if is_open:
+            detail = label(step.detail, f.small, theme.TEXT)
+            detail.setWordWrap(True)
+            detail.setContentsMargins(18, 2, 0, 0)
+            lay.addWidget(detail)
+            self._parts(lay, step)
+            actions = QHBoxLayout()
+            actions.setContentsMargins(18, 0, 0, 0)
+            actions.addStretch(1)
+            if step.key:
+                actions.addWidget(_link("No quiero hacer este paso",
+                                        lambda _=False: self._skip(step.key, step.title),
+                                        "Lo quito de tu ruta y la rehago sin él; lo recuperas en Preferencias"))
+            lay.addLayout(actions)
+        return row
+
+    def _parts(self, lay, step):
+        """A card of several (the pieces of «Encanta», the voucher's choices...): each one can be left out."""
+        if len(step.parts) <= 1:
+            return
+        f = self.fonts
+        lay.addWidget(label("Quitar solo una:", f.small, theme.MUTED))
+        grid = QGridLayout()
+        grid.setContentsMargins(18, 0, 0, 0)
+        grid.setHorizontalSpacing(6)
+        grid.setVerticalSpacing(0)
+        for i, (key, text) in enumerate(step.parts):
+            grid.addWidget(_link(f"✕ {text}", lambda _=False, k=key, t=text: self._skip(k, t),
+                                 f"No quiero esto: rehago la ruta sin ello"), i // 3, i % 3, Qt.AlignLeft)
+        lay.addLayout(grid)
+
+    def _toggle(self, key):
+        self._open.symmetric_difference_update({key})
+        QTimer.singleShot(0, self.refresh)
+
+    # --- Tus piezas ---
     def _pieces(self, plan):
         f = self.fonts
-        self.body.addWidget(SectionTitle("Pieza por pieza", f))
+        self._hint("Barras: el +N hasta su máximo (la marca blanca es hasta donde nunca falla) y el Soul Binding (el "
+                   "porcentaje del juego; en dorado al 100%). Puntos: huecos de manastone o soulstone puestos / "
+                   "vacíos. Pasa el ratón sobre una ficha para ver sus líneas.")
         grid = QGridLayout()
-        grid.setHorizontalSpacing(14)
-        grid.setVerticalSpacing(4)
-        for c, text in enumerate(("Pieza", "Llevas", "Nivel", "Sin fallar", "Soul Binding", "Huecos",
-                                  "Mejor opción")):
-            grid.addWidget(label(text, f.small, theme.ACCENT), 0, c)
-        for r, piece in enumerate(plan.pieces, start=1):
-            grid.addWidget(label(piece.slot, f.body, theme.MUTED), r, 0)
-            if piece.item is None:
-                grid.addWidget(label("—", f.body, theme.MUTED), r, 1)
-                continue
-            grade = {"Unique": "#FFD02B", "Epic": "#379AFF", "Rare": "#19E048"}.get(piece.item.grade, "#D6DAE3")
-            grid.addWidget(label(f"{piece.item.name} +{piece.enchant}", f.name, QColor(grade), elide=True), r, 1)
-            grid.addWidget(label(f"{piece.level} ({piece.base} base)", f.body, theme.TEXT), r, 2)
-            safe = f"+{piece.safe}" if piece.safe else "—"
-            cell = label(("✓ " if piece.enchant >= piece.safe and piece.safe else "") + safe, f.body,
-                         theme.GAIN if piece.safe and piece.enchant >= piece.safe else theme.TEXT)
-            if piece.to_safe:
-                cell.setToolTip(f"Hasta +{piece.safe}: {kinah_text(piece.to_safe[0])} Kinah y "
-                                f"{piece.to_safe[1]:,} Enhance Stones")
-                cell.setAttribute(Qt.WA_TransparentForMouseEvents, False)
-            grid.addWidget(cell, r, 3)
-            s = piece.soul
-            if s and s.lines:
-                text = "100% ✓" if s.locked else f"{s.rate:.0%}"
-                color = theme.GAIN if s.locked else theme.WARN if s.bad else theme.TEXT
-                cell = label(text + (f" · {len(s.bad)} a cambiar" if s.bad and not s.locked else ""), f.body, color)
-                cell.setToolTip("\n".join(
-                    f"{n or '?'}: {stat_value(n, v)}" + (f" de {stat_value(n, lo)}–{stat_value(n, hi)} ({p:.0%})"
-                                                          if p is not None else "")
-                    + ("  ✗ no es de las buscadas" if n in s.bad else "")
-                    for n, v, lo, hi, p in s.lines) + (f"\n+ {s.skills} efecto(s) de skill" if s.skills else ""))
-                cell.setAttribute(Qt.WA_TransparentForMouseEvents, False)
-            else:
-                cell = label("—", f.body, theme.MUTED)
-            grid.addWidget(cell, r, 4)
-            if s and s.sockets:
-                filled = len(s.sockets) - s.empty
-                cell = label(f"{filled}/{len(s.sockets)}" + (" · Theostone" if s.theostone else ""), f.body,
-                             theme.WARN if s.empty else theme.TEXT)
-            else:
-                cell = label("Theostone" if s and s.theostone else "—", f.body, theme.MUTED)
-            grid.addWidget(cell, r, 5)
-            opts = plan.options.get(piece.pos) or []
-            if opts:
-                o = opts[0]
-                cell = label(f"{OPTION[o.kind]}: {o.item.name} (+{o.gain})", f.body, theme.GOLD, elide=True)
-                cell.setToolTip("\n".join(f"{OPTION[x.kind]}: {x.item.name} (+{x.gain}) — {x.text}" for x in opts[:6]))
-                cell.setAttribute(Qt.WA_TransparentForMouseEvents, False)
-            else:
-                cell = label("—", f.body, theme.MUTED)
-            grid.addWidget(cell, r, 6)
-        grid.setColumnStretch(1, 2)
-        grid.setColumnStretch(6, 3)
-        card = QFrame()
-        card.setObjectName("Card")
-        card.setLayout(grid)
-        grid.setContentsMargins(12, 8, 12, 8)
-        self.body.addWidget(card)
-        self._hint("Soul Binding: el porcentaje del juego (lo que lleva cada línea entre su mínimo y su máximo, en "
-                   "promedio). «A cambiar»: líneas que no son las que busca la guía para esa pieza (pasa el ratón para "
-                   "verlas). Huecos: manastones o soulstones puestas / huecos de la pieza.")
+        grid.setSpacing(8)
+        tiles = [p for p in plan.pieces if p.item]
+        for i, piece in enumerate(tiles):
+            grid.addWidget(self._tile(plan, piece), i // 4, i % 4)
+        for c in range(4):
+            grid.setColumnStretch(c, 1)
+        self.body.addLayout(grid)
 
+    def _tile(self, plan, piece):
+        f = self.fonts
+        tile = QFrame()
+        tile.setObjectName("Tile")
+        lay = QVBoxLayout(tile)
+        lay.setContentsMargins(10, 8, 10, 8)
+        lay.setSpacing(4)
+        top = QHBoxLayout()
+        top.addWidget(label(piece.slot.upper(), f.small, theme.MUTED))
+        top.addStretch(1)
+        top.addWidget(label(f"{piece.level}", f.name, theme.TEXT))
+        top.addWidget(label(f"({piece.base})", f.small, theme.MUTED))
+        lay.addLayout(top)
+        lay.addWidget(label(f"{piece.item.name} +{piece.enchant}", f.name,
+                            QColor(GRADE.get(piece.item.grade, "#D6DAE3")), elide=True))
+        if piece.top:
+            row = QHBoxLayout()
+            row.setSpacing(6)
+            row.addWidget(label("+N", f.small, theme.MUTED))
+            row.addWidget(Bar(piece.enchant / piece.top, "#2ec0f2", piece.safe / piece.top if piece.safe else None), 1)
+            row.addWidget(label(f"+{piece.enchant}/{piece.top}", f.small, theme.TEXT))
+            lay.addLayout(row)
+        s = piece.soul
+        tips = []
+        if s and s.lines:
+            row = QHBoxLayout()
+            row.setSpacing(6)
+            row.addWidget(label("Soul", f.small, theme.MUTED))
+            color = "#f0c24e" if s.locked else "#e0a050" if s.bad else "#c38bff"
+            row.addWidget(Bar(s.rate, color), 1)
+            row.addWidget(label("100%" if s.locked else f"{s.rate:.0%}", f.small, theme.TEXT))
+            lay.addLayout(row)
+            tips = [f"{n or '?'}: {stat_value(n, v)}" + (f"  ({p:.0%})" if p is not None else "")
+                    + ("  · a cambiar" if n in s.bad else "") for n, v, lo, hi, p in s.lines]
+            if s.skills:
+                tips.append(f"+ {s.skills} efecto(s) de skill")
+        if s and (s.sockets or s.theostone):
+            filled = len(s.sockets) - s.empty
+            dots = f"<span style='color:#8fb3ff'>{'●' * filled}</span><span style='color:#3a4560'>{'●' * s.empty}</span>"
+            extra = " · Theostone" if s.theostone else ""
+            lbl = QLabel(dots + f"<span style='color:#8a93a8'>{extra}</span>")
+            lbl.setFont(f.small)
+            lbl.setAttribute(Qt.WA_TransparentForMouseEvents)
+            lay.addWidget(lbl)
+        opts = plan.options.get(piece.pos) or []
+        if opts:
+            o = opts[0]
+            lay.addWidget(label(f"→ {OPTION[o.kind]}: {o.item.name} (+{o.gain})", f.small, theme.GOLD, elide=True))
+            tips += [""] + [f"{OPTION[x.kind]}: {x.item.name} (+{x.gain}) — {x.text}" for x in opts[:5]]
+        elif piece.pos in plan.replace:
+            lay.addWidget(label("→ a cambiar", f.small, theme.GOLD))
+        lay.addStretch(1)
+        if tips:
+            tile.setToolTip("\n".join(tips).strip())
+        return tile
+
+    # --- Comida ---
     def _food(self, plan):
-        """The pieces of your bag and storage you do not need, and what each one is best eaten for."""
         f = self.fonts
         if not plan.spare:
+            self._hint("No tienes piezas sobrantes en la bolsa ni en los almacenes.")
             return
-        self.body.addWidget(SectionTitle("Comida para mejorar", f))
-        self._hint("Piezas de tu bolsa y tus almacenes que no te sirven para llevar: lo que cada una te da mejor. Una del "
-                   "mismo tipo y grado sirve para Sync de la tuya; cualquier Unique se convierte en 1 Sync Stone o 1 "
-                   "Transfer Stone (Substance Morph). Primero las +0 y de menos nivel.")
-        grid = QGridLayout()
-        grid.setHorizontalSpacing(14)
-        grid.setVerticalSpacing(3)
-        for c, text in enumerate(("Pieza", "Dónde", "Nivel", "Su Soul Binding", "Úsala para")):
-            grid.addWidget(label(text, f.small, theme.ACCENT), 0, c)
-        for r, x in enumerate(plan.spare, start=1):
-            grade = {"Unique": "#FFD02B", "Epic": "#379AFF"}.get(x.item.grade, "#D6DAE3")
-            grid.addWidget(label(f"{x.item.name} +{x.enchant}", f.name, QColor(grade), elide=True), r, 0)
-            grid.addWidget(label(x.place, f.body, theme.MUTED), r, 1)
-            grid.addWidget(label(str(x.level), f.body, theme.TEXT), r, 2)
-            grid.addWidget(label(f"{x.rate:.0%}" if x.rate else "—", f.body, theme.MUTED), r, 3)
-            use = x.use or ("guárdala" if x.item.grade != "Unique" else "Transfer Stone o Sync Stone")
-            grid.addWidget(label(use, f.body, theme.GOLD if x.use.startswith("Sync") else theme.TEXT), r, 4)
-        grid.setColumnStretch(0, 2)
-        grid.setColumnStretch(4, 3)
-        card = QFrame()
-        card.setObjectName("Card")
-        grid.setContentsMargins(12, 8, 12, 8)
-        card.setLayout(grid)
-        self.body.addWidget(card)
+        self._hint("Piezas de tu bolsa y tus almacenes que no llevas. Una del mismo tipo y grado sirve para el Sync de "
+                   "la tuya; cualquier Unique se convierte en 1 Sync Stone o 1 Transfer Stone (Substance Morph). "
+                   "Primero las +0 y de menos nivel.")
+        groups = {}
+        for x in plan.spare:
+            groups.setdefault(x.use or ("Guárdala" if x.item.grade != "Unique" else "Transfer Stone o Sync Stone"),
+                              []).append(x)
+        order = sorted(groups, key=lambda u: (not u.startswith("Sync de"), not u.startswith("Sync Stone"), u))
+        for use in order:
+            card = QFrame()
+            card.setObjectName("Card")
+            lay = QVBoxLayout(card)
+            lay.setContentsMargins(12, 8, 12, 8)
+            lay.setSpacing(4)
+            lay.addWidget(label(use, f.name, theme.GOLD if use.startswith("Sync") else theme.TEXT))
+            grid = QGridLayout()
+            grid.setHorizontalSpacing(14)
+            grid.setVerticalSpacing(2)
+            for i, x in enumerate(groups[use]):
+                color = QColor(GRADE.get(x.item.grade, "#D6DAE3")).name()
+                name = QLabel(f"<span style='color:{color}'>{x.item.name} +{x.enchant}</span>"
+                              f"<span style='color:#8a93a8'>  ·  {x.place}</span>")
+                name.setFont(f.body)
+                name.setToolTip(f"nivel {x.level}" + (f" · su Soul Binding {x.rate:.0%}" if x.rate else ""))
+                grid.addWidget(name, i // 3, i % 3)
+            for c in range(3):
+                grid.setColumnStretch(c, 1)
+            lay.addLayout(grid)
+            self.body.addWidget(card)
 
-    def _dungeons(self, plan):
+    # --- Preferencias ---
+    def _prefs(self, plan):
         f = self.fonts
         self.body.addWidget(SectionTitle("Mazmorras que haces", f))
         auto = self.ctl.upgrades_auto_dungeons()
         chosen = self.ctl.upgrades_config().get("dungeons")
         self._hint("De ellas salen las piezas que te dice que farmees y sus garantizados. "
-                   + (f"Detecté: {', '.join(auto)} (los jefes finales que mataste). " if auto else "")
+                   + (f"Detecté: {', '.join(auto)}. " if auto else "")
                    + ("Elegidas a mano." if chosen is not None else "Automático: las que detecto."))
-        row = QHBoxLayout()
-        row.setSpacing(12)
         boxes = QGridLayout()
         boxes.setHorizontalSpacing(16)
         for i, dungeon in enumerate(self.ctl.upgrades_db.dungeons()):
             box = QCheckBox(dungeon + (" (detectada)" if dungeon in auto else ""))
             box.setChecked(dungeon in plan.dungeons)
-            box.toggled.connect(lambda on, d=dungeon: self._toggle(d, on))
+            box.toggled.connect(lambda on, d=dungeon: self._toggle_dungeon(d, on))
             boxes.addWidget(box, i // 3, i % 3)
-        row.addLayout(boxes, 1)
+        self.body.addLayout(boxes)
         if chosen is not None:
             reset = QPushButton("Automático")
             reset.clicked.connect(lambda: self._set_dungeons(None))
-            row.addWidget(reset, 0, Qt.AlignTop)
-        self.body.addLayout(row)
+            self.body.addWidget(reset, 0, Qt.AlignLeft)
+        self.body.addWidget(SectionTitle("Pasos que no quieres hacer", f))
+        skipped = self.ctl.upgrades_config().get("skipped", {})
+        if not skipped:
+            self._hint("Ninguno. En cada paso de tu ruta, «No quiero hacer este paso» lo quita y la rehace sin él.")
+            return
+        self._hint("No cuentan en tu ruta. «Volver a tenerlo en cuenta» lo devuelve y la ruta se rehace con él.")
+        card = QFrame()
+        card.setObjectName("Card")
+        grid = QGridLayout(card)
+        grid.setContentsMargins(12, 8, 12, 8)
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(3)
+        for r, (key, title) in enumerate(sorted(skipped.items(), key=lambda x: x[1])):
+            grid.addWidget(label(title, f.body, theme.TEXT), r, 0)
+            grid.addWidget(_link("Volver a tenerlo en cuenta", lambda _=False, k=key: self._unskip(k)), r, 1)
+        grid.setColumnStretch(0, 1)
+        self.body.addWidget(card)
+        if len(skipped) > 1:
+            every = QPushButton("Recuperar todos")
+            every.clicked.connect(lambda: self._unskip(None))
+            self.body.addWidget(every, 0, Qt.AlignLeft)
 
-    def _toggle(self, dungeon, on):
+    def _skip(self, key, title):
+        self.ctl.upgrades_skip(key, title)
+        QTimer.singleShot(0, self.refresh)
+
+    def _unskip(self, key=None):
+        self.ctl.upgrades_unskip(key)
+        QTimer.singleShot(0, self.refresh)
+
+    def _toggle_dungeon(self, dungeon, on):
         current = list(self.ctl.upgrade_plan(self.character).dungeons)
         if on and dungeon not in current:
             current.append(dungeon)
