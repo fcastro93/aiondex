@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QColor, QPixmap
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from ..combat import in_instance
@@ -296,7 +296,10 @@ class DpsPanel(QWidget):
                      + (f" · tu rating {mine.rating:,}" if mine and mine.rating else "") + "  ›", f.small, theme.ACCENT)
         head.setAttribute(Qt.WA_TransparentForMouseEvents, False)
         head.setCursor(Qt.PointingHandCursor)
-        head.setToolTip("Ver el perfil completo de cada uno (equipo, habilidades, Daevanion) y abrirlo en shugo.gg")
+        head.setToolTip("Ver el perfil completo de cada uno (equipo, habilidades, Daevanion) y abrirlo en shugo.gg."
+                        "\nDEF: el Defiance de cada rival: ✓ listo · INMUNE los 5 s de Tenacity tras usarlo · luego "
+                        "los segundos que le faltan (su enfriamiento, el que manda el juego en su cast). Si lo usó en "
+                        "la ronda anterior sigue contando.")
         head.on_click = ctl.open_arena
         head.setContentsMargins(f.px(4), 0, 0, 0)
         self.content.addWidget(head)
@@ -308,8 +311,16 @@ class DpsPanel(QWidget):
             name = p.name + (f" [{p.server}]" if own_server and p.server != own_server else "")
             il = profile.item_level if profile else None
             middle = (f"IL {il:,}" if il else "cargando…" if ctl.armory.loading(p.name) else "")
+            tag = None
+            state = ctl.defiance_of(p.name) if p in rivals else None
+            if state:
+                kind, left = state
+                tag = (("DEF ✓", QColor("#7bd88f")) if kind == "ready" else
+                       (f"INMUNE {left:.0f}s", QColor("#f0c24e")) if kind == "immune" else
+                       (f"DEF {left:.0f}s", QColor("#ff7a7a")))
             self.content.addWidget(PartyRow(f, name, cls, self._class_icon(cls), profile.cp if profile else None,
-                                            middle, f"{p.rating:,}" if p.rating else "", 0, p in allies, compact))
+                                            middle, f"{p.rating:,}" if p.rating else "", 0, p in allies, compact,
+                                            tag=tag))
 
     def _footer(self):
         row = QWidget()

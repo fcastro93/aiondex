@@ -132,10 +132,10 @@ class WorldTracker:
     def _zone_event(self):
         side = game_map_faction(self.map_id) if self.map_id is not None else self.fallback_side
         votes = Counter()
-        for npc in self.nearby.values():
+        for npc in self.nearby.values():          # a whole vote for each zone it lives in: zones nest (a Drakan
             zones = [z for z in self.npc_zones[npc] if not side or self.zone_faction.get(z) in (side, "abyss", None)]
-            for z in zones:
-                votes[z] += 1 / len(zones)
+            for z in zones:                       # Probe of Tranein Pond is in Tranein Highland too), and a split
+                votes[z] += 1                     # vote let a few monsters of the next zone win
         self.votes = votes
         best = votes.most_common(1)
         zone = best[0][0] if best and best[0][1] >= MIN_VOTES else self.zone

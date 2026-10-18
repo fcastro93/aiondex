@@ -264,8 +264,9 @@ class PartyRow(QWidget):
     DPS and their share."""
 
     def __init__(self, fonts, name, class_name, icon, cp, dps, share, ratio, is_self=False, compact=False,
-                 dim=False):
+                 dim=False, tag=None):
         super().__init__()
+        self.tag = tag                   # (text, QColor) after the name: an Arena rival's Defiance
         self.dim = dim                   # partial numbers (only their damage over time reached us): drawn faded
         self.fonts, self.name, self.icon, self.cp, self.dps, self.share, self.ratio = (fonts, name, icon, cp, dps,
                                                                                        share, ratio)
@@ -328,6 +329,19 @@ class PartyRow(QWidget):
         cp_text = short_cp(self.cp) if self.cp else ""
         small = QFontMetrics(f.badge)
         cp_w = (f.px(11) + f.px(3) + small.horizontalAdvance(cp_text) + f.px(6)) if cp_text else 0
+        if self.tag:                     # the tag sits at the right end of the name's room
+            tag_w = small.horizontalAdvance(self.tag[0]) + f.px(10)
+            tag_rect = QRectF(right - tag_w, r.center().y() - small.height() / 2 - f.px(1), tag_w,
+                              small.height() + f.px(2))
+            fill = QColor(self.tag[1])
+            fill.setAlpha(60)
+            p.setPen(QPen(self.tag[1], 1))
+            p.setBrush(fill)
+            p.drawRoundedRect(tag_rect, tag_rect.height() / 2, tag_rect.height() / 2)
+            p.setFont(f.badge)
+            p.drawText(tag_rect, Qt.AlignCenter, self.tag[0])
+            p.setFont(f.name)
+            right = tag_rect.left() - f.px(6)
         name = fm.elidedText(self.name, Qt.ElideRight, int(max(10, right - left - cp_w)))
         shadow_text(p, QRectF(left, r.top(), right - left, r.height()), Qt.AlignVCenter | Qt.AlignLeft, name,
                     theme.TEXT)

@@ -48,7 +48,7 @@ from .mapdata import MapData
 from .contribution import OPCODES as CONTRIBUTION_OPCODES, CombatFeed
 from .gear import HIDDEN_POSITIONS, INVENTORY_OPCODE, GearDB, GearReader, own_faction
 from .inventory import UPDATE_OPCODE as ITEMS_UPDATE_OPCODE
-from .arena import ARENA_MAPS, ROSTER_OPCODE as ARENA_OPCODE, parse_roster
+from .arena import ARENA_MAPS, DEFIANCE, ROSTER_OPCODE as ARENA_OPCODE, parse_roster
 from .passes import CLAIM_OPCODE as PASS_CLAIM_OPCODE, LIST_OPCODE as PASS_OPCODE, Passes, \
     parse_claim as parse_pass_claim, parse_list as parse_passes
 from .status import CLAIM_SECONDS
@@ -89,6 +89,7 @@ log = logging.getLogger(__name__)
 HOTKEY_ACTIONS = ["toggle_visible", "toggle_lock", "toggle_compact", "toggle_map", "crafting_scan"]
 GRAB_DELAY_MS = 180             # AionDex's own windows fade out of the way before a market capture
 ZONE_NOTICE_COOLDOWN = 600      # seconds before the same zone's "pets here" notice repeats
+POSITION_ZONE_SECONDS = 20      # a position this recent says your zone (over the monsters around)
 
 
 def _plural(n, one, many):
@@ -175,6 +176,7 @@ class Bridge(QObject):
     member_stats = Signal(object)    # {name: (level, item level, combat power)} of your group (and you)
     own_cp = Signal(int)             # your combat power
     revive_cast = Signal(object)     # (caster, skill, time) of a revive or a self revive
+    defiance = Signal(object)        # (caster, cooldown ms, time) of a Defiance cast (the Arena's rivals)
     member_seen = Signal(object)     # ("party" | "group", entity id): someone the game keeps telling you about
     items = Signal(object)           # ("list" | "update", time, body): your bag and storage (1156 / 1b56)
     own_skill = Signal(object)       # ("press", ts, skill, result) | ("cast", ts, skill, cooldown ms) |
@@ -372,6 +374,10 @@ class Bridge(QObject):
                 skill = int.from_bytes(body[p + 1:p + 5], "little")
                 if skill == SELF_REVIVE or skill // 10000 in REVIVE_SKILLS:
                     self.revive_cast.emit((caster, skill, time.time()))
+                elif skill // 10000 in DEFIANCE:
+                    cast = parse_cast(body)
+                    if cast:
+                        self.defiance.emit((cast.caster, cast.cooldown_ms, time.time()))
             if self._self_stale:
                 cast = parse_cast(body)
                 if cast:
@@ -573,6 +579,7 @@ class Controller(QObject):
         self.bridge.player.connect(self.on_player)
         self.bridge.member_seen.connect(self.on_member_seen)
         self.bridge.revive_cast.connect(lambda c: self.combat.on_cast(*c))
+        self.bridge.defiance.connect(self.on_defiance)
         self._hinted_eids = {}          # entity id -> "party" of party members not named yet (no spawn seen)
         self._hint_seen = {}            # member name -> last hint (their HP / buffs the game keeps sending you)
         self._from_hints = set()        # members AionDex added from those hints (not from the game's group lists)
@@ -607,6 +614,7 @@ class Controller(QObject):
         self._armory_relay.ready.connect(self._profile_ready)
         self.players_window = self.arena_window = None
         self.arena_match = None             # arena.ArenaMatch of the match you are in (or just played)
+        self.arena_defiance = {}            # rival name -> (when, cooldown s) of their last Defiance this match
         self.bridge.arena.connect(self.on_arena)
         self.bridge.hp.connect(lambda update: self.combat.on_hp(*update))
         self.bridge.own_skill.connect(self.on_own_skill)
@@ -696,6 +704,10 @@ class Controller(QObject):
         self.notifications = NotificationCenter(self.data_dir / "notifications.json" if self.persist else None)
         self._refreshing = False
         self._last_zone_notice = {}     # zone slug -> time of the last "you are here" notice
+        self._zone_locator = None       # whereami.ZoneLocator: the zone from your position (built on first use)
+        self._zone_by_position = 0.0    # when your position last said the zone (the monsters' votes wait then)
+        self._zone_timer = QTimer(self, interval=2000, timeout=self._zone_from_position)
+        self._zone_timer.start()
         self._synced_for = None         # character the last collection-sync notice was for
         self.window = OverlayWindow(self, self.fonts)
         self.window.setWindowIcon(self.app_icon)
@@ -1325,7 +1337,9 @@ class Controller(QObject):
         finished = self.combat.tick()
         if finished:
             self._encounter_notice(finished)
-        if self.active_module.key == "dps" and (finished or (self.combat.current and not self.combat.current.ended)):
+        timing = self.arena_defiance and self.combat.map_id in ARENA_MAPS      # a rival's Defiance counting down
+        if self.active_module.key == "dps" and (finished or timing or
+                                                (self.combat.current and not self.combat.current.ended)):
             self.refresh()
 
     # --- saved fights (fightlog.py) -------------------------------------------------------------------
@@ -1736,6 +1750,7 @@ class Controller(QObject):
         """The Arena's roster as you enter a match: load everyone's official profile (rivals first), each with
         their own server."""
         self.arena_match = match
+        self.arena_defiance = {}
         me = self._me()
         log.info("arena %s (mode %s): %s", match.size, match.mode,
                  ", ".join(f"{p.name}@{p.server} team {p.team} rating {p.rating}" for p in match.players))
@@ -1768,6 +1783,28 @@ class Controller(QObject):
         """The match you are in or just played (in the Arena or before going back to the world), or None."""
         m = self.arena_match
         return m if m is not None and m.current() else None
+
+    def on_defiance(self, event):
+        """A Defiance cast: a rival's, inside the Arena (1v1 and 5v5 only: never the Abyss or other PvP), is kept for
+        the DPS card (ready / immune / back in N s)."""
+        eid, cooldown_ms, at = event
+        match = self.arena()
+        if match is None or self.combat.map_id not in ARENA_MAPS:
+            return
+        name = self.combat.players.get(eid)
+        if not name or name not in {p.name for p in match.rivals(self._me())}:
+            return
+        self.arena_defiance[name] = (at, (cooldown_ms or 60_000) / 1000.0)
+        log.info("arena: %s used Defiance (cooldown %.1f s)", name, (cooldown_ms or 0) / 1000)
+        if self.active_module.key == "dps" and not self._refreshing:
+            self.refresh()
+
+    def defiance_of(self, name):
+        """(state, seconds left) of a rival's Defiance in the Arena you are in, or None outside it."""
+        from .arena import defiance_state
+        if self.combat.map_id not in ARENA_MAPS or self.arena() is None:
+            return None
+        return defiance_state(self.arena_defiance.get(name), time.time())
 
     def arena_members(self):
         """[(name, server, job, on your team, is you)] of the current match: the players window's arena view."""
@@ -1827,12 +1864,35 @@ class Controller(QObject):
         if open_world or game_map_faction(map_id) != self.location_faction():
             self.game_map = map_id
             self.current_zone, self.zone_from_npcs = None, False
+            self._zone_by_position = 0.0
         if self.arena_match is not None and map_id not in ARENA_MAPS and not in_instance(map_id):
             self.arena_match.at = min(self.arena_match.at, time.time() - 30 * 60)   # back in the world: kept 10 min
         log.info("map entry %s (seq %s, side %s)", map_id, seq, game_map_faction(map_id))
         self.refresh()
 
+    def _zone_from_position(self):
+        """Every 2 s: the zone you are in from your position (the world map's zone outlines), when AionDex knows
+        where you are (every cast tells; the minimap when you only run). It wins over the monsters around."""
+        from .whereami import ZoneLocator
+        position = self.bridge.position
+        fix, game_map = position.fix, position.game_map
+        if not fix or game_map is None or time.time() - fix[0] > POSITION_ZONE_SECONDS:
+            return
+        if self._zone_locator is None:
+            self._zone_locator = ZoneLocator(self.data_dir / "world_db.json", set(self.mapdata.zones))
+        zone = self._zone_locator.zone_at(game_map, fix[1], fix[2])
+        if not zone:
+            return
+        self._zone_by_position = time.time()
+        if zone != self.current_zone:
+            log.info("zone %s from your position (was %s)", zone, self.current_zone)
+            self.current_zone, self.zone_from_npcs = zone, True
+            self._zone_notice(zone)
+            self.refresh()
+
     def on_zone_detected(self, zone):
+        if time.time() - self._zone_by_position < POSITION_ZONE_SECONDS:
+            return                     # your position says where you are: the monsters around only guess
         changed = zone != self.current_zone
         self.current_zone, self.zone_from_npcs = zone, zone is not None
         if zone and changed:

@@ -8,12 +8,21 @@ What the game sends (2026-10-13, Arena 1v1 on map 60, Agame against Sobres):
   profile is looked up with.
 - 25e3 / 26e3 at each round (the two character ids + server; 26e3 adds each one's rounds), 1ce3 as each one is ready.
 The entries are found by their shape (id, server, name, job, level), so a 5v5 roster (10 players) reads the same way.
+
+Defiance (every class's crowd-control break: removes Stun, Knockdown, Airborne, Grab, Frost and Fear and gives
+Tenacity, status effect immunity, for 5 s; 60 s cooldown at level 1, one less per level, no cooldown reduction): a
+rival's cast (0238) carries its cooldown (2026-10-13 capture: Sobres 17240030, 49,200 ms; Agame 17240340, 41,400 ms),
+so the card says when it is back without knowing their level. The entity ids stay the same through the rounds; the
+capture does not say whether a new round resets cooldowns, so a Defiance of the round before keeps counting (rounds
+last ~40-60 s, about its cooldown). Shown only inside the Arena (map 60), never in the Abyss or other PvP.
 """
 import struct
 import time
 from dataclasses import dataclass, field
 
 ROSTER_OPCODE = bytes.fromhex("19e3")
+DEFIANCE = {1126, 1226, 1326, 1426, 1524, 1620, 1724, 1820}   # skill id // 10000 of each class's Defiance
+TENACITY = 5.0               # seconds of status effect immunity after it
 ARENA_MAPS = {60}                # game map ids (2136) of the Arena
 TEAM_BACK = 22                   # the team byte, this many bytes before the character id
 RATING_BACK = 21                 # the rating (u64), this many bytes before it
@@ -30,6 +39,18 @@ class ArenaPlayer:
     rating: int = None
     faction: int = 0
     character_id: int = 0
+
+
+def defiance_state(used, now):
+    """("ready" | "immune" | "cooldown", seconds left) of a rival's Defiance; used: (when, cooldown s) or None."""
+    if not used:
+        return "ready", 0.0
+    at, cooldown = used
+    if now - at < TENACITY:
+        return "immune", TENACITY - (now - at)
+    if now - at < cooldown:
+        return "cooldown", cooldown - (now - at)
+    return "ready", 0.0
 
 
 @dataclass

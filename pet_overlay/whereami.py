@@ -15,8 +15,11 @@ v = y / SPAN + v0, fitted 2026-10-14 on monster spawns (Altgard 756, residual me
 half the size); the 9 world maps' spans and origins from the user's own map export (2026-10-15: linear to 0.01 px;
 only Ishalgen's origin is not the centre), whose monsters sit on metabot's spawns (median 0 m on 6 maps).
 """
+import json
+import re
 import struct
 import time
+from pathlib import Path
 
 from . import nodes, simulation
 from .gathering import GAME_MAPS
@@ -120,6 +123,62 @@ class OwnPosition:
         if spot is None:
             return None
         return (*spot, max(0.0, (now or time.time()) - fix[0]), fix[3], fix[4])
+
+
+def zone_slug(name):
+    """A world map region's name -> the zone slug of map_db ("Siel's Right Wing" -> "siels-right-wing")."""
+    return re.sub(r"[^a-z0-9]+", "-", name.lower().replace("'", "")).strip("-")
+
+
+def _inside(u, v, ring):
+    hit = False
+    for i in range(len(ring)):
+        x1, y1 = ring[i]
+        x2, y2 = ring[i - 1]
+        if (y1 > v) != (y2 > v) and u < (x2 - x1) * (v - y1) / (y2 - y1) + x1:
+            hit = not hit
+    return hit
+
+
+def _area(ring):
+    return abs(sum(ring[i - 1][0] * ring[i][1] - ring[i][0] * ring[i - 1][1] for i in range(len(ring)))) / 2
+
+
+class ZoneLocator:
+    """The zone you are in from your position: the smallest region of the world map (data/world_db.json "regions",
+    their outlines) that holds it and has pets (map_db's zones). Regions nest (Tranein Pond inside Tranein Highland):
+    the smallest wins. 2026-10-18: by the monsters around, a Drakan Probe farmer in Tranein Highland read Battlescar
+    Mound on and off (the probes' votes split between two nested zones, a few Battlescar monsters at the edge of
+    sight won)."""
+
+    def __init__(self, world_db_path, known):
+        try:
+            regions = json.loads(Path(world_db_path).read_text(encoding="utf-8")).get("regions", {})
+        except (OSError, ValueError):
+            regions = {}
+        self.regions = {}
+        for map_id, rows in regions.items():
+            for r in rows:
+                slug = zone_slug(r.get("name", ""))
+                if slug not in known:
+                    continue
+                for ring in r.get("outline") or []:
+                    if len(ring) >= 3:
+                        us, vs = [p[0] for p in ring], [p[1] for p in ring]
+                        self.regions.setdefault(map_id, []).append(
+                            (slug, _area(ring), ring, (min(us), min(vs), max(us), max(vs))))
+
+    def zone_at(self, game_map, x, y):
+        """The zone slug at a game position, or None (an instance, or outside every zone with pets)."""
+        spot = to_map(game_map, x, y)
+        if spot is None:
+            return None
+        map_id, u, v = spot
+        best = None
+        for slug, area, ring, (u0, v0, u1, v1) in self.regions.get(map_id, []):
+            if u0 <= u <= u1 and v0 <= v <= v1 and (best is None or area < best[0]) and _inside(u, v, ring):
+                best = (area, slug)
+        return best[1] if best else None
 
 
 def _fixed_move(body):

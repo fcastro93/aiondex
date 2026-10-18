@@ -1,6 +1,8 @@
 """Overlay shell: translucent panel with the app menu button, lock/compact controls, the active module's
 panel, a banner for notices and a footer. Feature content lives in pet_overlay/modules."""
-from PySide6.QtCore import QPoint, QRectF, Qt, QTimer, Signal
+import time
+
+from PySide6.QtCore import QPoint, QRect, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QGuiApplication, QPainter, QPen
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
@@ -88,6 +90,8 @@ class OverlayWindow(QWidget):
         self.setFixedWidth(fonts.px(340))
         self._drag_from = None
         self._press_at = None
+        self._anchor = None              # where you put it (placed or dragged): a resize never moves it from there
+        self._resized_at = 0.0
         self.panels = []
 
         root = QVBoxLayout(self)
@@ -156,12 +160,27 @@ class OverlayWindow(QWidget):
         want = self.sizeHint().height()
         if want >= self.height() or not self.isVisible():
             self._shrink.stop()
-            self.resize(self.width(), want)
+            self._resize_to(want)
         elif not self._shrink.isActive():
             self._shrink.start()
 
     def _shrink_now(self):
-        self.resize(self.width(), self.sizeHint().height())
+        self._resize_to(self.sizeHint().height())
+
+    def _resize_to(self, height):
+        if height != self.height():
+            self._resized_at = time.time()
+            self.resize(self.width(), height)
+        self._hold()
+
+    def _hold(self):
+        """Back where you put it, if something moved it while it changed size (2026-10-18, a user: a panel growing
+        and shrinking over and over crept the overlay up the screen) and it fits there."""
+        if self._anchor is None or self._drag_from is not None or self.pos() == self._anchor:
+            return
+        screen = QGuiApplication.screenAt(self._anchor)
+        if screen is not None and screen.availableGeometry().contains(QRect(self._anchor, self.size())):
+            self.move(self._anchor)
 
     def set_unread(self, count):
         self.unread.setText(str(count) if count else "")
@@ -174,6 +193,9 @@ class OverlayWindow(QWidget):
 
     def moveEvent(self, event):
         super().moveEvent(event)
+        if self._drag_from is None and self._anchor is not None and self.pos() != self._anchor and \
+                time.time() - self._resized_at < 1.0:
+            QTimer.singleShot(0, self._hold)     # moved by a resize, not by you
         self.moved.emit()
 
     def resizeEvent(self, event):
@@ -216,6 +238,7 @@ class OverlayWindow(QWidget):
         self._drag_from = None
         moved = (event.globalPosition().toPoint() - self._press_at).manhattanLength()
         if moved > 4:
+            self._anchor = self.pos()
             self.ctl.remember_position(self.pos())
             return
         # A plain click (not a drag) runs the clicked widget's action, if it has one.
@@ -243,6 +266,8 @@ class OverlayWindow(QWidget):
             for screen in QGuiApplication.screens():
                 if screen.availableGeometry().adjusted(-size.width() // 2, 0, 0, -40).contains(point):
                     self.move(point)
+                    self._anchor = self.pos()
                     return
         area = QGuiApplication.primaryScreen().availableGeometry()
         self.move(area.right() - size.width() - self.fonts.px(40), area.top() + self.fonts.px(160))
+        self._anchor = self.pos()
