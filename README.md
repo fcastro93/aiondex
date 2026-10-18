@@ -87,7 +87,7 @@ Cada release incluye un manifiesto **firmado** (Ed25519). La app solo instala un
 - Crafting solo captura la ventana del juego cuando pulsas Escanear; el texto se lee en tu PC (OCR de Windows) y la captura se borra al procesarla (o cuando la borras tú). Los muestreos guardan solo nombres de objetos, precios y ofertas.
 - Crafting guarda de tu bolsa y tu almacén solo los objetos que usan o fabrican las recetas, en tus ajustes. Las capturas de tus ventas (Settlement) se guardan como prueba en tu PC; las demás se borran al procesarlas.
 - Status solo lee los contadores de tus propios personajes (energía, entradas y tickets) y los guarda en tus ajustes.
-- **Jugadores** pide el perfil público de los de tu party/force al sitio oficial de NCSOFT (aion2.plaync.com) solo cuando abres la ventana o pulsas Refrescar, de uno en uno, y lo guarda 30 minutos en tu PC.
+- **Jugadores** pide el perfil público de los de tu party/force al sitio oficial de NCSOFT (aion2.plaync.com) solo cuando abres la ventana, pulsas Refrescar o alguien nuevo entra al grupo con la ventana abierta, de uno en uno y antes que cualquier otra petición: primero el CP y el item level de todos (los que aún no tienen CP, primero; unos 16 segundos para una force de 16) y luego su equipo; lo guarda 30 minutos en tu PC.
 - El medidor de DPS solo muestra nombres de tu party/force; el resto de jugadores aparece como «Jugador N». Las peleas se guardan 48 horas solo en tu PC (las marcadas con ★, hasta que las quites), con los de fuera de tu grupo ya sin nombre; nada se sube.
 - Proyecto de fans, **no afiliado a NCSoft**. Usar herramientas de terceros puede ir contra los términos del juego: úsalo bajo tu responsabilidad.
 

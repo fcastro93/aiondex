@@ -52,7 +52,7 @@ from .arena import ARENA_MAPS, ROSTER_OPCODE as ARENA_OPCODE, parse_roster
 from .passes import CLAIM_OPCODE as PASS_CLAIM_OPCODE, LIST_OPCODE as PASS_OPCODE, Passes, \
     parse_claim as parse_pass_claim, parse_list as parse_passes
 from .status import CLAIM_SECONDS
-from .armory import Armory
+from .armory import GROUP, LOW, Armory
 from .paths import ASSETS_DIR
 from .sounds import SoundPlayer
 from .pets import Collection, Pet, LEVEL_OPCODE, PROGRESS_OPCODE, SNAPSHOT_OPCODE, parse_level, parse_progress, \
@@ -1741,7 +1741,7 @@ class Controller(QObject):
                  ", ".join(f"{p.name}@{p.server} team {p.team} rating {p.rating}" for p in match.players))
         rivals, allies = match.rivals(me), match.allies(me)
         for p in rivals + allies + [p for p in match.players if p.name == me]:
-            self.armory.want(p.name, p.server)
+            self.armory.want(p.name, p.server, priority=GROUP)
         if rivals:
             shown = ", ".join(f"{p.name} ({p.server}" + (f", rating {p.rating:,}" if p.rating else "") + ")"
                               for p in rivals[:3]) + ("…" if len(rivals) > 3 else "")
@@ -2479,7 +2479,7 @@ class Controller(QObject):
         profile = self.armory.cached(name, server) if server else None
         if server and time.time() - self._profile_asked.get(name, 0) > 30 * 60:     # at most every half hour
             self._profile_asked[name] = time.time()
-            self.armory.want(name, server)
+            self.armory.want(name, server, priority=LOW)
         live = self.own_cp if name == self.character_name() else None
         return character_stats(gear, profile, self.gear_db, self.upgrades_role(name), live)
 

@@ -17,7 +17,14 @@ Every request answers with the data as it is now (that is what "refresh" does on
 when you open the players window or press Refrescar: one request at a time, at least REQUEST_GAP apart, a 429/5xx
 is retried a few times with a growing wait (Retry-After when the server gives one), and profiles are kept
 CACHE_MINUTES on disk.
+
+The requests wait in a priority queue (GROUP < ITEM < GROUP_EQUIPMENT < NORMAL < LOW): your force / party / Arena
+first and, for them, the info (class, CP, item level) of every one before anyone's equipment, so the CP to organise
+the force comes in a few seconds (16 players: ~16 s instead of ~50 s); the piece you clicked next; then the rest
+(Builds, the build macro, Mejoras' own characters). A request for someone already waiting with a lower priority
+moves them up.
 """
+import itertools
 import json
 import logging
 import queue
@@ -39,6 +46,7 @@ CACHE_MINUTES = 30
 ITEM_MINUTES = 30
 RETRIES = 4
 SUBREGIONS = {1: "nae", 2: "naw", 3: "eu", 4: "la", 5: "as"}      # global server ids: faction digit, region digit
+GROUP, ITEM, GROUP_EQUIPMENT, NORMAL, LOW = 0, 1, 2, 3, 4          # the queue's priorities, first first
 
 
 def subregion(server):
@@ -72,6 +80,7 @@ class Profile:
         self.image = p.get("profileImage") or ""
         stats = (info.get("stat") or {}).get("statList") or []
         self.item_level = next((s.get("value") for s in stats if s.get("type") == "ItemLevel"), None)
+        self.partial = bool(data.get("partial"))     # the info is new, the equipment still the one before
         self.stats = [(s.get("name"), s.get("value")) for s in stats if s.get("type") != "ItemLevel"]
         boards = (info.get("daevanion") or {}).get("boardList") or []
         self.daevanion = [(b.get("name"), b.get("openNodeCount") or 0, b.get("totalNodeCount") or 0) for b in boards]
@@ -105,8 +114,9 @@ class Armory:
         self.dir = Path(data_dir) / "armory"
         self.on_ready = on_ready or (lambda name: None)      # called on the worker thread: post to the UI yourself
         self._ids = self._load("ids.json", {})
-        self._queue = queue.Queue()
-        self._pending = set()
+        self._queue = queue.PriorityQueue()          # (priority, order, job)
+        self._order = itertools.count()
+        self._pending = {}                           # name / ("equip", name) / ("item", path) -> its priority
         self._errors = {}                                     # name -> last error text
         self._lock = threading.Lock()
         self._thread = None
@@ -139,22 +149,34 @@ class Armory:
         return self._errors.get(name)
 
     def loading(self, name):
+        """Is this profile on its way (its info, or for your group its equipment after the CP)?"""
+        return name in self._pending or ("equip", name) in self._pending
+
+    def loading_info(self, name):
         return name in self._pending
 
+    def _put(self, key, priority, job):
+        """Queue a job unless the same one waits with this priority or a better one; True when queued."""
+        with self._lock:
+            best = self._pending.get(key)
+            if best is not None and best <= priority:
+                return False
+            self._pending[key] = priority
+        self._queue.put((priority, next(self._order), job))
+        self._start()
+        return True
+
     # --- requests ---
-    def want(self, name, server, refresh=False):
-        """Ask for a profile in the background (skipped when the one on disk is recent and refresh is False)."""
+    def want(self, name, server, refresh=False, priority=NORMAL):
+        """Ask for a profile in the background (skipped when the one on disk is recent and refresh is False).
+        priority GROUP (your force, party, Arena): the info with the CP first, the equipment after everyone's."""
         if not name or not server:
             return
         cached = self.cached(name, server)
-        if cached and not refresh and time.time() - cached.at < CACHE_MINUTES * 60:
-            return
-        with self._lock:
-            if name in self._pending:
-                return
-            self._pending.add(name)
-        self._queue.put((name, server))
-        self._start()
+        if cached and not refresh and time.time() - cached.at < CACHE_MINUTES * 60 and (
+                not cached.partial or ("equip", name) in self._pending):
+            return                            # recent (or its CP is, and its equipment is on its way)
+        self._put(name, priority, ("info" if priority == GROUP else "profile", name, server))
 
     # --- one piece of gear, as its tooltip shows it ---
     def _item_path(self, profile, slot):
@@ -178,13 +200,7 @@ class Armory:
         saved = self._load(str(path.relative_to(self.dir)), None)
         if saved and time.time() - saved.get("at", 0) < ITEM_MINUTES * 60:
             return
-        key = ("item", str(path))
-        with self._lock:
-            if key in self._pending:
-                return
-            self._pending.add(key)
-        self._queue.put(("item", profile, slot, path))
-        self._start()
+        self._put(("item", str(path)), ITEM, ("item", profile, slot, path))
 
     def item_loading(self, profile, slot):
         return ("item", str(self._item_path(profile, slot))) in self._pending
@@ -240,29 +256,40 @@ class Armory:
 
     def _run(self):
         while True:
-            job = self._queue.get()
-            if job[0] == "item":
+            priority, _, job = self._queue.get()
+            kind = job[0]
+            key = ("item", str(job[3])) if kind == "item" else ("equip", job[1]) if kind == "equip" else job[1]
+            with self._lock:
+                if self._pending.get(key) != priority:
+                    continue                      # moved up (it ran, or waits, with a better priority)
+            if kind == "item":
                 _, profile, slot, path = job
                 try:
                     self._fetch_item(profile, slot, path)
                 except Exception as exc:          # noqa: BLE001 - shown in the piece's tooltip
                     log.warning("armory item %s %s: %s", profile.name, slot, exc)
-                    self._errors[("item", str(path))] = str(exc) or type(exc).__name__
+                    self._errors[key] = str(exc) or type(exc).__name__
                 finally:
                     with self._lock:
-                        self._pending.discard(("item", str(path)))
+                        self._pending.pop(key, None)
                     self.on_ready(profile.name)
                 continue
-            name, server = job
+            _, name, server = job
             try:
-                self._fetch(name, server)
+                if kind == "info":                # your group: the CP now, the equipment after everyone's CP
+                    self._fetch_info(name, server)
+                    self._put(("equip", name), GROUP_EQUIPMENT, ("equip", name, server))
+                elif kind == "equip":
+                    self._fetch_equipment(name, server)
+                else:
+                    self._fetch(name, server)
                 self._errors.pop(name, None)
             except Exception as exc:          # noqa: BLE001 - shown on the player's card
-                log.warning("armory %s@%s: %s", name, server, exc)
+                log.warning("armory %s %s@%s: %s", kind, name, server, exc)
                 self._errors[name] = str(exc) or type(exc).__name__
             finally:
                 with self._lock:
-                    self._pending.discard(name)
+                    self._pending.pop(key, None)
                 self.on_ready(name)
 
     def _get(self, url):
@@ -304,14 +331,38 @@ class Armory:
                 return self._ids[key]
         raise RuntimeError("no aparece en la búsqueda oficial")
 
-    def _fetch(self, name, server):
+    def _query(self, name, server):
         cid = self._character_id(name, server)
-        q = urllib.parse.urlencode({"lang": "en-US", "characterId": cid, "serverId": server,
-                                    "region": subregion(server)})
+        return cid, urllib.parse.urlencode({"lang": "en-US", "characterId": cid, "serverId": server,
+                                            "region": subregion(server)})
+
+    def _file(self, name, server):
+        return f"{self._key(name, server)}.json".replace("/", "_")
+
+    def _fetch(self, name, server):
+        cid, q = self._query(name, server)
         info = self._get(f"{API}info?{q}")
         equipment = self._get(f"{API}equipment?{q}")
         data = {"at": time.time(), "id": cid, "info": info, "equipment": equipment}
-        self._save(f"{self._key(name, server)}.json".replace("/", "_"), data)
+        self._save(self._file(name, server), data)
+        self._download_image(Profile(name, server, data))
+
+    def _fetch_info(self, name, server):
+        """The info alone (class, CP, item level, Daevanion), kept with the equipment read before ("partial")."""
+        cid, q = self._query(name, server)
+        info = self._get(f"{API}info?{q}")
+        before = self._load(self._file(name, server), None) or {}
+        self._save(self._file(name, server), {"at": time.time(), "id": cid, "info": info,
+                                              "equipment": before.get("equipment"), "partial": True})
+
+    def _fetch_equipment(self, name, server):
+        cid, q = self._query(name, server)
+        equipment = self._get(f"{API}equipment?{q}")
+        data = self._load(self._file(name, server), None) or {"id": cid}
+        data.update({"at": time.time(), "equipment": equipment, "partial": False})
+        if not data.get("info"):
+            data["info"] = self._get(f"{API}info?{q}")
+        self._save(self._file(name, server), data)
         self._download_image(Profile(name, server, data))
 
     def image(self, profile):

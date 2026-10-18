@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel, QPushBu
                                QVBoxLayout, QWidget)
 
 from .. import APP_NAME
+from ..armory import GROUP
 from ..armory import official_url, shugo_url
 from ..forceplan import ROLE, Member, plan
 from ..gear import CLASS_OF_JOB
@@ -76,12 +77,16 @@ class PlayersWindow(QWidget):
         titles.setSpacing(0)
         self.title = label("", f.name_big, theme.TEXT)
         titles.addWidget(self.title)
-        titles.addWidget(label("Los jugadores de tu partida de Arena (el juego manda su servidor y su rating al "
+        about = label("Los jugadores de tu partida de Arena (el juego manda su servidor y su rating al "
                                "empezar). El perfil (CP, item level, equipo, habilidades, Daevanion) es el oficial de "
                                "NCSOFT, el mismo de shugo.gg, pedido a su servidor, de uno en uno." if arena else
                                "CP e item level: los envía el juego con la lista de tu party / force (al momento). El "
                                "perfil completo (equipo, habilidades, Daevanion) es el oficial de NCSOFT, el mismo de "
-                               "shugo.gg: se pide al abrir y con Refrescar, de uno en uno.", f.small, theme.MUTED))
+                               "shugo.gg: se pide al abrir y con Refrescar, antes que todo lo demás: primero el CP "
+                               "y el item level de todos (los que aún no tienen CP, primero) y luego su equipo.",
+                               f.small, theme.MUTED)
+        about.setWordWrap(True)                  # a long line wraps instead of widening the window
+        titles.addWidget(about)
         head.addLayout(titles, 1)
         refresh = QPushButton("Refrescar todos")
         refresh.setToolTip("Vuelve a pedir el perfil de cada jugador (los datos de ahora mismo)")
@@ -157,8 +162,15 @@ class PlayersWindow(QWidget):
         return self.ctl.arena_members() if self.arena else self.ctl.group_members()
 
     def _fetch(self, refresh=False):
-        for name, server, *_ in self.members():
-            self.armory.want(name, server, refresh)
+        """Ask for every player's profile, your group's priority: the ones whose CP you do not have yet first."""
+        members = self.members()
+
+        def known(m):
+            profile = self.armory.cached(m[0], m[1])
+            return (self.ctl.cp_of(m[0]) is not None or profile is not None and profile.cp is not None,
+                    profile is not None and not profile.partial)
+        for name, server, *_ in sorted(members, key=known):
+            self.armory.want(name, server, refresh, priority=GROUP)
         self.refresh()
 
     def profile_ready(self, _name):
@@ -226,6 +238,9 @@ class PlayersWindow(QWidget):
             self.body.addStretch(1)
             return
         profiles = {name: self.armory.cached(name, server) for name, server, *_ in members}
+        for name, server, *_ in members:          # someone who just joined: theirs too, first in the queue
+            if profiles[name] is None:
+                self.armory.want(name, server, priority=GROUP)
         failing = [name for name in profiles if self.failing(name, profiles[name])]
         loading = sum(1 for name, *_ in members if self.armory.loading(name))
         numbers = [self.numbers(name, profiles[name]) for name, *_ in members]
@@ -353,7 +368,8 @@ class PlayersWindow(QWidget):
             best = sorted(profile.skills, key=lambda s: -s[2])[:3]
             if best:
                 lay.addWidget(label(" · ".join(f"{s[0]} {s[2]}" for s in best), f.small, theme.MUTED, elide=True))
-        status = ("perfil: cargando…" if self.armory.loading(name) else
+        status = ("perfil: cargando…" if self.armory.loading_info(name) else
+                  "CP al día · equipo: cargando…" if self.armory.loading(name) else
                   f"perfil sin datos: {self.armory.error(name)}" if not profile and self.armory.error(name) else
                   "perfil sin datos todavía" if not profile else
                   f"perfil leído {_ago(profile.at)}")
@@ -380,7 +396,7 @@ class PlayersWindow(QWidget):
             links.addWidget(official)
         again = QPushButton("Refrescar")
         again.setProperty("flat", True)
-        again.clicked.connect(lambda _=False: (self.armory.want(name, server, True), self.refresh()))
+        again.clicked.connect(lambda _=False: (self.armory.want(name, server, True, priority=GROUP), self.refresh()))
         links.addWidget(again)
         links.addStretch(1)
         lay.addLayout(links)
