@@ -33,6 +33,15 @@ items are listed for the main: plan.for_main). What is counted per server - ever
 missions and the Dimensional Invasion's keys (the client's checklist), the Daily Dungeon's entries (metabot.gg's
 weekly checklist), shop goods limited "per server" - is for the main: an alt is not sent to it (PER_SERVER).
 
+«Líneas» (plan.substats): per piece the lines to aim for, highest priority first (SUBSTATS: the Substats guide of
+r/Aion2, shared by a user on 2026-10-20), which of them the piece has and the gear transfer trick of that guide. The
+client's gear transfer tables (aion2data gear-transfer): the same kind of piece only (Top to Top, Mace to Mace), 100%,
+no Kina; a tier 3 piece (item level 86-102) takes a donor of tiers 1-3 for 2 Transfer Stones, tier 2 (to 86) one of
+tiers 1-2 for 1, tier 1 (36-70) one of tier 1; from a lower tier only while the receiving piece's transfer count is 0
+(it never got one). The donor's +N and soul binding lines go over: enhancing a level 36 Unique to +10 costs 325K Kina
+and 12,960 Enhance Stones, a level 86 one 775K and 30,920 (Enchant_Unique tables), and the binding costs the same.
+Guides disagree on whether a donor at 100% Soul Binding passes its lines: the window says so.
+
 Item level comes from the pieces, their +N and the Arcana (aion2data's reading of the client); some guides add
 manastones, Daevanion Crystals or wings, but two of the user's characters with different manastones and Daevanion
 nodes had the same official item level over that sum (431, 2026-10-17), so those stay CP.
@@ -95,6 +104,26 @@ IDEAL = {
     "ring": ("Might", "Precision", "Attack"),
 }
 IDEAL["guard"] = IDEAL["weapon"]
+# the lines to aim for per piece, highest priority first; a tuple of two: as good as each other; "skill": a skill
+# effect line (passive skill levels; on rings, active skill levels). r/Aion2's Substats guide.
+_WEAPON = (("Combat Speed",), ("Damage Boost",), ("Weapon Damage Boost",), ("Might", "Precision"))
+SUBSTATS = {
+    "weapon": _WEAPON, "guard": _WEAPON,
+    "helm": (("Double Chance",), ("Attack increase",), ("skill",)),
+    "chest": (("Damage Boost",), ("Perfect Chance",), ("skill",)),
+    "legs": (("Attack increase",), ("Damage Tolerance",), ("Perfect Chance",), ("skill",)),
+    "cloak": (("Double Chance",), ("Attack increase",), ("skill",)),
+    "shoulders": (("Double Chance",), ("Critical Damage Boost",), ("skill",)),
+    "gloves": (("Combat Speed",), ("Perfect Chance",), ("skill",)),
+    "boots": (("Move Speed",), ("Perfect Chance",), ("skill",)),
+    "earring": (("Might",), ("Precision",), ("Move Speed",), ("skill",)),
+    "necklace": (("Combat Speed",), ("skill",), ("Attack", "Accuracy")),
+    "ring": (("skill",), ("Might",), ("Precision",)),
+}
+SUBSTATS_NOTE = {"weapon": "Might o Precision según tu Accuracy", "guard": "Might o Precision según tu Accuracy",
+                 "ring": "skill: niveles de habilidades activas"}
+SUBSTATS_GUIDE = {"text": "Líneas por pieza y el truco del transfer: Substats guide de r/Aion2",
+                  "url": "https://www.reddit.com/r/Aion2/comments/1x4l6og/substats_guide_exploit_the_possibilities_of_gear/"}
 GUIDE = {"text": "Líneas buscadas y reglas de Soul Binding: Aion 2 Bible de kanonxo",
          "url": "https://docs.google.com/document/d/11u4wLCG1WfL-xSka2Aze0rI9vYRa7mq3N3Gp1bt0AWY/edit"}
 ILVL, CP = "ilvl", "cp"
@@ -218,6 +247,21 @@ class Me:
 
 
 @dataclass
+class Review:
+    """A piece in «Líneas»: the table's lines for its slot and which it has, the others, and the transfer trick."""
+    piece: object                       # Piece
+    tiers: list                         # [[(stat or "skill", has it, 0..1 of its line or None)]] by priority
+    others: list                        # [(stat, 0..1)] lines it has that the table does not ask for
+    score: int = 0                      # how good its lines are for the slot (the table's priorities)
+    donors: list = field(default_factory=list)       # [(Spare, its score, the table's lines it has, the cost to
+    #                                                     bring it to your +N or None, that +N never fails)]
+    stones: int = None                  # Transfer Stones a transfer into it takes
+    cheap: tuple = None                 # (a level 36-70 Unique of its kind, its +0->+10 cost, yours from your +N to
+    #                                     +10): only for a piece still to be enhanced
+    note: str = ""
+
+
+@dataclass
 class Activity:
     """A row of «Contenido»: an activity, whether you can do it and what it gives you."""
     group: str                  # Expedición, Trascendencia, Nightmare, Jefes de campo, Tiendas...
@@ -259,6 +303,7 @@ class Spare:
     container: int
     rate: float = 0.0           # its own soul binding (lost when eaten)
     use: str = ""               # what the plan eats it for ("Sync de tus Nuakum Boots"), "" = a stone
+    soul: object = None         # its Soul (its lines: a donor for a transfer, «Líneas»)
 
     @property
     def place(self):
@@ -295,6 +340,7 @@ class Plan:
     gains: dict = field(default_factory=dict)         # (dungeon, mode) -> [Option] of every mode (Contenido)
     bosses: dict = field(default_factory=dict)        # field / Abyss boss name -> its record (from the Tracker)
     content: list = field(default_factory=list)       # Activity rows of «Contenido»
+    substats: list = field(default_factory=list)      # Review per piece of «Líneas»
 
     def have(self, kind):
         return self.resources.get(kind, 0)
@@ -781,14 +827,81 @@ def build_plan(name, gear, gear_db, db, inventory, prices=None, dungeons=None, l
                if o.kind == "own"):
             continue
         s = read_soul(item, soul, db, names)
-        plan.spare.append(Spare(item, enchant, level, cont, s.rate if s and s.lines else 0.0))
+        plan.spare.append(Spare(item, enchant, level, cont, s.rate if s and s.lines else 0.0, soul=s))
     plan.spare.sort(key=lambda x: (x.enchant, x.level, x.rate))
 
     arcana = _arcana(plan, gear, gear_db, db, me)
     plan.steps = _steps(plan, by_pos, kina, bound, stones, db, levels or {}, prices or {}, recipes, gear_db,
                         faction, arcana, now or time.time())
     plan.content = _content(plan, db, me, arcana, faction, now or time.time())
+    plan.substats = _substats(plan, db, gear_db, faction)
     return plan
+
+
+def line_score(key, soul):
+    """(score, the table's lines it has) of a piece's lines for its slot: each line of the table counts for its
+    priority (the first one most); a skill effect line counts for "skill"."""
+    tiers = SUBSTATS.get(key)
+    if not tiers or soul is None:
+        return 0, []
+    have = {x[0] for x in soul.lines if x[0]}
+    score, found = 0, []
+    for i, tier in enumerate(tiers):
+        for stat in tier:
+            if stat == "skill" and soul.skills or stat in have:
+                score += len(tiers) - i
+                found.append(stat)
+    return score, found
+
+
+def _tier(db, item, lowest):
+    """Index of a piece's gear transfer tier (its kind's tiers by item level): the lowest one it is in for a donor,
+    the highest for the piece receiving."""
+    tiers = sorted(db.transfer.get(item.category, []))
+    hits = [i for i, (lo, hi, _) in enumerate(tiers) if lo <= item.level <= hi]
+    return (hits[0] if lowest else hits[-1]) if hits else None
+
+
+def _substats(plan, db, gear_db, faction):
+    """«Líneas»: per worn piece with a row in the table, its lines against the table, the spare pieces of its kind
+    with better lines (a transfer donor), and what making the lines and the +N on a tier 1 piece saves."""
+    out = []
+    for piece in plan.pieces:
+        tiers = SUBSTATS.get(piece.key)
+        if not tiers or not piece.item:
+            continue
+        s = piece.soul
+        have = {x[0]: x[4] for x in s.lines if x[0]} if s else {}
+        rows = [[(stat, bool(s and s.skills) if stat == "skill" else stat in have,
+                  None if stat == "skill" else have.get(stat)) for stat in tier] for tier in tiers]
+        wanted = {stat for tier in tiers for stat in tier}
+        others = [(n, p) for n, p in have.items() if n not in wanted]
+        score, _ = line_score(piece.key, s)
+        review = Review(piece, rows, others, score, stones=db.transfer_stones(piece.item),
+                        note=SUBSTATS_NOTE.get(piece.key, "skill: niveles de habilidades pasivas"))
+        target = _tier(db, piece.item, lowest=False)
+        for x in plan.spare:
+            if x.item.category != piece.item.category or x.item.grade != "Unique" or not x.soul:
+                continue
+            donor = _tier(db, x.item, lowest=True)
+            better, found = line_score(piece.key, x.soul)
+            worth = better - score >= 2 or any(stat in found for stat in tiers[0])    # not for the last line alone
+            if target is not None and donor is not None and donor <= target and better > score and worth:
+                goal = min(piece.enchant, db.top_level(x.item) or piece.enchant)      # the transfer takes its +N
+                review.donors.append((x, better, found, db.enhance_cost(x.item, x.enchant, goal),
+                                      goal <= db.safe_level(x.item)))
+        review.donors.sort(key=lambda d: (-d[1], -d[0].enchant))
+        if target is not None and target > 0 and piece.item.grade == "Unique" and piece.enchant < piece.safe:
+            cheap = [i for i in gear_db.by_id.values() if i.category == piece.item.category and i.grade == "Unique"
+                     and i.faction in ("B", faction or i.faction) and _tier(db, i, lowest=True) == 0]
+            if cheap:
+                low = min(cheap, key=lambda i: (i.level, i.name))
+                theirs = db.enhance_cost(low, 0, db.safe_level(low))
+                mine = db.enhance_cost(piece.item, piece.enchant, piece.safe)
+                if theirs and mine:
+                    review.cheap = (low, theirs, mine)
+        out.append(review)
+    return out
 
 
 def boss_reason(b, me, db, faction):

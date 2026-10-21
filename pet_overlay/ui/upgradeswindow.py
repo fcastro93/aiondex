@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxL
                                QScrollArea, QSizePolicy, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
-from ..upgrades import CATEGORIES, GUIDE, can_do, kinah_text, stat_value
+from ..upgrades import CATEGORIES, GUIDE, SUBSTATS_GUIDE, can_do, kinah_text, stat_value
 from . import theme
 from .mapwindow import STYLE, badge_label
 from .theme import Fonts
@@ -47,8 +47,9 @@ TILES = (("kina", "Kinah", kinah_text), ("kina_bound", "Kinah ligada", kinah_tex
          ("transfer_stone", "Transfer Stones", str), ("soul_codex", "Soul Codex", str),
          ("soul_reset", "Codex: Reset", str), ("sync_stone", "Sync Stones", str),
          ("philosopher", "Philosopher's", str), ("amplify_stone", "Amplify Stones", str))
-TABS = (("route", "Tu ruta"), ("pieces", "Tus piezas"), ("content", "Contenido"), ("food", "Comida"),
-        ("prefs", "Preferencias"))
+TABS = (("route", "Tu ruta"), ("pieces", "Tus piezas"), ("lines", "Líneas"), ("content", "Contenido"),
+        ("food", "Comida"), ("prefs", "Preferencias"))
+STAT_ES = {"skill": "Skill", "Move Speed": "Movement Speed", "Attack increase": "Attack Increase"}
 STATUS = {"ok": QColor("#7bd88f"), "no": QColor("#e0a050"), "closed": QColor("#4a5470")}
 CARD_STYLE = """
 QFrame#Card { background: #121c33; border: 1px solid #1f2b47; border-radius: 8px; }
@@ -222,8 +223,10 @@ class UpgradesWindow(QWidget):
         root.addWidget(scroll, 1)
 
         foot = QHBoxLayout()
-        for credit in (self.ctl.upgrades_db.credit, GUIDE):
-            link = QPushButton(credit["text"])
+        for credit, short in ((self.ctl.upgrades_db.credit, "Datos: aion2data.com"),
+                              (GUIDE, "Guía: Aion 2 Bible (kanonxo)"), (SUBSTATS_GUIDE, "Tabla de líneas: r/Aion2")):
+            link = QPushButton(short)                 # short: three in a row never widen the window
+            link.setToolTip(credit["text"])
             link.setProperty("flat", True)
             link.clicked.connect(lambda _=False, u=credit["url"]: webbrowser.open(u))
             foot.addWidget(link)
@@ -326,8 +329,8 @@ class UpgradesWindow(QWidget):
             keep = [f"{kinah_text(n)} Kinah" if k == "Kina" else f"{n:,} {k}" for k, n in plan.for_main.items()]
             self._hint("Alt: solo cuento lo ligado (Kina (Bound) y lo que no se puede comerciar) y nada del market."
                        + (f" Comerciable, para tu main: {', '.join(keep[:6])}." if keep else ""))
-        {"route": self._route, "pieces": self._pieces, "content": self._content, "food": self._food,
-         "prefs": self._prefs}[self.tab](plan)
+        {"route": self._route, "pieces": self._pieces, "lines": self._lines, "content": self._content,
+         "food": self._food, "prefs": self._prefs}[self.tab](plan)
         self.body.addStretch(1)
         QTimer.singleShot(0, lambda: self.scroll.verticalScrollBar().setValue(bar))
 
@@ -602,6 +605,109 @@ class UpgradesWindow(QWidget):
         if tips:
             tile.setToolTip("\n".join(tips).strip())
         return tile
+
+    # --- Líneas ---
+    def _lines(self, plan):
+        """The substats table per piece against your pieces, and the gear transfer trick."""
+        f = self.fonts
+        stones = plan.have("transfer_stone")
+        box = QFrame()
+        box.setObjectName("Card")
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(12, 8, 12, 8)
+        lay.setSpacing(3)
+        lay.addWidget(label("El truco del transfer", f.name, theme.GOLD))
+        for text in ("Haz las líneas y el +N en una pieza Unique barata del mismo tipo (nivel 36-70) y pásalas con "
+                     "transfer a la que te quedas: el transfer lleva el +N y el Soul Binding de la donante, siempre sale "
+                     "y no pide Kinah. Encantar una de nivel 36 a +10 cuesta 325K Kinah y 12,960 Enhance Stones; una "
+                     "de 86, 775K y 30,920. El Bind, el Sync y el Reset cuestan lo mismo, y para el Sync sirve "
+                     "cualquier Unique del mismo tipo.",
+                     "Reglas (tablas del cliente): mismo tipo de pieza (pecho a pecho, arco a arco). Una pieza de nivel "
+                     "86-102 acepta donantes de cualquier tier por 2 Transfer Stones; hasta 86, 1. Desde un tier más "
+                     "bajo, solo si tu pieza nunca recibió un transfer. No pasan las manastones, la Theostone, el "
+                     "Potencial ni la línea extra del Philosopher's Stone. Las guías no coinciden en si una donante "
+                     "al 100% pasa sus líneas: compruébalo en la vista previa del juego antes de confirmar.",
+                     f"Tienes {stones} Transfer Stone{'s' if stones != 1 else ''}; cada Unique que no usas se convierte "
+                     f"en una (Substance Morph).",
+                     "Abajo, cada pieza tuya con las líneas de la tabla en orden (› = mejor que la siguiente, = tan "
+                     "buenas como): en verde las que tiene, con su porcentaje. Skill = una línea de efecto de "
+                     "habilidad (niveles de pasivas; en los anillos, de activas)."):
+            lbl = label(text, f.small, theme.TEXT)
+            lbl.setWordWrap(True)
+            lay.addWidget(lbl)
+        self.body.addWidget(box)
+        if not plan.substats:
+            self._hint("Aún no leí tu equipo puesto: entra al juego con el personaje.")
+            return
+        for review in plan.substats:
+            self.body.addWidget(self._review(review))
+
+    def _review(self, review):
+        f = self.fonts
+        piece = review.piece
+        card = QFrame()
+        card.setObjectName("Row")
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(12, 6, 12, 6)
+        lay.setSpacing(3)
+        top = QHBoxLayout()
+        top.addWidget(label(piece.slot.upper(), f.small, theme.MUTED))
+        top.addWidget(label(f"{piece.item.name} +{piece.enchant}", f.name, QColor(GRADE.get(piece.item.grade,
+                                                                                            "#D6DAE3"))))
+        s = piece.soul
+        top.addWidget(label("sin Soul Binding" if not s or not (s.lines or s.skills) else
+                            "Soul Binding 100%" if s.locked else f"Soul Binding {s.rate:.0%}", f.small, theme.MUTED))
+        top.addStretch(1)
+        lay.addLayout(top)
+        chips = QHBoxLayout()
+        chips.setSpacing(4)
+        for i, tier in enumerate(review.tiers):
+            if i:
+                chips.addWidget(label("›", f.small, theme.MUTED))
+            for j, (stat, has, pct) in enumerate(tier):
+                if j:
+                    chips.addWidget(label("=", f.small, theme.MUTED))
+                text = STAT_ES.get(stat, stat) + (f" {pct:.0%}" if has and pct is not None else "")
+                chips.addWidget(_chip(("✓ " if has else "") + text, "#7bd88f" if has else "#4a5470", f))
+        chips.addStretch(1)
+        lay.addLayout(chips)
+        if review.others:                         # their own row: a long one never widens the window
+            bad = QHBoxLayout()
+            bad.setSpacing(4)
+            bad.addWidget(label("A cambiar:", f.small, theme.MUTED))
+            for stat, pct in review.others:
+                bad.addWidget(_chip(f"✕ {stat}" + (f" {pct:.0%}" if pct is not None else ""), "#e0a050", f,
+                                    tip="Línea que la tabla no pide en esta pieza: a cambiar con Sync"))
+            bad.addStretch(1)
+            lay.addLayout(bad)
+        notes = [review.note] if review.note and not review.note.startswith("skill: niveles de habilidades pas")             else []
+        for donor, _, found, cost, safe in review.donors[:2]:
+            plural = "s" if review.stones != 1 else ""
+            text = (f"Donante: tu {donor.item.name} +{donor.enchant} ({donor.place}) tiene "
+                    + ", ".join(STAT_ES.get(x, x) for x in found) + f" → transfer con {review.stones} Transfer "
+                    f"Stone{plural}. El transfer pasa también su +{donor.enchant}")
+            if donor.enchant < piece.enchant:
+                text += (f": súbela antes a +{piece.enchant}" + (f" ({kinah_text(cost[0])} y {cost[1]:,} piedras"
+                                                               + ("" if safe else ", pasado +10 puede fallar") + ")"
+                                                               if cost else "")
+                         + f" o tu {piece.item.name} quedará a +{donor.enchant}.")
+            else:
+                text += "."
+            notes.append(text)
+        if review.cheap:
+            low, theirs, mine = review.cheap
+            saved_k, saved_s = mine[0] - theirs[0], mine[1] - theirs[1]
+            if saved_k > 0:
+                notes.append(f"Barato: una Unique de nivel {low.level} del mismo tipo (como {low.name}) de +0 a +10 "
+                             f"cuesta {kinah_text(theirs[0])} y {theirs[1]:,} piedras; la tuya, de +{piece.enchant} a "
+                             f"+{piece.safe}, {kinah_text(mine[0])} y {mine[1]:,}: hazle allí el +10 y las líneas y "
+                             f"pásalo, te ahorras {kinah_text(saved_k)} y {saved_s:,} piedras por {review.stones} "
+                             f"Transfer Stone{'s' if review.stones != 1 else ''}.")
+        for text in notes:
+            lbl = label(text, f.small, theme.MUTED if text == review.note else theme.TEXT)
+            lbl.setWordWrap(True)
+            lay.addWidget(lbl)
+        return card
 
     # --- Contenido ---
     def _content(self, plan):
