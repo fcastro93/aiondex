@@ -1,6 +1,8 @@
 """Pet windows: the exclusive pets (the ones only one side can farm: the monsters that drop their souls live only
-there), one tab per side; and the whole collection (every pet, by state: leveling, not started, maxed). Each card has
-your progress and where to farm the pet; a click opens it on the map."""
+there), one tab per side; and the whole collection (every pet, by state: leveling, not started, maxed), filtered by
+side, by where its soul comes from (monsters of the open world, open-world bosses, the Abyss, dungeons, only
+dungeons, only chests: data/pet_sources.json from aion2data) and by map and zone. Each card has your progress and
+where to farm the pet; a click opens it on the map."""
 import webbrowser
 
 from PySide6.QtCore import Qt, QTimer
@@ -179,6 +181,11 @@ def pet_card(ctl, f, pet, show_side=False):
     state.addStretch(1)
     state.addWidget(bar, 0, Qt.AlignVCenter)
     col.addLayout(state)
+    origin = ctl.pet_sources(pet.pet_id)
+    kinds = [KIND_TEXT[k] for k in ORIGIN_ORDER if k in origin.get("kinds", [])]
+    if kinds:
+        col.addWidget(label(" · ".join(kinds), f.small, theme.ACCENT, elide=True))
+    shown = 0
     for src, mob in ctl.mapdata.sources(pet.pet_id)[:2]:
         zones = mob.get("zones", [])
         where = (f" · {zones[0]['name']} ({zones[0].get('region', '')})" if zones else "") + \
@@ -188,12 +195,38 @@ def pet_card(ctl, f, pet, show_side=False):
                      + (f" · {chance:g}%" if chance and chance < 100 else "") + where, f.small, theme.MUTED,
                      elide=True)
         col.addWidget(line)
+        shown += 1
+    for s in origin.get("sources", []):           # the ones metabot's maps do not have: dungeons, Morheim, Eltnen...
+        if shown >= 2:
+            break
+        places = [m for m, _ in s["where"] if m not in WORLD_MAPS or not ctl.mapdata.sources(pet.pet_id)]
+        if not places:
+            continue
+        area = next((a for m, a in s["where"] if m == places[0] and a), "")
+        col.addWidget(label(f"{'Jefe ' if s.get('boss') else ''}{s['monster']}"
+                            + (f" (Lv {s['level']})" if s.get("level") else "")
+                            + (f" · {s['chance']:g}%" if s.get("chance") and s["chance"] < 100 else "")
+                            + f" · {places[0]}" + (f" ({area})" if area else ""), f.small, theme.MUTED, elide=True))
+        shown += 1
+    if not shown:
+        chests = origin.get("chests") or []
+        col.addWidget(label(("Cofre: " + ", ".join(chests)) if chests else "Sin monstruo que lo suelte: evento o "
+                            "tienda", f.small, theme.MUTED, elide=True))
     lay.addLayout(col, 1)
     return card
 
 
 COLLECTION_TABS = (("all", "Todos"), ("leveling", "Subiendo"), ("new", "Sin empezar"), ("max", "Al máximo"))
 SIDE_FILTERS = (("any", "Cualquier lado"), ("asmodian", "Solo Asmodian"), ("elyos", "Solo Elyos"), ("both", "Ambos lados"))
+# where a pet's soul comes from (data/pet_sources.json "kinds")
+ORIGIN_ORDER = ("world", "boss", "abyss", "dungeon", "chest")
+KIND_TEXT = {"world": "Mundo abierto", "boss": "Jefe de mundo abierto", "abyss": "Abismo", "dungeon": "Mazmorra",
+             "chest": "Solo de cofres"}
+ORIGIN_FILTERS = (("any", "Cualquier origen"), ("world", "Monstruos del mundo abierto"),
+                  ("boss", "Jefes del mundo abierto"), ("abyss", "Abismo"), ("dungeon", "Mazmorras e instancias"),
+                  ("dungeon_only", "Solo en mazmorras"), ("chest", "Solo de cofres"))
+WORLD_MAPS = ("Poeta", "Verteron", "Eltnen", "Ishalgen", "Altgard", "Morheim")
+ABYSS_MAPS = ("Chaotic Lower Reshanta", "Chaotic Middle Reshanta", "Chaotic Upper Reshanta")
 
 
 def all_pets(ctl):
@@ -256,12 +289,33 @@ class CollectionWindow(QWidget):
             group.addButton(button)
             bar.addWidget(button)
             self.tab_buttons[key] = button
-        bar.addSpacing(12)
+        filters = QHBoxLayout()                  # a row of their own: the window never gets wider than the screen
+        filters.setSpacing(6)
+        filters.addWidget(label("Filtrar:", f.small, theme.MUTED))
         self.side = QComboBox()
         for key, text in SIDE_FILTERS:
             self.side.addItem(text, key)
         self.side.currentIndexChanged.connect(lambda _: self.refresh())
-        bar.addWidget(self.side)
+        filters.addWidget(self.side)
+        self.origin = QComboBox()
+        self.origin.setToolTip("De dónde sale el alma del pet (aion2data: los monstruos que la sueltan y dónde "
+                               "aparecen, o los cofres)")
+        self.origin.currentIndexChanged.connect(lambda _: self.refresh())
+        filters.addWidget(self.origin)
+        self.map = QComboBox()
+        self.map.setToolTip("El mapa: una región del mundo, una capa del Abismo o una mazmorra")
+        self.map.currentIndexChanged.connect(lambda _: self._map_changed())
+        filters.addWidget(self.map)
+        self.zone = QComboBox()
+        self.zone.setToolTip("La zona dentro del mapa elegido")
+        self.zone.currentIndexChanged.connect(lambda _: self.refresh())
+        filters.addWidget(self.zone)
+        filters.addStretch(1)
+        for combo, chars in ((self.side, 12), (self.origin, 18), (self.map, 18), (self.zone, 16)):
+            combo.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)   # the list shows them whole
+            combo.setMinimumContentsLength(chars)
+            combo.view().setMinimumWidth(320)
+        self._fill_filters()
         bar.addStretch(1)
         self.search = QLineEdit()
         self.search.setPlaceholderText("Buscar pet, monstruo o zona…")
@@ -271,6 +325,7 @@ class CollectionWindow(QWidget):
         self.search.textChanged.connect(lambda _: self._search_timer.start())
         bar.addWidget(self.search)
         root.addLayout(bar)
+        root.addLayout(filters)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -280,10 +335,12 @@ class CollectionWindow(QWidget):
         scroll.setWidget(holder)
         root.addWidget(scroll, 1)
         foot = QHBoxLayout()
-        credit = QPushButton("Pets, monstruos y zonas: metabot.gg")
-        credit.setProperty("flat", True)
-        credit.clicked.connect(lambda: webbrowser.open("https://metabot.gg/en/aion-2"))
-        foot.addWidget(credit)
+        for text, url in (("Pets, monstruos y zonas: metabot.gg", "https://metabot.gg/en/aion-2"),
+                          ("De dónde sale cada alma: aion2data.com", "https://aion2data.com/monsters")):
+            credit = QPushButton(text)
+            credit.setProperty("flat", True)
+            credit.clicked.connect(lambda _=False, u=url: webbrowser.open(u))
+            foot.addWidget(credit)
         foot.addStretch(1)
         root.addLayout(foot)
         self.refresh()
@@ -291,6 +348,57 @@ class CollectionWindow(QWidget):
     def _show(self, key):
         self.tab = key
         self.refresh()
+
+    def _fill_filters(self):
+        """The origin and map choices, with how many pets each has."""
+        sources = self.ctl.pet_sources()
+        self.origin.blockSignals(True)
+        for key, text in ORIGIN_FILTERS:
+            n = sum(1 for e in sources.values() if _origin_ok(e, key))
+            self.origin.addItem(f"{text} ({n})" if key != "any" else text, key)
+        self.origin.blockSignals(False)
+        maps = {}
+        for e in sources.values():
+            for name in e.get("maps", {}):
+                maps[name] = maps.get(name, 0) + 1
+        self.map.blockSignals(True)
+        self.map.addItem("Todos los mapas", None)
+        for group in (WORLD_MAPS, ABYSS_MAPS, sorted(m for m in maps if m not in WORLD_MAPS + ABYSS_MAPS)):
+            names = [m for m in group if m in maps]
+            if names and self.map.count() > 1:
+                self.map.insertSeparator(self.map.count())
+            for name in names:
+                tag = "" if name in WORLD_MAPS else " (Abismo)" if name in ABYSS_MAPS else " (mazmorra)"
+                self.map.addItem(f"{name}{tag} · {maps[name]}", name)
+        self.map.blockSignals(False)
+        self._map_changed(refresh=False)
+
+    def _map_changed(self, refresh=True):
+        """The zones of the map you picked."""
+        name = self.map.currentData()
+        self.zone.blockSignals(True)
+        self.zone.clear()
+        self.zone.addItem("Todas las zonas", None)
+        if name:
+            zones = {}
+            for e in self.ctl.pet_sources().values():
+                for area in e.get("maps", {}).get(name, []):
+                    zones[area] = zones.get(area, 0) + 1
+            for area in sorted(zones):
+                self.zone.addItem(f"{area} · {zones[area]}", area)
+        self.zone.setEnabled(self.zone.count() > 1)
+        self.zone.blockSignals(False)
+        if refresh:
+            self.refresh()
+
+    def _where_ok(self, pet):
+        origin = self.ctl.pet_sources(pet.pet_id)
+        if not _origin_ok(origin, self.origin.currentData()):
+            return False
+        name, area = self.map.currentData(), self.zone.currentData()
+        if name and name not in origin.get("maps", {}):
+            return False
+        return not area or area in origin.get("maps", {}).get(name, [])
 
     def _side_ok(self, pet):
         want = self.side.currentData()
@@ -305,7 +413,7 @@ class CollectionWindow(QWidget):
         _clear(self.body)
         f = self.fonts
         pets = all_pets(self.ctl)
-        sided = [p for p in pets if self._side_ok(p)]
+        sided = [p for p in pets if self._side_ok(p) and self._where_ok(p)]
         for key, text in COLLECTION_TABS:
             self.tab_buttons[key].setText(f"{text} · {sum(1 for p in sided if in_tab(p, key))}")
             self.tab_buttons[key].setChecked(key == self.tab)
@@ -327,6 +435,17 @@ class CollectionWindow(QWidget):
         self.body.addStretch(1)
 
 
+def _origin_ok(origin, key):
+    kinds = origin.get("kinds", [])
+    if key in (None, "any"):
+        return True
+    if key == "dungeon_only":
+        return kinds == ["dungeon"]
+    if key == "chest":
+        return kinds == ["chest"]
+    return key in kinds
+
+
 def _pet_matches(ctl, pet, query):
     if not query:
         return True
@@ -334,6 +453,11 @@ def _pet_matches(ctl, pet, query):
     for _, mob in ctl.mapdata.sources(pet.pet_id):
         text.append(mob.get("name", ""))
         text += [z.get("name", "") + " " + z.get("region", "") for z in mob.get("zones", [])]
+    origin = ctl.pet_sources(pet.pet_id)
+    for s in origin.get("sources", []):
+        text.append(s["monster"])
+        text += [f"{m} {a}" for m, a in s["where"]]
+    text += origin.get("chests", [])
     return query in " ".join(text).lower()
 
 

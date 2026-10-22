@@ -84,6 +84,7 @@ def build_app():
         "--add-data", f"{ROOT / 'data' / 'world_db.json'};seed",
         "--add-data", f"{ROOT / 'data' / 'upgrades_db.json'};seed",
         "--add-data", f"{ROOT / 'data' / 'pet_families.json'};seed",
+        "--add-data", f"{ROOT / 'data' / 'pet_sources.json'};seed",
         "--collect-submodules", "scapy.layers",
         "--hidden-import", "scapy.arch.windows",
         "--collect-submodules", "winrt",          # Windows OCR for Crafting (namespace package of .pyd modules)

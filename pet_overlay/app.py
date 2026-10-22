@@ -2191,6 +2191,17 @@ class Controller(QObject):
             self._pet_families = data.get("families", {}), data.get("stats", {})
         return self._pet_families[0].get(str(pet_id))
 
+    def pet_sources(self, pet_id=None):
+        """Where a pet's soul comes from (data/pet_sources.json: its monsters and their maps and zones, the chests,
+        its kinds: world / boss / abyss / dungeon / chest), or every pet's when pet_id is None."""
+        if not hasattr(self, "_pet_sources"):
+            try:
+                self._pet_sources = json.loads((self.data_dir / "pet_sources.json").read_text(
+                    encoding="utf-8")).get("pets", {})
+            except (OSError, ValueError):
+                self._pet_sources = {}
+        return self._pet_sources if pet_id is None else self._pet_sources.get(str(pet_id), {})
+
     def pet_family_stats(self):
         """Per family whose pets add a stat at their highest level (Cogni: Might, Natura: Precision): (stat, pets at
         the highest level, pets of the family)."""

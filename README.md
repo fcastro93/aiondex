@@ -60,7 +60,7 @@ Overlay para **AION 2** que sigue tu colección de pets en tiempo real, te dice 
 | `Alt+Shift+M` | Mapa de pets |
 | `Alt+Shift+S` | Escanear el mercado (Crafting) |
 
-- **Pets → Ver toda la colección** (o «Colección de pets» en la bandeja): todos los pets con tu progreso, en pestañas **Todos / Subiendo / Sin empezar / Al máximo**, filtro por lado (solo Asmodian, solo Elyos, ambos) y buscador por pet, monstruo o zona; cada tarjeta dice dónde farmearlo y un clic lo abre en el mapa.
+- **Pets → Ver toda la colección** (o «Colección de pets» en la bandeja): todos los pets con tu progreso, en pestañas **Todos / Subiendo / Sin empezar / Al máximo**, filtros por lado (solo Asmodian, solo Elyos, ambos), por **origen** de su alma (monstruos del mundo abierto, jefes del mundo abierto, Abismo, mazmorras e instancias, solo en mazmorras, solo de cofres), por **mapa** (cada región, capa del Abismo o mazmorra) y por **zona** de ese mapa, cada uno con cuántos pets tiene, y buscador por pet, monstruo, zona, mazmorra o cofre; cada tarjeta dice de dónde sale (Mazmorra, Jefe de mundo abierto…), qué monstruo lo suelta y dónde, y un clic lo abre en el mapa.
 - **Diagnóstico → «El overlay parpadea»**: graba un minuto lo que le pasa al overlay en ese PC (cambios de tamaño, si se oculta o pierde el «siempre encima», qué programas ponen ventanas encima —Discord, NVIDIA, Xbox Game Bar…—, si el juego está en pantalla completa exclusiva, cuánto tarda en redibujarse, gráficas y pantallas) y dice las causas probables, con un informe para copiar.
 - Clic en el **logo** de la cabecera: menú (**Pets**, **DPS**, **Personaje ›** —**Mejoras** y **Builds**, con el Afinador del macro dentro—, **Tracker**, **Crafting**, **Status**, **Progreso ›** —un submenú con **Season M.**, **Logros**, **Pase** y **Eventos**—, **Notificaciones**, **Diagnóstico**, **Ajustes**, **Reiniciar** —cierra AionDex y lo vuelve a abrir, por si algo se traba— y **Salir**).
 - **Ajustes → Accesibilidad → Tamaño de todo**: de 100% a 150% de 10 en 10 (150% = «Modo Marvin»): agranda el overlay, las ventanas, los textos y los iconos para quien ve poco; se aplica al reiniciar (botón **Reiniciar ahora**).
@@ -107,6 +107,7 @@ python tools/build_crafting_db.py <recipes.json> <shops.json> <items.json> <drop
 python tools/build_npc_db.py <monsters.json>   # regenera data/npc_db.json (aion2data: nombres y furia de los jefes)
 python tools/build_upgrades_db.py <carpeta raw de aion2data>   # regenera data/upgrades_db.json (Mejoras)
 python tools/build_pet_families.py <best.json>   # regenera data/pet_families.json
+python tools/build_pet_sources.py <carpeta raw de aion2data>   # regenera data/pet_sources.json (de dónde sale cada alma)
 python tools/build_gather_db.py   # regenera data/gather_db.json (puntos de recolección y drops, metabot)
 python tools/build_world_db.py [aion2-map.json]   # regenera data/world_db.json (Mapa del mundo) desde tu mapa
 python build_exe.py --installer   # dist/AionDex/ y dist/installer/AionDex-Setup-<versión>.exe (Inno Setup 6)

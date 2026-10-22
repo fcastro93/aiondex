@@ -28,6 +28,7 @@ data/*
 !data/world_db.json
 !data/upgrades_db.json
 !data/pet_families.json
+!data/pet_sources.json
 # the user's raw map export (17 MB): tools/build_world_db.py turns it into data/world_db.json
 aion2-map.json
 
