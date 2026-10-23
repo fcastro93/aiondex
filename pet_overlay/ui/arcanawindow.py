@@ -21,7 +21,8 @@ from .upgradeswindow import CARD_STYLE, _ago, _chip, _clear
 from .widgets import SectionTitle, label
 from ..i18n import tr
 
-TABS = (("todo", tr("Qué hacer")), ("cards", tr("Tus cartas")), ("skills", tr("Skills objetivo")))
+TABS = (("todo", tr("Qué hacer")), ("verdict", tr("¿Sirven?")), ("cards", tr("Tus cartas")),
+        ("skills", tr("Skills objetivo")))
 SHEET = "https://docs.google.com/spreadsheets/d/1YdTWoOg2cQYMVPyKdRuQ9rkdlOo0mvpfiywZcgPpSV4"
 NEED, DONE, IDLE = "#7bd88f", "#5fb8ff", "#8a93a8"
 
@@ -138,7 +139,7 @@ class ArcanaWindow(QWidget):
                                  plan.character, len(plan.cards), _ago(plan.read_at), plan.useful_best,
                                  sum(n.need for n in plan.skills))
                               + (tr(" · te faltan en {0}", ", ".join(n.name for n in short[:4])) if short else ""))
-        {"todo": self._todo, "cards": self._cards, "skills": self._skills}[self.tab](plan)
+        {"todo": self._todo, "verdict": self._verdicts, "cards": self._cards, "skills": self._skills}[self.tab](plan)
         self.body.addStretch(1)
 
     def _todo(self, plan):
@@ -239,6 +240,64 @@ class ArcanaWindow(QWidget):
             lbl = label("• " + text, f.small, theme.TEXT)
             lbl.setWordWrap(True)
             self.body.addWidget(lbl)
+
+    def _verdicts(self, plan):
+        """Every card in one table: its name, kind, grade, +N, the effects (✓ the ones on your skill targets) and
+        whether it is worth keeping - the one to wear of its kind - or food (and for which card)."""
+        f = self.fonts
+        db = self.ctl.arcana_db
+        targets = {n.skill for n in plan.skills if n.target}
+        fed_to = {w.stack: fd.target for fd in plan.feeds for w, _ in fd.fodder if isinstance(w, Card)}
+        hint = label(tr("Por tipo de carta solo llevas una: la mejor de cada tipo sirve (llévala o póntela); las demás "
+                        "son comida para subir las que sí usas. «La mejor» mira primero el grado (nivel de objeto), "
+                        "luego los niveles en tus skills objetivo y luego el bonus de set.")
+                     + ("" if targets else " " + tr("Sin skills objetivo solo cuentan el grado, el +N y los sets.")),
+                     f.small, theme.MUTED)
+        hint.setWordWrap(True)
+        self.body.addWidget(hint)
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(14)
+        grid.setVerticalSpacing(5)
+        for c, t in enumerate((tr("Carta"), tr("Tipo"), tr("Grado"), tr("Nivel"), "Set", tr("Efectos"), "", tr("Por qué"))):
+            grid.addWidget(label(t, f.small, theme.MUTED), 0, c)
+        order = sorted(plan.cards, key=lambda c: (plan.best.get(c.kind) is not c and not c.worn,
+                                                  not c.worn, TYPES.index(c.kind) if c.kind in TYPES else 9,
+                                                  -db.max_level(c.grade), -c.enchant))
+        names = {n.skill: n.name for n in plan.skills}
+        for r, c in enumerate(order, start=1):
+            best = plan.best.get(c.kind)
+            color = QColor(GRADE_COLOR.get(c.grade, "#c8ccd6"))
+            grid.addWidget(label(c.name, f.body, color), r, 0)
+            grid.addWidget(label(short_kind(c.kind), f.small, theme.MUTED), r, 1)
+            grid.addWidget(label(c.grade, f.small, color), r, 2)
+            grid.addWidget(label(f"+{c.enchant}/{db.max_level(c.grade)}", f.body, theme.TEXT), r, 3)
+            grid.addWidget(label(c.set, f.small, theme.MUTED), r, 4)
+            effects = ", ".join(("✓ " if s in targets else "") + f"{names.get(s, s)} +{lv}" for s, lv in c.effects)
+            grid.addWidget(label(effects, f.small, theme.TEXT, elide=True), r, 5)
+            if best is c and c.worn:
+                text, col = tr("Sirve: llévala"), "#7bd88f"
+                why = tr("La mejor de su tipo ({0})", short_kind(c.kind))
+            elif best is c:
+                worn = plan.worn.get(c.kind)
+                text, col = tr("Sirve: póntela"), "#7bd88f"
+                why = tr("Mejor que la que llevas ({0} +{1})", worn.name, worn.enchant) if worn else tr("El hueco está vacío")
+            elif c.worn:
+                text, col = tr("Cámbiala"), "#e0a050"
+                why = tr("Tienes una mejor: {0} {1} +{2}", best.name, best.grade, best.enchant) if best else ""
+            else:
+                text, col = tr("Comida"), "#2ec0f2"
+                target = fed_to.get(c.stack)
+                why = tr("{0:,} de exp", db.food(c.grade, c.enchant, c.exp)) + (
+                    tr(" · para tu {0} +{1}", target.name, target.enchant) if target else
+                    tr(" · tu {0} ya está al máximo", best.name) if best else "")
+            grid.addWidget(_chip(text, col, f), r, 6, Qt.AlignLeft)
+            grid.addWidget(label(why, f.small, theme.MUTED, elide=True), r, 7)
+        grid.setColumnStretch(5, 3)
+        grid.setColumnStretch(7, 2)
+        self.body.addLayout(grid)
+        keep = sum(1 for c in plan.cards if plan.best.get(c.kind) is c)
+        self.body.addWidget(label(tr("{0} sirven · {1} son comida ({2:,} de exp en total)", keep, len(plan.spare),
+                                     sum(db.food(c.grade, c.enchant, c.exp) for c in plan.spare)), f.name, theme.TEXT))
 
     def _cards(self, plan):
         f = self.fonts
@@ -347,7 +406,7 @@ class ArcanaWindow(QWidget):
                 spin = QSpinBox()
                 spin.setRange(1, 40)
                 spin.setValue(n.target)
-                spin.setFixedWidth(64)
+                spin.setMinimumWidth(spin.fontMetrics().horizontalAdvance("40") + spin.sizeHint().height() + 34)
                 spin.editingFinished.connect(lambda sp=spin, k=n.skill, t=n.target: self.ctl.set_skill_target(
                     name, k, sp.value()) if sp.value() != t else None)
                 grid.addWidget(spin, r, 2)
