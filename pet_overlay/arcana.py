@@ -222,6 +222,7 @@ class Feed:
     kinah: int
     to: int                  # the +N it reaches
     useful: float            # expected levels it adds to skills you need (each level raises a random effect)
+    waste: int = 0           # exp past the card's top (lost)
 
 
 @dataclass
@@ -385,6 +386,9 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None):
                 into -= db.to_next(target.grade, lvl)
                 lvl += 1
                 state[target.stack] = [lvl, into]
+            if db.to_next(target.grade, lvl) is None:
+                f.waste += into
+                into = 0
             state[target.stack] = [lvl, into]
             f.to = lvl
         plan.feeds = sorted((f for f in plans.values() if f.fodder),
@@ -443,6 +447,44 @@ def effect_notes(card, plan, db):
     mine = {s for s, _ in card.effects}
     left = [s for s in plan.pool.get(card.kind, ()) if s not in mine] if not full and not top else []
     return out, (len(left), sum(1 for s in left if needs.get(s) and needs[s].missing))
+
+
+@dataclass
+class Worth:
+    verdict: str             # "yes": it has as many of the skills you still miss as a card of its kind can; "ok": it
+                             # helps, but one of its kind could have more; "ilvl": its next raises go to no skill you
+                             # miss (only item level and god stat); "top": at its top
+    good: int                # its next raise's outcomes (its effects under +4, or the new effects it can add while it
+    of: int                  # has fewer than 4) on skills you still miss, of all of them
+    mine: int                # its effects on skills you still miss
+    possible: int            # how many of them a card of its kind can have (up to 4)
+    absent: list             # names of the skills you miss that its kind can have and it does not, by priority
+    value: float             # expected levels per enhance, weighed by priority (to rank the cards)
+
+
+def worth(card, plan, db):
+    """Is enhancing the card worth it: how much of each enhance goes to skills you still miss, and how far the card is
+    from the best one of its kind could be for your skill targets."""
+    notes, (left, good_new) = effect_notes(card, plan, db)
+    needs = {n.skill: n for n in plan.skills}
+    wanted = sorted((s for s in plan.pool.get(card.kind, ()) if needs.get(s) and needs[s].missing),
+                    key=lambda s: needs[s].priority)
+    mine = {e.skill for e in notes if e.status == "want"}
+    possible = min(MAX_EFFECTS, len(wanted))
+    absent = [needs[s].name for s in wanted if s not in mine]
+    if db.to_next(card.grade, card.enchant) is None:
+        return Worth("top", 0, 0, len(mine), possible, absent, 0.0)
+    weight = {s: PRIORITY_DECAY ** (needs[s].priority - 1) for s in wanted}
+    if left:
+        good, of = good_new, left
+        value = sum(weight.values()) - sum(weight[s] for s in mine)
+        value /= left
+    else:
+        open_ = [e for e in notes if e.rises]
+        good, of = sum(e.status == "want" for e in open_), len(open_)
+        value = sum(weight.get(e.skill, 0) for e in open_ if e.status == "want") / of if of else 0.0
+    verdict = "ilvl" if not good else "yes" if len(mine) >= possible else "ok"
+    return Worth(verdict, good, of, len(mine), possible, absent, value)
 
 
 def short_kind(kind):

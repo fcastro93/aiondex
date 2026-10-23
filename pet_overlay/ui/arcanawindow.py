@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (QComboBox, QFrame, QGridLayout, QHBoxLayout, QPus
 
 from .. import APP_NAME
 from ..arcana import (DEFAULT_ACTIVE_TARGET, GRADE_COLOR, MAX_EFFECT_LEVEL, TYPES, Card, effect_notes,
-                      effects_text, feed_text, raise_luck, short_kind)
+                      effects_text, feed_text, raise_luck, short_kind, worth)
 from . import theme
 from .mapwindow import STYLE, badge_label
 from .theme import Fonts
@@ -170,6 +170,7 @@ class ArcanaWindow(QWidget):
                                for w, _ in fd.fodder[:6]) + (tr(" y {0} más", len(fd.fodder) - 6) if len(fd.fodder) > 6 else "")
             self._row(feed_text(fd), tr("Comida: {0}.", fodder)
                       + (tr(" Cuesta unos {0:,} Kinah.", fd.kinah) if fd.kinah else "")
+                      + (tr(" Se pierden {0:,} de exp: pasa del máximo de la carta.", fd.waste) if fd.waste else "")
                       + tr(" Cada +1 sube 1 su stat principal y añade un efecto (hasta 4) o sube uno al azar (hasta "
                            "+{0} cada uno).", MAX_EFFECT_LEVEL), "#2ec0f2", tr("Dar de comer"))
         if not changes and not plan.feeds:
@@ -180,6 +181,7 @@ class ArcanaWindow(QWidget):
                             "las cartas que tengas ahí: AionDex solo ve las que llevas puestas."), f.small, theme.WARN)
             note.setWordWrap(True)
             self.body.addWidget(note)
+        self._worth(plan)
         if plan.look_for:
             self.body.addWidget(SectionTitle(tr("Qué buscar en cada carta"), f))
             for kind in TYPES:
@@ -195,6 +197,40 @@ class ArcanaWindow(QWidget):
                           "#f0c24e", tr("Buscar"))
         self._gear_advice(plan)
         self._guide()
+
+    def _worth(self, plan):
+        """¿Vale la pena subirlas?: each card to wear, by how much of its next enhances goes to skills you still miss
+        and how far it is from the best card of its kind for your skill targets."""
+        if not any(n.target for n in plan.skills):
+            return
+        db = self.ctl.arcana_db
+        rows = [(c, worth(c, plan, db)) for c in plan.best.values()]
+        rows = [(c, w) for c, w in rows if w.verdict != "top"]
+        if not rows:
+            return
+        self.body.addWidget(SectionTitle(tr("¿Vale la pena subirlas?"), self.fonts))
+        for c, w in sorted(rows, key=lambda r: -r[1].value):
+            chip, color = {"yes": (tr("Súbela"), "#7bd88f"), "ok": (tr("Por ahora"), "#f0c24e"),
+                           "ilvl": (tr("Solo ilvl"), "#8a93a8")}[w.verdict]
+            title = tr("{0} +{1} ({2}): {3} de sus {4} efectos son skills que te faltan", c.name, c.enchant,
+                       short_kind(c.kind), w.mine, len(c.effects))
+            self._row(title, self._worth_text(c, w, plan), color, chip)
+
+    def _worth_text(self, card, w, plan):
+        db = self.ctl.arcana_db
+        kind = short_kind(card.kind)
+        if w.verdict == "ilvl":
+            return tr("Ninguna de sus próximas subidas va a una skill que te falta: subirla solo te da nivel de objeto y "
+                      "su stat (+1 por mejora). Primero las demás.")
+        odds = tr("Cada mejora tiene {0} de {1} posibilidades de caer en una skill que te falta", w.good, w.of)
+        if w.verdict == "yes":
+            return odds + tr(", y es lo más que una carta de tipo {0} puede traer de tus skills.", kind)
+        return (odds + tr("; una carta de tipo {0} puede traer {1} de las tuyas (a esta le faltan: {2}).", kind,
+                          w.possible,
+                          ", ".join(w.absent[:max(1, w.possible - w.mine)]))
+                + " " + tr("Súbela si no tienes otra: si luego consigues o creas una mejor, dale esta de comer y le "
+                           "pasa toda la exp que le pusiste (pagas {0:,} Kinah por moverla hoy).",
+                           db.feed_kinah(card.grade, card.enchant)))
 
     def _gear_advice(self, plan):
         """What to look for in the gear's skill lines after what the cards give (soul binding: weapons, guards and
@@ -378,12 +414,14 @@ class ArcanaWindow(QWidget):
             if best is c and c.worn:
                 text, col = tr("Sirve: llévala"), "#7bd88f"
                 why = tr("La mejor de su tipo ({0})", short_kind(c.kind))
+                why += self._worth_short(c, plan)
             elif best is c:
                 worn = plan.worn.get(c.kind)
                 text, col = tr("Sirve: póntela"), "#7bd88f"
                 why = tr("Mejor que la que llevas ({0} +{1})", worn.name, worn.enchant) if worn else tr("El hueco está vacío")
                 if self._version_why(plan, c, worn):
                     why += ". " + self._version_why(plan, c, worn)
+                why = why.rstrip(".") + self._worth_short(c, plan)
             elif c.worn:
                 text, col = tr("Cámbiala"), "#e0a050"
                 why = tr("Tienes una mejor: {0} {1} +{2}", best.name, best.grade, best.enchant) if best else ""
@@ -420,6 +458,21 @@ class ArcanaWindow(QWidget):
         keep = sum(1 for c in plan.cards if plan.best.get(c.kind) is c)
         self.body.addWidget(label(tr("{0} sirven · {1} son comida ({2:,} de exp en total)", keep, len(plan.spare),
                                      sum(db.food(c.grade, c.enchant, c.exp) for c in plan.spare)), f.name, theme.TEXT))
+
+    def _worth_short(self, card, plan):
+        """«. Vale la pena subirla (2 de 4)» for the ¿Sirven? table, or "" without skill targets / at its top."""
+        if not any(n.target for n in plan.skills):
+            return ""
+        w = worth(card, plan, self.ctl.arcana_db)
+        if w.verdict == "yes":
+            return ". " + tr("Vale la pena subirla: {0} de {1} posibilidades por mejora, lo más que trae una carta "
+                             "de tipo {2}.", w.good, w.of, short_kind(card.kind))
+        if w.verdict == "ok":
+            return ". " + tr("Vale la pena por ahora: {0} de {1} posibilidades por mejora; una carta de tipo {2} "
+                             "puede traer {3} de tus skills.", w.good, w.of, short_kind(card.kind), w.possible)
+        if w.verdict == "ilvl":
+            return ". " + tr("Subirla solo te da nivel de objeto y su stat.")
+        return ""
 
     @staticmethod
     def _version_why(plan, card, worn):
