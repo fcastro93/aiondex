@@ -604,7 +604,9 @@ def read_soul(item, soul, db, names, targets=None, skill_info=None):
         pick = (known or cands or [None])[0]
         if pick:
             n, lo, hi = pick
-            lines.append((n, value, lo, hi, (value - lo) / (hi - lo) if hi > lo else 1.0))
+            # the game's own rate per line: (value - lowest + 1) / (span + 1); with it the official character API's
+            # soulBindRate matched on 138 of 138 top players' rings and weapons (87 of 87 to the decimal)
+            lines.append((n, value, lo, hi, (value - lo + 1) / (hi - lo + 1)))
         else:
             lines.append((None, value, None, None, None))
     parts = [x[4] for x in lines if x[4] is not None] + [1.0] * soul.get("skills", 0)
