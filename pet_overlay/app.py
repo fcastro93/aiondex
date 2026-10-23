@@ -2743,8 +2743,8 @@ class Controller(QObject):
     def arcana_changed(self):
         """Cards, skills or targets changed: Arcanas (and Mejoras, which has its feeding step) are built again."""
         self._arcana_cache = (0.0, None, None)
-        if self.arcana_window is not None and self.arcana_window.isVisible():
-            self.arcana_window.refresh()
+        if self.arcana_window is not None and (self.arcana_window.isVisible() or self.arcana_window.leveling):
+            self.arcana_window.refresh()            # «Subir» follows the card even with the window out of sight
         self.upgrades_changed()
 
     def open_arcana(self, tab=None):

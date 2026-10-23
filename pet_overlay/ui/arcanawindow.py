@@ -7,10 +7,11 @@ import webbrowser
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import (QComboBox, QFrame, QGridLayout, QHBoxLayout, QPushButton, QScrollArea,
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxLayout, QPushButton, QScrollArea,
                                QSpinBox, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
+from ..arcanagrid import grid_order
 from ..arcana import (DEFAULT_ACTIVE_TARGET, GRADE_COLOR, TYPES, Card, effect_notes, level_food, pantheon,
                       raise_luck, short_kind, worth)
 from . import theme
@@ -36,6 +37,7 @@ class ArcanaWindow(QWidget):
         self.tab = "todo"
         self.leveling = None               # «Subamos esta carta»: {stack, enchant, effects, history, used, picks}
         self.unfolded = set()              # Qué hacer's folded sections that are open
+        self.overlay = None                # «Marcar en el juego»: ArcanaOverlay over the game's grid, made when on
         self.setObjectName("MapWindow")
         self.setWindowTitle(f"{APP_NAME} — {tr('Arcanas')}")
         self.setWindowIcon(ctl.app_icon)
@@ -97,6 +99,10 @@ class ArcanaWindow(QWidget):
     def showEvent(self, event):
         self.refresh()
         super().showEvent(event)
+
+    def closeEvent(self, event):
+        self._marks(None)
+        super().closeEvent(event)
 
     def show_tab(self, key):
         self.tab = key
@@ -382,6 +388,23 @@ class ArcanaWindow(QWidget):
 
     def _stop_leveling(self):
         self.leveling = None
+        self._marks(None)
+        self.refresh()
+
+    def _marks(self, what):
+        """The frames over the game's grid: (orders, picks) to draw, or None to stop."""
+        if what is None or not self.ctl.settings.get("arcana_marks"):
+            if self.overlay is not None:
+                self.overlay.stop()
+            return
+        if self.overlay is None:
+            from .arcanaoverlay import ArcanaOverlay
+            self.overlay = ArcanaOverlay(self.ctl)
+        self.overlay.set_picks(*what)
+
+    def _toggle_marks(self, on):
+        self.ctl.settings["arcana_marks"] = bool(on)
+        self.ctl._save_settings()
         self.refresh()
 
     def _leveling_view(self, plan):
@@ -443,6 +466,7 @@ class ArcanaWindow(QWidget):
                 self.body.addWidget(label(tr("{0} de {1} subidas fueron a skills que buscas.", hits, raised), f.small,
                                           theme.MUTED))
         if card is None or done:
+            self._marks(None)
             return
         # what we want to go up
         notes, (left, good_new) = effect_notes(card, plan, db)
@@ -480,7 +504,19 @@ class ArcanaWindow(QWidget):
         # the food for this level
         picks, need, total = level_food(plan, db, card, lv["used"])
         lv["picks"] = [w.stack for w, _, _ in picks if isinstance(w, Card)]
-        self.body.addWidget(SectionTitle(tr("Dale de comer para +{0}", card.enchant + 1), f))
+        head = QHBoxLayout()
+        head.addWidget(SectionTitle(tr("Dale de comer para +{0}", card.enchant + 1), f), 1)
+        marks = QCheckBox(tr("Marcarlas en el juego"))
+        marks.setToolTip(tr("Con la ventana de Arcanas del juego abierta (mejorar), AionDex enmarca encima de su lista "
+                            "las cartas que le das: azul las que faltan por registrar, verde las ya registradas. Solo "
+                            "mira la pantalla del juego: no hace clics ni mueve el ratón."))
+        marks.setChecked(bool(self.ctl.settings.get("arcana_marks")))
+        marks.toggled.connect(self._toggle_marks)
+        head.addWidget(marks)
+        self.body.addLayout(head)
+        base = [c for c in plan.cards if c.stack not in lv["used"]]
+        orders = [grid_order(base)] + ([grid_order([c for c in base if c.stack != card.stack])] if not card.worn else [])
+        self._marks((orders, [w for w, _, _ in picks if isinstance(w, Card)]) if picks else None)
         if not picks:
             self.body.addWidget(label(tr("No te queda comida: junta más cartas o Training Arcana."), f.body, theme.WARN))
             return
