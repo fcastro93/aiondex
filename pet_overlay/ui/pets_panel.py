@@ -145,6 +145,11 @@ class PetsPanel(QWidget):
         family = self.ctl.pet_family(pet.pet_id)
         if family:
             info = {**info, "mob": f"{family} · {info.get('mob') or ''}".rstrip(" ·")}
+        eta = None if pet.is_max else self.ctl.session.eta_seconds(pet)
+        if eta:                                   # at this session's pace: the next level in ~N min
+            mins = eta / 60
+            when = tr("~{0:.0f} min", mins) if mins < 90 else tr("~{0:.1f} h", mins / 60)
+            info = {**info, "eta": tr("sube en {0}", when)}
         row = PetRow(pet, info, name, self.fonts, self.ctl.icons_dir,
                      self.ctl.session.per_pet.get(pet.pet_id, 0), side=self.ctl.pet_exclusive(pet.pet_id))
         row.on_click = lambda pid=pet.pet_id: self.ctl.open_map(pid)   # shell calls this on a plain click

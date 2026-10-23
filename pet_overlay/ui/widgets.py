@@ -242,6 +242,8 @@ class PetRow(_Flashable):
         bar = ProgressBar(pet.ratio, theme.GOLD if pet.is_max else theme.ACCENT, f.px(4))
         bar.setFixedWidth(f.px(84))
         right.addWidget(bar, 0, Qt.AlignRight)
+        if info.get("eta"):                       # the next level at this session's pace
+            right.addWidget(label(info["eta"], f.small, theme.MUTED), 0, Qt.AlignRight)
         row.addLayout(right)
 
 
