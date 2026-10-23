@@ -772,6 +772,14 @@ class Controller(QObject):
                 if shot.error:
                     self.crafting.reread(shot)
                 self._ocr.add(shot)
+        if not self.settings.get("v2_intro"):              # 2.0: everything in one window, the HUD docks in it
+            self.settings["v2_intro"] = True
+            self._save_settings()
+            QTimer.singleShot(2500, lambda: self.notify(
+                "info", tr("AionDex 2.0: todo en una ventana"),
+                tr("Ábrela con el icono ▣ del HUD, desde el menú o con doble clic en el icono de la bandeja: el "
+                   "menú de todas las funciones a la izquierda y el HUD acoplado arriba a la derecha. Al cerrarla, "
+                   "el HUD vuelve a su sitio."), keep=True))
         self._tick = QTimer(self, interval=10_000, timeout=self.refresh)
         self._tick.start()
         self._combat_tick = QTimer(self, interval=1000, timeout=self._on_combat_tick)
@@ -3513,7 +3521,8 @@ class Controller(QObject):
         menu.addAction(tr("Salir"), self.quit)
         self.tray.setContextMenu(menu)
         self.tray.activated.connect(
-            lambda reason: self.toggle_visible("bandeja") if reason == QSystemTrayIcon.Trigger else None)
+            lambda reason: self.toggle_visible("bandeja") if reason == QSystemTrayIcon.Trigger else
+            self.open_hub() if reason == QSystemTrayIcon.DoubleClick else None)
         self._tray_menu = menu
         self.tray.show()
 

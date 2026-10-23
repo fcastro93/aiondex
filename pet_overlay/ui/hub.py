@@ -99,7 +99,7 @@ class PanelPage(QWidget):
         holder = QWidget()
         lay = QVBoxLayout(holder)
         lay.setContentsMargins(0, fonts.px(8), 0, 0)
-        self.panel.setMaximumWidth(fonts.px(560))
+        self.panel.setMaximumWidth(fonts.px(720))
         lay.addWidget(self.panel, 0, Qt.AlignTop | Qt.AlignLeft)
         lay.addStretch(1)
         scroll.setWidget(holder)
@@ -428,7 +428,10 @@ class HubWindow(QWidget):
         if isinstance(geo, list) and len(geo) == 4:
             self.setGeometry(*geo)
         else:
-            self.resize(f.px(1500), f.px(940))
+            from PySide6.QtGui import QGuiApplication
+            area = QGuiApplication.primaryScreen().availableGeometry()
+            w, h = min(f.px(1500), area.width() - 40), min(f.px(940), area.height() - 60)
+            self.setGeometry(area.x() + (area.width() - w) // 2, area.y() + (area.height() - h) // 2, w, h)
 
     # --- pages ---
     def show_page(self, page, widget, nav=None):
