@@ -1154,6 +1154,18 @@ class ArcanaWindow(QWidget):
         suggest.setProperty("flat", True)
         suggest.clicked.connect(lambda: self.ctl.suggest_skill_targets(name))
         head.addWidget(suggest)
+        from ..modules.builds import my_class
+        builds = self.ctl.builds.list(my_class(self.ctl))
+        if builds:
+            pick = QComboBox()
+            pick.setToolTip(tr("Usar los niveles de skill de una build como tus skills objetivo (Builds → Arcanas): "
+                               "los que están por encima de tu nivel base, el más alto primero"))
+            pick.addItem(tr("Desde una build…"), None)
+            for b in builds:
+                who = b.get("player")
+                pick.addItem(b["name"] + (f" ({who[0]})" if who else ""), b["id"])
+            pick.currentIndexChanged.connect(lambda i, p=pick: self._targets_from_build(p.itemData(i)) if i else None)
+            head.addWidget(pick)
         chosen = sorted((n for n in plan.skills if n.target), key=lambda n: n.priority)
         if chosen:
             clear = QPushButton(tr("Quitar todas"))
@@ -1232,6 +1244,13 @@ class ArcanaWindow(QWidget):
                 grid.addWidget(add, r, 2)
             grid.setColumnStretch(8, 1)
             self.body.addLayout(grid)
+
+    def _targets_from_build(self, build_id):
+        if not build_id:
+            return
+        n = self.ctl.skill_targets_from_build(self.character or self.ctl.character_name()
+                                              or self.ctl.settings.get("last_character"), build_id)
+        self.ctl.notify("info", tr("Skills objetivo desde la build"), tr("{0} skills marcadas, la de más nivel primero.", n))
 
     def _skill_cells(self, grid, r, n, prefix=""):
         """A skill's name (after prefix: its place in your list), kind, level now and its breakdown (points,

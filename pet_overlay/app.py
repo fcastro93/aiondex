@@ -2686,6 +2686,29 @@ class Controller(QObject):
                 targets[b] = DEFAULT_ACTIVE_TARGET
         self._save_skill_targets(name, targets)
 
+    def skill_targets_from_build(self, name, build_id):
+        """A build's skill levels as the character's skill targets (Builds → Arcanas): every skill the build has at
+        a level above your base (what you have without cards), the highest first; the rest of your list goes."""
+        from .builds import entry_levels
+        build = self.builds.get(build_id)
+        if not build:
+            return 0
+        _, levels, _ = self._arcana_skills(name)
+        kinds = self.tuner.skills
+        wanted = []
+        for sid, entry in (build.get("skills") or {}).items():
+            base = int(sid)
+            _, _, total = entry_levels(entry)
+            if not total or (kinds.get(str(base)) or {}).get("type") not in ("active", "passive"):
+                continue
+            now = levels.get(base) or 0
+            level = now[0] if isinstance(now, (tuple, list)) else now
+            if total > (level or 0) or base in self.skill_targets(name):
+                wanted.append((base, int(total)))
+        wanted.sort(key=lambda x: -x[1])
+        self._save_skill_targets(name, dict(wanted))
+        return len(wanted)
+
     def clear_skill_targets(self, name):
         self._save_skill_targets(name, {})
 

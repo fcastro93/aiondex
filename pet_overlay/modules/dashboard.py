@@ -34,6 +34,7 @@ CARDS = (("clock", tr("Reloj local y del servidor"), ""),
          ("event", tr("Misión del evento"), ""),
          ("season", tr("Misión semanal de temporada"), ""),
          ("achievement", tr("Logro"), ""),
+         ("pass", "Daeva Pass", ""),
          ("status", tr("Aviso de Status"), ""))
 CARD_STYLE = ("QFrame#DashCard { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); "
               "border-radius: %dpx; }")
@@ -232,6 +233,34 @@ class DashboardPanel(QWidget):
         where = {"upgrades": tr("MEJORAS"), "arcana": tr("ARCANAS"), "tracker": "TRACKER"}.get(nxt.source, "")
         card = self._card(glyph, theme.GOLD, tr("SIGUIENTE PASO · {0}", where), nxt.title, "", None, sub=nxt.summary)
         card.on_click = nxt.open
+        return card
+
+    def _pass(self, glyph):
+        """Your Daeva Pass: level, this week's EXP against its cap, rewards waiting; a click opens Pase."""
+        from ..passes import level_of, weekly_limit
+        ctl = self.ctl
+        ps, now = ctl.passes, time.time()
+        if not ps.available:
+            return None
+        playing = ctl.character_name()
+        names = ps.names(now, playing)
+        name = playing if playing in names else (names[0] if names else None)
+        if not name:
+            return None
+        rows = ps.of(name, now)
+        if not rows:
+            return None
+        pid, info, s = rows[0]
+        lv = level_of(pid, s.exp)
+        cap = weekly_limit(pid)
+        waiting = ps.waiting(s)
+        text = (info.get("title") or "Daeva Pass") + (f" · Lv {lv[0]}" if lv else "")
+        sub = (tr("EXP de la semana {0:,} / {1:,}", s.weekly, cap) + (tr(" · tope alcanzado") if s.weekly >= cap else "")
+               if cap else "")
+        value = tr("{0} por cobrar", waiting) if waiting else (f"{s.weekly * 100 // cap}%" if cap else "")
+        card = self._card(glyph, theme.GOLD if waiting else theme.ACCENT, tr("DAEVA PASS · {0}", name).upper(), text,
+                          value, theme.GAIN if waiting else theme.TEXT, sub=sub)
+        card.on_click = lambda: ctl.switch_module("passes")
         return card
 
     def _activity(self, glyph):
