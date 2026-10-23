@@ -33,8 +33,7 @@ class UpgradesPanel(QWidget):
         f = self.fonts
         plan = self.ctl.upgrade_plan()
         if plan is None:
-            self._line(tr("Entra al juego con tu personaje: leo tu equipo, tu bolsa y tu almacén y te digo qué "
-                          "mejorar primero."), theme.MUTED)
+            self._line(tr("Sin personaje: entra al juego y te digo qué mejorar."), theme.MUTED)
         else:
             me = plan.me
             bits = [tr("Alt · {0} Kinah ligada", kinah_text(plan.have('kina_bound'))) if me and me.alt else

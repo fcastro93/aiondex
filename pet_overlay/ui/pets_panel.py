@@ -232,7 +232,7 @@ class PetsPanel(QWidget):
             self._note(tr("En {0} ya tienes al máximo todos los pets ({1}).", state.zone_name, state.zone_maxed),
                        theme.GAIN)
         elif not state.zone_name:
-            self._note(tr("Cuando AionDex detecte la zona en la que estás, aquí verás los pets que puedes farmear."))
+            self._note(tr("Sin zona aún: al detectarla, los pets que puedes farmear."))
 
     def _pet_menu(self, widget, pet_id, pos):
         menu = QMenu(self)

@@ -59,7 +59,7 @@ class BuildsPanel(QWidget):
                                                                                             "guardada")),
                        theme.GAIN if now else theme.TEXT)
         else:
-            self._line(tr("Entra al juego con tu personaje: leo tus skills y tus 3 presets."), theme.MUTED)
+            self._line(tr("Sin personaje: entra al juego."), theme.MUTED)
         builds = ctl.builds.list(my_class(ctl))
         if builds:
             self.content.addWidget(SectionTitle(tr("Tus builds"), f))
@@ -101,9 +101,6 @@ class BuildsPanel(QWidget):
             self._line(tr("Última prueba: {0} s · {1} lanzamientos · {2} problemas, {3} avisos", int(report.duration), report.total, len(bad), len(warn)), theme.TEXT)
             for finding in (bad + warn)[:2 if compact else 4]:
                 self._line(f"• {finding.text}", theme.COMBAT if finding.level == "bad" else theme.WARN)
-        elif not tuner.recording:
-            self._line(tr("Compara lo que deberían lanzar tus macros con lo que se lanza de verdad y te dice qué "
-                          "cambiar."), theme.MUTED)
         link = label(tr("Abrir el afinador"), f.name, theme.ACCENT)
         link.setAttribute(Qt.WA_TransparentForMouseEvents, False)
         link.setCursor(Qt.PointingHandCursor)

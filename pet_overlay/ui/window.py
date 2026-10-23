@@ -15,6 +15,7 @@ from ..i18n import tr
 
 GLYPH_CHEVRON = ""
 GLYPH_BELL = ""
+GLYPH_WINDOW = "\ue8a7"
 
 
 class GlyphButton(QLabel):
@@ -93,6 +94,7 @@ class OverlayWindow(QWidget):
         self._press_at = None
         self._anchor = None              # where you put it (placed or dragged): a resize never moves it from there
         self._resized_at = 0.0
+        self._docked = False             # sitting in the AionDex window's corner: no dragging, opaque
         self.panels = []
 
         root = QVBoxLayout(self)
@@ -115,6 +117,9 @@ class OverlayWindow(QWidget):
         self.unread = label("", fonts.badge, theme.GOLD)
         header.addWidget(self.btn_bell)
         header.addWidget(self.unread)
+        self.btn_window = GlyphButton(GLYPH_WINDOW, fonts, tr("Abrir la ventana de AionDex"))
+        self.btn_window.clicked.connect(controller.open_hub)
+        header.addWidget(self.btn_window)
         self.btn_compact = GlyphButton(theme.GLYPH_EXPAND, fonts, "Expandir / compactar")
         self.btn_compact.clicked.connect(controller.toggle_compact)
         self.btn_lock = GlyphButton(theme.GLYPH_UNLOCK, fonts, tr("Bloquear (los clics pasan al juego)"))
@@ -209,8 +214,9 @@ class OverlayWindow(QWidget):
         p.setRenderHint(QPainter.Antialiasing)
         r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
         radius = self.fonts.px(10)
-        p.setBrush(theme.panel_color(self.ctl.settings["opacity"]))
-        if self.ctl.settings["locked"]:
+        p.setBrush(theme.panel_color(max(self.ctl.settings["opacity"], 0.96) if self._docked
+                                     else self.ctl.settings["opacity"]))
+        if self.ctl.settings["locked"] or self._docked:
             p.setPen(QPen(theme.BORDER, 1))
         else:
             pen = QPen(theme.ACCENT, 1.2, Qt.DashLine)
@@ -229,8 +235,13 @@ class OverlayWindow(QWidget):
             self._press_at = event.globalPosition().toPoint()
             self._drag_from = self._press_at - self.frameGeometry().topLeft()
 
+    def set_docked(self, on):
+        """Docked in the AionDex window: it stays where the window puts it."""
+        self._docked = bool(on)
+        self.update()
+
     def mouseMoveEvent(self, event):
-        if self._drag_from is not None and event.buttons() & Qt.LeftButton:
+        if self._drag_from is not None and event.buttons() & Qt.LeftButton and not self._docked:
             self.move(event.globalPosition().toPoint() - self._drag_from)
 
     def mouseReleaseEvent(self, event):
@@ -239,8 +250,9 @@ class OverlayWindow(QWidget):
         self._drag_from = None
         moved = (event.globalPosition().toPoint() - self._press_at).manhattanLength()
         if moved > 4:
-            self._anchor = self.pos()
-            self.ctl.remember_position(self.pos())
+            if not self._docked:
+                self._anchor = self.pos()
+                self.ctl.remember_position(self.pos())
             return
         # A plain click (not a drag) runs the clicked widget's action, if it has one.
         widget = self.childAt(event.position().toPoint())

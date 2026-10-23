@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QMenu
 from . import theme
 from ..i18n import tr
 
+GLYPH_WINDOW = "\ue8a7"      # OpenInNewWindow
 GLYPH_EXIT = ""
 GLYPH_WORLD = "\ue909"       # World
 GLYPH_PEOPLE = ""       # People in Segoe MDL2 / Fluent
@@ -68,6 +69,9 @@ def build_app_menu(ctl, fonts, parent=None):
     """Modules (exclusive, the active one highlighted; some in a submenu of their own), the players of your group,
     Reiniciar and Salir."""
     menu = styled_menu(parent)
+    menu.addAction(glyph_icon(GLYPH_WINDOW, theme.GOLD, fonts.icons_family), tr("Abrir la ventana de AionDex"),
+                   ctl.open_hub)
+    menu.addSeparator()
     group = QActionGroup(menu)
     group.setExclusive(True)
     grouped = {key: g for g in GROUPS for key in g[2]}

@@ -12,9 +12,11 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxL
                                QScrollArea, QSizePolicy, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
-from ..arcana import short_kind
+from ..arcana import farm_options, short_kind
+from ..gear import SLOTS
 from ..upgrades import CATEGORIES, GUIDE, SUBSTATS_GUIDE, can_do, kinah_text, stat_value
 from . import theme
+from .design import Stat
 from .mapwindow import STYLE, badge_label
 from .theme import Fonts
 from .tunerwindow import EXTRA_STYLE
@@ -49,8 +51,13 @@ TILES = (("kina", "Kinah", kinah_text), ("kina_bound", tr("Kinah ligada"), kinah
          ("transfer_stone", "Transfer Stones", str), ("soul_codex", "Soul Codex", str),
          ("soul_reset", "Codex: Reset", str), ("sync_stone", "Sync Stones", str),
          ("philosopher", "Philosopher's", str), ("amplify_stone", "Amplify Stones", str))
-TABS = (("route", tr("Tu ruta")), ("pieces", tr("Tus piezas")), ("lines", tr("Líneas")), ("content", tr("Contenido")),
+TABS = (("route", tr("Tu ruta")), ("pieces", tr("Tu equipo")), ("lines", tr("Líneas")), ("content", tr("Contenido")),
         ("food", tr("Comida")), ("prefs", tr("Preferencias")))
+# the equipment screen: (column, row) of each 1156 position, like the game lays them out
+DOLL = {3: (0, 0), 4: (0, 1), 5: (0, 2), 7: (0, 3), 6: (0, 4), 8: (0, 5), 19: (0, 6),
+        1: (1, 0), 2: (1, 1),
+        10: (2, 0), 11: (2, 1), 12: (2, 2), 13: (2, 3), 14: (2, 4), 15: (2, 5), 16: (2, 6), 17: (2, 7), 22: (2, 8),
+        23: (2, 9), 24: (2, 10)}
 STAT_ES = {"skill": "Skill", "Move Speed": "Movement Speed", "Attack increase": "Attack Increase"}
 STATUS = {"ok": QColor("#7bd88f"), "no": QColor("#e0a050"), "closed": QColor("#4a5470")}
 CARD_STYLE = """
@@ -196,9 +203,10 @@ class UpgradesWindow(QWidget):
         self.subtitle.setWordWrap(True)
         root.addWidget(self.subtitle)
 
-        self.resources = QGridLayout()
-        self.resources.setSpacing(6)
+        self.resources = QHBoxLayout()
+        self.resources.setSpacing(8)
         root.addLayout(self.resources)
+        self._folds = set()                 # the folded sections that are open (categories, the transfer trick...)
 
         tabs = QHBoxLayout()
         tabs.setSpacing(6)
@@ -304,20 +312,14 @@ class UpgradesWindow(QWidget):
         self.role.blockSignals(True)
         self.role.setCurrentIndex(max(0, self.role.findData(self.ctl.upgrades_role(plan.character))))
         self.role.blockSignals(False)
-        prices = self.ctl.gear_prices()
         me = plan.me
+        bits = [tr("bolsa y almacén leídos {0}", _ago(plan.read_at))]
         if me and me.item_level is not None:
-            stats = tr("nivel de objeto {0:,}", me.item_level) + (
-                tr(" (≈: el oficial {0:,} de {1} y tus cambios)", me.official, _ago(me.at)) if me.item_level != me.official
-                else tr(" (perfil oficial {0})", _ago(me.at))) + (f" · CP {me.cp:,}" if me.cp else "")
-        else:
-            stats = tr("nivel de objeto: aún no lo sé (cargando tu perfil oficial)")
+            bits.insert(0, tr("perfil oficial {0}", _ago(me.at)) + (tr(" + tus cambios") if me.item_level != me.official else ""))
         if self.ctl.armory.loading(plan.character):
-            stats += tr(" · pidiendo tu perfil oficial…")
-        bits = [plan.character, stats, tr("bolsa y almacén leídos {0}", _ago(plan.read_at))]
-        if not (me and me.alt):
-            bits.append(tr("{0} precios de equipo", len(prices)) if prices else tr("sin precios de equipo (Market › "
-                                                                             "Equipo)"))
+            bits.append(tr("pidiendo tu perfil oficial…"))
+        if not (me and me.alt) and not self.ctl.gear_prices():
+            bits.append(tr("sin precios de equipo (Market › Equipo)"))
         self.subtitle.setText(" · ".join(bits))
         counts = {"route": len(plan.steps), "food": len(plan.spare),
                   "content": sum(1 for a in plan.content if not a.reason and not a.closed),
@@ -344,29 +346,32 @@ class UpgradesWindow(QWidget):
         self.body.addWidget(lbl)
 
     def _resources(self, plan):
+        """Your numbers in a row: Item Level, CP and what you have to spend (the rest in each tile's tooltip)."""
         f = self.fonts
-        alt = plan.me is not None and plan.me.alt
-        always = ("kina_bound", "enhance_stone", "transfer_stone") if alt else ("kina", "enhance_stone",
-                                                                                 "transfer_stone")
-        pills = [(fmt(plan.have(key)), text) for key, text, fmt in TILES
-                 if (plan.have(key) or key in always) and not (alt and key == "kina")]
-        pills += [(str(n), f"Vouchers {d}") for d, n in plan.vouchers.items()]
+        me = plan.me
+        alt = me is not None and me.alt
+        il = me.item_level if me and me.item_level else None
+        tip = (tr("El oficial {0:,} ({1}) y tus cambios desde entonces", me.official, _ago(me.at))
+               if il and me.item_level != me.official else tr("Tu perfil oficial, {0}", _ago(me.at)) if il else
+               tr("Aún no lo sé: cargando tu perfil oficial"))
+        self.resources.addWidget(Stat(f, f"{il:,}" if il else "—", tr("Nivel de objeto"), theme.GOLD, tip))
+        self.resources.addWidget(Stat(f, f"{me.cp:,}" if me and me.cp else "—", "CP", theme.ACCENT))
+        kina = plan.have("kina_bound") if alt else plan.have("kina")
+        self.resources.addWidget(Stat(f, kinah_text(kina), tr("Kinah ligada") if alt else "Kinah", theme.TEXT,
+                                      tr("Ligada: {0}", kinah_text(plan.have('kina_bound'))) if not alt else ""))
+        self.resources.addWidget(Stat(f, f"{plan.have('enhance_stone'):,}", "Enhance Stones"))
+        self.resources.addWidget(Stat(f, str(plan.have("transfer_stone")), "Transfer Stones"))
+        more = [(fmt(plan.have(key)), text) for key, text, fmt in TILES[5:] if plan.have(key)]
+        more += [(str(n), f"Vouchers {d}") for d, n in plan.vouchers.items()]
         sup = sum(c for n, c in plan.stones.items() if n.startswith("Superior Manastone"))
         if sup:
-            pills.append((str(sup), tr("Manastones Sup.")))
-        for i, (value, text) in enumerate(pills[:16]):
-            pill = QFrame()
-            pill.setObjectName("Pill")
-            lay = QHBoxLayout(pill)
-            lay.setContentsMargins(8, 3, 8, 3)
-            lay.setSpacing(6)
-            lay.addWidget(label(value, f.name, theme.GOLD))
-            lay.addWidget(label(text, f.small, theme.MUTED), 1)
-            self.resources.addWidget(pill, i // 8, i % 8)
-        for c in range(8):
-            self.resources.setColumnStretch(c, 1)
+            more.append((str(sup), tr("Manastones Sup.")))
+        if more:
+            rest = Stat(f, str(len(more)), tr("más recursos"), theme.MUTED,
+                        "\n".join(f"{v} {t}" for v, t in more))
+            self.resources.addWidget(rest)
+        self.resources.addStretch(1)
 
-    # --- Tu ruta ---
     def _group(self, step):
         if step.kind in ("buy", "save"):
             return "buy"
@@ -380,16 +385,28 @@ class UpgradesWindow(QWidget):
             return "extra"
         return "now" if step.ready else "later"
 
+    def _fold(self, key, title, color=None):
+        """A folded section's header (▸ / ▾); True when it is open."""
+        opened = key in self._folds
+        button = QPushButton(("▾ " if opened else "▸ ") + title)
+        button.setProperty("flat", True)
+        button.setStyleSheet(f"text-align: left; color: {(color or theme.MUTED).name()};")
+        button.clicked.connect(lambda: (self._folds.symmetric_difference_update({key}), self.refresh()))
+        self.body.addWidget(button)
+        return opened
+
     def _categories(self, plan):
         """A check per kind of upgrade: what you switch off is left out of your route (this character's)."""
         f = self.fonts
+        off = [text for key, text, _ in CATEGORIES if key in plan.off]
+        title = tr("Qué tener en cuenta") + (tr(" · sin {0}", ', '.join(off)) if off else "")
+        if not self._fold("categories", title, theme.WARN if off else None):
+            return
         card = QFrame()
         card.setObjectName("Card")
         lay = QVBoxLayout(card)
         lay.setContentsMargins(12, 6, 12, 8)
         lay.setSpacing(4)
-        off = [text for key, text, _ in CATEGORIES if key in plan.off]
-        lay.addWidget(label(tr("Qué tener en cuenta") + (tr(" · sin {0}", ', '.join(off)) if off else "") + tr(" (solo para {0}):", plan.character), f.small, theme.MUTED))
         grid = QGridLayout()
         grid.setHorizontalSpacing(14)
         grid.setVerticalSpacing(2)
@@ -401,6 +418,8 @@ class UpgradesWindow(QWidget):
             box.toggled.connect(lambda on, k=key: self._category(k, on))
             grid.addWidget(box, i // 5, i % 5)
         lay.addLayout(grid)
+        lay.addWidget(label(tr("Solo para {0}. Cada paso dice qué sube: ↑ ilvl (lo que piden las mazmorras) y / o "
+                               "↑ CP.", plan.character), f.small, theme.MUTED))
         self.body.addWidget(card)
 
     def _category(self, key, on):
@@ -409,16 +428,15 @@ class UpgradesWindow(QWidget):
 
     def _route(self, plan):
         f = self.fonts
-        self._categories(plan)
         if not plan.steps:
             self._hint(tr("Nada que mejorar con lo que sé: escanea precios de equipo en el market o marca las "
                           "mazmorras que haces (Preferencias)."))
+            self._next_up(plan)
+            self._categories(plan)
             return
-        self._hint(tr("Cada paso dice qué sube: ↑ ilvl (tu nivel de objeto, lo que piden las mazmorras) y / o ↑ CP. "
-                      "Las actividades y las mazmorras que te recomiendo son las que tu personaje puede hacer; las "
-                      "demás están en «Cuando subas tu nivel de objeto» con lo que te falta."))
         first = next((s for s in plan.steps if s.ready and self._group(s) == "now"), plan.steps[0])
         self._hero(first)
+        self._next_up(plan)
         rest = [s for s in plan.steps if s is not first]
         for key, title, sub in GROUPS:
             steps = [s for s in rest if self._group(s) == key]
@@ -426,14 +444,82 @@ class UpgradesWindow(QWidget):
                 continue
             head = QHBoxLayout()
             head.setContentsMargins(2, 8, 0, 0)
-            head.addWidget(label(f"{title}  ·  {len(steps)}", f.name, theme.TEXT))
+            head.addWidget(label(title, f.name, theme.TEXT))
+            head.addWidget(_chip(str(len(steps)), "#8a93a8", f))
             if sub:
                 head.addWidget(label(sub, f.small, theme.MUTED))
             head.addStretch(1)
             self.body.addLayout(head)
             for step in steps:
                 self.body.addWidget(self._row(step, plan.steps.index(step) + 1))
+        self._categories(plan)
         self._arcana_note(plan)
+
+    def _next_up(self, plan):
+        """«Qué hacer a continuación»: what the rest of AionDex knows for this character, as tiles - the
+        Transcendence that gives the best cards (Arcanas), the dungeon or boss the route farms, the Tracker's next
+        activity, the missions with a reward to claim."""
+        f = self.fonts
+        ctl = self.ctl
+        tiles = []
+        me = plan.me
+        il = me.item_level if me and me.item_level else None
+        cards = plan.arcana_plan
+        if cards is not None and getattr(ctl.arcana_db, "transcendence", None):
+            farms = farm_options(cards, ctl.arcana_db, il)
+            if farms:
+                fm = farms[0]
+                better = ", ".join(f"{short_kind(k)} {fm.better[k]:.0%}" for k in fm.better)
+                tiles.append(("Transcendence", f"{fm.dungeon} · {fm.stage.replace('Transcendence ', '')}",
+                              (tr("cartas mejores: {0} por clear", better) if better else
+                               tr("comida: ~{0:,.0f} exp por clear", fm.food)) if fm.can else
+                              tr("pide {0:,} de nivel de objeto", fm.il),
+                              theme.GOLD if fm.can else theme.MUTED, tr("Abrir Arcanas"), ctl.open_arcana))
+        farm = next((s for s in plan.steps if s.kind in ("farm", "boss")), None)
+        if farm is not None:
+            tiles.append((tr("Mazmorra"), farm.title, farm.summary or "", theme.GAIN, tr("Ver en la ruta"),
+                          lambda _=False, k=farm.key: self._reveal(k)))
+        rows = ctl.tracker.upcoming()
+        if rows:
+            from ..modules.tracker import when_text
+            entry, st = rows[0]
+            text, color = when_text(st, time.time())
+            tiles.append((tr("Tracker"), entry.name, text, color, tr("Abrir Tracker"), ctl.open_tracker))
+        try:
+            ready = ctl.missions.ready(plan.character, time.time()) if ctl.missions.available else []
+        except Exception:                        # noqa: BLE001 - missions are their own module
+            ready = []
+        if ready:
+            tiles.append((tr("Season Missions"), tr("{0} recompensas por cobrar", len(ready)),
+                          ready[0][0].view(ctl.crafting_faction())[0],
+                          theme.GAIN, tr("Abrir"), ctl.open_missions))
+        if not tiles:
+            return
+        self.body.addWidget(SectionTitle(tr("Qué hacer a continuación"), f))
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        for eyebrow, title, line, color, action, slot in tiles[:4]:
+            tile = QFrame()
+            tile.setObjectName("Tile")
+            lay = QVBoxLayout(tile)
+            lay.setContentsMargins(12, 8, 12, 8)
+            lay.setSpacing(2)
+            lay.addWidget(label(eyebrow.upper(), f.section, theme.MUTED))
+            t = label(title, f.name, color)
+            t.setWordWrap(True)
+            lay.addWidget(t)
+            if line:
+                sub = label(line, f.small, theme.MUTED)
+                sub.setWordWrap(True)
+                lay.addWidget(sub)
+            lay.addStretch(1)
+            lay.addWidget(_link(action + " →", slot), 0, Qt.AlignLeft)
+            row.addWidget(tile, 1)
+        self.body.addLayout(row)
+
+    def _reveal(self, key):
+        self._open.add(key)
+        self.refresh()
 
     def _arcana_note(self, plan):
         """How to improve the Arcana cards, in short, and the way to Personaje › Arcanas."""
@@ -456,7 +542,7 @@ class UpgradesWindow(QWidget):
         self.body.addWidget(card)
 
     def _hero(self, step):
-        """«Lo siguiente»: the first step you can do now, in big, with its detail."""
+        """«Lo siguiente»: the first step you can do now, in big; its detail opens on «ver cómo»."""
         f = self.fonts
         card = QFrame()
         card.setObjectName("Hero")
@@ -474,11 +560,16 @@ class UpgradesWindow(QWidget):
         lay.addWidget(label(step.title, f.name_big, theme.TEXT))
         if step.summary:
             lay.addWidget(label(step.summary, f.body, theme.GOLD if step.ready else theme.MUTED))
-        detail = label(step.detail, f.small, theme.MUTED)
-        detail.setWordWrap(True)
-        lay.addWidget(detail)
-        self._parts(lay, step)
+        is_open = step.key in self._open or not step.summary
+        if is_open:
+            detail = label(step.detail, f.small, theme.MUTED)
+            detail.setWordWrap(True)
+            lay.addWidget(detail)
+            self._parts(lay, step)
         actions = QHBoxLayout()
+        if step.summary:
+            actions.addWidget(_link(tr("▾ ocultar") if is_open else tr("▸ ver cómo"),
+                                    lambda _=False: self._toggle(step.key)))
         actions.addStretch(1)
         if step.key:
             actions.addWidget(_link(tr("No quiero hacer este paso"), lambda _=False: self._skip(step.key, step.title),
@@ -561,18 +652,46 @@ class UpgradesWindow(QWidget):
 
     # --- Tus piezas ---
     def _pieces(self, plan):
+        """Tu equipo, laid out like the game's equipment screen: armor on the left, weapon and guard in the middle,
+        the accessories on the right; the Arcana cards under them."""
         f = self.fonts
-        self._hint(tr("Barras: el +N hasta su máximo (la marca blanca es hasta donde nunca falla) y el Soul Binding "
-                      "(el porcentaje del juego; en dorado al 100%). Puntos: huecos de manastone o soulstone "
-                      "puestos / vacíos. Pasa el ratón sobre una ficha para ver sus líneas."))
+        self._hint(tr("Barras: el +N hasta su máximo (la marca blanca: hasta donde nunca falla) y el Soul Binding. "
+                      "Puntos: huecos de manastone o soulstone. Pasa el ratón por una pieza para ver sus líneas."))
         grid = QGridLayout()
         grid.setSpacing(8)
-        tiles = [p for p in plan.pieces if p.item]
-        for i, piece in enumerate(tiles):
-            grid.addWidget(self._tile(plan, piece), i // 4, i % 4)
-        for c in range(4):
+        by_pos = {p.pos: p for p in plan.pieces}
+        for pos, (col, row) in DOLL.items():
+            piece = by_pos.get(pos)
+            if piece is not None and piece.item:
+                grid.addWidget(self._tile(plan, piece), row, col)
+            else:
+                grid.addWidget(self._empty_tile(SLOTS.get(pos, ("", tr("Hueco")))[1]), row, col)
+        if plan.arcana_plan is not None and plan.arcana_plan.worn:
+            cards = QFrame()
+            cards.setObjectName("Card")
+            lay = QVBoxLayout(cards)
+            lay.setContentsMargins(10, 8, 10, 8)
+            lay.setSpacing(4)
+            lay.addWidget(label(tr("ARCANA"), f.small, theme.MUTED))
+            for kind in sorted(plan.arcana_plan.worn, key=lambda k: ("Chalice", "Parchment", "Compass", "Bell", "Mirror").index(k) if k in ("Chalice", "Parchment", "Compass", "Bell", "Mirror") else 9):
+                card = plan.arcana_plan.worn[kind]
+                lay.addWidget(label(f"{card.name} +{card.enchant}", f.body, QColor(GRADE.get(card.grade, "#D6DAE3")),
+                                    elide=True))
+            lay.addWidget(_link(tr("Abrir Arcanas"), self.ctl.open_arcana), 0, Qt.AlignLeft)
+            grid.addWidget(cards, 2, 1, 2, 1, Qt.AlignTop)
+        for c in range(3):
             grid.setColumnStretch(c, 1)
         self.body.addLayout(grid)
+
+    def _empty_tile(self, slot):
+        f = self.fonts
+        tile = QFrame()
+        tile.setObjectName("Tile")
+        lay = QVBoxLayout(tile)
+        lay.setContentsMargins(10, 8, 10, 8)
+        lay.addWidget(label(slot.upper(), f.small, theme.MUTED))
+        lay.addWidget(label(tr("vacío"), f.small, theme.WARN))
+        return tile
 
     def _tile(self, plan, piece):
         f = self.fonts
@@ -632,35 +751,34 @@ class UpgradesWindow(QWidget):
 
     # --- Líneas ---
     def _lines(self, plan):
-        """The substats table per piece against your pieces, and the gear transfer trick."""
+        """The substats table per piece against your pieces, and the gear transfer trick (folded)."""
         f = self.fonts
         stones = plan.have("transfer_stone")
-        box = QFrame()
-        box.setObjectName("Card")
-        lay = QVBoxLayout(box)
-        lay.setContentsMargins(12, 8, 12, 8)
-        lay.setSpacing(3)
-        lay.addWidget(label(tr("El truco del transfer"), f.name, theme.GOLD))
-        for text in (tr("Haz las líneas y el +N en una pieza Unique barata del mismo tipo (nivel 36-70) y pásalas "
-                        "con transfer a la que te quedas: el transfer lleva el +N y el Soul Binding de la donante, "
-                        "siempre sale y no pide Kinah. Encantar una de nivel 36 a +10 cuesta 325K Kinah y 12,960 "
-                        "Enhance Stones; una de 86, 775K y 30,920. El Bind, el Sync y el Reset cuestan lo mismo, y "
-                        "para el Sync sirve cualquier Unique del mismo tipo."),
-                     tr("Reglas (tablas del cliente): mismo tipo de pieza (pecho a pecho, arco a arco). Una pieza "
-                        "de nivel 86-102 acepta donantes de cualquier tier por 2 Transfer Stones; hasta 86, 1. "
-                        "Desde un tier más bajo, solo si tu pieza nunca recibió un transfer. No pasan las "
-                        "manastones, la Theostone, el Potencial ni la línea extra del Philosopher's Stone. Las "
-                        "guías no coinciden en si una donante al 100% pasa sus líneas: compruébalo en la vista "
-                        "previa del juego antes de confirmar."),
-                     tr("Tienes {0} Transfer Stone{1}; cada Unique que no usas se convierte en una (Substance "
-                        "Morph).", stones, 's' if stones != 1 else ''),
-                     tr("Abajo, cada pieza tuya con las líneas de la tabla en orden (› = mejor que la siguiente, = "
-                        "tan buenas como): en verde las que tiene, con su porcentaje. Skill = una línea de efecto "
-                        "de habilidad (niveles de pasivas; en los anillos, de activas).")):
-            lbl = label(text, f.small, theme.TEXT)
-            lbl.setWordWrap(True)
-            lay.addWidget(lbl)
-        self.body.addWidget(box)
+        self._hint(tr("Cada pieza con las líneas que la tabla pide, en orden (› = mejor que la siguiente): en verde "
+                      "las que tiene, con su porcentaje. Skill = una línea de habilidad. Tienes {0} Transfer "
+                      "Stone{1}.", stones, 's' if stones != 1 else ''))
+        if self._fold("transfer", tr("El truco del transfer"), theme.GOLD):
+            box = QFrame()
+            box.setObjectName("Card")
+            lay = QVBoxLayout(box)
+            lay.setContentsMargins(12, 8, 12, 8)
+            lay.setSpacing(3)
+            for text in (tr("Haz las líneas y el +N en una pieza Unique barata del mismo tipo (nivel 36-70) y pásalas "
+                            "con transfer a la que te quedas: el transfer lleva el +N y el Soul Binding de la donante, "
+                            "siempre sale y no pide Kinah. Encantar una de nivel 36 a +10 cuesta 325K Kinah y 12,960 "
+                            "Enhance Stones; una de 86, 775K y 30,920. El Bind, el Sync y el Reset cuestan lo mismo, y "
+                            "para el Sync sirve cualquier Unique del mismo tipo."),
+                         tr("Reglas (tablas del cliente): mismo tipo de pieza (pecho a pecho, arco a arco). Una pieza "
+                            "de nivel 86-102 acepta donantes de cualquier tier por 2 Transfer Stones; hasta 86, 1. "
+                            "Desde un tier más bajo, solo si tu pieza nunca recibió un transfer. No pasan las "
+                            "manastones, la Theostone, el Potencial ni la línea extra del Philosopher's Stone. Las "
+                            "guías no coinciden en si una donante al 100% pasa sus líneas: compruébalo en la vista "
+                            "previa del juego antes de confirmar."),
+                         tr("Cada Unique que no usas se convierte en una Transfer Stone (Substance Morph).")):
+                lbl = label(text, f.small, theme.TEXT)
+                lbl.setWordWrap(True)
+                lay.addWidget(lbl)
+            self.body.addWidget(box)
         if not plan.substats:
             self._hint(tr("Aún no leí tu equipo puesto: entra al juego con el personaje."))
             return
@@ -755,10 +873,9 @@ class UpgradesWindow(QWidget):
         rows = plan.content
         me = plan.me
         can = sum(1 for a in rows if not a.reason and not a.closed)
-        self._hint(tr("Todo el contenido del juego, {0} actividades, con lo que pide y si {1} puede hacerlo", len(rows), plan.character)
-                   + (tr(" ({0:,} de nivel de objeto, nivel {1})", me.item_level, me.level) if me and me.item_level else "")
-                   + tr(": puedes {0}. «Te da» es lo que mejora lo que llevas puesto. Las que aún no abren en "
-                        "Global, juntas al final de cada grupo.", can))
+        self._hint(tr("{0} actividades: puedes {1}", len(rows), can)
+                   + (tr(" con {0:,} de nivel de objeto", me.item_level) if me and me.item_level else "")
+                   + tr(". «Te da»: lo que mejora lo que llevas puesto."))
         for group in dict.fromkeys(a.group for a in rows):
             mine = [a for a in rows if a.group == group]
             live = [a for a in mine if not a.closed]
@@ -863,7 +980,7 @@ class UpgradesWindow(QWidget):
     def _prefs(self, plan):
         f = self.fonts
         self.body.addWidget(SectionTitle(tr("Main o alt"), f))
-        self._hint(ROLE_TIP + tr(" {0} es {1}: se cambia arriba, junto al personaje.", plan.character, 'alt' if plan.me and plan.me.alt else 'main'))
+        self._hint(tr("{0} es {1}: se cambia arriba, junto al personaje.", plan.character, 'alt' if plan.me and plan.me.alt else 'main'))
         self.body.addWidget(SectionTitle(tr("Skills objetivo de {0}", plan.character), f))
         names = {int(k): v.get("name") or k for k, v in self.ctl.tuner.skills.items()}
         row = QHBoxLayout()

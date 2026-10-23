@@ -719,6 +719,9 @@ class Controller(QObject):
         self._synced_for = None         # character the last collection-sync notice was for
         self.window = OverlayWindow(self, self.fonts)
         self.window.setWindowIcon(self.app_icon)
+        self.hub = None                 # the AionDex window (ui/hub.py), made on first use
+        self._hud_home = None           # (anchor, visible) of the HUD before it docked in the hub
+        self._hub_refreshed = 0.0
         from .blinkwatch import BlinkWatch
         self.blink_watch = BlinkWatch(self)          # Diagnóstico → "El overlay parpadea"
         self.blink_watch.finished.connect(self._blink_done)
@@ -948,9 +951,7 @@ class Controller(QObject):
             self.tracker_window = TrackerWindow(self)
         else:
             self.tracker_window.refresh()
-        self.tracker_window.show()
-        self.tracker_window.raise_()
-        self.tracker_window.activateWindow()
+        self.show_page("tracker", self.tracker_window)
 
     # --- crafting ------------------------------------------------------------------------------
     def open_world_map(self):
@@ -958,9 +959,7 @@ class Controller(QObject):
         from .ui.worldmap import WorldMapWindow
         if self.world_window is None:
             self.world_window = WorldMapWindow(self)
-        self.world_window.show()
-        self.world_window.raise_()
-        self.world_window.activateWindow()
+        self.show_page("world", self.world_window)
 
     def boss_on_map(self, entry):
         """Has this Tracker boss a spawn point on your world map (data/world_db.json «Named Monsters»)?"""
@@ -996,9 +995,7 @@ class Controller(QObject):
         if self.gather_window is None:
             self.gather_window = GatherMapWindow(self)
         self.gather_window.show_material(material)
-        self.gather_window.show()
-        self.gather_window.raise_()
-        self.gather_window.activateWindow()
+        self.show_page("gather", self.gather_window, nav="gathering")
 
     def open_crafting(self, tab=None):
         """Profesiones y Market: tab is a section (crafting / market / leveling / gathering) or a Market tab."""
@@ -1009,9 +1006,8 @@ class Controller(QObject):
             self.crafting_window.show_tab(tab)
         else:
             self.crafting_window.refresh()
-        self.crafting_window.show()
-        self.crafting_window.raise_()
-        self.crafting_window.activateWindow()
+        self.show_page("crafting", self.crafting_window,
+                       nav=tab if tab in ("market", "leveling", "gathering") else "crafting")
         if not self.market_share.asked and self.persist:
             QTimer.singleShot(400, self.crafting_window.ask_share)
         self.sync_market()
@@ -1299,12 +1295,11 @@ class Controller(QObject):
         if self.events_window is not None and self.events_window.isVisible():
             self.events_window.refresh()
 
-    @staticmethod
-    def _show_window(window):
+    def _show_window(self, window):
         window.refresh()
-        window.show()
-        window.raise_()
-        window.activateWindow()
+        key = {id(self.missions_window): "missions", id(self.achievements_window): "achievements",
+               id(self.events_window): "events"}.get(id(window), "page")
+        self.show_page(key, window)
 
     def status_changed(self):
         if self.status_window and self.status_window.isVisible():
@@ -1342,9 +1337,7 @@ class Controller(QObject):
             self.status_window = StatusWindow(self)
         else:
             self.status_window.refresh()
-        self.status_window.show()
-        self.status_window.raise_()
-        self.status_window.activateWindow()
+        self.show_page("status", self.status_window)
 
     def _on_combat_tick(self):
         finished = self.combat.tick()
@@ -1743,9 +1736,7 @@ class Controller(QObject):
         if tab:
             self.players_window.tab = tab
         self.players_window.refresh()
-        self.players_window.show()
-        self.players_window.raise_()
-        self.players_window.activateWindow()
+        self.show_page("players", self.players_window)
 
     def _profile_ready(self, name):
         for window in (self.players_window, self.arena_window, getattr(self, "builds_window", None)):
@@ -1831,9 +1822,7 @@ class Controller(QObject):
         if self.arena_window is None:
             self.arena_window = PlayersWindow(self, arena=True)
         self.arena_window.refresh()
-        self.arena_window.show()
-        self.arena_window.raise_()
-        self.arena_window.activateWindow()
+        self.show_page("arena", self.arena_window)
 
     def on_own_entity(self, eid):
         """Your entity id, learnt from your own skill presses before the game resent your character: the meter
@@ -1961,6 +1950,8 @@ class Controller(QObject):
 
     def _notifications_changed(self):
         self.window.set_unread(self.notifications.unread)
+        if self.hub is not None and self.hub.isVisible():
+            self.hub.refresh()
         if self.active_module.key == "notifications" and not self._refreshing:
             QTimer.singleShot(0, self.refresh)
 
@@ -2337,6 +2328,9 @@ class Controller(QObject):
             watch = getattr(self, "blink_watch", None)
             if watch is not None and watch.active:
                 watch.on_refresh(1000 * (time.perf_counter() - started), self.active_module.key)
+        if self.hub is not None and self.hub.isVisible() and time.time() - self._hub_refreshed > 2:
+            self._hub_refreshed = time.time()
+            self.hub.refresh()
         if self.focus_panel is not None and self.settings.get("pets_focus"):
             self.focus_panel.set_rows(self.focus_rows(), self.flash_ids)
         self.flash_ids.clear()
@@ -2356,9 +2350,7 @@ class Controller(QObject):
             focus, _ = self.focus_pet()
             pet_id = focus.pet_id if focus else int(next(iter(self.mapdata.db["pets"])))
         self.map_window.show_pet(pet_id)
-        self.map_window.show()
-        self.map_window.raise_()
-        self.map_window.activateWindow()
+        self.show_page("map", self.map_window)
 
     def open_collection(self):
         """Every pet with your progress (leveling, not started, maxed), searchable."""
@@ -2367,9 +2359,7 @@ class Controller(QObject):
             self.collection_window = CollectionWindow(self)
         else:
             self.collection_window.refresh()
-        self.collection_window.show()
-        self.collection_window.raise_()
-        self.collection_window.activateWindow()
+        self.show_page("collection", self.collection_window)
 
     def open_exclusive_pets(self):
         """The pets only one side can farm: a tab for the Asmodian side and one for the Elyos side."""
@@ -2378,9 +2368,7 @@ class Controller(QObject):
             self.exclusive_window = ExclusivePetsWindow(self)
         else:
             self.exclusive_window.refresh()
-        self.exclusive_window.show()
-        self.exclusive_window.raise_()
-        self.exclusive_window.activateWindow()
+        self.show_page("exclusive", self.exclusive_window)
 
     def update_database(self):
         if getattr(self, "_db_thread", None) and self._db_thread.isRunning():
@@ -2423,17 +2411,13 @@ class Controller(QObject):
             self.dps_window.refresh()
         if encounter is not None:
             self.dps_window.show_encounter(encounter)
-        self.dps_window.show()
-        self.dps_window.raise_()
-        self.dps_window.activateWindow()
+        self.show_page("dps", self.dps_window)
 
     def open_diagnostics(self):
         from .ui.diagwindow import DiagnosticsWindow
         if self.diag_window is None:
             self.diag_window = DiagnosticsWindow(self)
-        self.diag_window.show()
-        self.diag_window.raise_()
-        self.diag_window.activateWindow()
+        self.show_page("diagnostics", self.diag_window)
 
     def _watch_health(self):
         """Tell the player once about a serious problem that lasts (e.g. nothing arrives from the game)."""
@@ -2809,9 +2793,7 @@ class Controller(QObject):
             self.arcana_window.show_tab(tab)
         else:
             self.arcana_window.refresh()
-        self.arcana_window.show()
-        self.arcana_window.raise_()
-        self.arcana_window.activateWindow()
+        self.show_page("arcana", self.arcana_window)
 
     def upgrades_off(self, name):
         """The kinds of upgrade (upgrades.CATEGORIES) a character switched off."""
@@ -2865,9 +2847,7 @@ class Controller(QObject):
             self.upgrades_window = UpgradesWindow(self)
         else:
             self.upgrades_window.refresh()
-        self.upgrades_window.show()
-        self.upgrades_window.raise_()
-        self.upgrades_window.activateWindow()
+        self.show_page("upgrades", self.upgrades_window)
 
     def open_builds(self, build=None, plan=False, tab="builds"):
         """Builds: your skill setups beyond the game's 3 presets, and the Afinador of the macro (its second tab)."""
@@ -2879,9 +2859,7 @@ class Controller(QObject):
         if build:
             self.builds_window.select(build, plan)
         self.builds_window.show_tab(tab)
-        self.builds_window.show()
-        self.builds_window.raise_()
-        self.builds_window.activateWindow()
+        self.show_page("builds", self.builds_window)
 
     # --- the mob route over the minimap ---
     def _mob_names(self):
@@ -3192,6 +3170,86 @@ class Controller(QObject):
             elevation.delete_task()
         self.refresh()
 
+    # --- the AionDex window (v2) ---
+    def open_hub(self, key=None):
+        """The AionDex window: every feature in one place. key: the page to show (Inicio when none)."""
+        from .ui.hub import HubWindow
+        if self.hub is None:
+            self.hub = HubWindow(self)
+            self.hub.moved.connect(self._hud_follow)
+            self.window.moved.connect(lambda: self.hub.hud_resized(self.window.size()) if self.hub else None)
+        if key:
+            entry = next(((m, kw) for _, es in __import__("pet_overlay.ui.hub", fromlist=["NAV"]).NAV
+                          for k, _, _, m, kw in es if k == key), None)
+            if entry:
+                getattr(self, entry[0])(**entry[1])
+                return
+        if self.hub.current is None:
+            self.open_home()
+        else:
+            self.hub.show_page(self.hub._page_of_nav.get(self.hub.current, self.hub.current),
+                               self.hub.stack.currentWidget(), self.hub.current)
+
+    def open_home(self):
+        from .ui.hub import HomePage
+        if self.hub is None:
+            self.open_hub()
+        page = self.hub.page("home") or HomePage(self, self.hub.fonts)
+        self.show_page("home", page)
+
+    def open_panel_page(self, key):
+        """A page made of a module's own panel (Pase, Notificaciones, Ajustes, Pets)."""
+        from .ui.hub import PanelPage
+        from .ui.theme import Fonts
+        if self.hub is None:
+            self.open_hub()
+        module = next((m for m in self.modules if m.key == key), None)
+        if module is None:
+            return
+        page = self.hub.page(f"panel:{key}") or PanelPage(self, module, Fonts(1.1))
+        self.show_page(f"panel:{key}", page, nav=key)
+
+    def show_page(self, page, widget, nav=None):
+        """Show a widget as a page of the AionDex window (made when needed) and bring the window up."""
+        if self.hub is None:
+            self.open_hub()
+        self.hub.show_page(page, widget, nav)
+
+    def hub_shown(self):
+        """The AionDex window came up: the HUD docks in its top-right corner (the same window, moved)."""
+        if self.hub is None or not self.hub.isVisible() or self.hub.isMinimized():
+            return
+        w = self.window
+        if self._hud_home is None:
+            self._hud_home = (w._anchor or w.pos(), w.isVisible())
+        w.set_docked(True)
+        if not w.isVisible():
+            w.show()
+            w.apply_lock(self.settings["locked"])
+        self.hub.hud_resized(w.size())
+        self._hud_follow()
+
+    def _hud_follow(self):
+        if self._hud_home is None or self.hub is None or not self.hub.isVisible():
+            return
+        pos = self.hub.hud_anchor()
+        self.window._anchor = pos
+        if self.window.pos() != pos:
+            self.window.move(pos)
+        self.window.raise_()
+
+    def hub_hidden(self):
+        """The AionDex window went away: the HUD goes back where you had it."""
+        if self._hud_home is None:
+            return
+        anchor, _ = self._hud_home
+        self._hud_home = None
+        w = self.window
+        w.set_docked(False)
+        w._anchor = anchor
+        w.move(anchor)
+        w.setVisible(bool(self.settings["visible"]))
+
     def open_tuner(self):
         """The Afinador of the macro: the Builds window's second tab."""
         self.open_builds(tab="afinador")
@@ -3404,6 +3462,7 @@ class Controller(QObject):
         self.tray = QSystemTrayIcon(self.app_icon, self)
         menu = styled_menu()
         hk = self.settings["hotkeys"]
+        menu.addAction(tr("Abrir la ventana de AionDex"), self.open_hub)
         menu.addAction(tr("Abrir mapa de pets\t{0}", hk['toggle_map']), self.open_map)
         menu.addAction(tr("Mapa del mundo"), self.open_world_map)
         menu.addAction(tr("Colección de pets"), self.open_collection)
