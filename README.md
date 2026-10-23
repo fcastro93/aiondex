@@ -89,8 +89,8 @@ Cada release incluye un manifiesto **firmado** (Ed25519). La app solo instala un
 
 ## Privacidad y avisos
 
-- AionDex solo **lee** el tráfico de red de tu propio cliente (con Npcap). No modifica el juego, no lee su memoria y no envía nada a ningún servidor.
-- Se conecta únicamente a GitHub (actualizaciones) y a [metabot.gg](https://metabot.gg/en/aion-2) (iconos y mapas).
+- AionDex solo **lee** el tráfico de red de tu propio cliente (con Npcap). No modifica el juego ni lee su memoria.
+- Se conecta a GitHub (actualizaciones), a [metabot.gg](https://metabot.gg/en/aion-2) (iconos y mapas), al sitio oficial de NCSOFT (aion2.plaync.com: perfiles públicos, el tuyo para Mejoras y los de tu grupo en Jugadores; la lista de eventos en curso) y, solo si activas **Compartir muestreos** en Market, al servicio que junta los precios de otros jugadores (nombres de objetos, precios y ofertas: nada tuyo). Nada más sale de tu PC.
 - Tus datos (colección, ajustes, historial, configuración de tus macros) se guardan en `%LOCALAPPDATA%\AionDex`.
 - Con la ruta en el minimapa activa, AionDex mira si tienes presionadas las 8 teclas de movimiento (W A S D y las flechas), solo mientras la ventana del juego está al frente, para mover el dibujo contigo. No mira ninguna otra tecla ni guarda nada.
 - Los mapas leen el **minimapa** del juego (solo ese recuadro, y para encontrarlo una vez cada poco el cuarto de arriba a la derecha) más o menos una vez por segundo (unas seis con la ruta en el minimapa), solo mientras tienes abierta una ventana de mapa o la ruta en el minimapa; se procesa en tu PC y no se guarda.

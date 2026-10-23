@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel, QPushBu
 
 from .. import APP_NAME, __version__
 from . import theme
-from .design import HUB_STYLE, Card, Divider, Hero, NavItem, Stat, hub_font
+from .design import HUB_STYLE, Card, Divider, Hero, Meter, NavItem, Stat, hub_font
 from .mapwindow import badge_label
 from .theme import Fonts
 from .widgets import label
@@ -193,10 +193,10 @@ class NowPanel(QWidget):
         self.where.setText(zone_name(ctl) or (tr("Entra al juego con AionDex abierto") if not ch else tr("Zona: aún no la sé")))
         il = cp = None
         try:
-            up = ctl.upgrade_plan(name) if name else None
-            if up is not None and up.me:
-                il, cp = up.me.item_level, up.me.cp
-        except Exception:                       # noqa: BLE001 - the plan is Mejoras' business
+            me = ctl.upgrades_me(name) if name else None
+            if me is not None:
+                il, cp = me.item_level, me.cp
+        except Exception:                       # noqa: BLE001 - Mejoras' business
             pass
         self.il.value.setText(f"{il:,}" if il else "—")
         self.cp.value.setText(f"{cp:,}" if cp else "—")
@@ -243,8 +243,6 @@ class HomePage(QWidget):
         self.body.setSpacing(fonts.px(12))
         scroll.setWidget(holder)
         root.addWidget(scroll, 1)
-        from ..modules.dashboard import DashboardPanel
-        self.dash = DashboardPanel(ctl, fonts)
         self._press = None
 
     def showEvent(self, event):
@@ -253,50 +251,33 @@ class HomePage(QWidget):
 
     def refresh(self):
         from .upgradeswindow import _clear
+        from ..status import ALERTS
         f = self.fonts
         ctl = self.ctl
-        self.dash.setParent(None)
         _clear(self.body)
         self.stamp.setText(time.strftime("%d/%m · %H:%M"))
         name = ctl.character_name() or ctl.settings.get("last_character")
-        # the next step: Mejoras' first step, else Arcanas', else the Tracker's next activity
-        hero = None
-        try:
-            up = ctl.upgrade_plan(name) if name else None
-        except Exception:                       # noqa: BLE001
-            up = None
-        if up is not None and up.steps:
-            step = next((s for s in up.steps if getattr(s, "ready", True)), up.steps[0])
-            hero = (tr("Tu siguiente paso · Mejoras"), step.title, getattr(step, "summary", "") or "",
-                    (tr("Abrir Mejoras"), ctl.open_upgrades))
+        now = time.time()
+        # the one next step (the same the HUD and Mejoras show)
+        nxt = ctl.next_step(name)
+        if nxt is not None:
+            eyebrow = {"upgrades": tr("Tu siguiente paso · Mejoras"), "arcana": tr("Tu siguiente paso · Arcanas"),
+                       "tracker": tr("Lo siguiente en el Tracker")}.get(nxt.source, tr("Tu siguiente paso"))
+            self.body.addWidget(Hero(f, eyebrow, nxt.title, nxt.summary, (nxt.action, nxt.open)))
         else:
-            plan = None
-            try:
-                plan = ctl.arcana_plan(name) if name else None
-            except Exception:                   # noqa: BLE001
-                pass
-            if plan is not None and plan.feeds:
-                fd = plan.feeds[0]
-                hero = (tr("Tu siguiente paso · Arcanas"), tr("Subamos tu {0} +{1}", fd.target.name, fd.target.enchant),
-                        tr("Con la comida que ya tienes llega a +{0}.", fd.to), (tr("Abrir Arcanas"), ctl.open_arcana))
-        if hero is None:
-            rows = ctl.tracker.upcoming()
-            if rows:
-                from ..modules.tracker import when_text
-                entry, st = rows[0]
-                text, _ = when_text(st, time.time())
-                hero = (tr("Lo siguiente en el Tracker"), entry.name, text, (tr("Abrir Tracker"), ctl.open_tracker))
-        if hero is None:
-            hero = (tr("Todo al día"), tr("Entra al juego con AionDex abierto y te digo qué hacer."), "",
-                    (tr("Ajustes"), lambda: ctl.open_panel_page("settings")))
-        self.body.addWidget(Hero(f, hero[0], hero[1], hero[2], hero[3]))
-        # your numbers
+            self.body.addWidget(Hero(f, tr("Todo al día"), tr("Entra al juego con AionDex abierto y te digo qué hacer."),
+                                     "", (tr("Ajustes"), lambda: ctl.open_panel_page("settings"))))
+        # your numbers (the official profile moved by your changes: no plan is built for this)
         row = QHBoxLayout()
         row.setSpacing(f.px(10))
         ch = ctl.character
         il = cp = None
-        if up is not None and up.me:
-            il, cp = up.me.item_level, up.me.cp
+        try:
+            me = ctl.upgrades_me(name) if name else None
+            if me is not None:
+                il, cp = me.item_level, me.cp
+        except Exception:                       # noqa: BLE001
+            pass
         for value, title, color in ((ch.name if ch else (name or "—"), tr("Personaje"), theme.TEXT),
                                     (f"{il:,}" if il else "—", tr("Nivel de objeto"), theme.GOLD),
                                     (f"{cp:,}" if cp else "—", "CP", theme.ACCENT),
@@ -304,32 +285,69 @@ class HomePage(QWidget):
                                     (str(ctl.notifications.unread or 0), tr("Sin leer"), theme.MUTED)):
             row.addWidget(Stat(f, value, title, color), 1)
         self.body.addLayout(row)
-        # what needs you now (the Dashboard's cards) and the shortcuts
         grid = QGridLayout()
         grid.setHorizontalSpacing(f.px(12))
-        today = Card(f, tr("Qué necesita de ti ahora"))
-        self.dash.setParent(today)
-        today.body.addWidget(self.dash)
-        self.dash.show()
-        self.dash.render(False)
-        grid.addWidget(today, 0, 0)
-        go = Card(f, tr("Ir a"))
-        links = QGridLayout()
-        links.setSpacing(f.px(6))
-        shortcuts = ((tr("Mejoras"), ctl.open_upgrades), (tr("Arcanas"), ctl.open_arcana),
-                     (tr("Builds"), ctl.open_builds), ("Crafting", ctl.open_crafting),
-                     (tr("Mapa del mundo"), ctl.open_world_map), ("Tracker", ctl.open_tracker),
-                     ("Season Missions", ctl.open_missions), (tr("Logros"), ctl.open_achievements))
-        for i, (text, slot) in enumerate(shortcuts):
-            b = QPushButton(text)
-            b.setProperty("ghost", True)
-            b.clicked.connect(slot)
-            links.addWidget(b, i // 2, i % 2)
-        go.body.addLayout(links)
-        go.body.addStretch(1)
-        grid.addWidget(go, 0, 1)
-        grid.setColumnStretch(0, 3)
-        grid.setColumnStretch(1, 2)
+        # this week: season missions, achievements to claim, the Pass
+        week = Card(f, tr("Esta semana"))
+        try:
+            done, total = ctl.missions.week_summary(name, now) if name and ctl.missions.available else (0, 0)
+        except Exception:                       # noqa: BLE001
+            done, total = 0, 0
+        if total:
+            line = QHBoxLayout()
+            line.addWidget(label(tr("Season Missions semanales"), f.body, theme.TEXT), 1)
+            line.addWidget(label(f"{done} / {total}", f.name, theme.GAIN if done == total else theme.TEXT))
+            week.body.addLayout(line)
+            week.body.addWidget(Meter(done / total, "#7bd88f" if done == total else "#f0c24e", height=7))
+        for model, text, opener in ((ctl.missions, tr("misiones con recompensa por cobrar"), ctl.open_missions),
+                                    (ctl.achievements, tr("logros con recompensa por cobrar"), ctl.open_achievements)):
+            try:
+                n = len(model.ready(name, now)) if name and model.available else 0
+            except Exception:                   # noqa: BLE001
+                n = 0
+            if n:
+                link = QPushButton(f"{n} {text}")
+                link.setProperty("flat", True)
+                link.clicked.connect(opener)
+                week.body.addWidget(link, 0, Qt.AlignLeft)
+        if not total:
+            week.body.addWidget(label(tr("Entra al juego: leo tus misiones y tus logros."), f.small, theme.MUTED))
+        week.body.addStretch(1)
+        grid.addWidget(week, 0, 0)
+        # what needs you now: Status alerts, the Tracker's next activities, pets to farm here
+        now_card = Card(f, tr("Ahora mismo"))
+        alerts = [(key, ctl.status.targets(key, now)) for key in ALERTS]
+        alerts = [(key, who) for key, who in alerts if who]
+        for key, who in alerts[:3]:
+            line = QHBoxLayout()
+            line.addWidget(label(ALERTS[key][0], f.body, theme.COMBAT), 1)
+            line.addWidget(label(", ".join(who[:3]), f.small, theme.MUTED))
+            now_card.body.addLayout(line)
+        rows = ctl.tracker.upcoming()[:3]
+        if rows:
+            from ..modules.tracker import when_text
+            for entry, st in rows:
+                text, color = when_text(st, now)
+                line = QHBoxLayout()
+                line.addWidget(label(entry.name, f.body, theme.TEXT, elide=True), 1)
+                line.addWidget(label(text, f.small, color))
+                now_card.body.addLayout(line)
+        try:
+            zone, nearby, _ = ctl.nearby_pets()
+            left = [p for p, _ in nearby if not p.is_max]
+        except Exception:                       # noqa: BLE001
+            zone, left = None, []
+        if zone and left:
+            link = QPushButton(tr("{0} pets por subir en {1}", len(left), zone.get("name", "")))
+            link.setProperty("flat", True)
+            link.clicked.connect(lambda: ctl.open_panel_page("pets"))
+            now_card.body.addWidget(link, 0, Qt.AlignLeft)
+        if not alerts and not rows and not left:
+            now_card.body.addWidget(label(tr("Nada pendiente ahora mismo."), f.small, theme.MUTED))
+        now_card.body.addStretch(1)
+        grid.addWidget(now_card, 0, 1)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 1)
         self.body.addLayout(grid)
         self.body.addStretch(1)
 

@@ -202,8 +202,10 @@ class DashboardPanel(QWidget):
                 started = sorted((m for m in left if progress[m.id].count), key=lambda m: -progress[m.id].ratio)
                 left = started[:ROTATING] or [m for m, _ in ms.recommend(name, faction, now)[:ROTATING]] \
                     or left[:ROTATING]
-            m, position = self._rotating(left[:ROTATING] if model != "missions" else left)
-            where, color = tr("por hacer {0}", position), theme.MUTED
+            m = left[0]                       # the closest to done (achievements come sorted; missions: started first)
+            if model == "missions":
+                m = max(left, key=lambda x: (progress[x.id].ratio, -progress[x.id].target))
+            where, color = tr("por hacer · {0} más", len(left) - 1) if len(left) > 1 else tr("por hacer"), theme.MUTED
         p = progress[m.id]
         shown_name, _, _ = m.view(faction)
         value = "✓" if p.done else thousands(f"{p.count:,}/{p.target:,}")
@@ -224,32 +226,13 @@ class DashboardPanel(QWidget):
 
     def _next(self, glyph):
         """Your next step across the app: Mejoras' first step you can do now, else Arcanas' next feed."""
-        ctl = self.ctl
-        name = ctl.character_name() or ctl.settings.get("last_character")
-        if not name:
+        nxt = self.ctl.next_step()
+        if nxt is None:
             return None
-        try:
-            up = ctl.upgrade_plan(name)
-        except Exception:                        # noqa: BLE001 - Mejoras' business
-            up = None
-        if up is not None and up.steps:
-            step = next((s for s in up.steps if getattr(s, "ready", True)), up.steps[0])
-            card = self._card(glyph, theme.GOLD, tr("SIGUIENTE PASO · MEJORAS"), step.title, "", None,
-                              sub=getattr(step, "summary", "") or "")
-            card.on_click = ctl.open_upgrades
-            return card
-        try:
-            plan = ctl.arcana_plan(name)
-        except Exception:                        # noqa: BLE001
-            plan = None
-        if plan is not None and plan.feeds:
-            fd = plan.feeds[0]
-            card = self._card(glyph, theme.GOLD, tr("SIGUIENTE PASO · ARCANAS"),
-                              tr("Subamos tu {0} +{1}", fd.target.name, fd.target.enchant), "", None,
-                              sub=tr("con tu comida llega a +{0}", fd.to))
-            card.on_click = ctl.open_arcana
-            return card
-        return None
+        where = {"upgrades": tr("MEJORAS"), "arcana": tr("ARCANAS"), "tracker": "TRACKER"}.get(nxt.source, "")
+        card = self._card(glyph, theme.GOLD, tr("SIGUIENTE PASO · {0}", where), nxt.title, "", None, sub=nxt.summary)
+        card.on_click = nxt.open
+        return card
 
     def _activity(self, glyph):
         rows = self.ctl.tracker.upcoming()

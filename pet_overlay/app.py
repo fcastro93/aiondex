@@ -7,7 +7,7 @@ import queue
 import sys
 import threading
 import time
-from collections import Counter
+from collections import Counter, namedtuple
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QThread, QTimer, Signal
@@ -91,6 +91,7 @@ from .i18n import DEFAULT as DEFAULT_LANGUAGE, LANGUAGES, tr
 
 log = logging.getLogger(__name__)
 HOTKEY_ACTIONS = ["toggle_visible", "toggle_lock", "toggle_compact", "toggle_map", "crafting_scan"]
+NextStep = namedtuple("NextStep", "source step title summary open action")   # the one next step (next_step)
 GRAB_DELAY_MS = 180             # AionDex's own windows fade out of the way before a market capture
 ZONE_NOTICE_COOLDOWN = 600      # seconds before the same zone's "pets here" notice repeats
 POSITION_ZONE_SECONDS = 20      # a position this recent says your zone (over the monsters around)
@@ -720,6 +721,7 @@ class Controller(QObject):
         self.window = OverlayWindow(self, self.fonts)
         self.window.setWindowIcon(self.app_icon)
         self.hub = None                 # the AionDex window (ui/hub.py), made on first use
+        self._next_cache = (0.0, None, None)      # (when, character, NextStep) - next_step() keeps it 30 s
         self._hud_home = None           # (anchor, visible) of the HUD before it docked in the hub
         self._hub_refreshed = 0.0
         from .blinkwatch import BlinkWatch
@@ -782,6 +784,8 @@ class Controller(QObject):
                    "el HUD vuelve a su sitio."), keep=True))
         self._tick = QTimer(self, interval=10_000, timeout=self.refresh)
         self._tick.start()
+        self._events_tick = QTimer(self, interval=6 * 3600 * 1000, timeout=self.events.refresh_live)
+        self._events_tick.start()                 # NC's running-events list, not only when you open Eventos
         self._combat_tick = QTimer(self, interval=1000, timeout=self._on_combat_tick)
         self._combat_tick.start()
         self._tracker_tick = QTimer(self, interval=15_000, timeout=self._on_tracker_tick)
@@ -1162,7 +1166,7 @@ class Controller(QObject):
                 name = self.crafting.professions.get(profession, {}).get("name", profession)
                 self.notify("info", tr("¡{0} subió a {1}!", name, level_text(level)),
                             tr("Crafting ya calcula tu probabilidad de éxito con el nivel nuevo."))
-                self.sounds.play("pet_level_up")        # the same level-up sound as the pets
+                self.sounds.play("profession_level_up")
         self._crafting_changed()
 
     def crafting_import(self, path):
@@ -2788,6 +2792,7 @@ class Controller(QObject):
     def arcana_changed(self):
         """Cards, skills or targets changed: Arcanas (and Mejoras, which has its feeding step) are built again."""
         self._arcana_cache = (0.0, None, None)
+        self._next_cache = (0.0, None, None)
         if self.arcana_window is not None and (self.arcana_window.isVisible() or self.arcana_window.leveling):
             self.arcana_window.refresh()            # «Subir» follows the card even with the window out of sight
         self.upgrades_changed()
@@ -2840,9 +2845,55 @@ class Controller(QObject):
         self._save_settings()
         self.upgrades_changed()
 
+    def next_step(self, name=None):
+        """The one next step across the app, the same in the HUD, Inicio and Mejoras: Mejoras' first step you can
+        do now (not a farm, a boss, an activity or a goal), else Arcanas' next feed, else Mejoras' first step of any
+        kind, else the Tracker's next activity. A NextStep or None; kept 30 s per character."""
+        from .upgrades import next_steps
+        name = name or self.character_name() or self.settings.get("last_character")
+        at, who, cached = self._next_cache
+        if who == name and time.time() - at < 30:
+            return cached
+        found = None
+        plan = None
+        try:
+            plan = self.upgrade_plan(name) if name else None
+        except Exception:                        # noqa: BLE001 - Mejoras' business
+            log.exception("next step: upgrade plan")
+        if plan is not None and plan.steps:
+            first = next_steps(plan, 1)[0]
+            if first.ready and first.kind not in ("farm", "boss", "content", "goal", "theostone", "spare"):
+                found = NextStep("upgrades", first, first.title, first.summary or "", self.open_upgrades,
+                                 tr("Abrir Mejoras"))
+        if found is None:
+            cards = None
+            try:
+                cards = self.arcana_plan(name) if name else None
+            except Exception:                    # noqa: BLE001
+                log.exception("next step: arcana plan")
+            if cards is not None and cards.feeds:
+                fd = cards.feeds[0]
+                found = NextStep("arcana", None, tr("Subamos tu {0} +{1}", fd.target.name, fd.target.enchant),
+                                 tr("Con la comida que ya tienes llega a +{0}.", fd.to), self.open_arcana,
+                                 tr("Abrir Arcanas"))
+        if found is None and plan is not None and plan.steps:
+            first = plan.steps[0]
+            found = NextStep("upgrades", first, first.title, first.summary or "", self.open_upgrades,
+                             tr("Abrir Mejoras"))
+        if found is None:
+            rows = self.tracker.upcoming()
+            if rows:
+                from .modules.tracker import when_text
+                entry, st = rows[0]
+                text, _ = when_text(st, time.time())
+                found = NextStep("tracker", None, entry.name, text, self.open_tracker, tr("Abrir Tracker"))
+        self._next_cache = (time.time(), name, found)
+        return found
+
     def upgrades_changed(self):
         """Items, gear or prices changed: Mejoras is built again."""
         self._plan_cache = (0.0, None, None)
+        self._next_cache = (0.0, None, None)
         if self.upgrades_window is not None:
             self.upgrades_window.changed()
         module = getattr(self, "active_module", None)

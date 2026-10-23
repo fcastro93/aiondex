@@ -12,6 +12,7 @@ log = logging.getLogger(__name__)
 
 SOUNDS = {      # key -> (what it is for, file)
     "pet_level_up": (tr("Pet sube de nivel"), "pet_level_up.mp3"),
+    "profession_level_up": (tr("Profesión sube de nivel"), "pet_level_up.mp3"),
     "boss_alert": (tr("Aviso de jefe (Tracker)"), "boss_alert.mp3"),
     "event_alert": (tr("Aviso de evento (Tracker)"), "event_alert.mp3"),
     "status_alert": (tr("Alerta de Status (energía, tickets, semanal)"), "event_alert.mp3"),

@@ -434,7 +434,9 @@ class UpgradesWindow(QWidget):
             self._next_up(plan)
             self._categories(plan)
             return
-        first = next((s for s in plan.steps if s.ready and self._group(s) == "now"), plan.steps[0])
+        nxt = self.ctl.next_step(plan.character)
+        first = nxt.step if nxt is not None and nxt.step in plan.steps else \
+            next((s for s in plan.steps if s.ready and self._group(s) == "now"), plan.steps[0])
         self._hero(first)
         self._next_up(plan)
         rest = [s for s in plan.steps if s is not first]

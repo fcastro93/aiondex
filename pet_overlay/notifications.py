@@ -19,7 +19,7 @@ MERGE_SECONDS = 5.0     # same-key notices within this window update the previou
 
 # kind -> meaning (colors live in ui/theme)
 KINDS = ("progress", "levelup", "unlock", "zone", "sync", "info", "warn")
-KEEP_KINDS = ("warn", "status")      # kept in the history unless the caller says otherwise
+KEEP_KINDS = ("warn", "status", "tracker")      # kept in the history unless the caller says otherwise
 TRANSIENT_MAX = 50
 
 
