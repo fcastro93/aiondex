@@ -35,6 +35,11 @@ MAX_EFFECTS, MAX_EFFECT_LEVEL = 4, 4
 GRADE_ORDER = {"Common": 0, "Rare": 1, "Epic": 2, "Unique": 3}
 GRADE_COLOR = {"Common": "#c8ccd6", "Rare": "#5bd06a", "Epic": "#4aa3ff", "Unique": "#f0c24e"}
 DEFAULT_ACTIVE_TARGET = 16          # the highest specialization of an active skill in Global (aion2data skill-levels)
+VERSION_PICK = {   # class prefix -> per card, the version (Vigor / Magic: its Pantheon stat) most of the top wear. Clerics
+    # (49 of NA East's top, 2026-10, and aion2maps' guide agrees): Chalice Vigor 44 of 49 (Time: Combat Speed), Parchment
+    # Vigor 32 (Life: HP), Bell Magic 34 (Destruction: Attack), Mirror Vigor 32 (Illusion: cooldowns); Compass a tie
+    17: {"Chalice": "Vigor", "Parchment": "Vigor", "Bell": "Magic", "Mirror": "Vigor"},
+}
 PRIORITY_DECAY = 0.75               # a skill target's weight is this to the power of its place in your list (1, 0.75,
 #                                     0.56...): the first one counts most, but a lot of the next ones can still win
 
@@ -231,6 +236,8 @@ class ArcanaPlan:
     feeds: list = field(default_factory=list)       # [Feed]
     training: list = field(default_factory=list)    # [(name, count, exp each)] in the bag
     sets: dict = field(default_factory=dict)        # set -> cards of it among the best
+    pool: dict = field(default_factory=dict)        # kind -> the skills its effects can raise for this class
+    pick: dict = field(default_factory=dict)        # kind -> the version most of the top wear (VERSION_PICK)
     useful_now: int = 0
     useful_best: int = 0
 
@@ -279,7 +286,9 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None):
     plan.cards = sorted(cards, key=lambda c: (not c.worn, TYPES.index(c.kind) if c.kind in TYPES else 9,
                                               -GRADE_ORDER.get(c.grade, 0), -c.enchant, -c.total))
     plan.worn = {c.kind: c for c in plan.cards if c.worn}
-    pool_all = {s for kind in TYPES for s in db.pool(kind, prefix)}
+    plan.pool = {kind: db.pool(kind, prefix) for kind in TYPES}
+    plan.pick = VERSION_PICK.get(prefix, {})
+    pool_all = {s for pool in plan.pool.values() for s in pool}
     worn_add = {}
     for c in plan.worn.values():
         for s, lv in c.effects:
@@ -300,7 +309,8 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None):
     plan.useful_now = _useful(plan.worn.values(), needs)
 
     # the cards to wear: of each kind, among the ones of its highest item level (a lower grade costs item level and god
-    # stat), the combination that adds the most to what you need, then the set bonuses, the most levels, the +N
+    # stat), the combination that adds the most to what you need, then the set bonuses, the version most of the top wear
+    # (with five cards any mix gives two bonuses: its Pantheon stat decides), the most levels, the +N
     options = []
     for kind in TYPES:
         mine = [c for c in plan.cards if c.kind == kind]
@@ -309,7 +319,8 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None):
     best, best_key = None, None
     for combo in itertools.product(*options):
         chosen = [c for c in combo if c is not None]
-        key = (_useful(chosen, needs, weights), _set_bonus(chosen), sum(c.total for c in chosen),
+        key = (_useful(chosen, needs, weights), _set_bonus(chosen), sum(plan.pick.get(c.kind) == c.set for c in chosen),
+               sum(c.total for c in chosen),
                sum(GRADE_ORDER.get(c.grade, 0) * 10 + c.enchant for c in chosen), sum(c.worn for c in chosen))
         if best_key is None or key > best_key:
             best, best_key = chosen, key
@@ -385,6 +396,53 @@ def effects_text(card, plan):
     """«Condemnation +2, Bolt +1...» of a card, with the plan's skill names."""
     names = {n.skill: n.name for n in plan.skills}
     return ", ".join(f"{names.get(s, s)} +{lv}" for s, lv in card.effects)
+
+
+@dataclass
+class EffectNote:
+    skill: int
+    name: str
+    level: int
+    raised: int              # the levels its enhances put on it (each effect starts at +1)
+    status: str              # "want": a skill target still missing levels with the best cards (one more helps);
+                             # "full": a target the best cards reach (it counts, one more does not); "reached": a target
+                             # you reach without cards; "off": not one of your skill targets
+    missing: int = 0
+    target: int = 0
+    rises: bool = False      # the card's next enhance can raise it (4 effects, this one under its top, the card too)
+    extra: bool = False      # its raises go past your target (one you reach without cards, or past it with the best)
+
+    @property
+    def serves(self):
+        return self.status in ("want", "full")
+
+
+def raise_luck(card, notes):
+    """(levels its enhances put on effects that serve, the ones expected: each raise picks one of its 4 effects at
+    random) of a card with 4 effects, or None."""
+    if len(notes) < MAX_EFFECTS:
+        return None
+    raised = sum(e.raised for e in notes)
+    return sum(e.raised for e in notes if e.serves and not e.extra), raised * sum(e.serves for e in notes) / len(notes)
+
+
+def effect_notes(card, plan, db):
+    """[EffectNote] of a card's effects, and (left, good): the effects its next enhance can add while it has fewer
+    than 4 (its kind's pool minus the ones it has) and how many of them are skills still missing levels."""
+    needs = {n.skill: n for n in plan.skills}
+    top = db.to_next(card.grade, card.enchant) is None
+    full = len(card.effects) >= MAX_EFFECTS
+    wear = plan.best.get(card.kind) is card
+    out = []
+    for s, lv in card.effects:
+        n = needs.get(s)
+        status = ("off" if not (n and n.target) else "reached" if not n.need else "want" if n.missing else "full")
+        out.append(EffectNote(s, n.name if n else str(s), lv, lv - 1, status, n.missing if n else 0,
+                              n.target if n else 0, full and not top and lv < MAX_EFFECT_LEVEL,
+                              lv > 1 and (status == "reached" or status == "full" and wear and n.best > n.need)))
+    mine = {s for s, _ in card.effects}
+    left = [s for s in plan.pool.get(card.kind, ()) if s not in mine] if not full and not top else []
+    return out, (len(left), sum(1 for s in left if needs.get(s) and needs[s].missing))
 
 
 def short_kind(kind):
