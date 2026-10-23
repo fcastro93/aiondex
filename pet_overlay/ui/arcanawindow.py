@@ -211,7 +211,9 @@ class ArcanaWindow(QWidget):
         key = (plan.character, id(plan))
         if getattr(self, "_farm_cache", (None, None))[0] != key:
             up = self.ctl.upgrade_plan(plan.character)
-            il = (up.me.item_level if up and up.me and up.me.item_level else (up.item_level if up else None)) or None
+            # the game's Item Level, as Mejoras has it: the official profile moved by your changes since. Never the
+            # plain sum of the pieces (1,630 for 2,612: the game counts more than that); None until the profile is read
+            il = up.me.item_level if up and up.me and up.me.item_level else None
             self._farm_cache = (key, (farm_options(plan, self.ctl.arcana_db, il), il))
         return self._farm_cache[1][0]
 
@@ -234,7 +236,10 @@ class ArcanaWindow(QWidget):
         else:
             text = tr("Tus cartas de lo que suelta ya son las mejores posibles: vas por comida.")
         text += " " + tr("Unos {0:,.0f} de exp de comida por clear; 2 recompensas al día (hasta 4 guardadas).", farm.food)
-        if not farm.can:
+        if self._farm_cache[1][1] is None:
+            text += " " + tr("Aún no sé tu nivel de objeto (lo leo de tu perfil oficial): cuento todos los stages como "
+                             "abiertos.")
+        elif not farm.can:
             il = self._farm_cache[1][1]
             text += " " + tr("Pide {0:,} de nivel de objeto (te faltan {1:,}): sube tu equipo en Mejoras.", farm.il,
                              farm.il - (il or 0))
@@ -266,7 +271,9 @@ class ArcanaWindow(QWidget):
         bits += [tr("{0} mejor que la tuya: {1:.0%} por clear", short_kind(k), farm.better[k])
                  for k in TYPES if k in farm.better]
         bits.append(tr("~{0:,.0f} de exp de comida por clear", farm.food))
-        if not farm.can:
+        if self._farm_cache[1][1] is None:
+            bits.append(tr("tu nivel de objeto: aún no lo sé"))
+        elif not farm.can:
             il = self._farm_cache[1][1]
             bits.append(tr("pide {0:,} (te faltan {1:,})", farm.il, farm.il - (il or 0)))
         elif farm.next_stage:
