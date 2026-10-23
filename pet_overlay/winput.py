@@ -39,7 +39,11 @@ _user32.SetForegroundWindow.argtypes = [wintypes.HWND]
 _user32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
 _user32.IsIconic.argtypes = [wintypes.HWND]
 _user32.SetCursorPos.argtypes = [ctypes.c_int, ctypes.c_int]
+_user32.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
 SW_RESTORE = 9
+WM_MOUSEMOVE, WM_LBUTTONDOWN, WM_LBUTTONUP = 0x0200, 0x0201, 0x0202
+MK_LBUTTON = 0x0001
+INPUT, MESSAGE = "input", "message"      # how a click reaches the game: SendInput, or posted to its window
 
 
 class Interrupted(Exception):
@@ -105,9 +109,11 @@ class Guard:
     cursor inside its window, so a glide from outside would stop at its edge (2026-10-22: the user's Builds window on a
     second monitor, the game on the main one, stopped as «moviste el ratón» after the first step)."""
 
-    def __init__(self, game_hwnd, client=None):
+    def __init__(self, game_hwnd, client=None, method=INPUT):
         self.game = game_hwnd
         self.client = client
+        self.method = method             # INPUT (SendInput, like a mouse) or MESSAGE (the click posted to the game
+        #                                  window: what an input filter that drops injected clicks does not see)
         self.at = None
 
     def check(self):
@@ -152,6 +158,15 @@ class Guard:
         _send(MOUSEEVENTF_MOVE, x, y)
         time.sleep(HOVER)
         self.check()
+        if self.method == MESSAGE and button == "left" and self.game and self.client:
+            spot = self._spot(x, y)
+            _user32.PostMessageW(self.game, WM_MOUSEMOVE, 0, spot)
+            time.sleep(0.03)
+            _user32.PostMessageW(self.game, WM_LBUTTONDOWN, MK_LBUTTON, spot)
+            time.sleep(hold)
+            _user32.PostMessageW(self.game, WM_LBUTTONUP, 0, spot)
+            time.sleep(0.1)
+            return
         down, up = ((MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP) if button == "left" else
                     (MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP))
         _send(down | MOUSEEVENTF_MOVE, x, y)
@@ -159,7 +174,24 @@ class Guard:
         _send(up | MOUSEEVENTF_MOVE, x, y)
         time.sleep(0.1)
 
+    def _spot(self, x, y):
+        return ((y - self.client[1]) & 0xFFFF) << 16 | ((x - self.client[0]) & 0xFFFF)
+
     def drag(self, x0, y0, x1, y1, steps=18):
+        if self.method == MESSAGE and self.game and self.client:
+            self.move(x0, y0)
+            _user32.PostMessageW(self.game, WM_LBUTTONDOWN, MK_LBUTTON, self._spot(x0, y0))
+            time.sleep(0.12)
+            for i in range(1, steps + 1):
+                x, y = round(x0 + (x1 - x0) * i / steps), round(y0 + (y1 - y0) * i / steps)
+                _send(MOUSEEVENTF_MOVE, x, y)
+                self.at = (x, y)
+                _user32.PostMessageW(self.game, WM_MOUSEMOVE, MK_LBUTTON, self._spot(x, y))
+                time.sleep(0.016)
+            time.sleep(0.08)
+            _user32.PostMessageW(self.game, WM_LBUTTONUP, 0, self._spot(x1, y1))
+            time.sleep(0.12)
+            return
         self.move(x0, y0)
         _send(MOUSEEVENTF_LEFTDOWN | MOUSEEVENTF_MOVE, x0, y0)
         time.sleep(0.12)

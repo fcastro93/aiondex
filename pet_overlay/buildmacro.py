@@ -21,6 +21,7 @@ per game window size; before it, from the 4K layout scaled to your window. Every
 skill's name at the top of the left panel (Windows' OCR) and every change by the game's answer; anything unexpected,
 your mouse moving or Esc stops it. The game runs as administrator, so AionDex must too (Windows does not let a normal
 program click on it)."""
+import json
 import queue
 import re
 import tempfile
@@ -29,7 +30,7 @@ import time
 from pathlib import Path
 
 from .skills import SLOT_KEYS, parse_spec_slots
-from .winput import Guard, Interrupted, bring_to_front, esc_down, game_in_front, real_pixels
+from .winput import INPUT, MESSAGE, Guard, Interrupted, bring_to_front, cursor, esc_down, game_in_front, real_pixels
 from .i18n import tr
 
 # the reference layout: the game's client area at 1920 x 1080 (it scales with the height); anchor: which edge the
@@ -159,7 +160,8 @@ class BuildMacro:
     # --- the run ---
     def _run(self):
         real_pixels()
-        self.guard = Guard(self.game, self.layout.client)
+        method = (self.ctl.settings.get("build_macro") or {}).get("click_method") or INPUT
+        self.guard = Guard(self.game, self.layout.client, method)
         try:
             self._to_front()
             self._apply()
@@ -197,9 +199,7 @@ class BuildMacro:
                             "juego»."))
         if self.preset:
             self._say(f"Preset {self.preset}")
-            self._drain()
-            self.guard.click(*self.layout.at(f"preset{self.preset}"))
-            self._wait({"90e2", "0051"}, 3.0, optional=True)
+            self._preset_click(self.preset, tr("el cambio al preset {0}", self.preset))
         specs = [s for s in self.steps if s.kind == "spec"]
         if any(s.skill not in self.slots for s in specs) and not self.slots_known:
             self._learn_slots()
@@ -247,14 +247,58 @@ class BuildMacro:
         for number in (other, active):
             if number == active:
                 self.slots = {}                          # only your preset's
-            self._drain()
-            self.guard.click(*self.layout.at(f"preset{number}"))
-            if not self._wait({"90e2"}, 2.0, optional=True):     # a click the game missed: once more
-                self.guard.click(*self.layout.at(f"preset{number}"))
-                self._wait({"90e2"}, 3.0, what=tr("el clic en el preset {0} (para leer tus especialidades; tu build "
-                                                  "va en el {1})", number, active))
+            self._preset_click(number, tr("el clic en el preset {0} (para leer tus especialidades; tu build va en "
+                                          "el {1})", number, active))
             self._wait({"0051"}, 3.0, optional=True)    # the skill list closes what a switch sends
             time.sleep(0.3)
+
+    def _preset_click(self, number, what):
+        """Click a preset button and wait for the game's 90e2: the one click the game always answers, so it is where
+        the way of clicking is tried - SendInput, then the click posted to the game's window - and the one that works
+        is kept (settings build_macro click_method). A miss saves pictures of the spot (diagnostics/build_macro)."""
+        x, y = self.layout.at(f"preset{number}")
+        tried = []
+        for method in dict.fromkeys((self.guard.method, INPUT, MESSAGE)):
+            self.guard.method = method
+            for _ in range(2):
+                self._drain()
+                before = self._shot(x, y)
+                self.guard.click(x, y)
+                tried.append((method, cursor(), before, self._shot(x, y)))
+                if self._wait({"90e2"}, 2.0, optional=True):
+                    self._wait({"0051"}, 3.0, optional=True)    # the skill list closes what a switch sends
+                    time.sleep(0.3)
+                    if method != (self.ctl.settings.get("build_macro") or {}).get("click_method", INPUT):
+                        self.ctl.settings.setdefault("build_macro", {})["click_method"] = method
+                        self.ctl.settings.save()
+                    return
+        folder = self._save_shots(number, x, y, tried)
+        raise Failed(tr("El juego no respondió a {0}, ni con clics normales ni enviados a su ventana. Si es el "
+                        "cambio de preset, cámbialo tú en el juego a otro y vuelve al tuyo y pulsa de nuevo "
+                        "«Aplicar en el juego» (así no hace falta). Guardé capturas del botón en {1}.", what, folder))
+
+    def _shot(self, x, y):
+        """A picture around a spot (for when a click is missed), or None."""
+        try:
+            from .minimap import grab
+            return grab((x - 160, y - 90, x + 160, y + 90))
+        except Exception:                        # noqa: BLE001
+            return None
+
+    def _save_shots(self, number, x, y, tried):
+        folder = Path(self.ctl.data_dir) / "diagnostics" / "build_macro" / time.strftime("%Y%m%d-%H%M%S")
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+            notes = {"preset": number, "target": [x, y], "client": list(self.layout.client), "tries": []}
+            for i, (method, at, before, after) in enumerate(tried, 1):
+                for name, image in (("before", before), ("after", after)):
+                    if image is not None:
+                        image.save(folder / f"{i}-{method}-{name}.png")
+                notes["tries"].append({"method": method, "cursor": list(at)})
+            (folder / "notes.json").write_text(json.dumps(notes, indent=1), encoding="utf-8")
+        except OSError:
+            pass
+        return folder
 
     def _spec(self, step):
         """Leave the build's specializations in the skill's first slots (in any order: the game keeps them as a

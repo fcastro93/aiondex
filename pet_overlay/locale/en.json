@@ -2384,6 +2384,7 @@
 "dbbf93740e": ", and let {0} act as filler: it recovers {1} MP each time it comes out",
 "dbe94d1e7d": "Try compact mode (the ⤡ button in the header) or a module that doesn't change size, and tell me if it stops flickering.",
 "dc0e802b71": "Downloading {0}… {1}%",
+"dc1df7f6ab": "The game didn't respond to {0}, neither with normal clicks nor with clicks sent to its window. If it's the preset switch, switch it yourself in the game to another one and back to yours, and press «Apply in game» again (then it isn't needed). I saved pictures of the button in {1}.",
 "dc8df9d7d3": "With more people scanning, prices are fresher and what sells shows better: you'll use their samples together with yours.\n\nOnly what shows in the market's list and offers travels (items, prices and offers). Never your sales, your inventory or your character, and the captures don't leave your PC.\n\nYou can change it whenever you want with «Share samples», at the bottom of this window.",
 "dca7b668de": "When you enter an Arena match, your rival (or the 10 in 5v5) shows up here with their profile.",
 "dcbe430b8e": " · Lv {0}",
