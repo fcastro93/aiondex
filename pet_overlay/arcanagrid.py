@@ -3,9 +3,10 @@ enhance a card - read from the game's own pixels, so an overlay can frame the ca
 
 The grid has 4 columns and holds the cards of your Arcana bag (the five you wear are not in it), sorted by grade
 (Unique, Epic, Rare, Common), then kind (Chalice, Parchment, Compass, Bell, Mirror), then version (Vigor, Magic):
-checked cell by cell against the user's 3828x2158 screenshot on 2026-10-23. There the first card's frame starts at
-(202, 313), columns are 201.3 px apart and rows 291, a frame is 177 x 274 px, and the list scrolls between y 296 and
-2046; all of it scales with the client height. A card's frame color is its grade (Unique gold, Epic blue...), and its
+checked cell by cell against the user's screenshot on 2026-10-23. In the game's 3840x2160 client the first card's
+frame starts near (211, 313) - GridReader finds the exact x on your screen and keeps it -, columns are 201.3 px apart
+and rows 291, a frame is 177 x 274 px, and the list scrolls between y 296 and 2018; all of it scales with the client
+height. A card's frame color is its grade (Unique gold, Epic blue...), and its
 art is warm for Vigor and cold for Magic: the two together tell which part of the list is on screen after you scroll.
 The reads work on numpy arrays (a capture of the client's left strip) so they can run many times a second."""
 import numpy as np
@@ -14,8 +15,9 @@ from .arcana import TYPES
 
 GRADES = ("Unique", "Epic", "Rare", "Common")
 # at 2158 px of client height
-X0, Y0, PITCH_X, PITCH_Y, CELL_W, CELL_H = 202, 313, 201.3, 291.0, 177, 274
-VIEW_TOP, VIEW_BOTTOM = 296, 2046            # the list's scrolling area
+X0, Y0, PITCH_X, PITCH_Y, CELL_W, CELL_H = 211, 313, 201.3, 291.0, 177, 274
+VIEW_TOP, VIEW_BOTTOM = 296, 2018            # the list's scrolling area
+X_SEARCH = 0.012                             # how far (of the height) from X0 the frames' line is looked for
 REF_H = 2158
 
 
@@ -50,26 +52,56 @@ def _grades(px):
     return out
 
 
-def read_grid(a, height):
+def _frames(a, x, height):
+    """[(top y, grade)] of the card frames whose left line crosses column x of the strip."""
+    h = a.shape[0]
+    ch = CELL_H * height / REF_H
+    y_from, y_to = int(0.10 * h), int(0.97 * h)
+    line = _grades(a[y_from:y_to, x])
+    edges = np.flatnonzero(np.diff(line)) + 1
+    starts = np.concatenate(([0], edges))
+    ends = np.concatenate((edges, [len(line)]))
+    return [(y_from + int(s), GRADES[line[s] - 1]) for s, e in zip(starts, ends)
+            if line[s] and abs((e - s) - ch) < 0.12 * ch]
+
+
+def find_x0(a, height):
+    """The x of the first column's frame line on this screen, or None: where the frames of columns 2 and 3 have
+    their left line and, a card's width further, their right one (a right line alone is the column before)."""
+    x0, _, px, _, cw, _ = geometry(height)
+    reach = int(X_SEARCH * height)
+    step = max(1, int(height / 1080))
+    right = cw - 4 * height / REF_H
+    best, hits = None, 0
+    for dx in range(-reach, reach + 1, step):
+        n = 0
+        for c in (1, 2):
+            x = x0 + dx + c * px
+            if x + right < a.shape[1]:
+                both = {t // 8 for t, _ in _frames(a, int(x), height)} &                     {t // 8 for t, _ in _frames(a, int(x + right), height)}
+                n += len(both)
+        if n > hits:
+            best, hits = x0 + dx, n
+    return best
+
+
+def read_grid(a, height, x0=None):
     """The rows fully in view: [(top y, [(grade or None, "Vigor" | "Magic" | None, registered) x 4])], top to bottom,
-    or [] when no grid is there. a: the client's left strip, an (h, w, 3) uint8 array in physical pixels."""
+    or [] when no grid is there. a: the client's left strip, an (h, w, 3) uint8 array in physical pixels; x0: the
+    frames' line (find_x0), else the usual place."""
     h, w = a.shape[:2]
-    x0, _, px, py, cw, ch = geometry(height)
+    gx0, _, px, py, cw, ch = geometry(height)
+    x0 = gx0 if x0 is None else x0
     if x0 + 4 * px > w:
         return []
     found = []
-    y_from, y_to = int(0.10 * h), int(0.97 * h)
     for col in range(4):
-        x = int(x0 + col * px + max(1, 2 * height / REF_H))       # inside the frame's left line
-        line = _grades(a[y_from:y_to, x])
-        edges = np.flatnonzero(np.diff(line)) + 1
-        starts = np.concatenate(([0], edges))
-        ends = np.concatenate((edges, [len(line)]))
-        for s, e in zip(starts, ends):
-            if line[s] and abs((e - s) - ch) < 0.12 * ch:
-                found.append((y_from + int(s), col, GRADES[line[s] - 1]))
+        found += [(top, col, grade) for top, grade in _frames(a, int(x0 + col * px), height)]
     rows = []
+    cut = view(height)[0] + 3 * height / REF_H            # a row cut by the list's top edge: its top is not its own
     for top, col, grade in sorted(found):
+        if top <= cut:
+            continue
         if rows and top - rows[-1][0] < py * 0.5:
             rows[-1][1][col] = grade
             continue
@@ -81,7 +113,7 @@ def read_grid(a, height):
         cells = []
         for col in range(4):
             grade = grades.get(col)
-            cx = x0 + col * px
+            cx = x0 - 2 * height / REF_H + col * px
             yy = np.clip((top + ch * ys).astype(int), 0, h - 1)
             xx = np.clip((cx + cw * xs).astype(int), 0, w - 1)
             sample = a[np.ix_(yy, xx)].astype(np.int16)
@@ -127,12 +159,31 @@ def best_view(orders, rows):
     return best[0], best[1]
 
 
-def cells_to_frame(order, rows, first, picks, height):
+class GridReader:
+    """read_grid with the frames' line found once per client size, and found again when it stops matching."""
+
+    def __init__(self):
+        self.x0, self.height = None, None
+
+    def read(self, a, height):
+        if height != self.height:
+            self.x0, self.height = None, height
+        rows = read_grid(a, height, self.x0) if self.x0 is not None else []
+        if not rows:
+            x0 = find_x0(a, height)
+            if x0 is not None:
+                self.x0 = x0
+                rows = read_grid(a, height, x0)
+        return rows
+
+
+def cells_to_frame(order, rows, first, picks, height, x0=None):
     """([(x, y, w, h, registered)] in client pixels of the cells to feed, (picks above the view, picks below)): also
     the cells of the rows half in view at the top and bottom (the caller clips them to view()). For each pick, a cell
     of a card that looks the same (same card, grade and +N: as food they are all alike), the ones already registered
     first, then the ones on screen."""
-    x0, _, px, py, cw, ch = geometry(height)
+    gx0, _, px, py, cw, ch = geometry(height)
+    x0 = (gx0 if x0 is None else x0) - 2 * height / REF_H         # the frame's outer edge, from its line
     if len(rows) > 1:
         py = (rows[-1][0] - rows[0][0]) / (len(rows) - 1)
     top0 = rows[0][0]

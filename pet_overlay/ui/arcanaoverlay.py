@@ -38,7 +38,8 @@ SWP_NOACTIVATE = 0x0010
 SWP_SHOWWINDOW = 0x0040
 READ_FPS = 30                    # looks at the grid a second
 PAINT_MS = 16
-HIDE_AFTER = 1.0                 # seconds without the grid before it hides (no blinking)
+HIDE_AFTER = 1.5                 # seconds without the grid before it hides (no blinking)
+TOP_EVERY = 0.5                  # seconds between two "stay over the game" (the game in front can cover it)
 DIAGNOSE_AFTER = 6.0             # seconds with the game in front and no grid before one capture is kept to look at
 TO_ADD = QColor("#2ec0f2")
 ADDED = QColor("#7bd88f")
@@ -67,6 +68,8 @@ class ArcanaOverlay(QWidget):
         self._thread = None
         self._hwnd = None
         self._placed = None
+        self._topped_at = 0.0
+        self._grid = arcanagrid.GridReader()   # finds where your screen has the grid's frames, and keeps it
         self._font = QFont("Segoe UI", 10, QFont.Bold)
         self._timer = QTimer(self, interval=PAINT_MS, timeout=self._tick)
 
@@ -134,7 +137,7 @@ class ArcanaOverlay(QWidget):
         a = np.asarray(img.convert("RGB"))
         if int(a[::16, ::16].max()) < 24:                     # nothing but black: the game is not on screen
             return ("black", None)
-        rows = arcanagrid.read_grid(a, height)
+        rows = self._grid.read(a, height)
         with self._lock:
             orders, picks = self._orders, self._picks
         order, first = arcanagrid.best_view(orders, rows)
@@ -142,7 +145,8 @@ class ArcanaOverlay(QWidget):
             self._diagnose(found[0], img)
             return ("searching", None)
         self._searching_since = None
-        boxes, off = arcanagrid.cells_to_frame(order, rows, first, [c for c in picks if c in order], height)
+        boxes, off = arcanagrid.cells_to_frame(order, rows, first, [c for c in picks if c in order], height,
+                                               self._grid.x0)
         return ("ok", ((left, top, left + width, bottom), height, boxes, off))
 
     def _diagnose(self, game, img):
@@ -180,7 +184,7 @@ class ArcanaOverlay(QWidget):
             if not self.isVisible():
                 self.show()
                 self._exclude_from_capture()
-            if area != self._placed:
+            if area != self._placed or time.time() - self._topped_at > TOP_EVERY:
                 self._place(area)
             self.update()
             return
@@ -196,6 +200,7 @@ class ArcanaOverlay(QWidget):
         if _user32.SetWindowPos(hwnd, wintypes.HWND(HWND_TOPMOST), left, top, right - left, bottom - top,
                                 SWP_NOACTIVATE | SWP_SHOWWINDOW):
             self._placed = area
+        self._topped_at = time.time()
 
     def _exclude_from_capture(self):
         hwnd = int(self.winId())
