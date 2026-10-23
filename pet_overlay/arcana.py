@@ -109,6 +109,8 @@ class Card:
     worn: bool
     stat: tuple = ("", 0)           # (god stat, value)
     exp: int = 0                    # exp put into the current level, when known
+    fed: object = None              # the planner's picture of a card after eating the one you wear (_fed): that card
+    real: object = None             # and the real one it pictures
 
     def levels(self, skill):
         return sum(lv for s, lv in self.effects if s == skill)
@@ -246,6 +248,8 @@ class ArcanaPlan:
     training: list = field(default_factory=list)    # [(name, count, exp each)] in the bag
     sets: dict = field(default_factory=dict)        # set -> cards of it among the best
     pool: dict = field(default_factory=dict)        # kind -> the skills its effects can raise for this class
+    transfers: dict = field(default_factory=dict)   # kind -> (the card you wear, the new one to feed it to, its exp,
+    #                                                 the +N the new one reaches)
     pick: dict = field(default_factory=dict)        # kind -> the version you want (Set y versión) or, if you left it
     pick_from: dict = field(default_factory=dict)   # to the top, the one most of them wear (VERSION_PICK): "you" / "top"
     top_pick: dict = field(default_factory=dict)    # kind -> the top's version (VERSION_PICK), for the tab
@@ -272,6 +276,30 @@ def _set_bonus(cards):
     for c in cards:
         counts[c.set] = counts.get(c.set, 0) + 1
     return sum((n >= 2) + (n >= 4) for n in counts.values())
+
+
+def _fed(db, card, food, pool):
+    """The card after eating another (all of its exp carries over), with its effects' expected levels: each level it
+    gains adds an effect from its kind's pool (any it lacks) until it has 4, then raises one of the 4 at random."""
+    exp, lvl = db.food(food.grade, food.enchant, food.exp) + card.exp, card.enchant
+    while db.to_next(card.grade, lvl) is not None and exp >= db.to_next(card.grade, lvl):
+        exp -= db.to_next(card.grade, lvl)
+        lvl += 1
+    slots = [({s: 1.0}, float(lv)) for s, lv in card.effects]
+    mine = {s for s, _ in card.effects}
+    for _ in range(lvl - card.enchant):
+        if len(slots) < MAX_EFFECTS:
+            left = [s for s in pool if s not in mine]
+            if left:
+                slots.append(({s: 1 / len(left) for s in left}, 1.0))
+            continue
+        slots = [(w, lv + 1 / len(slots)) for w, lv in slots]
+    got = {}
+    for w, lv in slots:
+        for s, share in w.items():
+            got[s] = got.get(s, 0) + lv * share
+    return Card(card.stack, card.item, card.name, card.kind, card.set, card.grade, card.level, lvl,
+                [[s, v] for s, v in got.items()], False, card.stat, 0, food, card)
 
 
 def _enhance_value(card, needs, have, pool, db, weights=None):
@@ -328,12 +356,19 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
 
     # the cards to wear: of each kind, among the ones of its highest item level (a lower grade costs item level and god
     # stat), the combination that adds the most to what you need, then the set bonuses, the version most of the top wear
-    # (with five cards any mix gives two bonuses: its Pantheon stat decides), the most levels, the +N
+    # (with five cards any mix gives two bonuses: its Pantheon stat decides), the most levels, the +N. A new card also
+    # competes as it would be after eating the one you wear (all its exp carries over and its levels are dealt again
+    # among the new card's effects): an enhanced card of yours does not hide a better one that shows up later
     options = []
     for kind in TYPES:
         mine = [c for c in plan.cards if c.kind == kind]
         top = max((c.level for c in mine), default=0)
-        options.append([c for c in mine if c.level == top] or [None])
+        tops = [c for c in mine if c.level == top]
+        worn = plan.worn.get(kind)
+        if worn is not None and worn.enchant:
+            tops += [_fed(db, c, worn, plan.pool[kind]) for c in tops
+                     if c is not worn and db.to_next(c.grade, c.enchant) is not None]
+        options.append(tops or [None])
     best, best_key = None, None
     for combo in itertools.product(*options):
         chosen = [c for c in combo if c is not None]
@@ -342,7 +377,11 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
                sum(GRADE_ORDER.get(c.grade, 0) * 10 + c.enchant for c in chosen), sum(c.worn for c in chosen))
         if best_key is None or key > best_key:
             best, best_key = chosen, key
-    plan.best = {c.kind: c for c in best or []}
+    expected = {c.kind: c for c in best or []}            # with the new cards as they would be after a transfer
+    plan.best = {k: c.real or c for k, c in expected.items()}
+    for kind, c in expected.items():
+        if c.fed is not None:
+            plan.transfers[kind] = (c.fed, c.real, db.food(c.fed.grade, c.fed.enchant, c.fed.exp), c.enchant)
     plan.useful_best = _useful(plan.best.values(), needs)
     adds = {}
     for c in plan.best.values():
@@ -353,8 +392,8 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
     for kind in TYPES:
         worn, chosen = plan.worn.get(kind), plan.best.get(kind)
         if chosen is not None and chosen is not worn:
-            others = [c for k, c in plan.best.items() if k != kind]
-            gain = _useful(others + [chosen], needs) - _useful(others + ([worn] if worn else []), needs)
+            others = [c for k, c in expected.items() if k != kind]
+            gain = _useful(others + [expected[kind]], needs) - _useful(others + ([worn] if worn else []), needs)
             plan.changes.append((kind, worn, chosen, gain))
     for c in plan.best.values():
         plan.sets[c.set] = plan.sets.get(c.set, 0) + 1
@@ -374,6 +413,8 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
     food = sorted([(c, db.food(c.grade, c.enchant, c.exp), db.feed_kinah(c.grade, c.enchant)) for c in plan.spare],
                   key=lambda f: f[1])
     food += [((name, n), exp * n, 0) for name, n, exp in plan.training]
+    food += [(w, exp, db.feed_kinah(w.grade, w.enchant)) for w, _, exp, _ in plan.transfers.values()]
+    into_new = {w.stack: new.stack for w, new, _, _ in plan.transfers.values()}     # the one you wear -> the new one
     targets_ = [c for c in plan.best.values() if db.to_next(c.grade, c.enchant) is not None]
     if food and targets_:
         have = dict(adds)
@@ -387,11 +428,14 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
                     _enhance_value(fake, needs, have, pool, db))
 
         plans = {c.stack: Feed(c, [], 0, 0, c.enchant, 0.0) for c in targets_}
-        for what, exp, kinah in sorted(food, key=lambda f: -f[1]):
+        for what, exp, kinah in sorted(food, key=lambda f: (not (isinstance(f[0], Card) and f[0].stack in into_new),
+                                                             -f[1])):
             open_ = [c for c in targets_ if db.to_next(c.grade, state[c.stack][0]) is not None]
             if not open_:
                 break
-            target = max(open_, key=lambda c: (value(c)[0] / value(c)[1], -value(c)[1]))
+            forced = into_new.get(what.stack) if isinstance(what, Card) else None
+            target = (next((c for c in open_ if c.stack == forced), None) if forced else None) or max(
+                open_, key=lambda c: (value(c)[0] / value(c)[1], -value(c)[1]))
             f = plans[target.stack]
             f.fodder.append((what, exp))
             f.exp += exp

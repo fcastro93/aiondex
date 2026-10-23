@@ -162,7 +162,11 @@ class ArcanaWindow(QWidget):
             text = tr("Ponte {0} ({1}, {2} +{3})", card.name, short_kind(kind), card.grade, card.enchant)
             why = (tr("Trae {0}; la que llevas ({1} +{2}): {3}", effects_text(card, plan), worn.name, worn.enchant,
                       effects_text(worn, plan)) if worn else tr("Trae {0}; el hueco está vacío", effects_text(card, plan)))
-            more = (tr(". +{0} nivel{1} en skills que te faltan.", gain, "es" if gain != 1 else "") if gain > 0 else
+            moved = plan.transfers.get(kind)
+            more = (". " + tr("Dale de comer tu {0} +{1}: pasa toda su exp ({2:,}), la nueva llega a +{3} y esas subidas "
+                              "se vuelven a repartir entre sus efectos: en promedio +{4:.1f} niveles en skills que te "
+                              "faltan.", moved[0].name, moved[0].enchant, moved[2], moved[3], gain) if moved else
+                    tr(". +{0} nivel{1} en skills que te faltan.", gain, "es" if gain != 1 else "") if gain > 0 else
                     ". " + self._version_why(plan, card, worn) if self._version_why(plan, card, worn) else
                     tr(". El mismo grado, más niveles o el bonus de set."))
             self._row(text, why + more, "#7bd88f", tr("Equipar"))
@@ -435,6 +439,9 @@ class ArcanaWindow(QWidget):
             elif c.worn:
                 text, col = tr("Cámbiala"), "#e0a050"
                 why = tr("Tienes una mejor: {0} {1} +{2}", best.name, best.grade, best.enchant) if best else ""
+                if c.stack in fed_to:
+                    why += ". " + tr("Dásela de comer a esa: pasa toda su exp ({0:,}).",
+                                     db.food(c.grade, c.enchant, c.exp))
             else:
                 text, col = tr("Comida"), "#2ec0f2"
                 target = fed_to.get(c.stack)
