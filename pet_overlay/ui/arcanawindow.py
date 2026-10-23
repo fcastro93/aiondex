@@ -180,6 +180,12 @@ class ArcanaWindow(QWidget):
             self.body.addWidget(label("⚠ " + tr("Si usas otro preset de arcanas (2 o 3), no des de comer las cartas que "
                                                 "tengas ahí: AionDex solo ve las que llevas puestas."),
                                       f.small, theme.WARN))
+        if plan.feeds and len(plan.feeds) > 1:
+            self.body.addWidget(label(tr("El número de cada carta es el orden para subirlas: primero la que más niveles "
+                                         "de tus skills da por cada exp, según tus prioridades. La etiqueta dice si ya es "
+                                         "la mejor carta posible de su tipo para tus skills o si podría salirte una "
+                                         "mejor (la exp que le pongas no se pierde: pasa a la nueva)."), f.small,
+                                      theme.MUTED))
         if any(n.target for n in plan.skills) and self._fold("gear", tr("Tu equipo: líneas de skill y Sync")):
             self._gear_advice(plan)
         if self._fold("guide", tr("Cómo funcionan las arcanas")):
@@ -225,10 +231,15 @@ class ArcanaWindow(QWidget):
                     tr("+{0:.0f} niveles en skills que te faltan: ese hueco está vacío.", gain)
         elif plan.feeds:
             fd = plan.feeds[0]
-            title = tr("Subamos tu {0} +{1}", fd.target.name, fd.target.enchant)
-            line = tr("Con la comida que ya tienes llega a +{0} · en promedio +{1:.1f} niveles en tus skills · unos {2:,} "
-                      "Kinah. Vamos de un nivel en uno.", fd.to, fd.useful, fd.kinah)
-            action = (tr("Empezar"), lambda _=False, st=fd.target.stack: self._start_leveling(st))
+            card = fd.target
+            title = tr("Subamos tu {0} +{1}", card.name, card.enchant)
+            notes, _ = effect_notes(card, plan, self.ctl.arcana_db)
+            want = [e.name for e in sorted((e for e in notes if e.status == "want" and e.rises),
+                                           key=lambda e: next(n.priority for n in plan.skills if n.skill == e.skill))]
+            line = (tr("Es la que más rinde ahora según tus prioridades: cada nivel cuesta {0:,} de exp y puede subir {1}.",
+                       self.ctl.arcana_db.to_next(card.grade, card.enchant), tr(" o ").join(want)) if want else "") + \
+                " " + tr("Con la comida que ya tienes llega a +{0} · unos {1:,} Kinah.", fd.to, fd.kinah)
+            action = (tr("Empezar"), lambda _=False, st=card.stack: self._start_leveling(st))
         elif plan.changes:
             kind, worn, card, gain = plan.changes[0]
             title = tr("Ponte tu {0} ({1} +{2})", card.name, card.grade, card.enchant)
@@ -292,9 +303,10 @@ class ArcanaWindow(QWidget):
         has_targets = any(n.target for n in plan.skills)
         w = worth(card, plan, db) if has_targets else None
         chip_text, chip_col = ((tr("Al máximo"), "#8a93a8") if db.to_next(card.grade, card.enchant) is None else
-                               {"yes": (tr("Vale la pena subirla"), "#7bd88f"), "ok": (tr("Sirve por ahora"), "#f0c24e"),
-                                "ilvl": (tr("Subirla: solo ilvl"), "#8a93a8"), "top": (tr("Al máximo"), "#8a93a8")}[w.verdict]
+                               {"yes": (tr("Ya es la mejor posible"), "#7bd88f"), "ok": (tr("Hay mejores posibles"), "#f0c24e"),
+                                "ilvl": (tr("No sube tus skills"), "#8a93a8"), "top": (tr("Al máximo"), "#8a93a8")}[w.verdict]
                                if w else ("", ""))
+        place = next((i for i, fd in enumerate(plan.feeds, start=1) if fd.target.stack == card.stack), None)
         if card is not worn:
             lay.addWidget(label(tr("Póntela") + (" · " + tr("llevas {0} +{1}", worn.name, worn.enchant) if worn else ""),
                                 f.small, theme.WARN, elide=True))
@@ -302,7 +314,7 @@ class ArcanaWindow(QWidget):
             lay.addWidget(_chip(chip_text, chip_col, f, self._worth_text(card, w, plan) if w and w.verdict != "top" else ""),
                           0, Qt.AlignLeft)
         if db.to_next(card.grade, card.enchant) is not None and (plan.spare or plan.training or plan.transfers):
-            go = QPushButton(tr("Subir"))
+            go = QPushButton(tr("{0}º · Subir", place) if place else tr("Subir"))
             if w and w.verdict == "ilvl":
                 go.setProperty("flat", True)            # it only gives item level: the others first
             go.clicked.connect(lambda _=False, st=card.stack: self._start_leveling(st))
@@ -840,10 +852,10 @@ class ArcanaWindow(QWidget):
             return ""
         w = worth(card, plan, self.ctl.arcana_db)
         if w.verdict == "yes":
-            return ". " + tr("Vale la pena subirla: {0} de {1} posibilidades por mejora, lo más que trae una carta "
+            return ". " + tr("Ya es la mejor posible: {0} de {1} posibilidades por mejora, lo más que trae una carta "
                              "de tipo {2}.", w.good, w.of, short_kind(card.kind))
         if w.verdict == "ok":
-            return ". " + tr("Vale la pena por ahora: {0} de {1} posibilidades por mejora; una carta de tipo {2} "
+            return ". " + tr("Hay mejores posibles: {0} de {1} posibilidades por mejora; una carta de tipo {2} "
                              "puede traer {3} de tus skills.", w.good, w.of, short_kind(card.kind), w.possible)
         if w.verdict == "ilvl":
             return ". " + tr("Subirla solo te da nivel de objeto y su stat.")

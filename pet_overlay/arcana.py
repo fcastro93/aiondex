@@ -428,6 +428,7 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
                     _enhance_value(fake, needs, have, pool, db))
 
         plans = {c.stack: Feed(c, [], 0, 0, c.enchant, 0.0) for c in targets_}
+        first_ratio = {c.stack: value(c)[0] / value(c)[1] for c in targets_}     # what its next level gives per exp
         for what, exp, kinah in sorted(food, key=lambda f: (not (isinstance(f[0], Card) and f[0].stack in into_new),
                                                              -f[1])):
             open_ = [c for c in targets_ if db.to_next(c.grade, state[c.stack][0]) is not None]
@@ -452,8 +453,10 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
                 into = 0
             state[target.stack] = [lvl, into]
             f.to = lvl
+        # the order to enhance them: what the next level gives in your skills (weighed by priority) per exp, the
+        # same measure the food went by - Qué hacer's next step and Mejoras' steps follow it
         plan.feeds = sorted((f for f in plans.values() if f.fodder),
-                            key=lambda f: -max((weights.get(s, 0) for s, _ in f.target.effects), default=0) - f.useful)
+                            key=lambda f: (-first_ratio[f.target.stack], -f.useful))
     return plan
 
 
