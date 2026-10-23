@@ -5,7 +5,9 @@
       f32 heading | [mode&2: f32 x, y, z] | varint speed | u8 | varint cooldown ms | [flags&4: u8 charges] |
       [flags&8: varint recharge ms]
 0051  skill list at login: u8 n | n x {u8 flags | u32 id | u8 level | u8 learned | 4 x u8 bonus | u8 |
-      [flags&2: varint cooldown left] | 4 bytes | [flags&4: u8 charges]}
+      [flags&2: varint cooldown left] | 4 bytes | [flags&4: u8 charges]}; level = learned + the bonuses, which are
+      [Daevanion, 0, gear (soul binding), Arcana] (2026-10-22: Condemnation 10 + [4, 0, 0, 3] with 2 + 1 from Agame's
+      Parchment +3 and Chalice; Bolt 10 + [4, 0, 1, 2])
 8ce2  quickslot presets at login: header lists | u8 active preset | u8 n | n x {u8 type (3 = skill) | u8 preset |
       u8 slot | [type 3: u32 skill] | u8 m | m x u32 priority}
 90e2  preset switched in the Skill window: 00 00 02 | u8 preset | 00 00; the game then sends that preset's skill list
@@ -79,6 +81,7 @@ class OwnSkill:
     learned: int
     bonus: int
     specs: list = field(default_factory=list)
+    parts: list = field(default_factory=list)       # the bonus as [Daevanion, 0, gear, Arcana] (0051), [] if unknown
 
 
 @dataclass
@@ -173,8 +176,9 @@ def parse_skill_list(body):
             base = base_skill(sid)
             entry = out.get(base)
             if entry is None:
-                entry = out[base] = OwnSkill(base, level, learned, sum(bonus))
-            entry.level = max(entry.level, level)
+                entry = out[base] = OwnSkill(base, level, learned, sum(bonus), parts=list(bonus))
+            if level > entry.level:
+                entry.level, entry.learned, entry.bonus, entry.parts = level, learned, sum(bonus), list(bonus)
             if sid != base and specializations(sid):
                 entry.specs = specializations(sid)
         if p != len(body):

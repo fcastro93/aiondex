@@ -73,6 +73,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .arcana import effects_text, feed_text
 from .gear import CLASS_OF_JOB, POSITIONS, SLOTS
 from .i18n import tr, tr_data
 
@@ -319,6 +320,7 @@ class Spare:
 class Plan:
     character: str
     resources: dict = field(default_factory=dict)     # kind -> count (kina, enhance_stone, transfer_stone...)
+    arcana_plan: object = None                         # arcana.ArcanaPlan of the character (Personaje › Arcanas)
     vouchers: dict = field(default_factory=dict)      # dungeon -> count
     stones: dict = field(default_factory=dict)        # manastone / soulstone name -> count
     pieces: list = field(default_factory=list)
@@ -634,15 +636,15 @@ def option_key(o):
 
 
 def build_plan(name, gear, gear_db, db, inventory, prices=None, dungeons=None, levels=None, recipes=None,
-               skipped=None, me=None, bosses=None, alts_kina=0, now=None, off=None):
+               skipped=None, me=None, bosses=None, alts_kina=0, now=None, off=None, arcana=None):
     """The Plan for a character. gear: settings["gear"][name]; inventory: the app's Inventory (bag and storage);
     prices: {item name: (lowest, when)} of the market; dungeons: the ones you run; levels: {profession: level};
     recipes: crafting_db's (the Dragon Lord pieces' Splendent step); skipped: the keys of the steps you do not want;
     me: Me (level, item level, CP, main or alt); bosses: the Tracker's field and Abyss bosses [{"name", "where",
     "level", "abyss", "map_id", "items": [(piece, chance %)], "respawn"}]; alts_kina: a main's alts' tradeable Kina;
-    off: the CATEGORIES you switched off."""
+    off: the CATEGORIES you switched off; arcana: the character's arcana.ArcanaPlan (the cards to wear and to feed)."""
     gear = gear or {}
-    plan = Plan(name)
+    plan = Plan(name, arcana_plan=arcana)
     plan.skipped = set(skipped or ())
     plan.off = set(off or ())
     plan.dungeons = list(dungeons or [])
@@ -1264,6 +1266,31 @@ def _steps(plan, by_pos, kina, bound, stones, db, levels, prices, recipes, gear_
                                                                  "recomiendo, te harían falta unas {0}.", need) if need
                                                               else ""), 0, ready=True, key="spare",
                           summary=tr("{0} piezas → 1 Transfer Stone o 1 Sync Stone cada una", len(rest))))
+    # Arcana cards (arcana.py, Personaje › Arcanas): the ones to wear, and the ones you do not use fed to them
+    cards = plan.arcana_plan
+    if cards is not None:
+        wear = [(k, w, c, g) for k, w, c, g in cards.changes if g > 0]
+        if wear:
+            steps.append(Step("arcana", tr("Arcanas: ponte {0}", ", ".join(c.name for _, _, c, _ in wear)),
+                              "; ".join(tr("{0} {1} +{2} ({3}) en lugar de la que llevas ({4}): +{5} nivel{6} en "
+                                           "skills que te faltan", c.name, c.grade, c.enchant, effects_text(c, cards),
+                                           effects_text(w, cards) if w else tr("el hueco vacío"), g,
+                                           "es" if g != 1 else "") for _, w, c, g in wear)
+                              + tr(". Qué buscar en cada carta y el resto, en Personaje › Arcanas."), 0, ready=True,
+                              key="arcana-wear", boosts=(CP,),
+                              summary=tr("+{0} niveles de skill que te faltan", sum(g for *_, g in wear))))
+        if cards.feeds:
+            kinah = sum(f.kinah for f in cards.feeds)
+            ups = sum(f.to - f.target.enchant for f in cards.feeds)
+            n = sum(1 for f in cards.feeds for w, _ in f.fodder if not isinstance(w, tuple))
+            steps.append(Step("arcana", tr("Arcanas: dales de comer las {0} que no usas", n) if n else
+                              tr("Arcanas: usa tus Training Arcana"),
+                              " ".join(feed_text(f) + "." for f in cards.feeds)
+                              + tr(" Una carta que das de comer pasa la exp de su grado más toda la que tenía (una "
+                                   "Unique +2 da 2,000 + 9,000): las que no usas, aunque estén mejoradas, valen como "
+                                   "comida. Cada +1 sube 1 el nivel de objeto y el stat de la carta, y añade un efecto "
+                                   "de skill o sube uno al azar."), ups, kinah or None, ready=fees >= kinah,
+                              key="arcana-feed", summary=tr("{0:,} de exp · +{1} en tus cartas", cards.fodder_exp, ups)))
     # 10. Theostones: weapons and guards, under 1% of the damage (the guide): last
     for pos in (1, 2):
         piece = by_pos.get(pos)

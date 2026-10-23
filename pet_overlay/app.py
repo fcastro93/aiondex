@@ -7,6 +7,7 @@ import queue
 import sys
 import threading
 import time
+from collections import Counter
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QThread, QTimer, Signal
@@ -29,7 +30,7 @@ from .roster import (FORCE_INFO_OPCODE, MEMBER_HINT_OPCODES, MEMBER_OPCODES, PAR
                      parse_member_ids,
                      parse_member_stats, parse_party_info, parse_roster)
 from .skills import (BAR_UPDATE_OPCODE, CAST_OPCODE, PRESETS_OPCODE, PRESET_SWITCH_OPCODE, REQUEST_OPCODE,
-                     SKILL_LIST_OPCODE, SKILL_UPDATE_OPCODE, SPEC_SLOTS_OPCODE, OwnEntityFinder, caster_of,
+                     SKILL_LIST_OPCODE, SKILL_UPDATE_OPCODE, SPEC_SLOTS_OPCODE, OwnEntityFinder, base_skill, caster_of,
                      parse_bar_update, parse_cast, parse_preset_switch, parse_presets, parse_request, parse_skill_list,
                      parse_skill_update, parse_spec_slots)
 from .tracker import FIELD_LIST_OPCODE, Tracker, parse_field_list
@@ -68,6 +69,7 @@ from .modules.settings import SettingsModule
 from .modules.dps import DpsModule
 from .modules.builds import BuildsModule
 from .modules.upgrades import UpgradesModule
+from .modules.arcana import ArcanaModule
 from .modules.diagnostics import DiagnosticsModule, open_problems
 from .modules.tracker import TrackerModule
 from .modules.crafting import PROFESSION_MODULES, CraftingModule, GatheringModule, LevelingModule, MarketModule
@@ -78,6 +80,7 @@ from .modules.events import EventsModule
 from .modules.dashboard import DashboardModule
 from .events import Events, event_missions
 from .afinador import STORE_DELAY, Afinador
+from .arcana import DEFAULT_ACTIVE_TARGET
 from .update_controller import UpdateController
 from .notifications import NotificationCenter
 from .ui.toasts import ToastManager
@@ -640,6 +643,12 @@ class Controller(QObject):
         self.crafting.inventory.gear_ids = self.gear_db.by_id                # every gear piece, with its soul
         self.bridge.gear_reader.by_id = self.gear_db.by_id                   # worn pieces enchanted between logins
         self.crafting.gear_names = set(self.gear_db.by_name)                 # the market OCR reads gear too
+        from .arcana import ArcanaDB, parse_cards
+        self.arcana_db = ArcanaDB(self.data_dir / "arcana_db.json")          # Arcanas (arcana.py)
+        self.crafting.inventory.parse_cards = lambda body, update=False: parse_cards(body, self.arcana_db, update)
+        self.crafting.inventory.track({i: t["name"] for i, t in self.arcana_db.training.items()})
+        self.arcana_window = None
+        self._arcana_cache = (0.0, None, None)                               # (when, character, plan)
         self.upgrades_window = None
         self._plan_cache = (0.0, None, None)                                 # (when, character, plan)
         self._upgrade_bosses = None                                          # the Tracker's bosses for Mejoras
@@ -733,7 +742,7 @@ class Controller(QObject):
         self.dps_window = None
         self._restore_session()
         self.modules = [DashboardModule(self), PetsModule(self), DpsModule(self), UpgradesModule(self),
-                        BuildsModule(self), TrackerModule(self),
+                        ArcanaModule(self), BuildsModule(self), TrackerModule(self),
                         CraftingModule(self), MarketModule(self), LevelingModule(self), GatheringModule(self),
                         StatusModule(self), MissionsModule(self), AchievementsModule(self),
                         PassesModule(self), EventsModule(self),
@@ -1166,7 +1175,7 @@ class Controller(QObject):
         self._crafting_changed()
 
     def _crafting_changed(self):
-        self.upgrades_changed()                  # your items and the prices are Mejoras' too
+        self.arcana_changed()                    # your items and the prices are Mejoras' too (and the cards Arcanas')
         if self.crafting_window and self.crafting_window.isVisible():
             self.crafting_window.refresh()
         if self.active_module.key in PROFESSION_MODULES and not self._refreshing:
@@ -2609,9 +2618,99 @@ class Controller(QObject):
         plan = build_plan(name, gear, self.gear_db, self.upgrades_db, crafting.inventory, crafting.latest_prices(),
                           dungeons, levels, crafting.recipes, skipped=set(self.upgrades_skipped(name)),
                           me=self.upgrades_me(name), bosses=self.upgrade_bosses(), alts_kina=alts_kina,
-                          off=self.upgrades_off(name))
+                          off=self.upgrades_off(name), arcana=self.arcana_plan(name))
         self._plan_cache = (time.time(), name, plan)
         return plan
+
+    # --- Arcanas ---
+    def _arcana_skills(self, name):
+        """(class prefix, {skill: level now}, the skills on the bar of the preset in use) of a character: the game's
+        skill list (the Afinador's, the one in play live, the others as last read)."""
+        tuner = self.tuner
+        if name == self.character_name() and tuner.own:
+            levels = {b: (s.level, s.learned, s.parts) for b, s in tuner.own.items()}
+            bar = tuner.presets.get(tuner.active_preset or 1, [])
+            on = {base_skill(q.skill) for q in bar} | {p for q in bar for p in q.priority}
+        else:
+            loadout = (self.settings.get("tuner", {}).get(name) or {}).get("loadout") or {}
+            levels = {int(b): (v[0], v[1], v[4] if len(v) > 4 else []) for b, v in loadout.get("skills", {}).items()}
+            slots = loadout.get("presets", {}).get(str(loadout.get("active") or 1), [])
+            on = {base_skill(q[1]) for q in slots} | {p for q in slots for p in q[2]}
+        common = Counter(b // 1_000_000 for b in levels).most_common(1)
+        return (common[0][0] if common else None), levels, on
+
+    def arcana_targets(self, name):
+        """{skill: level wanted} of a character: what they set, else the highest specialization (16) for the actives
+        on the bar of the preset in use."""
+        mine = (self.settings.get("arcana", {}).get("targets", {}).get(name))
+        if mine is not None:
+            return {int(k): v for k, v in mine.items()}
+        _, levels, on = self._arcana_skills(name)
+        kinds = self.tuner.skills
+        return {b: DEFAULT_ACTIVE_TARGET for b in levels if b in on and (kinds.get(str(b)) or {}).get("type") == "active"}
+
+    def set_arcana_target(self, name, skill, level):
+        targets = self.arcana_targets(name)
+        targets[int(skill)] = int(level)
+        self.settings.setdefault("arcana", {}).setdefault("targets", {})[name] = {str(k): v for k, v in targets.items()}
+        self._save_settings()
+        self.arcana_changed()
+
+    def reset_arcana_targets(self, name):
+        self.settings.setdefault("arcana", {}).setdefault("targets", {}).pop(name, None)
+        self._save_settings()
+        self.arcana_changed()
+
+    def arcana_characters(self):
+        """The characters whose cards were read."""
+        store = self.settings.get("crafting", {}).get("inventory", {})
+        return sorted(n for n, e in store.items() if "arcana" in e)
+
+    def arcana_plan(self, name=None):
+        """The Arcanas plan of a character (the one you play when None), or None before their cards were read."""
+        from .arcana import build, cards_of
+        name = name or self.character_name() or self.settings.get("last_character")
+        stored = self.crafting.inventory.cards(name) if name else None
+        if stored is None:
+            return None
+        at, who, plan = self._arcana_cache
+        if who == name and plan is not None and time.time() - at < 2:
+            return plan
+        prefix, levels, _ = self._arcana_skills(name)
+        if prefix is None:
+            return None
+        skills = self.tuner.skills
+        names = {int(k): v.get("name") or k for k, v in skills.items()}
+        kinds = {int(k): v.get("type") or "" for k, v in skills.items()}
+        stacks = self.settings.get("crafting", {}).get("inventory", {}).get(name, {}).get("stacks", {})
+        counts = {}
+        for item, n, _ in stacks.values():
+            if item in self.arcana_db.training:
+                counts[item] = counts.get(item, 0) + n
+        training = [(self.arcana_db.training[i]["name"], n, self.arcana_db.training[i]["exp"]) for i, n in counts.items()]
+        plan = build(self.arcana_db, prefix, cards_of(stored, self.arcana_db), levels, self.arcana_targets(name),
+                     names, kinds, training)
+        plan.character = name
+        plan.read_at = self.crafting.inventory.read_at(name)
+        self._arcana_cache = (time.time(), name, plan)
+        return plan
+
+    def arcana_changed(self):
+        """Cards, skills or targets changed: Arcanas (and Mejoras, which has its feeding step) are built again."""
+        self._arcana_cache = (0.0, None, None)
+        if self.arcana_window is not None and self.arcana_window.isVisible():
+            self.arcana_window.refresh()
+        self.upgrades_changed()
+
+    def open_arcana(self):
+        from .ui.arcanawindow import ArcanaWindow
+        if self.arcana_window is None:
+            self.arcana_window = ArcanaWindow(self)
+        else:
+            self.arcana_window.refresh()
+        self.arcana_window.show()
+        self.arcana_window.raise_()
+        self.arcana_window.activateWindow()
 
     def upgrades_off(self, name):
         """The kinds of upgrade (upgrades.CATEGORIES) a character switched off."""

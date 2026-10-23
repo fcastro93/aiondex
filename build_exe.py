@@ -82,6 +82,7 @@ def build_app():
         "--add-data", f"{ROOT / 'data' / 'consumables.json'};seed",
         "--add-data", f"{ROOT / 'data' / 'events.json'};seed",
         "--add-data", f"{ROOT / 'data' / 'boss_skills.json'};seed",
+        "--add-data", f"{ROOT / 'data' / 'arcana_db.json'};seed",
         "--add-data", f"{ROOT / 'data' / 'world_db.json'};seed",
         "--add-data", f"{ROOT / 'data' / 'upgrades_db.json'};seed",
         "--add-data", f"{ROOT / 'data' / 'pet_families.json'};seed",

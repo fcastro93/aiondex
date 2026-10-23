@@ -23,7 +23,7 @@ QMenu::separator {{ height: 1px; background: #24345a; margin: 4px 8px; }}
 QMenu::right-arrow {{ width: 8px; height: 8px; padding-right: 8px; }}
 """
 # modules shown together in a submenu (a "›" row that opens to the side), at the place of the first one
-GROUPS = ((tr("Personaje"), "character", ("upgrades", "builds")),
+GROUPS = ((tr("Personaje"), "character", ("upgrades", "arcana", "builds")),
           (tr("Progreso"), "progress", ("missions", "achievements", "passes", "events")),
           (tr("Profesiones y Market"), "professions", ("crafting", "market", "leveling", "gathering")))
 

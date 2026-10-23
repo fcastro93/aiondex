@@ -21,7 +21,7 @@ SEED_FILES = ("pets_db.json", "map_db.json", "skills_db.json", "tracker_db.json"
               "achievements_db.json", "skill_info.json",
               "passes_db.json", "boss_db.json", "consumables.json",
               "events.json", "boss_skills.json", "world_db.json", "upgrades_db.json",
-              "pet_families.json", "pet_sources.json")
+              "pet_families.json", "pet_sources.json", "arcana_db.json")
 
 
 def seed_user_data():

@@ -174,7 +174,7 @@ class Afinador:
         self._sync_lines()
         entry = self._entry(create=True)
         entry["loadout"] = {
-            "skills": {str(b): [s.level, s.learned, s.bonus, s.specs] for b, s in self.own.items()},
+            "skills": {str(b): [s.level, s.learned, s.bonus, s.specs, s.parts] for b, s in self.own.items()},
             "presets": {str(n): [[q.slot, q.skill, q.priority] for q in slots] for n, slots in self.presets.items()},
             "active": self.active_preset,
             "at": self.loadout_at,

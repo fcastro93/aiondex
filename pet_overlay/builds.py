@@ -98,6 +98,43 @@ class Builds:
                 "equipped": sorted({base_skill(q.skill) for q in bar} | {p for q in bar for p in q.priority}),
                 "bar": [[q.slot, base_skill(q.skill), list(q.priority)] for q in bar]}
 
+    def refreshed(self, build, fresh):
+        """build with what fresh (from_preset / from_profile, read now) has - skills, levels, bar - and its own id and
+        name, saved: «Actualizar»."""
+        b = self.get(build["id"])
+        if b is None:
+            return None
+        for key in ("skills", "equipped", "bar", "origin", "at", "player"):
+            if key in fresh:
+                b[key] = fresh[key]
+        b["class"] = class_of_build(b)
+        self.save()
+        return b
+
+    @staticmethod
+    def in_presets(build, presets, own=None, active=None):
+        """The presets (1-3) that have this build on: the same bar (a player's build, which has none: the same skills
+        on it) and, in the preset in use (own: its skills), the same specializations. Levels and points do not count:
+        a build stays on its preset when you level it up («Actualizar» then takes the new levels)."""
+        out = []
+        for number, slots in sorted((presets or {}).items()):
+            if not slots:
+                continue
+            if build.get("bar"):
+                mine = {q.slot: (base_skill(q.skill), tuple(q.priority)) for q in slots}
+                if mine != {s: (b, tuple(p)) for s, b, p in build["bar"]}:
+                    continue
+            elif set(build.get("equipped") or []) != ({base_skill(q.skill) for q in slots}
+                                                      | {p for q in slots for p in q.priority}):
+                continue
+            if number == active and own:
+                specs = {str(b): sorted(s.specs) for b, s in own.items()}
+                if any(sorted(entry_levels(e)[1]) != specs.get(k, []) for k, e in (build.get("skills") or {}).items()
+                       if entry_levels(e)[1] and k in specs):
+                    continue
+            out.append(number)
+        return out
+
     @staticmethod
     def from_profile(name, profile, server_name=""):
         """A player's official profile (armory.Profile): their skills, levels and what is equipped."""

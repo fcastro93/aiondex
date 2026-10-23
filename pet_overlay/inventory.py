@@ -13,7 +13,8 @@ you can make a recipe (2026-10-12; the bag's Kina in the login list matched the 
 Only the items that recipes use or make are kept (data/crafting_db.json "ids"), plus what Mejoras counts
 (data/upgrades_db.json "tracked": Kina 930100031 - 55,321,245 in the bag on 2026-10-17 -, Enhance Stones 930100023,
 Transfer Stones, Amplify Stones, Soul Codex, the dungeons' Gear Change Vouchers) and every gear piece with its +N and
-item level (gear.parse_owned_gear: the bag's and the storage's, for Mejoras). Container 17 held the three Vakron +10
+item level (gear.parse_owned_gear: the bag's and the storage's, for Mejoras), and every Arcana card with its skill
+effects (arcana.parse_cards: worn and in the Arcana bag, for Personaje › Arcanas). Container 17 held the three Vakron +10
 pieces just broken (decomposed) and nothing else: what can still be recovered, not yours, so not counted.
 """
 import struct
@@ -47,6 +48,15 @@ def parse_items(body, ids, update=False):
     return out
 
 
+def _apply_cards(held, changes):
+    """A 1b56's cards onto the ones kept: count 0 = gone (fed to another, or broken)."""
+    for stack, card in changes.items():
+        if card[5]:
+            held[stack] = card
+        else:
+            held.pop(stack, None)
+
+
 def place(container):
     return tr("Bolsa") if container == BAG else tr("Almacén")
 
@@ -56,7 +66,8 @@ class Inventory:
         self.settings = settings
         self.ids = {int(k): v for k, v in ids.items()}          # item id -> name
         self.gear_ids = {}               # gear item id -> gear.Item (the app's GearDB.by_id): the pieces kept too
-        self._pending = None             # (time, records, gear) of a login list waiting for the character it belongs to
+        self.parse_cards = None          # arcana.parse_cards bound to the cards' database: (body, update) -> {stack: card}
+        self._pending = None             # (time, records, gear, cards) of a login list waiting for its character
 
     @property
     def _store(self):
@@ -72,18 +83,21 @@ class Inventory:
         return {s: [item, enchant, level, c, soul, n] for s, c, item, enchant, level, n, soul, _ in
                 parse_owned_gear(body, self.gear_ids, update)} if self.gear_ids else {}
 
+    def _cards(self, body, update=False):
+        return self.parse_cards(body, update) if self.parse_cards else {}
+
     # --- readings ---
     def on_list(self, at, body):
-        self._pending = (at, parse_items(body, self.ids), self._gear(body))
+        self._pending = (at, parse_items(body, self.ids), self._gear(body), self._cards(body))
 
     def claim(self, name, at):
         """The game named your character: the item list read just before is theirs."""
         if not (self._pending and name and 0 <= at - self._pending[0] <= CLAIM_SECONDS):
             return False
-        read_at, records, gear = self._pending
+        read_at, records, gear, cards = self._pending
         self._pending = None
         self._store[name] = {"at": read_at, "stacks": {s: [item, n, c] for s, c, item, n in records},
-                             "gear": {s: g[:5] for s, g in gear.items()}}
+                             "gear": {s: g[:5] for s, g in gear.items()}, "arcana": cards}
         self.settings.save()
         return True
 
@@ -92,7 +106,8 @@ class Inventory:
         item (or a gear piece) changed."""
         records = parse_items(body, self.ids, update=True)
         gear = self._gear(body, update=True)
-        if not records and not gear:
+        cards = self._cards(body, update=True)
+        if not records and not gear and not cards:
             return False
         if self._pending and at - self._pending[0] <= CLAIM_SECONDS:
             stacks = {s: (c, item, n) for s, c, item, n in self._pending[1]}
@@ -107,7 +122,9 @@ class Inventory:
                     pieces[s] = g
                 else:
                     pieces.pop(s, None)
-            self._pending = (self._pending[0], [(s, c, i, n) for s, (c, i, n) in stacks.items()], pieces)
+            held = dict(self._pending[3])
+            _apply_cards(held, cards)
+            self._pending = (self._pending[0], [(s, c, i, n) for s, (c, i, n) in stacks.items()], pieces, held)
             return False
         entry = self._store.get(name) if name else None
         if entry is None or "stacks" not in entry:
@@ -123,6 +140,8 @@ class Inventory:
                 pieces[s] = g[:5]
             else:
                 pieces.pop(s, None)
+        if cards and "arcana" in entry:
+            _apply_cards(entry["arcana"], cards)
         entry["at"] = at
         self.settings.save()
         return True
@@ -151,6 +170,11 @@ class Inventory:
 
     def known_gear(self, name):
         return "gear" in self._store.get(name, {})
+
+    def cards(self, name):
+        """{stack: [item, enchant, container, slot, effects, count, stat]} of a character's Arcana cards (worn and in
+        the Arcana bag), or None if their items were never read with them (before AionDex 1.65)."""
+        return self._store.get(name, {}).get("arcana")
 
     def pieces(self, name):
         """Every gear piece read for this character, worn ones too: [(item id, enchant, item level, container,

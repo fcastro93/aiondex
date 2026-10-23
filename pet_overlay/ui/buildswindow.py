@@ -26,6 +26,8 @@ SIDE_STYLE = """
 QFrame#BuildRow { background: #101a30; border: 1px solid #1a2643; border-radius: 8px; }
 QFrame#BuildRow[selected="true"] { border-color: #2ec0f2; background: #13233f; }
 QFrame#Panel { background: #0f1830; border: 1px solid #1a2643; border-radius: 10px; }
+QLabel#PresetChip { background: #2a2208; color: #f0c24e; border: 1px solid #6b5418; border-radius: 6px; padding: 0 5px; }
+QLabel#PresetChip[active="true"] { background: #f0c24e; color: #1a1406; border-color: #f0c24e; }
 QPushButton[flat="true"] { background: transparent; color: #2ec0f2; padding: 4px 8px; }
 QPushButton[flat="true"]:hover { color: #7fe0ff; }
 """
@@ -52,7 +54,7 @@ class BuildsWindow(QWidget):
         self.fonts = Fonts(1.0)
         self.selected = None
         self.plan_for = None              # build id whose "Usar build" plan is shown
-        self.waiting = None               # (name, server, since) of a player profile being fetched
+        self.waiting = None               # (name, server, since, build id or None) of a player profile being fetched
         self.macro_text = ""              # what the build macro is doing / did
         self.running = False
         self._relay = _Relay()
@@ -242,13 +244,33 @@ class BuildsWindow(QWidget):
         col.setContentsMargins(10, 7, 10, 7)
         col.setSpacing(2)
         top = QHBoxLayout()
+        top.setSpacing(4)
         top.addWidget(label(b.get("name") or "Build", f.name, theme.TEXT, elide=True), 1)
+        for number in self._presets_of(b):
+            top.addWidget(self._preset_chip(number))
         text, color = SOURCE_TEXT.get(b.get("source"), ("", "#8a93a6"))
         top.addWidget(label(text, f.small, QColor(color)))
         col.addLayout(top)
         col.addWidget(label(f"{class_of_build(b)} · {b.get('origin', '')} · {_ago(b.get('at'))}", f.small, theme.MUTED,
                             elide=True))
         return row
+
+    def _presets_of(self, b):
+        """The presets (1-3) of the character in play that have this build on."""
+        tuner = self.ctl.tuner
+        if class_of_build(b) != self._my_class():
+            return []
+        return Builds.in_presets(b, tuner.presets, tuner.own, tuner.active_preset)
+
+    def _preset_chip(self, number):
+        chip = QLabel(str(number))
+        chip.setObjectName("PresetChip")
+        chip.setFont(self.fonts.small)
+        active = number == self.ctl.tuner.active_preset
+        chip.setProperty("active", active)
+        who = self.ctl.character_name() or self.ctl.settings.get("last_character") or ""
+        chip.setToolTip(tr("Puesta en el preset {0} de {1}", number, who) + (tr(" (el que tienes puesto)") if active else ""))
+        return chip
 
     def _select(self, build_id):
         self.selected = build_id
@@ -266,7 +288,13 @@ class BuildsWindow(QWidget):
         head = QHBoxLayout()
         titles = QVBoxLayout()
         titles.setSpacing(0)
-        titles.addWidget(label(b.get("name") or "Build", f.name_big, theme.TEXT))
+        name_row = QHBoxLayout()
+        name_row.setSpacing(6)
+        name_row.addWidget(label(b.get("name") or "Build", f.name_big, theme.TEXT))
+        for number in self._presets_of(b):
+            name_row.addWidget(self._preset_chip(number))
+        name_row.addStretch(1)
+        titles.addLayout(name_row)
         titles.addWidget(label(tr("{0} · {1} · guardada {2}", class_of_build(b), b.get('origin', ''), _ago(b.get('at'))),
                                f.small, theme.MUTED))
         head.addLayout(titles, 1)
@@ -277,6 +305,11 @@ class BuildsWindow(QWidget):
         use.setToolTip(tr("Lo que hay que cambiar de tu preset actual para tener esta build"))
         use.clicked.connect(lambda: self._plan(b["id"]))
         head.addWidget(use)
+        update = QPushButton(tr("Actualizar"))
+        update.setToolTip(tr("Vuelve a leer las skills de esta build como están ahora: las del preset donde la tienes "
+                             "puesta (niveles, especialidades y barra), o el perfil oficial del jugador"))
+        update.clicked.connect(lambda: self._update(b))
+        head.addWidget(update)
         for text, action in ((tr("Copiar código"), lambda: self._copy_code(b)), (tr("Renombrar"), lambda: self._rename(b)),
                              (tr("Borrar"), lambda: self._delete(b))):
             button = QPushButton(text)
@@ -580,6 +613,35 @@ class BuildsWindow(QWidget):
         self._fill_classes()
         self.refresh()
 
+    def _update(self, b):
+        """«Actualizar»: the build as it is now - from the preset that has it on (the one in use: levels,
+        specializations and bar; another: its bar, the levels when you put it on), or a player's official profile."""
+        if b.get("source") == "player" and b.get("player"):
+            name, server = b["player"]
+            self.ctl.armory.want(name, server, refresh=True)
+            self.waiting = (name, server, time.time(), b["id"])
+            self.subtitle.setText(tr("Leyendo de nuevo el perfil oficial de {0}…", name))
+            self._poll.start()
+            return
+        tuner = self.ctl.tuner
+        who = self.ctl.character_name() or self.ctl.settings.get("last_character") or ""
+        on = self._presets_of(b)
+        if not on and b.get("source") == "own":      # changed in the game since: the preset it was saved from
+            on = [n for n in tuner.presets if b.get("origin") == f"{who} · preset {n}"]
+        if not on:
+            self.subtitle.setText(tr("«{0}» no está puesta en ningún preset: ponla en el juego («Usar build») y luego "
+                                     "Actualizar.", b.get("name") or "Build"))
+            return
+        preset = tuner.active_preset if tuner.active_preset in on else on[0]
+        fresh = self.builds.from_preset(b.get("name") or "", who, preset, tuner.own, tuner.presets.get(preset, []))
+        if preset != tuner.active_preset:          # the game sends a preset's levels only while it is in use
+            fresh = {k: fresh[k] for k in ("equipped", "bar")}
+        self.builds.refreshed(b, fresh)
+        self.subtitle.setText(tr("«{0}» actualizada con el preset {1}.", b.get("name") or "Build", preset)
+                              + ("" if preset == tuner.active_preset else
+                                 tr(" Sus niveles se leen cuando pongas ese preset en el juego.")))
+        self.refresh()
+
     def _paste_code(self):
         b = Builds.from_code(QApplication.clipboard().text())
         if b is None:
@@ -616,7 +678,7 @@ class BuildsWindow(QWidget):
             self.import_status.setText(tr("Escribe el nombre del personaje y su servidor (número, el tuyo es {0}).", self._my_server() or '—'))
             return
         self.ctl.armory.want(name, server, refresh=True)
-        self.waiting = (name, server, time.time())
+        self.waiting = (name, server, time.time(), None)
         self.import_status.setText(tr("Buscando a {0} en el perfil oficial…", name))
         self._poll.start()
 
@@ -624,7 +686,7 @@ class BuildsWindow(QWidget):
         if not self.waiting:
             self._poll.stop()
             return
-        name, server, since = self.waiting
+        name, server, since, build_id = self.waiting
         armory = self.ctl.armory
         if armory.loading(name) and time.time() - since < 30:
             return
@@ -632,7 +694,13 @@ class BuildsWindow(QWidget):
         self.waiting = None
         profile = armory.cached(name, server)
         if profile is None or not profile.skill_list:
-            self.import_status.setText(armory.error(name) or tr("No encontré a {0} en el servidor {1}.", name, server))
+            (self.subtitle if build_id else self.import_status).setText(
+                armory.error(name) or tr("No encontré a {0} en el servidor {1}.", name, server))
+            return
+        if build_id and self.builds.get(build_id):
+            b = self.builds.refreshed(self.builds.get(build_id), Builds.from_profile("", profile, profile.server_name or ""))
+            self.subtitle.setText(tr("«{0}» actualizada con el perfil oficial de {1}.", b.get("name") or "Build", profile.name))
+            self.refresh()
             return
         b = self.builds.add(Builds.from_profile(f"{profile.name} · {profile.class_name or ''}".strip(" ·"), profile,
                                                 profile.server_name or ""))

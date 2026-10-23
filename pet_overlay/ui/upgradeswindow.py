@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxL
                                QScrollArea, QSizePolicy, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
+from ..arcana import short_kind
 from ..upgrades import CATEGORIES, GUIDE, SUBSTATS_GUIDE, can_do, kinah_text, stat_value
 from . import theme
 from .mapwindow import STYLE, badge_label
@@ -369,7 +370,7 @@ class UpgradesWindow(QWidget):
     def _group(self, step):
         if step.kind in ("buy", "save"):
             return "buy"
-        if step.kind in ("farm", "boss", "arcana"):
+        if step.kind in ("farm", "boss") or step.key == "arcana":       # Transcendence's better cards: farm them
             return "farm"
         if step.kind == "content":
             return "week"
@@ -432,6 +433,27 @@ class UpgradesWindow(QWidget):
             self.body.addLayout(head)
             for step in steps:
                 self.body.addWidget(self._row(step, plan.steps.index(step) + 1))
+        self._arcana_note(plan)
+
+    def _arcana_note(self, plan):
+        """How to improve the Arcana cards, in short, and the way to Personaje › Arcanas."""
+        f = self.fonts
+        card = QFrame()
+        card.setObjectName("Card")
+        lay = QHBoxLayout(card)
+        lay.setContentsMargins(12, 8, 12, 8)
+        cards = plan.arcana_plan
+        text = tr("Arcanas: una Unique tiene 4 efectos de skill y llega a +5 (9 niveles). Para subirlas, dales de comer "
+                  "las que no usas: pasan la exp de su grado más toda la que tenían, así que una mejorada que ya no "
+                  "sirve vale como comida.")
+        if cards is not None and cards.look_for:
+            kind, rows = next(iter(cards.look_for.items()))
+            text += " " + tr("Te falta sobre todo {0}: búscalo en un {1}.", rows[0][1], short_kind(kind))
+        note = label(text, f.small, theme.TEXT)
+        note.setWordWrap(True)
+        lay.addWidget(note, 1)
+        lay.addWidget(_link(tr("Abrir Arcanas"), self.ctl.open_arcana))
+        self.body.addWidget(card)
 
     def _hero(self, step):
         """«Lo siguiente»: the first step you can do now, in big, with its detail."""
