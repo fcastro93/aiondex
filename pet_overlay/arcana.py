@@ -548,6 +548,54 @@ def worth(card, plan, db):
     return Worth(verdict, good, of, len(mine), possible, absent, value)
 
 
+def level_food(plan, db, card, skip=()):
+    """The food for the card's next level only, out of what the plan feeds it (Training Arcana one by one): the least
+    exp past what it needs (that carries over to the level after), then the fewest items. The card you wear, when the
+    plan feeds it to this new one, goes first and whole. skip: stacks already eaten (the game may not say so until the
+    next full list). -> (picks [(Card or (Training Arcana name, 1), exp, Kinah)], exp it needs, exp of the picks); the
+    picks fall short when the food does."""
+    need = db.to_next(card.grade, card.enchant)
+    if need is None:
+        return [], 0, 0
+    need = max(0, need - card.exp)
+    moved = next((w for w, new, _, _ in plan.transfers.values() if new.stack == card.stack), None)
+    if moved is not None and moved.stack not in skip:
+        exp = db.food(moved.grade, moved.enchant, moved.exp)
+        return [(moved, exp, db.feed_kinah(moved.grade, moved.enchant))], need, exp
+    feed = next((f for f in plan.feeds if f.target.stack == card.stack), None)
+    items, mine = [], set()
+    for what, exp in (feed.fodder if feed else []):
+        if isinstance(what, Card):
+            mine.add(what.stack)
+            if what.stack not in skip:
+                items.append((what, exp, db.feed_kinah(what.grade, what.enchant)))
+        else:
+            name, n = what
+            items += [((name, 1), exp // n, 0)] * n
+    if sum(e for _, e, _ in items) < need:       # not enough of its own: the rest of your food too
+        items += [(c, db.food(c.grade, c.enchant, c.exp), db.feed_kinah(c.grade, c.enchant)) for c in plan.spare
+                  if c.stack not in mine and c.stack not in skip and c.stack != card.stack]
+        given = {w[0] for w, _, _ in items if not isinstance(w, Card)}
+        for name, n, exp in plan.training:
+            if name not in given:
+                items += [((name, 1), exp, 0)] * n
+    total = sum(e for _, e, _ in items)
+    if total <= need:
+        return items, need, total
+    unit = 100                                  # every exp of the tables is a multiple of 100
+    cap = -(-need // unit) + max(-(-e // unit) for _, e, _ in items)
+    reach = {0: ()}
+    for i, (_, exp, _) in enumerate(items):
+        step = -(-exp // unit)
+        for s, chosen in sorted(reach.items(), reverse=True):
+            t = s + step
+            if t <= cap and (t not in reach or len(reach[t]) > len(chosen) + 1):
+                reach[t] = chosen + (i,)
+    goal = min((s for s in reach if s * unit >= need), key=lambda s: (s, len(reach[s])))
+    picks = [items[i] for i in reach[goal]]
+    return picks, need, sum(e for _, e, _ in picks)
+
+
 def card_name(db, kind, version):
     """«Chalice of Vigor» of a kind and version, from the database."""
     return next((c["name"] for c in db.cards.values() if c["type"] == kind and c["set"] == version), f"{kind} ({version})")
