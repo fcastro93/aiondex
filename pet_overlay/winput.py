@@ -13,6 +13,7 @@ MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_VIRTUALDESK = 0x8000, 0x4000
 SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN = 76, 77, 78, 79
 VK_ESCAPE = 0x1B
 MOVED = 6                        # pixels the cursor may differ from where it was put before it counts as yours
+HOVER = 0.12                     # seconds over a button before pressing it
 
 
 class _MouseInput(ctypes.Structure):
@@ -142,14 +143,21 @@ class Guard:
             time.sleep(pause)
         self.check()
 
-    def click(self, x, y, button="left", hold=0.06):
+    def click(self, x, y, button="left", hold=0.09):
+        """Like a hand: onto the spot, a moment over it (the game's buttons react to a press only once the cursor
+        is over them, a frame or two later), then press and release."""
         self.move(x, y)
+        _send(MOUSEEVENTF_MOVE, x + 1, y)                # a small wiggle over it: the hover the game waits for
+        time.sleep(0.03)
+        _send(MOUSEEVENTF_MOVE, x, y)
+        time.sleep(HOVER)
+        self.check()
         down, up = ((MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP) if button == "left" else
                     (MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP))
         _send(down | MOUSEEVENTF_MOVE, x, y)
         time.sleep(hold)
         _send(up | MOUSEEVENTF_MOVE, x, y)
-        time.sleep(0.08)
+        time.sleep(0.1)
 
     def drag(self, x0, y0, x1, y1, steps=18):
         self.move(x0, y0)

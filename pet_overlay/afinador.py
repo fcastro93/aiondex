@@ -31,6 +31,8 @@ class Afinador:
         self.own = {}                # base id -> OwnSkill, from the game's skill list
         self.presets = {}            # preset number -> [QuickSlot]
         self.spec_slots = {}         # preset number -> {base: {slot: specialization}} (0739, per preset)
+        self.slots_known = set()     # presets switched to since AionDex opened: their 0739 burst lists every skill
+        #                              with a specialization, so a skill missing from it has all its slots empty
         self.active_preset = None    # the preset in use in the game when it sent the bars
         self.chosen_preset = None    # the preset picked in the Afinador (None: the game's)
         self.chains = {}             # chain skill base -> (opener base, step)
@@ -135,10 +137,12 @@ class Afinador:
         return True
 
     def on_preset_switch(self, number):
-        """The game switched preset (its skill list follows)."""
+        """The game switched preset (its skill list and every skill's specialization slots follow)."""
         if number != self.active_preset:
             self.chosen_preset = None
         self.active_preset = number
+        self.spec_slots[number] = {}
+        self.slots_known.add(number)
         self._changed()
 
     def on_character(self):

@@ -123,7 +123,8 @@ class BuildMacro:
     """Carries out a plan on its own thread. ctl: the Controller (skill order, OCR, the game window); steps:
     builds.plan(); on_progress(text) and on_done(ok, text) are called on that thread (post them to the UI)."""
 
-    def __init__(self, ctl, steps, preset, order, layout, game_hwnd, on_progress, on_done, slots=None):
+    def __init__(self, ctl, steps, preset, order, layout, game_hwnd, on_progress, on_done, slots=None,
+                 slots_known=False):
         self.ctl = ctl
         self.steps = steps
         self.preset = preset             # the game's preset to apply it to (None: the one on)
@@ -137,6 +138,7 @@ class BuildMacro:
         self.done_steps = 0
         self.last_bar = None             # the latest whole bar the game sent (93e2)
         self.slots = {b: dict(s) for b, s in (slots or {}).items()}   # {base: {slot: specialization}} (0739)
+        self.slots_known = slots_known   # the game sent them all with a switch to this preset: no need to switch
         self._thread = None
 
     def start(self):
@@ -199,7 +201,7 @@ class BuildMacro:
             self.guard.click(*self.layout.at(f"preset{self.preset}"))
             self._wait({"90e2", "0051"}, 3.0, optional=True)
         specs = [s for s in self.steps if s.kind == "spec"]
-        if any(s.skill not in self.slots for s in specs):
+        if any(s.skill not in self.slots for s in specs) and not self.slots_known:
             self._learn_slots()
         for step in (s for s in self.steps if s.kind == "points"):
             self._points(step)
@@ -240,13 +242,17 @@ class BuildMacro:
         if not active:
             raise Failed(tr("No sé qué preset tienes puesto: cambia de preset una vez en la ventana Skill y vuelve "
                             "a intentarlo."))
-        self._say(tr("Leyendo tus especialidades (cambio de preset y vuelta)"))
-        for number in (1 if active != 1 else 2, active):
+        other = 1 if active != 1 else 2
+        self._say(tr("Leyendo tus especialidades: cambio un momento al preset {0} y vuelvo al {1}", other, active))
+        for number in (other, active):
             if number == active:
                 self.slots = {}                          # only your preset's
             self._drain()
             self.guard.click(*self.layout.at(f"preset{number}"))
-            self._wait({"90e2"}, 3.0, what=tr("el cambio al preset {0}", number))
+            if not self._wait({"90e2"}, 2.0, optional=True):     # a click the game missed: once more
+                self.guard.click(*self.layout.at(f"preset{number}"))
+                self._wait({"90e2"}, 3.0, what=tr("el clic en el preset {0} (para leer tus especialidades; tu build "
+                                                  "va en el {1})", number, active))
             self._wait({"0051"}, 3.0, optional=True)    # the skill list closes what a switch sends
             time.sleep(0.3)
 

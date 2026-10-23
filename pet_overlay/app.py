@@ -3128,7 +3128,8 @@ class Controller(QObject):
             self.bridge.macro = None
             on_done(ok, text)
         macro = BuildMacro(self, steps, preset, order, layout, hwnd, on_progress, done,
-                           slots=self.tuner.spec_slots.get(self.tuner.active_preset))
+                           slots=self.tuner.spec_slots.get(self.tuner.active_preset),
+                           slots_known=self.tuner.active_preset in self.tuner.slots_known)
         self.bridge.macro = macro
         macro.start()
         return None
