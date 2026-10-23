@@ -379,7 +379,7 @@ class ArcanaWindow(QWidget):
         suggest.setProperty("flat", True)
         suggest.clicked.connect(lambda: self.ctl.suggest_skill_targets(name))
         head.addWidget(suggest)
-        chosen = [n for n in plan.skills if n.target]
+        chosen = sorted((n for n in plan.skills if n.target), key=lambda n: n.priority)
         if chosen:
             clear = QPushButton(tr("Quitar todas"))
             clear.setProperty("flat", True)
@@ -387,6 +387,11 @@ class ArcanaWindow(QWidget):
             head.addWidget(clear)
         self.body.addLayout(head)
         self.body.addWidget(SectionTitle(tr("Tus skills objetivo ({0})", len(chosen)), f))
+        if len(chosen) > 1:
+            order = label(tr("En orden de prioridad: la de arriba pesa más al elegir qué cartas ponerte, a cuál dar "
+                             "de comer y qué buscar (aquí y en Mejoras). Muévelas con ▲ ▼."), f.small, theme.MUTED)
+            order.setWordWrap(True)
+            self.body.addWidget(order)
         if not chosen:
             note = label(tr("Aún no marcaste ninguna: agrégalas de la lista de abajo (o pulsa «Sugerir»). Sin skills "
                             "objetivo, Arcanas solo mira el grado, el +N y los sets, y Mejoras cuenta cualquier línea "
@@ -402,7 +407,7 @@ class ArcanaWindow(QWidget):
             for c, t in enumerate(titles):
                 grid.addWidget(label(t, f.small, theme.MUTED), 0, c)
             for r, n in enumerate(chosen, start=1):
-                self._skill_cells(grid, r, n)
+                self._skill_cells(grid, r, n, f"{n.priority}. ")
                 spin = QSpinBox()
                 spin.setRange(1, 40)
                 spin.setValue(n.target)
@@ -415,11 +420,22 @@ class ArcanaWindow(QWidget):
                                r, 9)
                 grid.addWidget(label(str(n.missing) if n.missing else "✓", f.name,
                                      theme.WARN if n.missing else theme.GAIN), r, 10)
+                moves = QHBoxLayout()
+                moves.setSpacing(2)
+                for text, step, tip, can in (("▲", -1, tr("Más prioridad"), r > 1),
+                                             ("▼", 1, tr("Menos prioridad"), r < len(chosen))):
+                    move = QPushButton(text)
+                    move.setProperty("flat", True)
+                    move.setToolTip(tip)
+                    move.setEnabled(can)
+                    move.clicked.connect(lambda _=False, k=n.skill, st=step: self.ctl.move_skill_target(name, k, st))
+                    moves.addWidget(move)
                 drop = QPushButton("✕")
                 drop.setProperty("flat", True)
                 drop.setToolTip(tr("Quitarla de tus skills objetivo"))
                 drop.clicked.connect(lambda _=False, k=n.skill: self.ctl.remove_skill_target(name, k))
-                grid.addWidget(drop, r, 11)
+                moves.addWidget(drop)
+                grid.addLayout(moves, r, 11)
             grid.setColumnStretch(12, 1)
             self.body.addLayout(grid)
         rest = [n for n in plan.skills if not n.target]
@@ -442,10 +458,11 @@ class ArcanaWindow(QWidget):
             grid.setColumnStretch(8, 1)
             self.body.addLayout(grid)
 
-    def _skill_cells(self, grid, r, n):
-        """A skill's name, kind, level now and its breakdown (points, Daevanion, gear, arcana)."""
+    def _skill_cells(self, grid, r, n, prefix=""):
+        """A skill's name (after prefix: its place in your list), kind, level now and its breakdown (points,
+        Daevanion, gear, arcana)."""
         f = self.fonts
-        grid.addWidget(label(n.name, f.body, theme.TEXT), r, 0)
+        grid.addWidget(label(prefix + n.name, f.body, theme.TEXT), r, 0)
         grid.addWidget(label(tr("Activa") if n.kind == "active" else tr("Pasiva"), f.small, theme.MUTED), r, 1)
         grid.addWidget(label(str(n.level), f.name, theme.TEXT), r, 3)
         for c, v in enumerate(n.parts or ("", "", ""), start=4):

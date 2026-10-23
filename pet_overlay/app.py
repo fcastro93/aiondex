@@ -2637,9 +2637,10 @@ class Controller(QObject):
         return (common[0][0] if common else None), levels, on
 
     def skill_targets(self, name):
-        """{skill: level wanted} of a character: the skills they marked (Personaje › Arcanas › Skills objetivo), each
-        with its level. Arcanas (the cards to wear, to look for, to feed) and Mejoras (the skill lines of the gear)
-        go by them; {} = none marked yet (1.65.0 kept them under "arcana" › "targets")."""
+        """{skill: level wanted} of a character, in their priority order (the first counts most): the skills they
+        marked (Personaje › Arcanas › Skills objetivo), each with its level. Arcanas (the cards to wear, to look for,
+        to feed) and Mejoras (the skill lines of the gear) go by them; {} = none marked yet (1.65.0 kept them under
+        "arcana" › "targets")."""
         store = self.settings.get("skill_targets", {})
         mine = store.get(name)
         if mine is None:
@@ -2647,7 +2648,7 @@ class Controller(QObject):
         return {int(k): int(v) for k, v in mine.items()}
 
     def _save_skill_targets(self, name, targets):
-        self.settings.setdefault("skill_targets", {})[name] = {str(k): v for k, v in sorted(targets.items())}
+        self.settings.setdefault("skill_targets", {})[name] = {str(k): v for k, v in targets.items()}   # in order
         self._save_settings()
         self.arcana_changed()
 
@@ -2656,6 +2657,15 @@ class Controller(QObject):
         targets = self.skill_targets(name)
         targets[int(skill)] = int(level)
         self._save_skill_targets(name, targets)
+
+    def move_skill_target(self, name, skill, step):
+        """Up (step -1) or down (+1) in the priority order."""
+        order = list(self.skill_targets(name).items())
+        i = next((n for n, (k, _) in enumerate(order) if k == int(skill)), None)
+        if i is None or not 0 <= i + step < len(order):
+            return
+        order[i], order[i + step] = order[i + step], order[i]
+        self._save_skill_targets(name, dict(order))
 
     def remove_skill_target(self, name, skill):
         targets = self.skill_targets(name)

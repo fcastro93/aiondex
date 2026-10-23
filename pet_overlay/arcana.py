@@ -35,6 +35,8 @@ MAX_EFFECTS, MAX_EFFECT_LEVEL = 4, 4
 GRADE_ORDER = {"Common": 0, "Rare": 1, "Epic": 2, "Unique": 3}
 GRADE_COLOR = {"Common": "#c8ccd6", "Rare": "#5bd06a", "Epic": "#4aa3ff", "Unique": "#f0c24e"}
 DEFAULT_ACTIVE_TARGET = 16          # the highest specialization of an active skill in Global (aion2data skill-levels)
+PRIORITY_DECAY = 0.75               # a skill target's weight is this to the power of its place in your list (1, 0.75,
+#                                     0.56...): the first one counts most, but a lot of the next ones can still win
 
 
 def _u32(b, p):
@@ -190,6 +192,7 @@ class SkillNeed:
     worn: int                # what the cards you wear add
     best: int                # what the best cards you have would add
     parts: tuple = ()        # (points, Daevanion, gear) when the game sent them (0051)
+    priority: int = 0        # its place in your skill targets (1 = the first), 0 without a target
 
     @property
     def without(self):
@@ -236,13 +239,14 @@ class ArcanaPlan:
         return sum(f.exp for f in self.feeds)
 
 
-def _useful(cards, needs):
-    """Levels the cards add to skills that need them (each skill up to what it needs)."""
+def _useful(cards, needs, weights=None):
+    """Levels the cards add to skills that need them (each skill up to what it needs), each weighed by its priority
+    when weights are given."""
     got = {}
     for c in cards:
         for s, lv in c.effects:
             got[s] = got.get(s, 0) + lv
-    return sum(min(n, got.get(s, 0)) for s, n in needs.items())
+    return sum(min(n, got.get(s, 0)) * (weights.get(s, 1.0) if weights else 1) for s, n in needs.items())
 
 
 def _set_bonus(cards):
@@ -252,23 +256,25 @@ def _set_bonus(cards):
     return sum((n >= 2) + (n >= 4) for n in counts.values())
 
 
-def _enhance_value(card, needs, have, pool, db):
-    """Expected levels the card's next enhance adds to skills that still need them: a new effect (from its kind's
-    pool) while it has fewer than 4, then +1 to one of its effects at random."""
+def _enhance_value(card, needs, have, pool, db, weights=None):
+    """Expected levels the card's next enhance adds to skills that still need them, each weighed by its priority: a
+    new effect (from its kind's pool) while it has fewer than 4, then +1 to one of its effects at random."""
     if db.to_next(card.grade, card.enchant) is None:
         return 0.0
+    w = weights or {}
     mine = {s for s, _ in card.effects}
     if len(card.effects) < MAX_EFFECTS:
         left = [s for s in pool if s not in mine]
-        return sum(1 for s in left if needs.get(s, 0) > have.get(s, 0)) / len(left) if left else 0.0
+        return sum(w.get(s, 1.0) for s in left if needs.get(s, 0) > have.get(s, 0)) / len(left) if left else 0.0
     open_ = [(s, lv) for s, lv in card.effects if lv < MAX_EFFECT_LEVEL]
-    return sum(1 for s, _ in open_ if needs.get(s, 0) > have.get(s, 0)) / len(open_) if open_ else 0.0
+    return sum(w.get(s, 1.0) for s, _ in open_ if needs.get(s, 0) > have.get(s, 0)) / len(open_) if open_ else 0.0
 
 
 def build(db, prefix, cards, levels, targets, names, kinds, training=None):
     """The plan of one character. levels: {skill: level now} or {skill: (level, points, [Daevanion, 0, gear, Arcana])}
-    (the game's skill list, with the worn cards); targets: {skill: level wanted} (0 / missing = no target); names /
-    kinds: skill -> name / "active" | "passive"; training: [(name, count, exp)] of the Training Arcana in the bag."""
+    (the game's skill list, with the worn cards); targets: {skill: level wanted}, in priority order (the first counts
+    most: PRIORITY_DECAY; 0 / missing = no target); names / kinds: skill -> name / "active" | "passive"; training:
+    [(name, count, exp)] of the Training Arcana in the bag."""
     plan = ArcanaPlan()
     plan.cards = sorted(cards, key=lambda c: (not c.worn, TYPES.index(c.kind) if c.kind in TYPES else 9,
                                               -GRADE_ORDER.get(c.grade, 0), -c.enchant, -c.total))
@@ -279,12 +285,15 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None):
         for s, lv in c.effects:
             worn_add[s] = worn_add.get(s, 0) + lv
     needs = {}
+    ranked = [s for s, v in targets.items() if v]
+    weights = {s: PRIORITY_DECAY ** i for i, s in enumerate(ranked)}
     for s in sorted(pool_all, key=lambda s: (kinds.get(s) != "active", names.get(s, str(s)))):
         now = levels.get(s) or 0
         level, points, parts = (now[0], now[1], now[2]) if isinstance(now, (tuple, list)) else (now, None, None)
         worn = parts[3] if parts and len(parts) >= 4 else worn_add.get(s, 0)      # the game's own count first
         need = SkillNeed(s, names.get(s, str(s)), kinds.get(s, ""), int(targets.get(s) or 0), int(level or 0), worn,
-                         0, (points, parts[0], parts[2]) if parts and len(parts) >= 4 else ())
+                         0, (points, parts[0], parts[2]) if parts and len(parts) >= 4 else (),
+                         ranked.index(s) + 1 if s in weights else 0)
         plan.skills.append(need)
         if need.need:
             needs[s] = need.need
@@ -300,12 +309,12 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None):
     best, best_key = None, None
     for combo in itertools.product(*options):
         chosen = [c for c in combo if c is not None]
-        key = (_useful(chosen, needs), _set_bonus(chosen), sum(c.total for c in chosen),
+        key = (_useful(chosen, needs, weights), _set_bonus(chosen), sum(c.total for c in chosen),
                sum(GRADE_ORDER.get(c.grade, 0) * 10 + c.enchant for c in chosen), sum(c.worn for c in chosen))
         if best_key is None or key > best_key:
             best, best_key = chosen, key
     plan.best = {c.kind: c for c in best or []}
-    plan.useful_best = best_key[0] if best_key else 0
+    plan.useful_best = _useful(plan.best.values(), needs)
     adds = {}
     for c in plan.best.values():
         for s, lv in c.effects:
@@ -326,7 +335,8 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None):
     for kind in TYPES:
         rows = [(s, names.get(s, str(s)), missing[s]) for s in db.pool(kind, prefix) if s in missing]
         if rows:
-            plan.look_for[kind] = sorted(rows, key=lambda r: -r[2])
+            plan.look_for[kind] = sorted(rows, key=lambda r: (-weights.get(r[0], 0), -r[2]))
+    plan.look_for = dict(sorted(plan.look_for.items(), key=lambda kv: -max(weights.get(r[0], 0) for r in kv[1])))
 
     # food: the cards you do not wear and that are not the best of their kind, fed to the best cards where their next
     # levels most likely raise a skill you need
@@ -341,9 +351,11 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None):
         state = {c.stack: [c.enchant, c.exp] for c in targets_}
 
         def value(c):
-            """(expected useful levels of its next enhance, exp it takes)."""
+            """(expected useful levels of its next enhance weighed by priority, exp it takes, the same unweighed)."""
             fake = Card(c.stack, c.item, c.name, c.kind, c.set, c.grade, c.level, state[c.stack][0], c.effects, True)
-            return _enhance_value(fake, needs, have, db.pool(c.kind, prefix), db), db.to_next(c.grade, state[c.stack][0])
+            pool = db.pool(c.kind, prefix)
+            return (_enhance_value(fake, needs, have, pool, db, weights), db.to_next(c.grade, state[c.stack][0]),
+                    _enhance_value(fake, needs, have, pool, db))
 
         plans = {c.stack: Feed(c, [], 0, 0, c.enchant, 0.0) for c in targets_}
         for what, exp, kinah in sorted(food, key=lambda f: -f[1]):
@@ -358,13 +370,14 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None):
             lvl, into = state[target.stack]
             into += exp
             while db.to_next(target.grade, lvl) is not None and into >= db.to_next(target.grade, lvl):
-                f.useful += value(target)[0]
+                f.useful += value(target)[2]
                 into -= db.to_next(target.grade, lvl)
                 lvl += 1
                 state[target.stack] = [lvl, into]
             state[target.stack] = [lvl, into]
             f.to = lvl
-        plan.feeds = sorted((f for f in plans.values() if f.fodder), key=lambda f: -f.useful)
+        plan.feeds = sorted((f for f in plans.values() if f.fodder),
+                            key=lambda f: -max((weights.get(s, 0) for s, _ in f.target.effects), default=0) - f.useful)
     return plan
 
 
