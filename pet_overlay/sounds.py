@@ -4,6 +4,7 @@ Played with Windows' MCI (winmm), which decodes mp3 and sets the volume per soun
 is asynchronous, so a sound never blocks the overlay.
 """
 import ctypes
+from pathlib import Path
 import logging
 from .i18n import tr
 
@@ -36,10 +37,28 @@ class SoundPlayer:
 
     # --- settings ---
     def config(self, key):
-        """{"volume": 0-100, "muted": bool} of one sound (the old "sound on level-up" switch counts as its mute)."""
+        """{"volume": 0-100, "muted": bool, "file": your own audio file or ""} of one sound (the old "sound on
+        level-up" switch counts as its mute)."""
         stored = self.settings.setdefault("sounds", {}).get(key, {})
         muted = stored.get("muted", key == "pet_level_up" and not self.settings.get("sound", True))
-        return {"volume": int(stored.get("volume", DEFAULT_VOLUME)), "muted": bool(muted)}
+        return {"volume": int(stored.get("volume", DEFAULT_VOLUME)), "muted": bool(muted),
+                "file": str(stored.get("file") or "")}
+
+    def path(self, key):
+        """The file a sound plays: yours when you chose one and it is still there, else AionDex's own."""
+        own = self.config(key)["file"]
+        if own and Path(own).exists():
+            return Path(own)
+        return self.dir / SOUNDS[key][1]
+
+    def set_file(self, key, file):
+        """Use a local audio file (mp3, wav, wma) for a sound; "" goes back to AionDex's own."""
+        self._store(key, file=str(file or ""))
+        alias = f"aiondex_{key}"
+        if alias in self._open:                   # opened with the old file: open it again next time
+            self._mci(f"close {alias}")
+            self._open.discard(alias)
+        self._broken.discard(key)
 
     def _store(self, key, **changes):
         conf = self.config(key)
@@ -61,7 +80,7 @@ class SoundPlayer:
             return
         alias = f"aiondex_{key}"
         if alias not in self._open:
-            path = self.dir / SOUNDS[key][1]
+            path = self.path(key)
             if not path.exists() or self._mci(f'open "{path}" type mpegvideo alias {alias}') is None:
                 if key not in self._broken:
                     self._broken.add(key)

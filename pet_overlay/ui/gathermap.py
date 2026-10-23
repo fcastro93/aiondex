@@ -34,7 +34,7 @@ SPENT = QColor("#ffb347")            # the clock of a used-up one
 NEW_FOR = 120                        # seconds a node that just appeared is marked "nuevo"
 AREAS_SHOWN = 8
 SIDE_STYLE = """
-QFrame#AreaRow { background: #101a30; border: 1px solid #1a2643; border-radius: 6px; }
+QFrame#AreaRow { background: #12161f; border: 1px solid #262c3a; border-radius: 6px; }
 QFrame#AreaRow[best="true"] { border-color: #2f7a46; }
 QFrame#AreaRow[bots="true"] { border-color: #7a2f2f; }
 """

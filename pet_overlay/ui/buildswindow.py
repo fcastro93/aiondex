@@ -25,9 +25,9 @@ from ..i18n import tr
 
 ICON = 34
 SIDE_STYLE = """
-QFrame#BuildRow { background: #101a30; border: 1px solid #1a2643; border-radius: 8px; }
+QFrame#BuildRow { background: #12161f; border: 1px solid #262c3a; border-radius: 8px; }
 QFrame#BuildRow[selected="true"] { border-color: #2ec0f2; background: #13233f; }
-QFrame#Panel { background: #0f1830; border: 1px solid #1a2643; border-radius: 10px; }
+QFrame#Panel { background: #141822; border: 1px solid #262c3a; border-radius: 10px; }
 QLabel#PresetChip { background: #2a2208; color: #f0c24e; border: 1px solid #6b5418; border-radius: 6px; padding: 0 5px; }
 QLabel#PresetChip[active="true"] { background: #f0c24e; color: #1a1406; border-color: #f0c24e; }
 QPushButton[flat="true"] { background: transparent; color: #2ec0f2; padding: 4px 8px; }
@@ -678,7 +678,7 @@ class BuildsWindow(QWidget):
             pix.setDevicePixelRatio(dpr)
             lbl.setPixmap(pix)
         else:
-            lbl.setStyleSheet("background: #1a2643; border-radius: 6px;")
+            lbl.setStyleSheet("background: #262c3a; border-radius: 6px;")
         if faded:
             lbl.setStyleSheet(lbl.styleSheet() + "opacity: 0.4;")
             lbl.setEnabled(False)
@@ -700,7 +700,7 @@ class BuildsWindow(QWidget):
 def _empty_cell():
     cell = QLabel()
     cell.setFixedSize(ICON, ICON)
-    cell.setStyleSheet("background: #121c33; border: 1px solid #1f2b47; border-radius: 6px;")
+    cell.setStyleSheet("background: #151923; border: 1px solid #2b3242; border-radius: 6px;")
     return cell
 
 

@@ -36,10 +36,10 @@ GRADE_COLOR = {"Common": "#C3C3C3", "Rare": "#19E048", "Legend": "#379AFF", "Uni
 COLUMNS = 5
 PORTRAIT = 78
 WINDOW_STYLE = """
-QFrame#PCard { background: #101a30; border: 1px solid #1a2643; border-radius: 10px; }
+QFrame#PCard { background: #12161f; border: 1px solid #262c3a; border-radius: 10px; }
 QFrame#PCard[selected="true"] { border-color: #2ec0f2; }
 QFrame#PCard[fail="true"] { border-color: #ff5a5a; background: #1c1420; }
-QFrame#PartyCol { background: #0f1830; border: 1px solid #1a2643; border-radius: 8px; }
+QFrame#PartyCol { background: #141822; border: 1px solid #262c3a; border-radius: 8px; }
 """
 
 
@@ -298,7 +298,7 @@ class PlayersWindow(QWidget):
         box.setFixedSize(PORTRAIT, PORTRAIT)
         box.setAlignment(Qt.AlignCenter)
         role = ROLE.get(cls, "daño")
-        box.setStyleSheet(f"border: 2px solid {ROLE_COLOR[role]}; border-radius: 12px; background: #0b1222;")
+        box.setStyleSheet(f"border: 2px solid {ROLE_COLOR[role]}; border-radius: 12px; background: #0b0d12;")
         path = self.armory.image(profile) if profile else None
         pix = QPixmap(str(path)) if path else self._class_pixmap(cls)
         if pix and not pix.isNull():

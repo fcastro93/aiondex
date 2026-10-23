@@ -36,10 +36,10 @@ CENTER = 230                     # the middle column (portrait, level, CP, item 
 STATS = 300
 POPUP_STYLE = """
 QFrame#Popup { background: #0d1424; border: 1px solid #2a3b5f; border-radius: 10px; }
-QFrame#Inspect { background: #0f1830; border: 1px solid #1a2643; border-radius: 10px; }
-QFrame#Stats { background: #0b1324; border: 1px solid #1a2643; border-radius: 8px; }
-QFrame#Center { background: qradialgradient(cx:0.5, cy:0.45, radius:0.6, fx:0.5, fy:0.45, stop:0 #1d3157,
-                stop:1 #0f1830); border: 1px solid #1a2643; border-radius: 10px; }
+QFrame#Inspect { background: #141822; border: 1px solid #262c3a; border-radius: 10px; }
+QFrame#Stats { background: #0b1324; border: 1px solid #262c3a; border-radius: 8px; }
+QFrame#Center { background: qradialgradient(cx:0.5, cy:0.45, radius:0.6, fx:0.5, fy:0.45, stop:0 #2c3344,
+                stop:1 #141822); border: 1px solid #262c3a; border-radius: 10px; }
 """
 _skill_info = None
 

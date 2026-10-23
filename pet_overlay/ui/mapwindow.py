@@ -19,18 +19,18 @@ FACTION_CHOICES = [("auto", "Auto"), ("elyos", "Elyos"), ("asmodian", "Asmodian"
 
 STYLE = f"""
 QWidget#MapWindow {{ background: {theme.WINDOW_BG.name()}; }}
-QFrame#Side {{ background: {theme.SURFACE.name()}; border-left: 1px solid #1f2b47; }}
-QLineEdit, QComboBox {{ background: #0d1628; color: {theme.TEXT.name()}; border: 1px solid #24345a;
+QFrame#Side {{ background: {theme.SURFACE.name()}; border-left: 1px solid #2b3242; }}
+QLineEdit, QComboBox {{ background: #10131b; color: {theme.TEXT.name()}; border: 1px solid #363e52;
     border-radius: 6px; padding: 5px 8px; selection-background-color: {theme.ACCENT.name()}; }}
-QComboBox QAbstractItemView {{ background: #0d1628; color: {theme.TEXT.name()}; selection-background-color: #1d3157; }}
+QComboBox QAbstractItemView {{ background: #10131b; color: {theme.TEXT.name()}; selection-background-color: #2c3344; }}
 QScrollArea, QScrollArea > QWidget > QWidget {{ background: transparent; border: none; }}
 QScrollBar:vertical {{ background: transparent; width: 8px; }}
-QScrollBar::handle:vertical {{ background: #2a3a60; border-radius: 4px; min-height: 30px; }}
+QScrollBar::handle:vertical {{ background: #3a4256; border-radius: 4px; min-height: 30px; }}
 QScrollBar::add-line, QScrollBar::sub-line {{ height: 0; }}
-QTabBar::tab {{ background: #0f1830; color: {theme.MUTED.name()}; padding: 6px 14px; border: none;
+QTabBar::tab {{ background: #141822; color: {theme.MUTED.name()}; padding: 6px 14px; border: none;
     border-top-left-radius: 6px; border-top-right-radius: 6px; margin-right: 2px; }}
 QTabBar::tab:selected {{ background: {theme.SURFACE.name()}; color: {theme.TEXT.name()}; }}
-QToolTip {{ background: #0d1628; color: {theme.TEXT.name()}; border: 1px solid #24345a; padding: 4px; }}
+QToolTip {{ background: #10131b; color: {theme.TEXT.name()}; border: 1px solid #363e52; padding: 4px; }}
 """
 
 
@@ -45,7 +45,7 @@ class Clickable(QFrame):
         self._paint(False)
 
     def _paint(self, hover):
-        bg = "#1d3157" if self._selected else ("#18264a" if hover else "transparent")
+        bg = "#2c3344" if self._selected else ("#18264a" if hover else "transparent")
         border = theme.GOLD.name() if self._selected else "transparent"
         self.setStyleSheet(f"Clickable {{ background: {bg}; border-radius: 6px; border: 1px solid {border}; }}")
 
@@ -367,7 +367,7 @@ class MapWindow(QWidget):
         pet = self.ctl.collection.pets.get(pid)
 
         card = QFrame()
-        card.setStyleSheet("QFrame { background: #0f1830; border-radius: 10px; }")
+        card.setStyleSheet("QFrame { background: #141822; border-radius: 10px; }")
         row = QHBoxLayout(card)
         row.setContentsMargins(10, 10, 12, 10)
         row.setSpacing(12)

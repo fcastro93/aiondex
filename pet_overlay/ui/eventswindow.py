@@ -131,7 +131,7 @@ class EventsWindow(QWidget):
             card.setObjectName("Card")
             chosen = key == self.chosen
             card.setStyleSheet("QFrame#Card { background: %s; border: 1px solid %s; border-radius: 10px; }"
-                               % ("#13264a" if chosen else "#0f1830", theme.ACCENT.name() if chosen else "#1c2944"))
+                               % ("#2a2615" if chosen else "#141822", theme.ACCENT.name() if chosen else "#20262f"))
             col = QVBoxLayout(card)
             col.setContentsMargins(10, 10, 10, 10)
             col.setSpacing(4)

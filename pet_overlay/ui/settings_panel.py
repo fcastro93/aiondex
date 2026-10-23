@@ -1,5 +1,6 @@
 """Overlay panel of the Ajustes module: version, updates, auto-update switch, language, size, minimap, alert sounds,
 Npcap status, links."""
+from pathlib import Path
 import webbrowser
 
 from PySide6.QtCore import QRectF, Qt
@@ -263,7 +264,27 @@ class SettingsPanel(QWidget):
         test.setCursor(Qt.PointingHandCursor)
         test.on_click = lambda: sounds.play(key, test=True)
         head.addWidget(test)
+        pick = label(tr("Archivo…"), f.small, theme.ACCENT)
+        pick.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        pick.setCursor(Qt.PointingHandCursor)
+        pick.setToolTip(tr("Usar un archivo de audio tuyo (mp3, wav, wma) para este sonido"))
+        pick.on_click = lambda: self._pick_sound(key)
+        head.addSpacing(f.px(8))
+        head.addWidget(pick)
         self.content.addLayout(head)
+        if conf["file"]:
+            own = QHBoxLayout()
+            own.setContentsMargins(0, 0, 0, 0)
+            name = Path(conf["file"]).name
+            own.addWidget(label(name if Path(conf["file"]).exists() else tr("{0} (no está)", name), f.small,
+                                theme.MUTED if Path(conf["file"]).exists() else theme.WARN, elide=True), 1)
+            reset = label(tr("Restablecer"), f.small, theme.ACCENT)
+            reset.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+            reset.setCursor(Qt.PointingHandCursor)
+            reset.setToolTip(tr("Volver al sonido de AionDex"))
+            reset.on_click = lambda: self._reset_sound(key)
+            own.addWidget(reset)
+            self.content.addLayout(own)
 
         row = QHBoxLayout()
         row.setSpacing(f.px(2))
@@ -284,6 +305,24 @@ class SettingsPanel(QWidget):
         switch.on_click = lambda: self._toggle_mute(key)
         row.addWidget(switch)
         self.content.addLayout(row)
+
+    def _pick_sound(self, key):
+        """A local audio file for this sound; played once so you hear it."""
+        from PySide6.QtWidgets import QFileDialog
+        current = self.ctl.sounds.config(key)["file"]
+        start = str(Path(current).parent) if current else str(Path.home() / "Music")
+        file, _ = QFileDialog.getOpenFileName(self, tr("Archivo de audio para «{0}»", SOUNDS[key][0]), start,
+                                              tr("Audio (*.mp3 *.wav *.wma);;Todos (*.*)"))
+        if not file:
+            return
+        self.ctl.sounds.set_file(key, file)
+        self.ctl.sounds.play(key, test=True)
+        self.ctl.refresh()
+
+    def _reset_sound(self, key):
+        self.ctl.sounds.set_file(key, "")
+        self.ctl.sounds.play(key, test=True)
+        self.ctl.refresh()
 
     def _set_volume(self, key, volume):
         self.ctl.sounds.set_volume(key, volume)

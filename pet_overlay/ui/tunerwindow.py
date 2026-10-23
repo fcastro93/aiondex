@@ -20,17 +20,19 @@ from .widgets import SectionTitle, label
 from ..i18n import N_, tr
 
 EXTRA_STYLE = f"""
-QPushButton {{ background: {theme.ACCENT.name()}; color: #06101f; border: none; border-radius: 6px;
-    padding: 6px 14px; font-weight: 600; }}
-QPushButton:hover {{ background: #3fd3ff; }}
-QPushButton:disabled {{ background: #18233c; color: #56627c; }}
+QPushButton {{ background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #f3d273, stop:1 #c99d33);
+    color: #1b1505; border: 1px solid #8a6d1f; border-radius: 6px; padding: 6px 16px; font-weight: 600; }}
+QPushButton:hover {{ background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ffe08a, stop:1 #d9ad3f); }}
+QPushButton:pressed {{ background: #b8923a; }}
+QPushButton:disabled {{ background: #232834; color: #56627c; border-color: #2b3242; }}
 QPushButton[flat="true"] {{ background: transparent; color: {theme.ACCENT.name()}; padding: 2px 6px; }}
 QPushButton[flat="true"]:disabled {{ color: #2c3a58; }}
-QPushButton[tab="true"] {{ background: #0f1830; color: {theme.MUTED.name()}; border: 1px solid #24345a;
-    border-radius: 8px; padding: 6px 16px; }}
-QPushButton[tab="true"]:checked {{ background: #13264a; color: {theme.TEXT.name()}; border-color: {theme.ACCENT.name()}; }}
-QPushButton[tab="true"]:disabled {{ color: #3a4560; border-color: #1a2440; }}
-QSpinBox {{ background: #0d1628; color: {theme.TEXT.name()}; border: 1px solid #24345a; border-radius: 6px;
+QPushButton[tab="true"] {{ background: transparent; color: {theme.MUTED.name()}; border: none;
+    border-bottom: 2px solid transparent; border-radius: 0; padding: 6px 14px; font-weight: 600; }}
+QPushButton[tab="true"]:hover {{ color: {theme.TEXT.name()}; }}
+QPushButton[tab="true"]:checked {{ color: {theme.TEXT.name()}; border-bottom: 2px solid {theme.GOLD.name()}; }}
+QPushButton[tab="true"]:disabled {{ color: #3a4560; }}
+QSpinBox {{ background: #10131b; color: {theme.TEXT.name()}; border: 1px solid #363e52; border-radius: 6px;
     padding: 3px 6px; }}
 QCheckBox {{ color: {theme.TEXT.name()}; }}
 """
@@ -248,7 +250,7 @@ class TunerWindow(QWidget):
         f, tuner = self.fonts, self.tuner
         box = QFrame()
         box.setObjectName("Step")
-        box.setStyleSheet("QFrame#Step { background: #0f1830; border-radius: 8px; }")
+        box.setStyleSheet("QFrame#Step { background: #141822; border-radius: 8px; }")
         row = QHBoxLayout(box)
         row.setContentsMargins(12, 8, 10, 8)
         row.setSpacing(12)
@@ -299,7 +301,7 @@ class TunerWindow(QWidget):
         """A step written by hand (when the bar was not read from the game)."""
         box = QFrame()
         box.setObjectName("Step")
-        box.setStyleSheet("QFrame#Step { background: #0f1830; border-radius: 8px; }")
+        box.setStyleSheet("QFrame#Step { background: #141822; border-radius: 8px; }")
         grid = QGridLayout(box)
         grid.setContentsMargins(10, 8, 10, 8)
         grid.addWidget(label(tr("Paso {0}", i + 1), self.fonts.name, theme.TEXT), 0, 0)
@@ -359,7 +361,7 @@ class TunerWindow(QWidget):
         f = self.fonts
         box = QFrame()
         box.setObjectName("Step")
-        box.setStyleSheet("QFrame#Step { background: #0f1830; border-radius: 8px; }")
+        box.setStyleSheet("QFrame#Step { background: #141822; border-radius: 8px; }")
         col = QVBoxLayout(box)
         col.setContentsMargins(12, 8, 12, 10)
         col.setSpacing(4)
@@ -436,7 +438,7 @@ class TunerWindow(QWidget):
         f = self.fonts
         box = QFrame()
         box.setObjectName("Step")
-        box.setStyleSheet("QFrame#Step { background: #0f1830; border-radius: 8px; }")
+        box.setStyleSheet("QFrame#Step { background: #141822; border-radius: 8px; }")
         grid = QGridLayout(box)
         grid.setContentsMargins(12, 8, 12, 10)
         grid.setHorizontalSpacing(8)
@@ -758,7 +760,7 @@ class TunerWindow(QWidget):
         self.test_button.setEnabled(c is None)
         box = QFrame()
         box.setObjectName("Calib")
-        box.setStyleSheet("QFrame#Calib { background: #0f1830; border: 1px solid #24345a; border-radius: 8px; }")
+        box.setStyleSheet("QFrame#Calib { background: #141822; border: 1px solid #363e52; border-radius: 8px; }")
         col = QVBoxLayout(box)
         col.setContentsMargins(12, 10, 12, 10)
         col.setSpacing(6)
@@ -916,7 +918,7 @@ class TunerWindow(QWidget):
             box = QFrame()
             box.setObjectName("Finding")
             color = LEVEL_COLOR.get(finding.level, theme.MUTED)
-            box.setStyleSheet(f"QFrame#Finding {{ background: #0f1830; border-left: 3px solid {color.name()}; "
+            box.setStyleSheet(f"QFrame#Finding {{ background: #141822; border-left: 3px solid {color.name()}; "
                               f"border-radius: 4px; }}")
             col = QVBoxLayout(box)
             col.setContentsMargins(10, 6, 8, 6)

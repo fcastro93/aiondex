@@ -14,11 +14,11 @@ from PySide6.QtWidgets import (QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLab
 from . import theme
 from .widgets import label
 
-NAVY = "#0b1222"
-SURFACE = "#121c33"
-SURFACE_2 = "#16213d"
-LINE = "#1f2b47"
-LINE_SOFT = "#1a2643"
+NAVY = "#0b0d12"
+SURFACE = "#151923"
+SURFACE_2 = "#191e29"
+LINE = "#2b3242"
+LINE_SOFT = "#262c3a"
 INK = theme.TEXT.name()
 MUTED = theme.MUTED.name()
 ACCENT = theme.ACCENT.name()
@@ -28,69 +28,73 @@ WARN = theme.WARN.name()
 
 HUB_STYLE = f"""
 QWidget#Hub {{ background: {NAVY}; }}
-QFrame#NavRail {{ background: #0d1628; border-right: 1px solid {LINE}; }}
-QFrame#RightRail {{ background: #0d1628; border-left: 1px solid {LINE}; }}
+QFrame#NavRail {{ background: #10131b; border-right: 1px solid {LINE}; }}
+QFrame#RightRail {{ background: #10131a; border-left: 1px solid {LINE}; }}
+QLabel#RailTitle {{ color: {INK}; }}
+QLabel#RailMuted {{ color: {MUTED}; }}
+QFrame#HudSlot {{ background: {SURFACE}; border: 1px solid #3a4256; border-radius: 10px; }}
 QLabel#NavGroup {{ color: #56627c; font-weight: 700; letter-spacing: 1px; padding: 7px 14px 1px 14px; }}
 QPushButton[nav="true"] {{ background: transparent; color: {MUTED}; border: none; border-radius: 8px;
     padding: 4px 10px; text-align: left; font-size: 10pt; }}
 QPushButton[nav="true"]:hover {{ background: rgba(255,255,255,0.05); color: {INK}; }}
-QPushButton[nav="true"]:checked {{ background: #13264a; color: {INK}; }}
-QPushButton[nav="true"][accent="true"]:checked {{ border-left: 3px solid {ACCENT}; padding-left: 7px; }}
+QPushButton[nav="true"]:checked {{ background: #1f1d16; color: {INK}; }}
+QPushButton[nav="true"][accent="true"]:checked {{ border-left: 3px solid {GOLD}; padding-left: 7px; }}
 QLabel#PageTitle {{ color: {INK}; }}
 QLabel#PageSub {{ color: {MUTED}; }}
 QFrame#Card {{ background: {SURFACE}; border: 1px solid {LINE}; border-radius: 10px; }}
-QFrame#Hero {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #1b2440, stop:1 #121c33);
-    border: 1px solid #3a3218; border-radius: 12px; }}
-QFrame#Row {{ background: #101a30; border: 1px solid {LINE_SOFT}; border-radius: 8px; }}
-QFrame#Row:hover {{ border-color: #2c4170; }}
+QFrame#Hero {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #1d1f2a, stop:1 #151923);
+    border: 1px solid #5a4a1e; border-radius: 12px; }}
+QFrame#Row {{ background: #12161f; border: 1px solid {LINE_SOFT}; border-radius: 8px; }}
+QFrame#Row:hover {{ border-color: #4a5368; }}
 QFrame#Tile {{ background: {SURFACE}; border: 1px solid {LINE}; border-radius: 10px; }}
 QFrame#Tile[hot="true"] {{ border-color: {GOLD}; }}
-QFrame#Pill {{ background: #101a30; border: 1px solid {LINE_SOFT}; border-radius: 8px; }}
-QFrame#Stat {{ background: #101a30; border: 1px solid {LINE_SOFT}; border-radius: 10px; }}
+QFrame#Pill {{ background: #12161f; border: 1px solid {LINE_SOFT}; border-radius: 8px; }}
+QFrame#Stat {{ background: #12161f; border: 1px solid {LINE_SOFT}; border-radius: 10px; }}
 QFrame#Divider {{ background: {LINE}; max-height: 1px; min-height: 1px; border: none; }}
-QPushButton {{ background: {ACCENT}; color: #06101f; border: none; border-radius: 7px; padding: 7px 16px;
-    font-weight: 600; }}
-QPushButton:hover {{ background: #3fd3ff; }}
-QPushButton:pressed {{ background: #1fa8d8; }}
-QPushButton:disabled {{ background: #18233c; color: #56627c; }}
+QPushButton {{ background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #f3d273, stop:1 #c99d33);
+    color: #1b1505; border: 1px solid #8a6d1f; border-radius: 6px; padding: 6px 16px; font-weight: 600; }}
+QPushButton:hover {{ background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ffe08a, stop:1 #d9ad3f); }}
+QPushButton:pressed {{ background: #b8923a; }}
+QPushButton:disabled {{ background: #232834; color: #56627c; border-color: #2b3242; }}
 QPushButton[flat="true"] {{ background: transparent; color: {ACCENT}; padding: 3px 8px; }}
 QPushButton[flat="true"]:hover {{ background: rgba(46,192,242,0.10); }}
 QPushButton[flat="true"]:disabled {{ color: #2c3a58; background: transparent; }}
-QPushButton[ghost="true"] {{ background: transparent; color: {INK}; border: 1px solid #24345a; padding: 6px 14px; }}
-QPushButton[ghost="true"]:hover {{ border-color: {ACCENT}; color: {INK}; background: rgba(46,192,242,0.06); }}
-QPushButton[tab="true"] {{ background: #0f1830; color: {MUTED}; border: 1px solid #24345a; border-radius: 8px;
-    padding: 6px 16px; }}
-QPushButton[tab="true"]:checked {{ background: #13264a; color: {INK}; border-color: {ACCENT}; }}
-QPushButton[tab="true"]:disabled {{ color: #3a4560; border-color: #1a2440; }}
+QPushButton[ghost="true"] {{ background: #2b3240; color: {INK}; border: 1px solid #3a4256; padding: 6px 14px; }}
+QPushButton[ghost="true"]:hover {{ background: #363e52; border-color: {GOLD}; }}
+QPushButton[tab="true"] {{ background: transparent; color: {MUTED}; border: none;
+    border-bottom: 2px solid transparent; border-radius: 0; padding: 6px 14px; font-weight: 600; }}
+QPushButton[tab="true"]:hover {{ color: {INK}; }}
+QPushButton[tab="true"]:checked {{ color: {INK}; border-bottom: 2px solid {GOLD}; }}
+QPushButton[tab="true"]:disabled {{ color: #3a4560; }}
 QPushButton[link="true"] {{ background: transparent; border: none; color: {MUTED}; padding: 2px 4px; }}
 QPushButton[link="true"]:hover {{ color: {INK}; }}
 QPushButton[icon="true"] {{ background: transparent; color: {MUTED}; border: none; border-radius: 6px;
     padding: 4px 6px; font-family: 'Segoe Fluent Icons', 'Segoe MDL2 Assets'; }}
 QPushButton[icon="true"]:hover {{ background: rgba(255,255,255,0.07); color: {INK}; }}
-QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit, QPlainTextEdit {{ background: #0d1628; color: {INK};
-    border: 1px solid #24345a; border-radius: 6px; padding: 5px 8px; selection-background-color: {ACCENT}; }}
+QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit, QPlainTextEdit {{ background: #10131b; color: {INK};
+    border: 1px solid #363e52; border-radius: 6px; padding: 5px 8px; selection-background-color: {ACCENT}; }}
 QLineEdit:focus, QComboBox:focus, QSpinBox:focus {{ border-color: {ACCENT}; }}
 QComboBox::drop-down {{ border: none; width: 22px; }}
-QComboBox QAbstractItemView {{ background: #0d1628; color: {INK}; selection-background-color: #1d3157;
-    border: 1px solid #24345a; }}
+QComboBox QAbstractItemView {{ background: #10131b; color: {INK}; selection-background-color: #2c3344;
+    border: 1px solid #363e52; }}
 QCheckBox {{ color: {INK}; spacing: 6px; }}
-QCheckBox::indicator {{ width: 15px; height: 15px; border-radius: 4px; border: 1px solid #3a4a70; background: #0d1628; }}
+QCheckBox::indicator {{ width: 15px; height: 15px; border-radius: 4px; border: 1px solid #3a4a70; background: #10131b; }}
 QCheckBox::indicator:checked {{ background: {ACCENT}; border-color: {ACCENT}; }}
 QScrollArea, QScrollArea > QWidget > QWidget {{ background: transparent; border: none; }}
 QScrollBar:vertical {{ background: transparent; width: 8px; margin: 2px; }}
-QScrollBar::handle:vertical {{ background: #2a3a60; border-radius: 4px; min-height: 30px; }}
+QScrollBar::handle:vertical {{ background: #3a4256; border-radius: 4px; min-height: 30px; }}
 QScrollBar::handle:vertical:hover {{ background: #3a4f80; }}
 QScrollBar::add-line, QScrollBar::sub-line {{ height: 0; width: 0; }}
 QScrollBar:horizontal {{ background: transparent; height: 8px; margin: 2px; }}
-QScrollBar::handle:horizontal {{ background: #2a3a60; border-radius: 4px; min-width: 30px; }}
-QTabBar::tab {{ background: #0f1830; color: {MUTED}; padding: 6px 14px; border: none;
+QScrollBar::handle:horizontal {{ background: #3a4256; border-radius: 4px; min-width: 30px; }}
+QTabBar::tab {{ background: #141822; color: {MUTED}; padding: 6px 14px; border: none;
     border-top-left-radius: 6px; border-top-right-radius: 6px; margin-right: 2px; }}
 QTabBar::tab:selected {{ background: {SURFACE}; color: {INK}; }}
-QToolTip {{ background: #0d1628; color: {INK}; border: 1px solid #24345a; padding: 5px 7px; border-radius: 4px; }}
-QMenu {{ background: #0d1628; border: 1px solid #24345a; border-radius: 9px; padding: 5px; color: {INK}; }}
+QToolTip {{ background: #10131b; color: {INK}; border: 1px solid #363e52; padding: 5px 7px; border-radius: 4px; }}
+QMenu {{ background: #10131b; border: 1px solid #363e52; border-radius: 9px; padding: 5px; color: {INK}; }}
 QMenu::item {{ padding: 6px 22px 6px 8px; border-radius: 6px; }}
-QMenu::item:selected {{ background: #1d3157; }}
-QMenu::separator {{ height: 1px; background: #24345a; margin: 4px 8px; }}
+QMenu::item:selected {{ background: #2c3344; }}
+QMenu::separator {{ height: 1px; background: #363e52; margin: 4px 8px; }}
 QSplitter::handle {{ background: {LINE}; }}
 QProgressBar {{ background: rgba(255,255,255,0.08); border: none; border-radius: 4px; height: 8px; }}
 QProgressBar::chunk {{ background: {ACCENT}; border-radius: 4px; }}
@@ -153,7 +157,7 @@ class Hero(QFrame):
         text = QVBoxLayout()
         text.setSpacing(fonts.px(4))
         text.addWidget(label(eyebrow.upper(), fonts.section, theme.GOLD))
-        big = label(title, hub_font(fonts, 14, QFont.DemiBold), color or theme.TEXT)
+        big = label(title, fonts.display, color or theme.TEXT)
         big.setWordWrap(True)
         text.addWidget(big)
         if line:
@@ -185,11 +189,37 @@ class Stat(QFrame):
             self.setToolTip(tip)
 
 
-class Divider(QFrame):
-    def __init__(self, parent=None):
+class Divider(QWidget):
+    """The game's rule: a thin gold line fading at both ends, with a small diamond in the middle."""
+
+    def __init__(self, parent=None, plain=False):
         super().__init__(parent)
-        self.setObjectName("Divider")
-        self.setFixedHeight(1)
+        self.plain = plain
+        self.setFixedHeight(9)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+    def paintEvent(self, _):
+        from PySide6.QtCore import QPointF
+        from PySide6.QtGui import QLinearGradient
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        w, y = self.width(), self.height() / 2
+        gold = QColor(theme.GOLD)
+        edge = QColor(gold)
+        edge.setAlpha(0)
+        mid = QColor(gold)
+        mid.setAlpha(60 if self.plain else 150)
+        grad = QLinearGradient(0, 0, w, 0)
+        grad.setColorAt(0.0, edge)
+        grad.setColorAt(0.5, mid)
+        grad.setColorAt(1.0, edge)
+        p.setPen(QPen(grad, 1))
+        p.drawLine(QPointF(0, y), QPointF(w, y))
+        if not self.plain:
+            p.setPen(Qt.NoPen)
+            p.setBrush(gold)
+            d = 3.0
+            p.drawPolygon([QPointF(w / 2 - d, y), QPointF(w / 2, y - d), QPointF(w / 2 + d, y), QPointF(w / 2, y + d)])
 
 
 class Meter(QWidget):
@@ -267,7 +297,7 @@ class Toggle(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
-        bg = QColor(theme.ACCENT) if self._on else QColor("#24345a")
+        bg = QColor(theme.ACCENT) if self._on else QColor("#363e52")
         p.setPen(Qt.NoPen)
         p.setBrush(bg)
         p.drawRoundedRect(r, r.height() / 2, r.height() / 2)

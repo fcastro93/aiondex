@@ -61,13 +61,13 @@ DOLL = {3: (0, 0), 4: (0, 1), 5: (0, 2), 7: (0, 3), 6: (0, 4), 8: (0, 5), 19: (0
 STAT_ES = {"skill": "Skill", "Move Speed": "Movement Speed", "Attack increase": "Attack Increase"}
 STATUS = {"ok": QColor("#7bd88f"), "no": QColor("#e0a050"), "closed": QColor("#4a5470")}
 CARD_STYLE = """
-QFrame#Card { background: #121c33; border: 1px solid #1f2b47; border-radius: 8px; }
-QFrame#Hero { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #1b2440, stop:1 #121c33);
-    border: 1px solid #3a3218; border-radius: 10px; }
-QFrame#Row { background: #101a30; border: 1px solid #1a2643; border-radius: 6px; }
-QFrame#Row:hover { border-color: #2c4170; }
-QFrame#Tile { background: #121c33; border: 1px solid #1f2b47; border-radius: 8px; }
-QFrame#Pill { background: #101a30; border: 1px solid #1a2643; border-radius: 6px; }
+QFrame#Card { background: #151923; border: 1px solid #2b3242; border-radius: 8px; }
+QFrame#Hero { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #1d1f2a, stop:1 #151923);
+    border: 1px solid #5a4a1e; border-radius: 10px; }
+QFrame#Row { background: #12161f; border: 1px solid #262c3a; border-radius: 6px; }
+QFrame#Row:hover { border-color: #4a5368; }
+QFrame#Tile { background: #151923; border: 1px solid #2b3242; border-radius: 8px; }
+QFrame#Pill { background: #12161f; border: 1px solid #262c3a; border-radius: 6px; }
 QPushButton[link="true"] { background: transparent; border: none; color: #8a93a8; padding: 2px 4px; }
 QPushButton[link="true"]:hover { color: #e8ecf4; }
 """

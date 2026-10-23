@@ -12,9 +12,12 @@ COMBAT = QColor("#ff7a59")
 ASMODIAN = QColor("#c38bff")
 BAR_BG = QColor(255, 255, 255, 22)
 BORDER = QColor(255, 255, 255, 20)
-PANEL_RGB = (10, 18, 38)          # logo navy
-WINDOW_BG = QColor("#0b1222")
-SURFACE = QColor("#121c33")
+PANEL_RGB = (13, 15, 21)          # the game's panels: near black
+WINDOW_BG = QColor("#0b0d12")
+SURFACE = QColor("#151923")
+GOLD_DARK = QColor("#b8923a")
+LINE = QColor("#2b3242")
+DISPLAY_FAMILIES = ("Cambria", "Constantia", "Georgia", "Times New Roman")   # the game's titles: a serif
 
 
 def faction_color(faction):
@@ -40,9 +43,11 @@ class Fonts:
         family = _first_family("Segoe UI Variable Text", "Segoe UI")
         self.icons_family = _first_family("Segoe Fluent Icons", "Segoe MDL2 Assets")
         self.scale = scale
+        display = _first_family(*DISPLAY_FAMILIES)
         self.title = self._make(family, 10.5, QFont.DemiBold)
         self.name = self._make(family, 9.5, QFont.DemiBold)
-        self.name_big = self._make(family, 11.5, QFont.DemiBold)
+        self.name_big = self._make(display, 12.5, QFont.DemiBold)    # page and hero titles, like the game's
+        self.display = self._make(display, 15, QFont.DemiBold)
         self.body = self._make(family, 9)
         self.small = self._make(family, 8)
         self.count_big = self._make(family, 12, QFont.DemiBold)

@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel, QPushBu
 
 from .. import APP_NAME, __version__
 from . import theme
-from .design import HUB_STYLE, Card, Hero, NavItem, Stat, hub_font
+from .design import HUB_STYLE, Card, Divider, Hero, NavItem, Stat, hub_font
 from .mapwindow import badge_label
 from .theme import Fonts
 from .widgets import label
@@ -142,42 +142,55 @@ class PanelPage(QWidget):
             QTimer.singleShot(0, self.refresh)
 
 
-class NowCard(Card):
-    """Under the docked HUD: who you play, where, your Item Level and CP, what comes next, what is unread."""
+class NowPanel(QWidget):
+    """Under the docked HUD, flat (no box): who you play and where, your two numbers, the Tracker's next
+    activities, what is unread. A divider between sections carries the structure."""
 
     def __init__(self, ctl, fonts, parent=None):
-        super().__init__(fonts, tr("Ahora"), parent)
+        super().__init__(parent)
         self.ctl = ctl
-        self.who = label("", fonts.name, theme.TEXT, elide=True)
-        self.body.addWidget(self.who)
+        self.fonts = fonts
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(fonts.px(6), fonts.px(4), fonts.px(6), 0)
+        lay.setSpacing(fonts.px(6))
+        self.who = label("", hub_font(fonts, 11, QFont.DemiBold), theme.TEXT, elide=True)
+        lay.addWidget(self.who)
         self.where = label("", fonts.small, theme.MUTED, elide=True)
-        self.body.addWidget(self.where)
+        lay.addWidget(self.where)
         row = QHBoxLayout()
         row.setSpacing(fonts.px(8))
-        self.il = Stat(fonts, "—", tr("Nivel de objeto"))
-        self.cp = Stat(fonts, "—", "CP")
+        self.il = Stat(fonts, "—", tr("Nivel de objeto"), theme.GOLD)
+        self.cp = Stat(fonts, "—", "CP", theme.ACCENT)
         row.addWidget(self.il, 1)
         row.addWidget(self.cp, 1)
-        self.body.addLayout(row)
-        self.next = label("", fonts.small, theme.ACCENT)
-        self.next.setWordWrap(True)
-        self.body.addWidget(self.next)
+        lay.addLayout(row)
+        lay.addWidget(Divider())
+        self.next_title = label(tr("Lo siguiente"), fonts.name, theme.TEXT)
+        lay.addWidget(self.next_title)
+        self.next_rows = QVBoxLayout()
+        self.next_rows.setSpacing(fonts.px(2))
+        lay.addLayout(self.next_rows)
+        self.tracker_link = QPushButton(tr("Abrir Tracker"))
+        self.tracker_link.setProperty("flat", True)
+        self.tracker_link.clicked.connect(ctl.open_tracker)
+        lay.addWidget(self.tracker_link, 0, Qt.AlignLeft)
+        lay.addWidget(Divider())
         self.unread = QPushButton("")
         self.unread.setProperty("flat", True)
         self.unread.clicked.connect(lambda: ctl.open_panel_page("notifications"))
-        self.unread.hide()
-        self.body.addWidget(self.unread, 0, Qt.AlignLeft)
+        lay.addWidget(self.unread, 0, Qt.AlignLeft)
 
     def refresh(self):
-        ctl = self.ctl
+        from .upgradeswindow import _clear
+        ctl, f = self.ctl, self.fonts
         name = ctl.character_name() or ctl.settings.get("last_character")
         ch = ctl.character
         if ch:
             cls = CLASS_OF_JOB.get(getattr(ch, "job", None), "")
             self.who.setText(ch.name + (f" · {cls}" if cls else "") + (tr(" · Nv. {0}", ch.level) if getattr(ch, "level", 0) else ""))
         else:
-            self.who.setText(name or tr("Sin personaje (entra al juego)"))
-        self.where.setText(zone_name(ctl) or tr("Zona: aún no la sé"))
+            self.who.setText(name or tr("Sin personaje"))
+        self.where.setText(zone_name(ctl) or (tr("Entra al juego con AionDex abierto") if not ch else tr("Zona: aún no la sé")))
         il = cp = None
         try:
             up = ctl.upgrade_plan(name) if name else None
@@ -187,16 +200,21 @@ class NowCard(Card):
             pass
         self.il.value.setText(f"{il:,}" if il else "—")
         self.cp.value.setText(f"{cp:,}" if cp else "—")
-        rows = ctl.tracker.upcoming()
+        _clear(self.next_rows)
+        rows = ctl.tracker.upcoming()[:3]
         if rows:
             from ..modules.tracker import when_text
-            entry, st = rows[0]
-            text, _ = when_text(st, time.time())
-            self.next.setText(tr("Siguiente: {0} · {1}", entry.name, text))
+            now = time.time()
+            for entry, st in rows:
+                text, color = when_text(st, now)
+                line = QHBoxLayout()
+                line.addWidget(label(entry.name, f.body, theme.TEXT, elide=True), 1)
+                line.addWidget(label(text, f.small, color))
+                self.next_rows.addLayout(line)
         else:
-            self.next.setText("")
+            self.next_rows.addWidget(label(tr("Nada marcado en el Tracker"), f.small, theme.MUTED))
         n = ctl.notifications.unread
-        self.unread.setText(tr("{0} notificaciones sin leer", n) if n != 1 else tr("1 notificación sin leer"))
+        self.unread.setText(tr("{0} avisos sin leer", n) if n != 1 else tr("1 aviso sin leer"))
         self.unread.setVisible(bool(n))
 
 
@@ -364,7 +382,7 @@ class HubWindow(QWidget):
         brand = QHBoxLayout()
         brand.setSpacing(f.px(8))
         brand.addWidget(badge_label(f.px(28), self.devicePixelRatioF()))
-        brand.addWidget(label(APP_NAME, hub_font(f, 13, QFont.DemiBold), theme.TEXT), 1)
+        brand.addWidget(label(APP_NAME, f.name_big, theme.TEXT), 1)
         rl.addLayout(brand)
         rl.addSpacing(f.px(6))
         scroll = QScrollArea()
@@ -408,18 +426,28 @@ class HubWindow(QWidget):
         self.stack = QStackedWidget()
         self.stack.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         root.addWidget(self.stack, 1)
-        # --- the right rail: the HUD's place and the Now card ---
+        # --- the right rail: the HUD's place (the overlay sits exactly on the slot) and the Now panel ---
         right = QFrame()
         right.setObjectName("RightRail")
         right.setFixedWidth(ctl.window.width() + f.px(HUD_MARGIN) * 2)
         self.right = right
         rr = QVBoxLayout(right)
         rr.setContentsMargins(f.px(HUD_MARGIN), f.px(HUD_MARGIN), f.px(HUD_MARGIN), f.px(HUD_MARGIN))
-        rr.setSpacing(f.px(10))
-        self.hud_slot = QWidget()
+        rr.setSpacing(f.px(12))
+        self.hud_slot = QFrame()
+        self.hud_slot.setObjectName("HudSlot")
         self.hud_slot.setFixedSize(ctl.window.width(), ctl.window.height())
+        slot = QVBoxLayout(self.hud_slot)
+        slot.setContentsMargins(f.px(12), f.px(10), f.px(12), f.px(10))
+        self.hud_hidden = label(tr("HUD oculto"), f.small, theme.MUTED)
+        slot.addWidget(self.hud_hidden, 0, Qt.AlignTop)
+        self.hud_show = QPushButton(tr("Mostrar el HUD"))
+        self.hud_show.setProperty("flat", True)
+        self.hud_show.clicked.connect(lambda: ctl.toggle_visible("menú"))
+        slot.addWidget(self.hud_show, 0, Qt.AlignLeft | Qt.AlignTop)
+        slot.addStretch(1)
         rr.addWidget(self.hud_slot, 0, Qt.AlignTop)
-        self.now = NowCard(ctl, f)
+        self.now = NowPanel(ctl, f)
         rr.addWidget(self.now)
         rr.addStretch(1)
         root.addWidget(right)
@@ -467,6 +495,9 @@ class HubWindow(QWidget):
         except Exception:                       # noqa: BLE001
             pass
         self.now.refresh()
+        hidden = not self.ctl.window.isVisible()
+        self.hud_hidden.setVisible(hidden)
+        self.hud_show.setVisible(hidden)
         page = self.stack.currentWidget()
         if isinstance(page, (PanelPage, HomePage)):
             page.refresh()

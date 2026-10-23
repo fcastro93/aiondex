@@ -13,14 +13,14 @@ GLYPH_PEOPLE = ""       # People in Segoe MDL2 / Fluent
 GLYPH_RESTART = ""     # Refresh
 
 MENU_STYLE = f"""
-QMenu {{ background: #0d1628; border: 1px solid #24345a; border-radius: 9px; padding: 5px;
+QMenu {{ background: #10131b; border: 1px solid #363e52; border-radius: 9px; padding: 5px;
     color: {theme.TEXT.name()}; font-family: 'Segoe UI'; font-size: 10pt; }}
 QMenu::item {{ padding: 6px 22px 6px 8px; border-radius: 6px; }}
-QMenu::item:selected {{ background: #1d3157; }}
+QMenu::item:selected {{ background: #2c3344; }}
 QMenu::item:checked {{ color: {theme.GOLD.name()}; }}
 QMenu::indicator {{ width: 0; height: 0; }}
 QMenu::icon {{ padding-left: 6px; }}
-QMenu::separator {{ height: 1px; background: #24345a; margin: 4px 8px; }}
+QMenu::separator {{ height: 1px; background: #363e52; margin: 4px 8px; }}
 QMenu::right-arrow {{ width: 8px; height: 8px; padding-right: 8px; }}
 """
 # modules shown together in a submenu (a "›" row that opens to the side), at the place of the first one

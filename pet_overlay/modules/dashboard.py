@@ -28,6 +28,7 @@ GLYPH_HOME = ""
 ROTATE = 6                  # seconds each mission / achievement left stays before the next one
 ROTATING = 12               # at most this many are rotated (achievements: the closest to done)
 CARDS = (("clock", tr("Reloj local y del servidor"), ""),
+         ("next", tr("Tu siguiente paso (Mejoras / Arcanas)"), ""),
          ("activity", tr("Siguiente actividad del Tracker"), ""),
          ("pets", tr("Pets por subir cerca de ti"), ""),
          ("event", tr("Misión del evento"), ""),
@@ -220,6 +221,35 @@ class DashboardPanel(QWidget):
 
     def _achievement(self, glyph):
         return self._mission(glyph, "achievements", tr("Logro"), lambda m: True, "achievements")
+
+    def _next(self, glyph):
+        """Your next step across the app: Mejoras' first step you can do now, else Arcanas' next feed."""
+        ctl = self.ctl
+        name = ctl.character_name() or ctl.settings.get("last_character")
+        if not name:
+            return None
+        try:
+            up = ctl.upgrade_plan(name)
+        except Exception:                        # noqa: BLE001 - Mejoras' business
+            up = None
+        if up is not None and up.steps:
+            step = next((s for s in up.steps if getattr(s, "ready", True)), up.steps[0])
+            card = self._card(glyph, theme.GOLD, tr("SIGUIENTE PASO · MEJORAS"), step.title, "", None,
+                              sub=getattr(step, "summary", "") or "")
+            card.on_click = ctl.open_upgrades
+            return card
+        try:
+            plan = ctl.arcana_plan(name)
+        except Exception:                        # noqa: BLE001
+            plan = None
+        if plan is not None and plan.feeds:
+            fd = plan.feeds[0]
+            card = self._card(glyph, theme.GOLD, tr("SIGUIENTE PASO · ARCANAS"),
+                              tr("Subamos tu {0} +{1}", fd.target.name, fd.target.enchant), "", None,
+                              sub=tr("con tu comida llega a +{0}", fd.to))
+            card.on_click = ctl.open_arcana
+            return card
+        return None
 
     def _activity(self, glyph):
         rows = self.ctl.tracker.upcoming()

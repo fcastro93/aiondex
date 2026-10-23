@@ -3287,7 +3287,9 @@ class Controller(QObject):
         if self.settings["visible"]:
             self.window.setWindowOpacity(1.0)       # whatever left it see-through, showing it brings it back
             self.window.apply_lock(self.settings["locked"])
-        elif source != "menú":
+        if self.hub is not None and self.hub.isVisible():
+            self.hub.refresh()
+        if not self.settings["visible"] and source != "menú":
             hk = self.settings["hotkeys"].get("toggle_visible")
             how = tr("con el atajo") if source == "atajo" else tr("con un clic en el icono de AionDex de la bandeja")
             self.notify("info", tr("AionDex oculto"),

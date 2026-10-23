@@ -63,11 +63,11 @@ SORTABLE = {tr("Objeto"): "name", tr("Precio"): "price", tr("Recibes"): "net", t
 DETAIL_W = 170
 THUMB_W = 340
 CARD_STYLE = """
-QFrame#Card { background: #121c33; border: 1px solid #1f2b47; border-radius: 8px; }
-QFrame#Row { background: #101a30; border: 1px solid #1a2643; border-radius: 6px; }
-QFrame#Row[open="true"] { border-color: #2c4170; }
-QFrame#Detail { background: #0d1628; border: 1px solid #1a2643; border-radius: 6px; }
-QFrame#Tile { background: #121c33; border: 1px solid #1f2b47; border-radius: 6px; }
+QFrame#Card { background: #151923; border: 1px solid #2b3242; border-radius: 8px; }
+QFrame#Row { background: #12161f; border: 1px solid #262c3a; border-radius: 6px; }
+QFrame#Row[open="true"] { border-color: #4a5368; }
+QFrame#Detail { background: #10131b; border: 1px solid #262c3a; border-radius: 6px; }
+QFrame#Tile { background: #151923; border: 1px solid #2b3242; border-radius: 6px; }
 QPushButton[small="true"] { padding: 3px 10px; font-weight: 600; }
 """
 
@@ -1369,7 +1369,7 @@ class CraftingWindow(QWidget):
                 r += 1
         line = QFrame()
         line.setFixedHeight(1)
-        line.setStyleSheet("background: #1f2b47;")
+        line.setStyleSheet("background: #2b3242;")
         grid.addWidget(line, r, 0, 1, 5)
         r += 1
         grid.addWidget(label("Total", f.name, theme.TEXT), r, 0)
@@ -1756,7 +1756,7 @@ class CraftingWindow(QWidget):
             dpr = self.devicePixelRatioF()
             if src.isNull():
                 pix = QPixmap(round(THUMB_W * dpr), round(THUMB_W * 9 / 16 * dpr))
-                pix.fill(QColor("#0d1628"))
+                pix.fill(QColor("#10131b"))
             else:
                 pix = src.scaledToWidth(round(THUMB_W * dpr), Qt.SmoothTransformation)
             pix.setDevicePixelRatio(dpr)
@@ -1979,7 +1979,7 @@ class PriceChart(QWidget):
         left, top, right, bottom = self.PAD
         area = QRectF(left, top, self.width() - left - right, self.height() - top - bottom)
         p.fillRect(self.rect(), theme.WINDOW_BG)
-        p.setPen(QPen(QColor("#1f2b47"), 1))
+        p.setPen(QPen(QColor("#2b3242"), 1))
         p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 8, 8)
         self._screen = []
         if not self.points:

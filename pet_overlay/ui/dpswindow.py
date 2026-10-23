@@ -28,19 +28,19 @@ COLOR_ROLE = Qt.UserRole + 2        # QColor of that bar (the player's class)
 ICON_ROLE = Qt.UserRole + 3         # QPixmap shown before the text
 KEY_ROLE = Qt.UserRole + 4          # what the row stands for (actor eid, skill id...)
 
-ROW_BG, ROW_ALT, ROW_HOVER, ROW_SELECTED = QColor("#0d1628"), QColor("#0f192e"), QColor("#16243f"), QColor("#1b3156")
+ROW_BG, ROW_ALT, ROW_HOVER, ROW_SELECTED = QColor("#10131b"), QColor("#0f192e"), QColor("#16243f"), QColor("#1b3156")
 CLASS_COLOR = {"Gladiador": "#e8a35c", "Templario": "#d9c27a", "Asesino": "#c77dff", "Cazador": "#7bd88f",
                "Hechicero": "#6cb4ff", "Invocador": "#9d8cff", "Clérigo": "#ffe08a", "Cantor": "#ff9e6b"}
 TABLE_STYLE = f"""
-QTableWidget {{ background: {ROW_BG.name()}; color: {theme.TEXT.name()}; border: 1px solid #1c2944;
+QTableWidget {{ background: {ROW_BG.name()}; color: {theme.TEXT.name()}; border: 1px solid #20262f;
     border-radius: 10px; gridline-color: transparent; outline: 0; }}
 QHeaderView {{ background: transparent; }}
-QHeaderView::section {{ background: #0f1830; color: {theme.MUTED.name()}; border: none;
-    border-bottom: 1px solid #1c2944; padding: 7px 8px; font-weight: 600; }}
+QHeaderView::section {{ background: #141822; color: {theme.MUTED.name()}; border: none;
+    border-bottom: 1px solid #20262f; padding: 7px 8px; font-weight: 600; }}
 QHeaderView::section:first {{ border-top-left-radius: 10px; }}
 QHeaderView::section:last {{ border-top-right-radius: 10px; }}
 QLineEdit {{ padding: 6px 10px; }}
-QFrame#Card {{ background: #0f1830; border: 1px solid #1c2944; border-radius: 10px; }}
+QFrame#Card {{ background: #141822; border: 1px solid #20262f; border-radius: 10px; }}
 QSplitter::handle {{ background: transparent; width: 10px; }}
 """
 GROUPS = [("all", tr("Todos")), ("group", tr("Tú y tu grupo")), ("others", tr("Fuera de tu grupo"))]

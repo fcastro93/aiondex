@@ -3,7 +3,7 @@ panel, a banner for notices and a footer. Feature content lives in pet_overlay/m
 import time
 
 from PySide6.QtCore import QPoint, QRect, QRectF, Qt, QTimer, Signal
-from PySide6.QtGui import QGuiApplication, QPainter, QPen
+from PySide6.QtGui import QColor, QGuiApplication, QPainter, QPen
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from .. import APP_NAME
@@ -214,9 +214,13 @@ class OverlayWindow(QWidget):
         p.setRenderHint(QPainter.Antialiasing)
         r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
         radius = self.fonts.px(10)
-        p.setBrush(theme.panel_color(max(self.ctl.settings["opacity"], 0.96) if self._docked
-                                     else self.ctl.settings["opacity"]))
-        if self.ctl.settings["locked"] or self._docked:
+        if self._docked:                                   # one more card of the AionDex window
+            p.setBrush(theme.SURFACE)
+            p.setPen(QPen(QColor("#3a4256"), 1))
+            p.drawRoundedRect(r, radius, radius)
+            return
+        p.setBrush(theme.panel_color(self.ctl.settings["opacity"]))
+        if self.ctl.settings["locked"]:
             p.setPen(QPen(theme.BORDER, 1))
         else:
             pen = QPen(theme.ACCENT, 1.2, Qt.DashLine)

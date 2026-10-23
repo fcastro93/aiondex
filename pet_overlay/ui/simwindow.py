@@ -29,7 +29,7 @@ BOSS_R = 24
 ADD_R = 6
 TRAIL = 3.0             # seconds of trail behind each player
 GRID = 5.0              # metres between grid lines
-BG = QColor("#0a1120")
+BG = QColor("#0a0c11")
 FLOOR = QColor("#0e1830")
 GRID_MINOR, GRID_MAJOR = QColor(255, 255, 255, 10), QColor(255, 255, 255, 24)
 SKULL_RED = QColor("#ff4d4d")
@@ -790,7 +790,7 @@ class Timeline(QWidget):
         top, bottom = 26, self.height() - 14
         bar = QRectF(12, top, self.width() - 24, bottom - top)
         p.setPen(Qt.NoPen)
-        p.setBrush(QColor("#0d1628"))
+        p.setBrush(QColor("#10131b"))
         p.drawRoundedRect(bar, 6, 6)
         boss = r.bosses[0]["eid"] if r.bosses else None
         rows = r.hp.get(boss) if boss is not None else None
@@ -940,7 +940,7 @@ class SimulationWindow(QWidget):
         self.view = ArenaView(self)
         frame = QFrame()
         frame.setObjectName("Card")
-        frame.setStyleSheet("QFrame#Card { background: #0a1120; border: 1px solid #1c2944; border-radius: 10px; }")
+        frame.setStyleSheet("QFrame#Card { background: #0a0c11; border: 1px solid #20262f; border-radius: 10px; }")
         fl = QVBoxLayout(frame)
         fl.setContentsMargins(1, 1, 1, 1)
         fl.addWidget(self.view)

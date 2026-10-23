@@ -19,7 +19,7 @@ from ..i18n import tr
 
 WIDTH = 1600
 PAD = 40
-BG = QColor("#0a1120")
+BG = QColor("#0a0c11")
 CARD = QColor("#111b31")
 CARD_LINE = QColor(255, 255, 255, 26)
 TEXT = QColor("#eef2f8")
@@ -116,7 +116,7 @@ def _header(p, r):
     enc = r.enc
     grad = QLinearGradient(0, 0, WIDTH, 0)
     grad.setColorAt(0, QColor("#13213f"))
-    grad.setColorAt(1, QColor("#0a1120"))
+    grad.setColorAt(1, QColor("#0a0c11"))
     p.fillRect(QRectF(0, 0, WIDTH, 130), grad)
     p.fillRect(QRectF(0, 128, WIDTH, 2), QColor(46, 192, 242, 90))
     badge = QPixmap(str(ASSETS_DIR / "badge.png"))

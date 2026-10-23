@@ -60,7 +60,7 @@ def render(rows, picks, title, subtitle, grade_color, level_pick=None):
     # recommendation
     if lines:
         box = QRectF(MARGIN, y, inner, 40 + 30 * lines)
-        p.setPen(QColor("#1f2b47"))
+        p.setPen(QColor("#2b3242"))
         p.setBrush(theme.SURFACE)
         p.drawRoundedRect(box, 8, 8)
         p.setPen(theme.GOLD)
