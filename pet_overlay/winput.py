@@ -33,6 +33,11 @@ _user32.GetForegroundWindow.restype = wintypes.HWND
 _user32.GetAsyncKeyState.restype = ctypes.c_short
 _user32.SetThreadDpiAwarenessContext.restype = ctypes.c_void_p
 _user32.SetThreadDpiAwarenessContext.argtypes = [ctypes.c_void_p]
+_user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+_user32.SetForegroundWindow.argtypes = [wintypes.HWND]
+_user32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
+_user32.IsIconic.argtypes = [wintypes.HWND]
+SW_RESTORE = 9
 
 
 class Interrupted(Exception):
@@ -42,6 +47,36 @@ class Interrupted(Exception):
 def real_pixels():
     """Make this thread work in real screen pixels (as the screenshots do)."""
     _user32.SetThreadDpiAwarenessContext(ctypes.c_void_p(-4))      # per monitor aware v2
+
+
+def esc_down():
+    return bool(_user32.GetAsyncKeyState(VK_ESCAPE) & 0x8000)
+
+
+def _pid(hwnd):
+    pid = wintypes.DWORD()
+    _user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+    return pid.value
+
+
+def game_in_front(hwnd):
+    """The window in front is the game's (any of its windows: the same process)."""
+    front = _user32.GetForegroundWindow()
+    return bool(front) and (front == hwnd or _pid(front) == _pid(hwnd))
+
+
+def bring_to_front(hwnd, wait=1.5):
+    """Put the game in front (restored if minimized) -> True once it is. Windows lets the process in front do it:
+    AionDex is, right after you click «Aplicar en el juego»."""
+    if _user32.IsIconic(hwnd):
+        _user32.ShowWindow(hwnd, SW_RESTORE)
+    _user32.SetForegroundWindow(hwnd)
+    end = time.time() + wait
+    while time.time() < end:
+        if game_in_front(hwnd):
+            return True
+        time.sleep(0.05)
+    return game_in_front(hwnd)
 
 
 def cursor():
@@ -70,9 +105,9 @@ class Guard:
         self.at = None
 
     def check(self):
-        if _user32.GetAsyncKeyState(VK_ESCAPE) & 0x8000:
+        if esc_down():
             raise Interrupted("Esc")
-        if self.game and _user32.GetForegroundWindow() != self.game:
+        if self.game and not game_in_front(self.game):
             raise Interrupted(tr("el juego dejó de estar al frente"))
         if self.at is not None:
             x, y = cursor()

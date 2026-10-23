@@ -29,7 +29,7 @@ import time
 from pathlib import Path
 
 from .skills import SLOT_KEYS, parse_spec_slots
-from .winput import Guard, Interrupted, real_pixels
+from .winput import Guard, Interrupted, bring_to_front, esc_down, game_in_front, real_pixels
 from .i18n import tr
 
 # the reference layout: the game's client area at 1920 x 1080 (it scales with the height); anchor: which edge the
@@ -57,6 +57,7 @@ COLUMNS = 5
 WATCH = {bytes.fromhex(h) for h in ("90e2", "0051", "4438", "0551", "0856", "93e2", "0739", "0f38")}
 BAR_UPDATE = bytes.fromhex("93e2")
 SPEC_SLOTS = bytes.fromhex("0739")
+FRONT_WAIT = 10                  # seconds to wait for you to click the game when AionDex cannot bring it in front
 # the specialization block at 1080 (it scales with the height), from the left end and the middle of its "Specialty"
 # title: the first slot's centre, the step to the next slot, a slot's red take-out button from its centre, the first
 # line of the list (where to click it) and the step to the next line (measured on the user's screenshots, 2026-10-15)
@@ -158,6 +159,7 @@ class BuildMacro:
         real_pixels()
         self.guard = Guard(self.game)
         try:
+            self._to_front()
             self._apply()
             left = self._bar_left()
             self.on_done(not left, tr("Listo: {0} cambios hechos en el juego.", self.done_steps) + (
@@ -168,6 +170,24 @@ class BuildMacro:
             self.on_done(False, tr("{0} Se hicieron {1} cambios; lo demás quedó como estaba.", e, self.done_steps))
         except Exception as e:                       # noqa: BLE001
             self.on_done(False, f"Error inesperado: {e}")
+
+    def _to_front(self):
+        """The game in front before the first click: AionDex brings it (its window was in front: you clicked
+        «Aplicar en el juego»), else it waits for you to click the game."""
+        if not self.game or bring_to_front(self.game):
+            time.sleep(0.4)                             # the game takes the focus before the first click
+            return
+        self._say(tr("Haz clic en la ventana del juego: empiezo en cuanto esté al frente."))
+        end = time.time() + FRONT_WAIT
+        while time.time() < end:
+            if game_in_front(self.game):
+                time.sleep(0.6)
+                return
+            if esc_down():
+                raise Interrupted("Esc")
+            time.sleep(0.1)
+        raise Failed(tr("El juego no se puso al frente en {0} s: haz clic en él y vuelve a pulsar «Aplicar en el "
+                        "juego».", FRONT_WAIT))
 
     def _apply(self):
         if not self._window_open():

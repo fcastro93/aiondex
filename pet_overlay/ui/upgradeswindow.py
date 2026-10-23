@@ -696,13 +696,29 @@ class UpgradesWindow(QWidget):
                 chips.addWidget(_chip(("✓ " if has else "") + text, "#7bd88f" if has else "#4a5470", f))
         chips.addStretch(1)
         lay.addLayout(chips)
+        lines = review.piece.soul.skill_lines if review.piece.soul else []
+        if lines:                                 # which skills its skill lines raise, against your targets
+            row = QHBoxLayout()
+            row.setSpacing(4)
+            row.addWidget(label(tr("Skills:"), f.small, theme.MUTED))
+            targets = self.ctl.skill_targets(self._shown or "")
+            for _, name, level, wanted in lines:
+                color = "#7bd88f" if wanted else ("#e0a050" if targets else "#8a93a8")
+                row.addWidget(_chip(("✓ " if wanted else "") + f"{name} +{level}", color, f,
+                                    tip=tr("Una de tus skills objetivo") if wanted else
+                                    tr("No está en tus skills objetivo") if targets else
+                                    tr("Marca tus skills objetivo en Personaje › Arcanas y aquí verás cuáles te sirven")))
+            row.addStretch(1)
+            lay.addLayout(row)
         if review.others:                         # their own row: a long one never widens the window
             bad = QHBoxLayout()
             bad.setSpacing(4)
             bad.addWidget(label(tr("A cambiar:"), f.small, theme.MUTED))
             for stat, pct in review.others:
                 bad.addWidget(_chip(f"✕ {stat}" + (f" {pct:.0%}" if pct is not None else ""), "#e0a050", f,
-                                    tip=tr("Línea que la tabla no pide en esta pieza: a cambiar con Sync")))
+                                    tip=tr("Línea de una skill que no está en tus skills objetivo: a cambiar con Sync")
+                                    if any(stat == x[1] for x in lines) else
+                                    tr("Línea que la tabla no pide en esta pieza: a cambiar con Sync")))
             bad.addStretch(1)
             lay.addLayout(bad)
         notes = [review.note] if review.note and review.note != tr("skill: niveles de habilidades pasivas") else []
@@ -848,6 +864,16 @@ class UpgradesWindow(QWidget):
         f = self.fonts
         self.body.addWidget(SectionTitle(tr("Main o alt"), f))
         self._hint(ROLE_TIP + tr(" {0} es {1}: se cambia arriba, junto al personaje.", plan.character, 'alt' if plan.me and plan.me.alt else 'main'))
+        self.body.addWidget(SectionTitle(tr("Skills objetivo de {0}", plan.character), f))
+        names = {int(k): v.get("name") or k for k, v in self.ctl.tuner.skills.items()}
+        row = QHBoxLayout()
+        row.addWidget(label(", ".join(f"{names.get(k, k)} {v}" for k, v in sorted(plan.targets.items(), key=lambda x: -x[1]))
+                            if plan.targets else tr("Ninguna: cualquier línea de skill de tu equipo cuenta como buena."),
+                            f.small, theme.TEXT if plan.targets else theme.MUTED), 1)
+        row.addWidget(_link(tr("Elegir skills objetivo"), lambda: self.ctl.open_arcana("skills"),
+                            tr("Las skills que quieres subir y a qué nivel: con ellas, una línea de skill en otra skill "
+                               "sale «a cambiar» (Sync) y Arcanas te dice qué cartas buscar")))
+        self.body.addLayout(row)
         self.body.addWidget(SectionTitle(tr("Mazmorras que hace {0}", plan.character), f))
         auto = self.ctl.upgrades_auto_dungeons(plan.character)
         _, chosen = self.ctl.upgrades_dungeons(plan.character)

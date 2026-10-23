@@ -1,8 +1,8 @@
 """Arcanas window (Personaje › Arcanas): a character's cards and what to do with them (arcana.py) - three tabs: what
 to do (the cards to wear, what to feed to which, what to look for in each kind, how arcana work in Global), your cards
-(the five you wear and the Arcana bag, each with its effects: green the ones that raise a skill you need) and your
-skills (the level you want for each one - the actives on your bar start at 16, the highest specialization - its level
-now, what the cards add and what is still missing)."""
+(the five you wear and the Arcana bag, each with its effects: green the ones that raise a skill you want) and your
+skill targets (the skills you mark, each with the level you want - Mejoras goes by them too, for the skill lines of the
+gear -, their level now with its breakdown, what the cards add and what is still missing)."""
 import webbrowser
 
 from PySide6.QtCore import Qt, QTimer
@@ -11,7 +11,8 @@ from PySide6.QtWidgets import (QComboBox, QFrame, QGridLayout, QHBoxLayout, QPus
                                QSpinBox, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
-from ..arcana import GRADE_COLOR, MAX_EFFECT_LEVEL, TYPES, Card, effects_text, feed_text, short_kind
+from ..arcana import (DEFAULT_ACTIVE_TARGET, GRADE_COLOR, MAX_EFFECT_LEVEL, TYPES, Card, effects_text,
+                      feed_text, short_kind)
 from . import theme
 from .mapwindow import STYLE, badge_label
 from .theme import Fonts
@@ -20,7 +21,7 @@ from .upgradeswindow import CARD_STYLE, _ago, _chip, _clear
 from .widgets import SectionTitle, label
 from ..i18n import tr
 
-TABS = (("todo", tr("Qué hacer")), ("cards", tr("Tus cartas")), ("skills", tr("Skills y objetivos")))
+TABS = (("todo", tr("Qué hacer")), ("cards", tr("Tus cartas")), ("skills", tr("Skills objetivo")))
 SHEET = "https://docs.google.com/spreadsheets/d/1YdTWoOg2cQYMVPyKdRuQ9rkdlOo0mvpfiywZcgPpSV4"
 NEED, DONE, IDLE = "#7bd88f", "#5fb8ff", "#8a93a8"
 
@@ -142,6 +143,16 @@ class ArcanaWindow(QWidget):
 
     def _todo(self, plan):
         f = self.fonts
+        if not any(n.target for n in plan.skills):
+            row = QHBoxLayout()
+            note = label(tr("Marca primero las skills que quieres subir y a qué nivel (Skills objetivo): sin ellas solo "
+                            "te digo lo de grado, +N y sets."), f.body, theme.WARN)
+            note.setWordWrap(True)
+            row.addWidget(note, 1)
+            go = QPushButton(tr("Elegir skills objetivo"))
+            go.clicked.connect(lambda: self.show_tab("skills"))
+            row.addWidget(go)
+            self.body.addLayout(row)
         changes = [(k, w, c, g) for k, w, c, g in plan.changes]
         if changes or plan.feeds:
             self.body.addWidget(SectionTitle(tr("Lo siguiente"), f))
@@ -293,45 +304,92 @@ class ArcanaWindow(QWidget):
         return tile
 
     def _skills(self, plan):
+        """Your skill targets: the skills you marked, each with the level you want (the list Arcanas and Mejoras go
+        by), then the others of your class with a button to add them."""
         f = self.fonts
         name = plan.character
         head = QHBoxLayout()
-        hint = label(tr("Pon el nivel que quieres en cada skill (0 = no la buscas). Su nivel = puntos + Daevanion + "
-                        "equipo + arcanas (el desglose lo manda el juego); las arcanas ponen lo que falta. Las activas "
-                        "de tu barra empiezan en 16, la especialización más alta."), f.small, theme.MUTED)
+        hint = label(tr("Marca las skills que quieres subir y ponle a cada una su nivel: Arcanas (qué cartas ponerte, "
+                        "qué buscar, qué dar de comer) y Mejoras (las líneas de skill de tu equipo) van por esta "
+                        "lista, la de {0}. Su nivel = puntos + Daevanion + equipo + arcanas (el desglose lo manda el "
+                        "juego). En Global la última especialización de las activas se abre a nivel 16; más arriba "
+                        "solo suma lo de cada nivel.", name), f.small, theme.MUTED)
         hint.setWordWrap(True)
         head.addWidget(hint, 1)
-        reset = QPushButton(tr("Volver a los de por defecto"))
-        reset.setProperty("flat", True)
-        reset.clicked.connect(lambda: self.ctl.reset_arcana_targets(name))
-        head.addWidget(reset)
+        suggest = QPushButton(tr("Sugerir: las activas de mi barra a 16"))
+        suggest.setProperty("flat", True)
+        suggest.clicked.connect(lambda: self.ctl.suggest_skill_targets(name))
+        head.addWidget(suggest)
+        chosen = [n for n in plan.skills if n.target]
+        if chosen:
+            clear = QPushButton(tr("Quitar todas"))
+            clear.setProperty("flat", True)
+            clear.clicked.connect(lambda: self.ctl.clear_skill_targets(name))
+            head.addWidget(clear)
         self.body.addLayout(head)
-        grid = QGridLayout()
-        grid.setHorizontalSpacing(14)
-        grid.setVerticalSpacing(4)
-        titles = (tr("Skill"), tr("Tipo"), tr("Objetivo"), tr("Ahora"), tr("Puntos"), "Daevanion", tr("Equipo"),
-                  tr("Arcanas"), tr("Necesitas de arcanas"), tr("Con las mejores"), tr("Te falta"))
-        for c, t in enumerate(titles):
-            grid.addWidget(label(t, f.small, theme.MUTED), 0, c)
-        for r, n in enumerate(plan.skills, start=1):
-            color = theme.TEXT if n.target else theme.MUTED
-            grid.addWidget(label(n.name, f.body, color), r, 0)
-            grid.addWidget(label(tr("Activa") if n.kind == "active" else tr("Pasiva"), f.small, theme.MUTED), r, 1)
-            spin = QSpinBox()
-            spin.setRange(0, 40)
-            spin.setValue(n.target)
-            spin.setFixedWidth(64)
-            spin.editingFinished.connect(lambda s=spin, k=n.skill: self.ctl.set_arcana_target(name, k, s.value())
-                                         if s.value() != (self.ctl.arcana_targets(name).get(k) or 0) else None)
-            grid.addWidget(spin, r, 2)
-            grid.addWidget(label(str(n.level), f.name, theme.TEXT), r, 3)
-            for c, v in enumerate(n.parts or ("", "", ""), start=4):
-                grid.addWidget(label("" if v in ("", None) else (str(v) if c == 4 else f"+{v}" if v else "—"), f.body,
-                                     theme.MUTED), r, c)
-            grid.addWidget(label(f"+{n.worn}" if n.worn else "—", f.body, theme.TEXT), r, 7)
-            grid.addWidget(label(str(n.need) if n.need else "—", f.body, theme.TEXT), r, 8)
-            grid.addWidget(label(f"+{n.best}" if n.best else "—", f.body, QColor(DONE) if n.best else theme.MUTED), r, 9)
-            grid.addWidget(label(str(n.missing) if n.missing else ("✓" if n.need else ""), f.name,
-                                 theme.WARN if n.missing else theme.GAIN), r, 10)
-        grid.setColumnStretch(11, 1)
-        self.body.addLayout(grid)
+        self.body.addWidget(SectionTitle(tr("Tus skills objetivo ({0})", len(chosen)), f))
+        if not chosen:
+            note = label(tr("Aún no marcaste ninguna: agrégalas de la lista de abajo (o pulsa «Sugerir»). Sin skills "
+                            "objetivo, Arcanas solo mira el grado, el +N y los sets, y Mejoras cuenta cualquier línea "
+                            "de skill como buena."), f.body, theme.WARN)
+            note.setWordWrap(True)
+            self.body.addWidget(note)
+        else:
+            grid = QGridLayout()
+            grid.setHorizontalSpacing(14)
+            grid.setVerticalSpacing(4)
+            titles = (tr("Skill"), tr("Tipo"), tr("Objetivo"), tr("Ahora"), tr("Puntos"), "Daevanion", tr("Equipo"),
+                      tr("Arcanas"), tr("Necesitas de arcanas"), tr("Con las mejores"), tr("Te falta"), "")
+            for c, t in enumerate(titles):
+                grid.addWidget(label(t, f.small, theme.MUTED), 0, c)
+            for r, n in enumerate(chosen, start=1):
+                self._skill_cells(grid, r, n)
+                spin = QSpinBox()
+                spin.setRange(1, 40)
+                spin.setValue(n.target)
+                spin.setFixedWidth(64)
+                spin.editingFinished.connect(lambda sp=spin, k=n.skill, t=n.target: self.ctl.set_skill_target(
+                    name, k, sp.value()) if sp.value() != t else None)
+                grid.addWidget(spin, r, 2)
+                grid.addWidget(label(str(n.need) if n.need else "—", f.body, theme.TEXT), r, 8)
+                grid.addWidget(label(f"+{n.best}" if n.best else "—", f.body, QColor(DONE) if n.best else theme.MUTED),
+                               r, 9)
+                grid.addWidget(label(str(n.missing) if n.missing else "✓", f.name,
+                                     theme.WARN if n.missing else theme.GAIN), r, 10)
+                drop = QPushButton("✕")
+                drop.setProperty("flat", True)
+                drop.setToolTip(tr("Quitarla de tus skills objetivo"))
+                drop.clicked.connect(lambda _=False, k=n.skill: self.ctl.remove_skill_target(name, k))
+                grid.addWidget(drop, r, 11)
+            grid.setColumnStretch(12, 1)
+            self.body.addLayout(grid)
+        rest = [n for n in plan.skills if not n.target]
+        if rest:
+            self.body.addWidget(SectionTitle(tr("Agregar skills"), f))
+            grid = QGridLayout()
+            grid.setHorizontalSpacing(14)
+            grid.setVerticalSpacing(4)
+            for c, t in enumerate((tr("Skill"), tr("Tipo"), "", tr("Ahora"), tr("Puntos"), "Daevanion", tr("Equipo"),
+                                   tr("Arcanas"))):
+                grid.addWidget(label(t, f.small, theme.MUTED), 0, c)
+            for r, n in enumerate(rest, start=1):
+                self._skill_cells(grid, r, n)
+                add = QPushButton(tr("+ Agregar"))
+                add.setProperty("flat", True)
+                level = DEFAULT_ACTIVE_TARGET if n.kind == "active" and n.level < DEFAULT_ACTIVE_TARGET else n.level + 1
+                add.setToolTip(tr("La agrega a tus skills objetivo con nivel {0} (luego lo cambias)", level))
+                add.clicked.connect(lambda _=False, k=n.skill, lv=level: self.ctl.set_skill_target(name, k, lv))
+                grid.addWidget(add, r, 2)
+            grid.setColumnStretch(8, 1)
+            self.body.addLayout(grid)
+
+    def _skill_cells(self, grid, r, n):
+        """A skill's name, kind, level now and its breakdown (points, Daevanion, gear, arcana)."""
+        f = self.fonts
+        grid.addWidget(label(n.name, f.body, theme.TEXT), r, 0)
+        grid.addWidget(label(tr("Activa") if n.kind == "active" else tr("Pasiva"), f.small, theme.MUTED), r, 1)
+        grid.addWidget(label(str(n.level), f.name, theme.TEXT), r, 3)
+        for c, v in enumerate(n.parts or ("", "", ""), start=4):
+            grid.addWidget(label("" if v in ("", None) else (str(v) if c == 4 else f"+{v}" if v else "—"), f.body,
+                                 theme.MUTED), r, c)
+        grid.addWidget(label(f"+{n.worn}" if n.worn else "—", f.body, theme.TEXT), r, 7)

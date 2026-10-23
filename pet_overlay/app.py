@@ -2618,7 +2618,8 @@ class Controller(QObject):
         plan = build_plan(name, gear, self.gear_db, self.upgrades_db, crafting.inventory, crafting.latest_prices(),
                           dungeons, levels, crafting.recipes, skipped=set(self.upgrades_skipped(name)),
                           me=self.upgrades_me(name), bosses=self.upgrade_bosses(), alts_kina=alts_kina,
-                          off=self.upgrades_off(name), arcana=self.arcana_plan(name))
+                          off=self.upgrades_off(name), arcana=self.arcana_plan(name),
+                          targets=self.skill_targets(name), skill_info=self.tuner.skills)
         self._plan_cache = (time.time(), name, plan)
         return plan
 
@@ -2639,27 +2640,44 @@ class Controller(QObject):
         common = Counter(b // 1_000_000 for b in levels).most_common(1)
         return (common[0][0] if common else None), levels, on
 
-    def arcana_targets(self, name):
-        """{skill: level wanted} of a character: what they set, else the highest specialization (16) for the actives
-        on the bar of the preset in use."""
-        mine = (self.settings.get("arcana", {}).get("targets", {}).get(name))
-        if mine is not None:
-            return {int(k): v for k, v in mine.items()}
+    def skill_targets(self, name):
+        """{skill: level wanted} of a character: the skills they marked (Personaje › Arcanas › Skills objetivo), each
+        with its level. Arcanas (the cards to wear, to look for, to feed) and Mejoras (the skill lines of the gear)
+        go by them; {} = none marked yet (1.65.0 kept them under "arcana" › "targets")."""
+        store = self.settings.get("skill_targets", {})
+        mine = store.get(name)
+        if mine is None:
+            mine = self.settings.get("arcana", {}).get("targets", {}).get(name) or {}
+        return {int(k): int(v) for k, v in mine.items()}
+
+    def _save_skill_targets(self, name, targets):
+        self.settings.setdefault("skill_targets", {})[name] = {str(k): v for k, v in sorted(targets.items())}
+        self._save_settings()
+        self.arcana_changed()
+
+    def set_skill_target(self, name, skill, level):
+        """Mark a skill (or change its level)."""
+        targets = self.skill_targets(name)
+        targets[int(skill)] = int(level)
+        self._save_skill_targets(name, targets)
+
+    def remove_skill_target(self, name, skill):
+        targets = self.skill_targets(name)
+        targets.pop(int(skill), None)
+        self._save_skill_targets(name, targets)
+
+    def suggest_skill_targets(self, name):
+        """Mark the actives on the bar of the preset in use at the highest specialization (16), keeping the rest."""
         _, levels, on = self._arcana_skills(name)
         kinds = self.tuner.skills
-        return {b: DEFAULT_ACTIVE_TARGET for b in levels if b in on and (kinds.get(str(b)) or {}).get("type") == "active"}
+        targets = self.skill_targets(name)
+        for b in levels:
+            if b in on and (kinds.get(str(b)) or {}).get("type") == "active" and b not in targets:
+                targets[b] = DEFAULT_ACTIVE_TARGET
+        self._save_skill_targets(name, targets)
 
-    def set_arcana_target(self, name, skill, level):
-        targets = self.arcana_targets(name)
-        targets[int(skill)] = int(level)
-        self.settings.setdefault("arcana", {}).setdefault("targets", {})[name] = {str(k): v for k, v in targets.items()}
-        self._save_settings()
-        self.arcana_changed()
-
-    def reset_arcana_targets(self, name):
-        self.settings.setdefault("arcana", {}).setdefault("targets", {}).pop(name, None)
-        self._save_settings()
-        self.arcana_changed()
+    def clear_skill_targets(self, name):
+        self._save_skill_targets(name, {})
 
     def arcana_characters(self):
         """The characters whose cards were read."""
@@ -2688,7 +2706,7 @@ class Controller(QObject):
             if item in self.arcana_db.training:
                 counts[item] = counts.get(item, 0) + n
         training = [(self.arcana_db.training[i]["name"], n, self.arcana_db.training[i]["exp"]) for i, n in counts.items()]
-        plan = build(self.arcana_db, prefix, cards_of(stored, self.arcana_db), levels, self.arcana_targets(name),
+        plan = build(self.arcana_db, prefix, cards_of(stored, self.arcana_db), levels, self.skill_targets(name),
                      names, kinds, training)
         plan.character = name
         plan.read_at = self.crafting.inventory.read_at(name)
@@ -2702,10 +2720,13 @@ class Controller(QObject):
             self.arcana_window.refresh()
         self.upgrades_changed()
 
-    def open_arcana(self):
+    def open_arcana(self, tab=None):
+        """Personaje › Arcanas (tab: "todo", "cards" or "skills", the skill targets)."""
         from .ui.arcanawindow import ArcanaWindow
         if self.arcana_window is None:
             self.arcana_window = ArcanaWindow(self)
+        if tab:
+            self.arcana_window.show_tab(tab)
         else:
             self.arcana_window.refresh()
         self.arcana_window.show()

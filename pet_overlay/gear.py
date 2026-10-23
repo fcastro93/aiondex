@@ -90,7 +90,8 @@ def parse_soul(body, q):
     u32 Theostone engraved (only weapons and guards have one: 19,950,016 on the Kromede Warhammer, 19,950,014 on the
     Spiritforged Guard; 0 elsewhere) | 9 B | u8 n | n x (u16 stat, u32 value: the soul binding lines, percents x100)
     | u8 n | n x (u16, u32 0) | u8 k | k x (u32 skill, u8 level: the skill effects) | u8 k | ...
-    -> {"state", "lines": [[stat id, value]], "skills", "sockets": [[stone id, stat, grade]], "theostone"} or None
+    -> {"state", "lines": [[stat id, value]], "skills" (how many skill effects), "skill_lines": [[skill, level]],
+    "sockets": [[stone id, stat, grade]], "theostone"} or None
     when it does not fit. Stat ids are the client's own (193 HP, 317 Attack, 307 Defense, 6 Willpower...):
     upgrades.py names them from the piece's stat pool (the value falls in one stat's range)."""
     n = body[q + 1] if q + 1 < len(body) else 99
@@ -115,7 +116,11 @@ def parse_soul(body, q):
         return None
     s += 1 + 6 * lines
     skills = body[s] if s < len(body) else 0
-    out.update(state=state, lines=[list(x) for x in stats], skills=skills if skills <= 8 else 0)
+    skills = skills if skills <= 8 else 0
+    effects = [[_u32(body, s + 1 + 5 * i), body[s + 5 + 5 * i]] for i in range(skills)]         if s + 1 + 5 * skills <= len(body) else []
+    if not all(11 <= sid // 1_000_000 <= 19 and 1 <= lv <= 10 for sid, lv in effects):
+        effects = []
+    out.update(state=state, lines=[list(x) for x in stats], skills=skills, skill_lines=effects)
     return out
 
 

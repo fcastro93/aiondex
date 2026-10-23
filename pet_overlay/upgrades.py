@@ -130,6 +130,7 @@ GUIDE = {"text": tr("Líneas buscadas y reglas de Soul Binding: Aion 2 Bible de 
          "url": "https://docs.google.com/document/d/11u4wLCG1WfL-xSka2Aze0rI9vYRa7mq3N3Gp1bt0AWY/edit"}
 ILVL, CP = "ilvl", "cp"
 BOTH = (ILVL, CP)
+ACTIVE_SKILL_SLOTS = {"weapon", "guard", "ring"}      # their soul binding raises actives; every other piece passives
 BOOSTS = {"own": BOTH, "voucher": BOTH, "enhance": BOTH, "morph": BOTH, "buy": BOTH, "save": BOTH, "farm": BOTH,
           "boss": BOTH, "arcana": BOTH, "soul": (CP,), "manastone": (CP,), "soulstone": (CP,), "amp": (CP,),
           "theostone": (CP,)}
@@ -190,6 +191,7 @@ class Soul:
     bad: list                   # stat names not worth keeping on this piece (not in IDEAL)
     sockets: list               # [(stone id, stat, grade)] (stone id 0: empty)
     theostone: int              # the engraved Theostone (weapons, guards), 0 if none
+    skill_lines: list = field(default_factory=list)     # [(skill, name, level, wanted: one of your skill targets)]
 
     @property
     def empty(self):
@@ -321,6 +323,7 @@ class Plan:
     character: str
     resources: dict = field(default_factory=dict)     # kind -> count (kina, enhance_stone, transfer_stone...)
     arcana_plan: object = None                         # arcana.ArcanaPlan of the character (Personaje › Arcanas)
+    targets: dict = field(default_factory=dict)        # the character's skill targets {skill: level}
     vouchers: dict = field(default_factory=dict)      # dungeon -> count
     stones: dict = field(default_factory=dict)        # manastone / soulstone name -> count
     pieces: list = field(default_factory=list)
@@ -586,8 +589,11 @@ def learn_stats(pieces, db):
     return names
 
 
-def read_soul(item, soul, db, names):
-    """Soul of a piece from its record (gear.parse_soul) or None."""
+def read_soul(item, soul, db, names, targets=None, skill_info=None):
+    """Soul of a piece from its record (gear.parse_soul) or None. targets: the character's skill targets ({skill:
+    level}); skill_info: skill id (str) -> {"name", "type"}. With targets, a skill line on a skill that is not one of
+    them is a line to change - when the piece can give one of them: weapons, guards and rings raise actives, the rest
+    passives."""
     if not soul:
         return None
     pool = db.pool(item.ids[0]) or next((db.pool(i) for i in item.ids if db.pool(i)), [])
@@ -604,10 +610,21 @@ def read_soul(item, soul, db, names):
     parts = [x[4] for x in lines if x[4] is not None] + [1.0] * soul.get("skills", 0)
     locked = soul.get("state") == 10
     rate = 1.0 if locked else (sum(parts) / len(parts) if parts else 0.0)
-    ideal = IDEAL.get(SLOTS[POSITIONS[item.slot][0]][0] if item.slot in POSITIONS else "", ())
+    key = SLOTS[POSITIONS[item.slot][0]][0] if item.slot in POSITIONS else ""
+    ideal = IDEAL.get(key, ())
     bad = [x[0] for x in lines if x[0] and ideal and x[0] not in ideal]
+    info = skill_info or {}
+    kind = "active" if key in ACTIVE_SKILL_SLOTS else "passive"
+    aimed = bool(targets) and any((info.get(str(t)) or {}).get("type") == kind for t in targets)
+    skill_lines = []
+    for sid, level in soul.get("skill_lines", []):
+        name = (info.get(str(sid)) or {}).get("name") or str(sid)
+        wanted = sid in (targets or {})
+        skill_lines.append((sid, name, level, wanted))
+        if aimed and not wanted:
+            bad.append(name)
     return Soul(rate, lines, soul.get("skills", 0), db.props.get(item.ids[0], len(lines) + soul.get("skills", 0)),
-                locked, bad, [tuple(s) for s in soul.get("sockets", [])], soul.get("theostone", 0))
+                locked, bad, [tuple(s) for s in soul.get("sockets", [])], soul.get("theostone", 0), skill_lines)
 
 
 def _wearable(item, gear):
@@ -636,15 +653,18 @@ def option_key(o):
 
 
 def build_plan(name, gear, gear_db, db, inventory, prices=None, dungeons=None, levels=None, recipes=None,
-               skipped=None, me=None, bosses=None, alts_kina=0, now=None, off=None, arcana=None):
+               skipped=None, me=None, bosses=None, alts_kina=0, now=None, off=None, arcana=None, targets=None,
+               skill_info=None):
     """The Plan for a character. gear: settings["gear"][name]; inventory: the app's Inventory (bag and storage);
     prices: {item name: (lowest, when)} of the market; dungeons: the ones you run; levels: {profession: level};
     recipes: crafting_db's (the Dragon Lord pieces' Splendent step); skipped: the keys of the steps you do not want;
     me: Me (level, item level, CP, main or alt); bosses: the Tracker's field and Abyss bosses [{"name", "where",
     "level", "abyss", "map_id", "items": [(piece, chance %)], "respawn"}]; alts_kina: a main's alts' tradeable Kina;
-    off: the CATEGORIES you switched off; arcana: the character's arcana.ArcanaPlan (the cards to wear and to feed)."""
+    off: the CATEGORIES you switched off; arcana: the character's arcana.ArcanaPlan (the cards to wear and to feed);
+    targets: the character's skill targets {skill: level} (the skill lines of the gear go by them); skill_info: skill
+    id (str) -> {"name", "type"}."""
     gear = gear or {}
-    plan = Plan(name, arcana_plan=arcana)
+    plan = Plan(name, arcana_plan=arcana, targets=dict(targets or {}))
     plan.skipped = set(skipped or ())
     plan.off = set(off or ())
     plan.dungeons = list(dungeons or [])
@@ -702,7 +722,7 @@ def build_plan(name, gear, gear_db, db, inventory, prices=None, dungeons=None, l
                 next((p for p in worn if p[0] == raw[0]), None)
             if record is not None:
                 worn.remove(record)
-                piece.soul = read_soul(item, record[4], db, names)
+                piece.soul = read_soul(item, record[4], db, names, targets, skill_info)
         by_pos[pos] = piece
         plan.pieces.append(piece)
     plan.item_level = sum(p.level for p in plan.pieces)
@@ -828,7 +848,7 @@ def build_plan(name, gear, gear_db, db, inventory, prices=None, dungeons=None, l
         if any(o.item is item and o.enchant == enchant for opts in plan.options.values() for o in opts
                if o.kind == "own"):
             continue
-        s = read_soul(item, soul, db, names)
+        s = read_soul(item, soul, db, names, targets, skill_info)
         plan.spare.append(Spare(item, enchant, level, cont, s.rate if s and s.lines else 0.0, soul=s))
     plan.spare.sort(key=lambda x: (x.enchant, x.level, x.rate))
 
@@ -874,10 +894,11 @@ def _substats(plan, db, gear_db, faction):
             continue
         s = piece.soul
         have = {x[0]: x[4] for x in s.lines if x[0]} if s else {}
-        rows = [[(stat, bool(s and s.skills) if stat == "skill" else stat in have,
+        unwanted = [x[1] for x in s.skill_lines if x[1] in s.bad] if s else []    # skill lines off your targets
+        rows = [[(stat, bool(s and s.skills > len(unwanted)) if stat == "skill" else stat in have,
                   None if stat == "skill" else have.get(stat)) for stat in tier] for tier in tiers]
         wanted = {stat for tier in tiers for stat in tier}
-        others = [(n, p) for n, p in have.items() if n not in wanted]
+        others = [(n, p) for n, p in have.items() if n not in wanted] + [(n, None) for n in unwanted]
         score, _ = line_score(piece.key, s)
         review = Review(piece, rows, others, score, stones=db.transfer_stones(piece.item),
                         note=SUBSTATS_NOTE.get(piece.key, tr("skill: niveles de habilidades pasivas")))
