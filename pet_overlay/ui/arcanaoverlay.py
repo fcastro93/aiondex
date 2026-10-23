@@ -1,21 +1,25 @@
 """«Marcar en el juego» (Arcanas › Subir, off unless you turn it on): a click-through window over the game's Arcana
 window that frames, right on the game's grid, the cards AionDex picked to feed for the next level - blue the ones to
-register, green the ones already registered. arcanagrid reads where the grid is and which part of your bag is on
-screen (after you scroll, or with a kind filter) from the game's pixels, every READ_EVERY; the window is left out of
-screen captures (SetWindowDisplayAffinity), so those reads keep seeing the game under it. It draws only while the grid
-is in sight; it never clicks nor moves the mouse."""
+register, green the ones already registered. A thread reads the game's pixels about READ_FPS times a second
+(arcanagrid: where the grid is, which part of your bag is on screen after a scroll or with a kind filter), so the
+frames move with the list while you scroll; rows half in view are drawn clipped to the list's area. The window is left
+out of screen captures (SetWindowDisplayAffinity), so the reads keep seeing the game under it. It never clicks nor
+moves the mouse. status (and status_changed) says what it sees, for Arcanas: "off", "searching" (the game in front
+but no grid), "black" (the capture comes out black: the game not in front, or exclusive fullscreen), "ok"."""
 import ctypes
 import logging
+import threading
 import time
 from ctypes import wintypes
 
-from PySide6.QtCore import QRectF, Qt, QTimer
+from PySide6.QtCore import QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import QWidget
 
 from .. import arcanagrid
 from ..arcana import TYPES
 from ..minimap import game_window, grab
+from ..paths import DATA_DIR
 from ..sniffer import game_pids
 from ..winput import real_pixels
 from ..i18n import tr
@@ -26,18 +30,23 @@ _user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, cty
                                  ctypes.c_uint]
 _user32.SetWindowDisplayAffinity.argtypes = [wintypes.HWND, wintypes.DWORD]
 _user32.IsIconic.argtypes = [wintypes.HWND]
+_user32.GetForegroundWindow.restype = wintypes.HWND
 
 WDA_EXCLUDEFROMCAPTURE = 0x11
 HWND_TOPMOST = -1
 SWP_NOACTIVATE = 0x0010
 SWP_SHOWWINDOW = 0x0040
-READ_EVERY = 400                 # ms between two looks at the grid
-HIDE_AFTER = 1.5                 # seconds without the grid before it hides (no blinking)
+READ_FPS = 30                    # looks at the grid a second
+PAINT_MS = 16
+HIDE_AFTER = 1.0                 # seconds without the grid before it hides (no blinking)
+DIAGNOSE_AFTER = 6.0             # seconds with the game in front and no grid before one capture is kept to look at
 TO_ADD = QColor("#2ec0f2")
 ADDED = QColor("#7bd88f")
 
 
 class ArcanaOverlay(QWidget):
+    status_changed = Signal(str, int, int, int)     # status, cards framed, cards above the view, below it
+
     def __init__(self, ctl):
         super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool |
                          Qt.WindowTransparentForInput | Qt.WindowDoesNotAcceptFocus)
@@ -45,82 +54,148 @@ class ArcanaOverlay(QWidget):
         self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setAttribute(Qt.WA_TransparentForMouseEvents)
         self.ctl = ctl
+        self.status = "off"
+        self._lock = threading.Lock()
         self._orders = []                # the lists the grid may show: your bag, then each kind alone (a filter)
         self._picks = []                 # [Card] to feed for the next level
-        self._boxes = []                 # [(x, y, w, h, registered)] in this window's real pixels
-        self._off = 0                    # picks not on screen (scroll)
-        self._area = None                # (left, top, right, bottom) on screen, real pixels
-        self._height = 0
+        self._seen = None                # (area on screen, client height, boxes, cards off screen) of the last read
+        self._shown = None               # the same, as drawn
         self._lost_since = None
+        self._searching_since = None
+        self._diagnosed = False
+        self._run = False
+        self._thread = None
         self._hwnd = None
+        self._placed = None
         self._font = QFont("Segoe UI", 10, QFont.Bold)
-        self._timer = QTimer(self, interval=READ_EVERY, timeout=self._tick)
+        self._timer = QTimer(self, interval=PAINT_MS, timeout=self._tick)
 
+    # --- on / off ---
     def set_picks(self, orders, picks):
         """Frame these cards in the game's grid. orders: the lists your bag may show in the grid's order (with and
         without the card being enhanced, when it is in the bag); each kind alone is tried too (a filter)."""
-        self._orders = [o for order in orders for o in [order] + [[c for c in order if c.kind == k] for k in TYPES]]
-        self._picks = list(picks)
-        if self._picks:
-            if not self._timer.isActive():
-                self._timer.start()
-            self._tick()
-        else:
+        with self._lock:
+            self._orders = [o for order in orders for o in [order] + [[c for c in order if c.kind == k] for k in TYPES]]
+            self._picks = list(picks)
+        if not picks:
             self.stop()
+            return
+        if not self._run:
+            self._run = True
+            self._thread = threading.Thread(target=self._reader, name="arcana-marks", daemon=True)
+            self._thread.start()
+            self._timer.start()
+            self._set_status("searching")
 
     def stop(self):
+        self._run = False
         self._timer.stop()
-        self._boxes = []
+        with self._lock:
+            self._seen = None
+        self._shown = None
         self.hide()
+        self._set_status("off")
 
-    def _tick(self):
-        try:
-            self._read()
-        except Exception:                      # noqa: BLE001 - a bad read must not stop the app
-            log.exception("could not read the game's Arcana grid")
-            self._boxes = []
-        if self._boxes or self._off:
-            self._lost_since = None
-            if not self.isVisible():
-                self.show()
-                self._exclude_from_capture()
-            self._place()
-            self.update()
-        else:
-            self._lost_since = self._lost_since or time.time()
-            if time.time() - self._lost_since > HIDE_AFTER:
-                self.hide()
+    def _set_status(self, status, framed=0, above=0, below=0):
+        if (status, framed, above, below) != getattr(self, "_last_status", None):
+            self._last_status = (status, framed, above, below)
+            self.status = status
+            self.status_changed.emit(status, framed, above, below)
 
-    def _read(self):
+    # --- the reads, on their own thread ---
+    def _reader(self):
         real_pixels()
-        found = game_window(game_pids())
-        self._boxes, self._off = [], 0
+        pids, pids_at = None, 0.0
+        while self._run:
+            start = time.time()
+            try:
+                if start - pids_at > 5:
+                    pids, pids_at = game_pids(), start
+                result = self._read(pids)
+            except Exception:                  # noqa: BLE001 - a bad read must not stop it
+                log.exception("could not read the game's Arcana grid")
+                result = ("searching", None)
+            with self._lock:
+                self._seen = result
+            time.sleep(max(0.0, 1 / READ_FPS - (time.time() - start)))
+
+    def _read(self, pids):
+        import numpy as np
+        found = game_window(pids) if pids else None
         if found is None or _user32.IsIconic(found[0]):
-            return
+            return ("black", None)
         left, top, right, bottom = found[1]
         height = bottom - top
         x0, _, px, _, _, _ = arcanagrid.geometry(height)
         width = min(right - left, int(x0 + 4 * px + 0.02 * height))
         if width <= 0 or height <= 0:
-            return
-        img = grab((left, top, left + width, bottom)).convert("RGB")
-        pixels = img.load()
-        rows = arcanagrid.read_grid(lambda x, y: pixels[x, y], width, height)
-        order, first = arcanagrid.best_view(self._orders, rows)
+            return ("black", None)
+        img = grab((left, top, left + width, bottom))
+        a = np.asarray(img.convert("RGB"))
+        if int(a[::16, ::16].max()) < 24:                     # nothing but black: the game is not on screen
+            return ("black", None)
+        rows = arcanagrid.read_grid(a, height)
+        with self._lock:
+            orders, picks = self._orders, self._picks
+        order, first = arcanagrid.best_view(orders, rows)
         if order is None:
-            return
-        boxes = arcanagrid.cells_to_frame(order, rows, first, [c for c in self._picks if c in order], height)
-        self._boxes = boxes
-        self._off = max(0, len(self._picks) - len(boxes))
-        self._area, self._height = (left, top, left + width, bottom), height
+            self._diagnose(found[0], img)
+            return ("searching", None)
+        self._searching_since = None
+        boxes, off = arcanagrid.cells_to_frame(order, rows, first, [c for c in picks if c in order], height)
+        return ("ok", ((left, top, left + width, bottom), height, boxes, off))
 
-    def _place(self):
-        if self._area is None:
+    def _diagnose(self, game, img):
+        """Once a session: the game in front for a while and no grid found -> keep that capture (diagnostics), so the
+        reads can be fixed for your screen."""
+        if _user32.GetForegroundWindow() != game:
+            self._searching_since = None
             return
+        now = time.time()
+        self._searching_since = self._searching_since or now
+        if self._diagnosed or now - self._searching_since < DIAGNOSE_AFTER:
+            return
+        self._diagnosed = True
+        try:
+            folder = DATA_DIR / "diagnostics"
+            folder.mkdir(parents=True, exist_ok=True)
+            path = folder / time.strftime("arcana-marks-%Y%m%d-%H%M%S.png")
+            img.save(path)
+            log.info("Arcana marks: no grid found with the game in front; kept %s", path)
+        except OSError:
+            log.exception("could not keep the Arcana marks capture")
+
+    # --- drawing, on the GUI thread ---
+    def _tick(self):
+        with self._lock:
+            seen = self._seen
+        if seen is None:
+            return
+        status, data = seen
+        if status == "ok":
+            self._lost_since = None
+            self._shown = data
+            area, _, boxes, off = data
+            self._set_status("ok", len(boxes), *off)
+            if not self.isVisible():
+                self.show()
+                self._exclude_from_capture()
+            if area != self._placed:
+                self._place(area)
+            self.update()
+            return
+        self._lost_since = self._lost_since or time.time()
+        if time.time() - self._lost_since > HIDE_AFTER:
+            self._shown = None
+            self.hide()
+            self._set_status(status)
+
+    def _place(self, area):
         hwnd = self._hwnd or int(self.winId())
-        left, top, right, bottom = self._area
-        _user32.SetWindowPos(hwnd, wintypes.HWND(HWND_TOPMOST), left, top, right - left, bottom - top,
-                             SWP_NOACTIVATE | SWP_SHOWWINDOW)
+        left, top, right, bottom = area
+        if _user32.SetWindowPos(hwnd, wintypes.HWND(HWND_TOPMOST), left, top, right - left, bottom - top,
+                                SWP_NOACTIVATE | SWP_SHOWWINDOW):
+            self._placed = area
 
     def _exclude_from_capture(self):
         hwnd = int(self.winId())
@@ -131,27 +206,33 @@ class ArcanaOverlay(QWidget):
             self.ctl.minimap.ignore.add(hwnd)
 
     def paintEvent(self, _event):
-        if self._area is None:
+        if not self._shown:
             return
+        area, height, boxes, off = self._shown
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         dpr = self.devicePixelRatioF()
         p.scale(1 / dpr, 1 / dpr)                           # real pixels, like the reads
-        line = max(3.0, self._height / 360)
-        for x, y, w, h, registered in self._boxes:
-            color = ADDED if registered else TO_ADD
-            p.setPen(QPen(color, line))
+        top, bottom = arcanagrid.view(height)
+        line = max(5.0, height / 260)                       # a thick frame (8 px at 4K)
+        x0, y0, _, _, _, _ = arcanagrid.geometry(height)
+        p.save()
+        p.setClipRect(QRectF(0, top - line * 2, area[2] - area[0], bottom - top + line * 4))
+        for x, y, w, h, registered in boxes:
+            p.setPen(QPen(ADDED if registered else TO_ADD, line))
             p.setBrush(Qt.NoBrush)
-            p.drawRoundedRect(QRectF(x - line, y - line, w + 2 * line, h + 2 * line), line * 2, line * 2)
-        text = tr("AionDex: registra las marcadas") + (tr(" · {0} más abajo en la lista", self._off) if self._off else "")
+            p.drawRoundedRect(QRectF(x - line, y - line, w + 2 * line, h + 2 * line), line * 1.5, line * 1.5)
+        p.restore()
+        above, below = off
+        text = tr("AionDex: registra las marcadas") + (tr(" · {0} más arriba", above) if above else "") + (
+            tr(" · {0} más abajo", below) if below else "")
         font = QFont(self._font)
-        font.setPixelSize(max(12, int(self._height / 75)))
+        font.setPixelSize(max(12, int(height / 75)))
         p.setFont(font)
-        x0, y0, _, _, _, _ = arcanagrid.geometry(self._height)
-        box = QRectF(x0, y0 - self._height * 0.045, self._height * 0.6, self._height * 0.035)
+        tw = p.fontMetrics().horizontalAdvance(text) + font.pixelSize()
+        box = QRectF(x0, y0 - height * 0.05, tw, height * 0.032)
         p.setPen(Qt.NoPen)
-        p.setBrush(QColor(10, 18, 38, 220))
-        width = p.fontMetrics().horizontalAdvance(text) + font.pixelSize()
-        p.drawRoundedRect(QRectF(box.x(), box.y(), width, box.height()), 6, 6)
+        p.setBrush(QColor(10, 18, 38, 225))
+        p.drawRoundedRect(box, 6, 6)
         p.setPen(TO_ADD)
-        p.drawText(QRectF(box.x(), box.y(), width, box.height()), Qt.AlignCenter, text)
+        p.drawText(box, Qt.AlignCenter, text)

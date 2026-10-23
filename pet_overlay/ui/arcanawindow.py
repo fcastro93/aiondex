@@ -38,6 +38,7 @@ class ArcanaWindow(QWidget):
         self.leveling = None               # «Subamos esta carta»: {stack, enchant, effects, history, used, picks}
         self.unfolded = set()              # Qué hacer's folded sections that are open
         self.overlay = None                # «Marcar en el juego»: ArcanaOverlay over the game's grid, made when on
+        self._marks_label = None           # the line that says what it sees
         self.setObjectName("MapWindow")
         self.setWindowTitle(f"{APP_NAME} — {tr('Arcanas')}")
         self.setWindowIcon(ctl.app_icon)
@@ -400,7 +401,32 @@ class ArcanaWindow(QWidget):
         if self.overlay is None:
             from .arcanaoverlay import ArcanaOverlay
             self.overlay = ArcanaOverlay(self.ctl)
+            self.overlay.status_changed.connect(self._marks_said)
         self.overlay.set_picks(*what)
+
+    def _marks_text(self, status, framed=0, above=0, below=0):
+        """What the marks see, for the line under «Marcarlas en el juego»."""
+        if status == "ok":
+            text = tr("Marcando {0} en el juego", framed)
+            if above or below:
+                text += " · " + ", ".join(([tr("{0} más arriba", above)] if above else []) +
+                                          ([tr("{0} más abajo", below)] if below else [])) + tr(": mueve la lista")
+            return text, theme.GAIN
+        if status == "black":
+            return tr("No veo la pantalla del juego: ponlo al frente (ventana o sin bordes; en pantalla completa "
+                      "exclusiva Windows no deja leerla)."), theme.WARN
+        if status == "searching":
+            return tr("Buscando la lista de cartas: abre en el juego Arcanas y la mejora de esta carta."), theme.MUTED
+        return "", theme.MUTED
+
+    def _marks_said(self, status, framed, above, below):
+        text, color = self._marks_text(status, framed, above, below)
+        try:
+            if self._marks_label is not None:
+                self._marks_label.setText(text)
+                self._marks_label.setStyleSheet(f"color: {color.name()}; background: transparent;")
+        except RuntimeError:                    # the view was drawn again: that label is gone
+            self._marks_label = None
 
     def _toggle_marks(self, on):
         self.ctl.settings["arcana_marks"] = bool(on)
@@ -514,6 +540,14 @@ class ArcanaWindow(QWidget):
         marks.toggled.connect(self._toggle_marks)
         head.addWidget(marks)
         self.body.addLayout(head)
+        if self.ctl.settings.get("arcana_marks"):
+            last = getattr(self.overlay, "_last_status", None) or ("searching",)
+            text, color = self._marks_text(*last)
+            self._marks_label = label(text, f.small, color)
+            self._marks_label.setAlignment(Qt.AlignRight)
+            self.body.addWidget(self._marks_label)
+        else:
+            self._marks_label = None
         base = [c for c in plan.cards if c.stack not in lv["used"]]
         orders = [grid_order(base)] + ([grid_order([c for c in base if c.stack != card.stack])] if not card.worn else [])
         self._marks((orders, [w for w, _, _ in picks if isinstance(w, Card)]) if picks else None)
