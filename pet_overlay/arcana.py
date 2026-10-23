@@ -308,8 +308,9 @@ def _fed(db, card, food, pool):
     for w, lv in slots:
         for s, share in w.items():
             got[s] = got.get(s, 0) + lv * share
+    # it keeps the eater's worn flag: between two pictures worth the same, the card you already wear stays (2.4.2)
     return Card(card.stack, card.item, card.name, card.kind, card.set, card.grade, card.level, lvl,
-                [[s, v] for s, v in got.items()], False, card.stat, 0, food, card)
+                [[s, v] for s, v in got.items()], card.worn, card.stat, 0, food, card)
 
 
 def _enhance_value(card, needs, have, pool, db, weights=None):
@@ -368,18 +369,24 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
 
     # the cards to wear: of each kind, among the ones of its highest item level (a lower grade costs item level and god
     # stat), the combination that adds the most to what you need, then the set bonuses, the version most of the top wear
-    # (with five cards any mix gives two bonuses: its Pantheon stat decides), the most levels, the +N. A new card also
-    # competes as it would be after eating the one you wear (all its exp carries over and its levels are dealt again
-    # among the new card's effects): an enhanced card of yours does not hide a better one that shows up later
+    # (with five cards any mix gives two bonuses: its Pantheon stat decides), the most levels, the +N. A card also
+    # competes as it would be after eating an enhanced one of its kind (all its exp carries over and its levels are
+    # dealt again among the eater's effects): an enhanced card of yours does not hide a better one that shows up later.
+    # The food is the one you wear when it is enhanced AND the enhanced one with the most exp: before 2.4.2 only the
+    # worn one, so once you put on the new card (+0) the old +3 was no longer seen as its food and AionDex told you to
+    # wear the old one again - a loop
     options = []
     for kind in TYPES:
         mine = [c for c in plan.cards if c.kind == kind]
         top = max((c.level for c in mine), default=0)
         tops = [c for c in mine if c.level == top]
         worn = plan.worn.get(kind)
-        if worn is not None and worn.enchant:
-            tops += [_fed(db, c, worn, plan.pool[kind]) for c in tops
-                     if c is not worn and db.to_next(c.grade, c.enchant) is not None]
+        foods = [worn] if worn is not None and worn.enchant else []
+        richest = max((c for c in mine if c.enchant), key=lambda c: db.food(c.grade, c.enchant, c.exp), default=None)
+        if richest is not None and richest not in foods:
+            foods.append(richest)
+        tops += [_fed(db, c, food, plan.pool[kind]) for food in foods for c in list(tops)
+                 if c is not food and db.to_next(c.grade, c.enchant) is not None]
         options.append(tops or [None])
     best, best_key = None, None
     for combo in itertools.product(*options):
@@ -422,8 +429,9 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
     # levels most likely raise a skill you need
     plan.spare = [c for c in plan.cards if plan.best.get(c.kind) is not c and not c.worn]
     plan.training = [t for t in training or [] if t[1]]
-    food = sorted([(c, db.food(c.grade, c.enchant, c.exp), db.feed_kinah(c.grade, c.enchant)) for c in plan.spare],
-                  key=lambda f: f[1])
+    moving = {w.stack for w, _, _, _ in plan.transfers.values()}     # fed whole to the new card (added below once)
+    food = sorted([(c, db.food(c.grade, c.enchant, c.exp), db.feed_kinah(c.grade, c.enchant)) for c in plan.spare
+                   if c.stack not in moving], key=lambda f: f[1])
     food += [((name, n), exp * n, 0) for name, n, exp in plan.training]
     food += [(w, exp, db.feed_kinah(w.grade, w.enchant)) for w, _, exp, _ in plan.transfers.values()]
     into_new = {w.stack: new.stack for w, new, _, _ in plan.transfers.values()}     # the one you wear -> the new one
