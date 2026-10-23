@@ -192,7 +192,64 @@ class ArcanaWindow(QWidget):
                               best.name, best.grade, best.enchant) if best else
                            tr("No tienes ninguna: cualquier {0} te da su stat y nivel de objeto.", short_kind(kind))),
                           "#f0c24e", tr("Buscar"))
+        self._gear_advice(plan)
         self._guide()
+
+    def _gear_advice(self, plan):
+        """What to look for in the gear's skill lines after what the cards give (soul binding: weapons, guards and
+        rings raise actives, every other piece but bracelets, belt, amulet and runes passives): your targets still
+        missing, by priority, the pieces that already give them and the lines on skills off your list (to Sync)."""
+        from ..upgrades import ACTIVE_SKILL_SLOTS
+        f = self.fonts
+        if not any(n.target for n in plan.skills):
+            return
+        self.body.addWidget(SectionTitle(tr("Qué buscar en el equipo"), f))
+        hint = label(tr("El soul binding del equipo da +1 a una skill por línea: el arma, la guarda y los anillos dan "
+                        "activas; casco, hombreras, pecho, grebas, guantes, capa, botas, collar y pendientes, pasivas "
+                        "(brazaletes, cinturón, amuleto y runas no dan skills)."),
+                     f.small, theme.MUTED)
+        hint.setWordWrap(True)
+        self.body.addWidget(hint)
+        missing = sorted((n for n in plan.skills if n.missing), key=lambda n: n.priority)
+        if not missing:
+            self.body.addWidget(label(tr("Con tus mejores cartas ya llegas a todas tus skills objetivo: en el equipo "
+                                         "mejor busca stats."), f.body, theme.GAIN))
+            return
+        up = self.ctl.upgrade_plan(plan.character)
+        pieces = [p for p in (up.pieces if up else []) if p.item and p.soul]
+        kinds = {n.kind for n in missing}
+        unread = [p for p in pieces if p.soul.skills > len(p.soul.skill_lines)]
+        if unread:
+            note = label(tr("Aún no leí qué skill dan {0} líneas de tu equipo ({1}): entra al juego con el personaje "
+                            "(o cambia de canal) con AionDex abierto para leerlas.",
+                            sum(p.soul.skills - len(p.soul.skill_lines) for p in unread),
+                            ", ".join(p.slot for p in unread)),
+                         f.small, theme.WARN)
+            note.setWordWrap(True)
+            self.body.addWidget(note)
+        for n in missing:
+            active = n.kind == "active"
+            fits = [p for p in pieces if (p.key in ACTIVE_SKILL_SLOTS) == active]
+            have = [f"{p.slot} +{lv}" for p in fits for sid, _, lv, _ in p.soul.skill_lines if sid == n.skill]
+            detail = tr("Búscala en {0}.", tr("los anillos o el arma") if active else
+                        tr("casco, hombreras, pecho, grebas, guantes, capa, botas, collar o pendientes"))
+            if have:
+                detail += " " + tr("Ya te la dan: {0}.", ", ".join(have))
+            title = (tr("{0}. {1}: te falta 1 nivel después de las cartas", n.priority, n.name) if n.missing == 1 else
+                     tr("{0}. {1}: te faltan {2} niveles después de las cartas", n.priority, n.name, n.missing))
+            self._row(title, detail, "#c38bff", tr("Equipo"))
+        for kind, what in (("active", tr("activas")), ("passive", tr("pasivas"))):
+            if kind not in kinds:
+                continue
+            swap = [f"{p.slot}: {name} +{lv}" for p in pieces if (p.key in ACTIVE_SKILL_SLOTS) == (kind == "active")
+                    for _, name, lv, wanted in p.soul.skill_lines if not wanted]
+            if swap:
+                self._row(tr("Líneas de {0} que no buscas: candidatas a Sync", what), ", ".join(swap) + ". " +
+                          tr("Sync vuelve a tirar una línea al azar: puede salir cualquier stat o cualquier skill de "
+                             "tu clase de ese tipo, así que puede tomar varios intentos."), "#f08a4e", tr("Sync"))
+        if "active" in kinds:
+            self.body.addWidget(label(tr("La guía recomienda dejar los anillos para el final: primero las cartas y el arma."),
+                                      f.small, theme.MUTED))
 
     def _row(self, title, detail, color, chip):
         f = self.fonts
