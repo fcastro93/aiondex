@@ -1509,8 +1509,9 @@ def _goals(plan, arcana, db):
         first = can_do(db.mode("Deus Research Base", "Transcendence Stage 1"), me)
         goals.append((missing_il(reason), Step(
             "goal", tr("Arcana en Trascendencia: {0}", reason),
-            tr("Los Arcana salen en Deus Research Base (Chalice, Bell, Compass) y Shattered Arkanis (Mirror, "
-               "Parchment), Common desde Stage 2, Rare en Stage 3, Epic y Unique en Stage 4")
+            tr("Los Arcana salen en Deus Research Base (Chalice, Bell, Compass) y Shattered Arkanis (Chalice, "
+               "Mirror, Parchment): Common y Rare desde Stage 1, Epic desde Stage 2, Unique desde Stage 3 (más en "
+               "Stage 4)")
             + (tr(" (Stage 1 pide 1,600: {0})", first) if first else tr(" (ya entras en Stage 1)")) + ": "
             + ", ".join(f"{ARCANA[pos]} ({tr('vacío') if not item else f'{item.grade} {level}'})" for pos, item, level, _ in
                         cards) + tr(" suben hasta 80 de nivel de objeto cada uno."), 0, ready=False, key="goal:arcana",

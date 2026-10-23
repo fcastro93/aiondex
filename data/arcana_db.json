@@ -4,7 +4,7 @@
   "text": "Arcanas: aion2data.com",
   "url": "https://aion2data.com/arcana"
  },
- "generated_at": "2026-10-22",
+ "generated_at": "2026-10-23",
  "rule": "each enhance level adds a new skill effect at +1 until the card has 4, then raises one of them (random) by +1, up to +4 each",
  "slots": {
   "41": "Chalice",
@@ -2319,6 +2319,1130 @@
   "565106003": {
    "name": "Superior Training Arcana (Bound)",
    "exp": 1500
+  }
+ },
+ "transcendence": {
+  "Deus Research Base": {
+   "url": "https://aion2data.com/dungeons/deus-research-base",
+   "stages": {
+    "Transcendence Stage 1": {
+     "il": 1600,
+     "arcana": [
+      [
+       "Compass",
+       "Magic",
+       "Common",
+       0.3309
+      ],
+      [
+       "Compass",
+       "Vigor",
+       "Common",
+       0.3309
+      ],
+      [
+       "Bell",
+       "Magic",
+       "Common",
+       0.3309
+      ],
+      [
+       "Bell",
+       "Vigor",
+       "Common",
+       0.3309
+      ],
+      [
+       "Chalice",
+       "Magic",
+       "Common",
+       0.23
+      ],
+      [
+       "Chalice",
+       "Vigor",
+       "Common",
+       0.23
+      ],
+      [
+       "Bell",
+       "Magic",
+       "Rare",
+       0.0493
+      ],
+      [
+       "Bell",
+       "Vigor",
+       "Rare",
+       0.0493
+      ],
+      [
+       "Compass",
+       "Magic",
+       "Rare",
+       0.0493
+      ],
+      [
+       "Compass",
+       "Vigor",
+       "Rare",
+       0.0493
+      ]
+     ],
+     "other": [
+      [
+       "Candy Key Fragment (Event)",
+       1.0
+      ],
+      [
+       "Enhance Stone",
+       1.0
+      ],
+      [
+       "Kina",
+       1.0
+      ],
+      [
+       "Silentium (Bound)",
+       1.0
+      ],
+      [
+       "Soul Codex (Bound)",
+       1.0
+      ],
+      [
+       "Amplify Stone Fragment (Unique) (Bound)",
+       0.488
+      ],
+      [
+       "Lesser Manastone (Bound)",
+       0.433
+      ],
+      [
+       "Lesser Soulstone (Bound)",
+       0.433
+      ]
+     ]
+    },
+    "Transcendence Stage 2": {
+     "il": 1900,
+     "arcana": [
+      [
+       "Compass",
+       "Magic",
+       "Common",
+       0.4561
+      ],
+      [
+       "Compass",
+       "Vigor",
+       "Common",
+       0.4561
+      ],
+      [
+       "Bell",
+       "Magic",
+       "Common",
+       0.4561
+      ],
+      [
+       "Bell",
+       "Vigor",
+       "Common",
+       0.4561
+      ],
+      [
+       "Chalice",
+       "Magic",
+       "Common",
+       0.3261
+      ],
+      [
+       "Chalice",
+       "Vigor",
+       "Common",
+       0.3261
+      ],
+      [
+       "Bell",
+       "Magic",
+       "Rare",
+       0.1778
+      ],
+      [
+       "Bell",
+       "Vigor",
+       "Rare",
+       0.1778
+      ],
+      [
+       "Compass",
+       "Magic",
+       "Rare",
+       0.1778
+      ],
+      [
+       "Compass",
+       "Vigor",
+       "Rare",
+       0.1778
+      ],
+      [
+       "Chalice",
+       "Magic",
+       "Rare",
+       0.1207
+      ],
+      [
+       "Chalice",
+       "Vigor",
+       "Rare",
+       0.1207
+      ],
+      [
+       "Bell",
+       "Magic",
+       "Epic",
+       0.0493
+      ],
+      [
+       "Bell",
+       "Vigor",
+       "Epic",
+       0.0493
+      ],
+      [
+       "Compass",
+       "Magic",
+       "Epic",
+       0.0493
+      ],
+      [
+       "Compass",
+       "Vigor",
+       "Epic",
+       0.0493
+      ]
+     ],
+     "other": [
+      [
+       "Candy Key Fragment (Event)",
+       1.0
+      ],
+      [
+       "Enhance Stone",
+       1.0
+      ],
+      [
+       "Kina",
+       1.0
+      ],
+      [
+       "Silentium (Bound)",
+       1.0
+      ],
+      [
+       "Soul Codex (Bound)",
+       1.0
+      ],
+      [
+       "Amplify Stone Fragment (Unique) (Bound)",
+       0.488
+      ],
+      [
+       "Lesser Manastone (Bound)",
+       0.433
+      ],
+      [
+       "Lesser Soulstone (Bound)",
+       0.433
+      ]
+     ]
+    },
+    "Transcendence Stage 3": {
+     "il": 2200,
+     "arcana": [
+      [
+       "Chalice",
+       "Magic",
+       "Common",
+       0.712
+      ],
+      [
+       "Chalice",
+       "Vigor",
+       "Common",
+       0.712
+      ],
+      [
+       "Bell",
+       "Magic",
+       "Rare",
+       0.2596
+      ],
+      [
+       "Bell",
+       "Vigor",
+       "Rare",
+       0.2596
+      ],
+      [
+       "Compass",
+       "Magic",
+       "Rare",
+       0.2596
+      ],
+      [
+       "Compass",
+       "Vigor",
+       "Rare",
+       0.2596
+      ],
+      [
+       "Chalice",
+       "Magic",
+       "Rare",
+       0.1778
+      ],
+      [
+       "Chalice",
+       "Vigor",
+       "Rare",
+       0.1778
+      ],
+      [
+       "Bell",
+       "Magic",
+       "Epic",
+       0.1352
+      ],
+      [
+       "Bell",
+       "Vigor",
+       "Epic",
+       0.1352
+      ],
+      [
+       "Compass",
+       "Magic",
+       "Epic",
+       0.1352
+      ],
+      [
+       "Compass",
+       "Vigor",
+       "Epic",
+       0.1352
+      ],
+      [
+       "Chalice",
+       "Magic",
+       "Epic",
+       0.0913
+      ],
+      [
+       "Chalice",
+       "Vigor",
+       "Epic",
+       0.0913
+      ],
+      [
+       "Bell",
+       "Magic",
+       "Unique",
+       0.0493
+      ],
+      [
+       "Bell",
+       "Vigor",
+       "Unique",
+       0.0493
+      ],
+      [
+       "Compass",
+       "Magic",
+       "Unique",
+       0.0493
+      ],
+      [
+       "Compass",
+       "Vigor",
+       "Unique",
+       0.0493
+      ]
+     ],
+     "other": [
+      [
+       "Candy Key Fragment (Event)",
+       1.0
+      ],
+      [
+       "Enhance Stone",
+       1.0
+      ],
+      [
+       "Kina",
+       1.0
+      ],
+      [
+       "Silentium (Bound)",
+       1.0
+      ],
+      [
+       "Soul Codex (Bound)",
+       1.0
+      ],
+      [
+       "Amplify Stone Fragment (Unique) (Bound)",
+       0.488
+      ],
+      [
+       "Lesser Manastone (Bound)",
+       0.3567
+      ],
+      [
+       "Lesser Soulstone (Bound)",
+       0.3567
+      ],
+      [
+       "Intermediate Manastone (Bound)",
+       0.0972
+      ],
+      [
+       "Intermediate Soulstone (Bound)",
+       0.0972
+      ]
+     ]
+    },
+    "Transcendence Stage 4": {
+     "il": 2500,
+     "arcana": [
+      [
+       "Bell",
+       "Magic",
+       "Epic",
+       0.2596
+      ],
+      [
+       "Bell",
+       "Vigor",
+       "Epic",
+       0.2596
+      ],
+      [
+       "Compass",
+       "Magic",
+       "Epic",
+       0.2596
+      ],
+      [
+       "Compass",
+       "Vigor",
+       "Epic",
+       0.2596
+      ],
+      [
+       "Bell",
+       "Magic",
+       "Rare",
+       0.2596
+      ],
+      [
+       "Bell",
+       "Vigor",
+       "Rare",
+       0.2596
+      ],
+      [
+       "Compass",
+       "Magic",
+       "Rare",
+       0.2596
+      ],
+      [
+       "Compass",
+       "Vigor",
+       "Rare",
+       0.2596
+      ],
+      [
+       "Chalice",
+       "Magic",
+       "Common",
+       0.1787
+      ],
+      [
+       "Chalice",
+       "Vigor",
+       "Common",
+       0.1787
+      ],
+      [
+       "Bell",
+       "Magic",
+       "Unique",
+       0.1778
+      ],
+      [
+       "Bell",
+       "Vigor",
+       "Unique",
+       0.1778
+      ],
+      [
+       "Chalice",
+       "Magic",
+       "Rare",
+       0.1778
+      ],
+      [
+       "Chalice",
+       "Vigor",
+       "Rare",
+       0.1778
+      ],
+      [
+       "Compass",
+       "Magic",
+       "Unique",
+       0.1778
+      ],
+      [
+       "Compass",
+       "Vigor",
+       "Unique",
+       0.1778
+      ],
+      [
+       "Chalice",
+       "Magic",
+       "Epic",
+       0.1778
+      ],
+      [
+       "Chalice",
+       "Vigor",
+       "Epic",
+       0.1778
+      ],
+      [
+       "Chalice",
+       "Magic",
+       "Unique",
+       0.1207
+      ],
+      [
+       "Chalice",
+       "Vigor",
+       "Unique",
+       0.1207
+      ]
+     ],
+     "other": [
+      [
+       "Candy Key Fragment (Event)",
+       1.0
+      ],
+      [
+       "Enhance Stone",
+       1.0
+      ],
+      [
+       "Kina",
+       1.0
+      ],
+      [
+       "Silentium (Bound)",
+       1.0
+      ],
+      [
+       "Soul Codex (Bound)",
+       1.0
+      ],
+      [
+       "Amplify Stone Fragment (Unique) (Bound)",
+       0.488
+      ],
+      [
+       "Lesser Manastone (Bound)",
+       0.3567
+      ],
+      [
+       "Lesser Soulstone (Bound)",
+       0.3567
+      ],
+      [
+       "Intermediate Manastone (Bound)",
+       0.0972
+      ],
+      [
+       "Intermediate Soulstone (Bound)",
+       0.0972
+      ]
+     ]
+    }
+   }
+  },
+  "Shattered Arkanis": {
+   "url": "https://aion2data.com/dungeons/shattered-arkanis",
+   "stages": {
+    "Transcendence Stage 1": {
+     "il": 1600,
+     "arcana": [
+      [
+       "Parchment",
+       "Magic",
+       "Common",
+       0.3309
+      ],
+      [
+       "Parchment",
+       "Vigor",
+       "Common",
+       0.3309
+      ],
+      [
+       "Mirror",
+       "Magic",
+       "Common",
+       0.3309
+      ],
+      [
+       "Mirror",
+       "Vigor",
+       "Common",
+       0.3309
+      ],
+      [
+       "Chalice",
+       "Magic",
+       "Common",
+       0.23
+      ],
+      [
+       "Chalice",
+       "Vigor",
+       "Common",
+       0.23
+      ],
+      [
+       "Mirror",
+       "Magic",
+       "Rare",
+       0.0493
+      ],
+      [
+       "Mirror",
+       "Vigor",
+       "Rare",
+       0.0493
+      ],
+      [
+       "Parchment",
+       "Magic",
+       "Rare",
+       0.0493
+      ],
+      [
+       "Parchment",
+       "Vigor",
+       "Rare",
+       0.0493
+      ]
+     ],
+     "other": [
+      [
+       "Candy Key Fragment (Event)",
+       1.0
+      ],
+      [
+       "Enhance Stone",
+       1.0
+      ],
+      [
+       "Kina",
+       1.0
+      ],
+      [
+       "Silentium (Bound)",
+       1.0
+      ],
+      [
+       "Soul Codex (Bound)",
+       1.0
+      ],
+      [
+       "Amplify Stone Fragment (Unique) (Bound)",
+       0.488
+      ],
+      [
+       "Lesser Manastone (Bound)",
+       0.433
+      ],
+      [
+       "Lesser Soulstone (Bound)",
+       0.433
+      ]
+     ]
+    },
+    "Transcendence Stage 2": {
+     "il": 1900,
+     "arcana": [
+      [
+       "Parchment",
+       "Magic",
+       "Common",
+       0.4561
+      ],
+      [
+       "Parchment",
+       "Vigor",
+       "Common",
+       0.4561
+      ],
+      [
+       "Mirror",
+       "Magic",
+       "Common",
+       0.4561
+      ],
+      [
+       "Mirror",
+       "Vigor",
+       "Common",
+       0.4561
+      ],
+      [
+       "Chalice",
+       "Magic",
+       "Common",
+       0.3261
+      ],
+      [
+       "Chalice",
+       "Vigor",
+       "Common",
+       0.3261
+      ],
+      [
+       "Mirror",
+       "Magic",
+       "Rare",
+       0.1778
+      ],
+      [
+       "Mirror",
+       "Vigor",
+       "Rare",
+       0.1778
+      ],
+      [
+       "Parchment",
+       "Magic",
+       "Rare",
+       0.1778
+      ],
+      [
+       "Parchment",
+       "Vigor",
+       "Rare",
+       0.1778
+      ],
+      [
+       "Chalice",
+       "Magic",
+       "Rare",
+       0.1207
+      ],
+      [
+       "Chalice",
+       "Vigor",
+       "Rare",
+       0.1207
+      ],
+      [
+       "Mirror",
+       "Magic",
+       "Epic",
+       0.0493
+      ],
+      [
+       "Mirror",
+       "Vigor",
+       "Epic",
+       0.0493
+      ],
+      [
+       "Parchment",
+       "Magic",
+       "Epic",
+       0.0493
+      ],
+      [
+       "Parchment",
+       "Vigor",
+       "Epic",
+       0.0493
+      ]
+     ],
+     "other": [
+      [
+       "Candy Key Fragment (Event)",
+       1.0
+      ],
+      [
+       "Enhance Stone",
+       1.0
+      ],
+      [
+       "Kina",
+       1.0
+      ],
+      [
+       "Silentium (Bound)",
+       1.0
+      ],
+      [
+       "Soul Codex (Bound)",
+       1.0
+      ],
+      [
+       "Amplify Stone Fragment (Unique) (Bound)",
+       0.488
+      ],
+      [
+       "Lesser Manastone (Bound)",
+       0.433
+      ],
+      [
+       "Lesser Soulstone (Bound)",
+       0.433
+      ]
+     ]
+    },
+    "Transcendence Stage 3": {
+     "il": 2200,
+     "arcana": [
+      [
+       "Chalice",
+       "Magic",
+       "Common",
+       0.712
+      ],
+      [
+       "Chalice",
+       "Vigor",
+       "Common",
+       0.712
+      ],
+      [
+       "Mirror",
+       "Magic",
+       "Rare",
+       0.2596
+      ],
+      [
+       "Mirror",
+       "Vigor",
+       "Rare",
+       0.2596
+      ],
+      [
+       "Parchment",
+       "Magic",
+       "Rare",
+       0.2596
+      ],
+      [
+       "Parchment",
+       "Vigor",
+       "Rare",
+       0.2596
+      ],
+      [
+       "Chalice",
+       "Magic",
+       "Rare",
+       0.1778
+      ],
+      [
+       "Chalice",
+       "Vigor",
+       "Rare",
+       0.1778
+      ],
+      [
+       "Mirror",
+       "Magic",
+       "Epic",
+       0.1352
+      ],
+      [
+       "Mirror",
+       "Vigor",
+       "Epic",
+       0.1352
+      ],
+      [
+       "Parchment",
+       "Magic",
+       "Epic",
+       0.1352
+      ],
+      [
+       "Parchment",
+       "Vigor",
+       "Epic",
+       0.1352
+      ],
+      [
+       "Chalice",
+       "Magic",
+       "Epic",
+       0.0913
+      ],
+      [
+       "Chalice",
+       "Vigor",
+       "Epic",
+       0.0913
+      ],
+      [
+       "Mirror",
+       "Magic",
+       "Unique",
+       0.0493
+      ],
+      [
+       "Mirror",
+       "Vigor",
+       "Unique",
+       0.0493
+      ],
+      [
+       "Parchment",
+       "Magic",
+       "Unique",
+       0.0493
+      ],
+      [
+       "Parchment",
+       "Vigor",
+       "Unique",
+       0.0493
+      ]
+     ],
+     "other": [
+      [
+       "Candy Key Fragment (Event)",
+       1.0
+      ],
+      [
+       "Enhance Stone",
+       1.0
+      ],
+      [
+       "Kina",
+       1.0
+      ],
+      [
+       "Silentium (Bound)",
+       1.0
+      ],
+      [
+       "Soul Codex (Bound)",
+       1.0
+      ],
+      [
+       "Amplify Stone Fragment (Unique) (Bound)",
+       0.488
+      ],
+      [
+       "Lesser Manastone (Bound)",
+       0.3567
+      ],
+      [
+       "Lesser Soulstone (Bound)",
+       0.3567
+      ],
+      [
+       "Intermediate Manastone (Bound)",
+       0.0972
+      ],
+      [
+       "Intermediate Soulstone (Bound)",
+       0.0972
+      ]
+     ]
+    },
+    "Transcendence Stage 4": {
+     "il": 2500,
+     "arcana": [
+      [
+       "Mirror",
+       "Magic",
+       "Epic",
+       0.2596
+      ],
+      [
+       "Mirror",
+       "Vigor",
+       "Epic",
+       0.2596
+      ],
+      [
+       "Parchment",
+       "Magic",
+       "Epic",
+       0.2596
+      ],
+      [
+       "Parchment",
+       "Vigor",
+       "Epic",
+       0.2596
+      ],
+      [
+       "Mirror",
+       "Magic",
+       "Rare",
+       0.2596
+      ],
+      [
+       "Mirror",
+       "Vigor",
+       "Rare",
+       0.2596
+      ],
+      [
+       "Parchment",
+       "Magic",
+       "Rare",
+       0.2596
+      ],
+      [
+       "Parchment",
+       "Vigor",
+       "Rare",
+       0.2596
+      ],
+      [
+       "Chalice",
+       "Magic",
+       "Common",
+       0.1787
+      ],
+      [
+       "Chalice",
+       "Vigor",
+       "Common",
+       0.1787
+      ],
+      [
+       "Chalice",
+       "Magic",
+       "Rare",
+       0.1778
+      ],
+      [
+       "Chalice",
+       "Vigor",
+       "Rare",
+       0.1778
+      ],
+      [
+       "Mirror",
+       "Magic",
+       "Unique",
+       0.1778
+      ],
+      [
+       "Mirror",
+       "Vigor",
+       "Unique",
+       0.1778
+      ],
+      [
+       "Parchment",
+       "Magic",
+       "Unique",
+       0.1778
+      ],
+      [
+       "Parchment",
+       "Vigor",
+       "Unique",
+       0.1778
+      ],
+      [
+       "Chalice",
+       "Magic",
+       "Epic",
+       0.1778
+      ],
+      [
+       "Chalice",
+       "Vigor",
+       "Epic",
+       0.1778
+      ],
+      [
+       "Chalice",
+       "Magic",
+       "Unique",
+       0.1207
+      ],
+      [
+       "Chalice",
+       "Vigor",
+       "Unique",
+       0.1207
+      ]
+     ],
+     "other": [
+      [
+       "Candy Key Fragment (Event)",
+       1.0
+      ],
+      [
+       "Enhance Stone",
+       1.0
+      ],
+      [
+       "Kina",
+       1.0
+      ],
+      [
+       "Silentium (Bound)",
+       1.0
+      ],
+      [
+       "Soul Codex (Bound)",
+       1.0
+      ],
+      [
+       "Amplify Stone Fragment (Unique) (Bound)",
+       0.488
+      ],
+      [
+       "Lesser Manastone (Bound)",
+       0.3567
+      ],
+      [
+       "Lesser Soulstone (Bound)",
+       0.3567
+      ],
+      [
+       "Intermediate Manastone (Bound)",
+       0.0972
+      ],
+      [
+       "Intermediate Soulstone (Bound)",
+       0.0972
+      ]
+     ]
+    }
+   }
   }
  }
 }

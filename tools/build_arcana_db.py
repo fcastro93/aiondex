@@ -12,6 +12,9 @@ From aion2data (the global client's tables; free to quote with a link to the pag
   grade of a card (checked), the chances of the Unique's (4 effects);
 - the Arcana page (/arcana): the sets' bonuses, what creating a card costs and the enhance table of each grade (exp to
   the next level, exp the card gives as food at each level, Kinah per feed).
+- the two Transcendence dungeons' pages (/dungeons/deus-research-base, /dungeons/shattered-arkanis): per stage the
+  equipped Item Level it asks for and its rewards per clear (each item with its grade and its chance per clear) - the
+  Arcana cards it drops are the food and the new cards Arcanas sends you to farm.
 The rule the client's arcana guide gives (quoted on the card pages): each enhance level adds a new skill effect at +1
 until the card has 4, then raises one of them (picked at random) by +1, up to +4 each.
 Pages are read one every second and kept in the cache folder (default build/arcana_pages), so a second run reads none.
@@ -29,6 +32,10 @@ BASE = "https://aion2data.com"
 UA = "Mozilla/5.0 (AionDex arcana)"
 TYPES = ("Chalice", "Parchment", "Compass", "Bell", "Mirror")
 GRADES = ("Common", "Rare", "Epic", "Unique")
+DUNGEONS = ("Deus Research Base", "Shattered Arkanis")
+REWARD = re.compile(r'href="/items/(\d+)-[^"]*"><span class="slot shrink-0" data-grade="(\w+)".*?text-grade-\w+">([^<]+)'
+                    r'</span><span class="block[^"]*">([^<]+)<!-- --> · <!-- -->[^<]+</span>.*?'
+                    r'<td class="num font-semibold">([\d.]+)%', re.S)
 
 
 def slug(name):
@@ -94,6 +101,33 @@ def create_of(text):
             "extra_count": int(m.group(6)), "extra_kinah": int(m.group(7).replace(",", ""))}
 
 
+def transcendence(cache):
+    """{dungeon: {"url", "stages": {stage: {"il", "arcana": [[kind, set, grade, chance per clear]], "other": [[item,
+    chance]]}}}} of the Transcendence dungeons' pages (grade "Legend" is the game's Epic)."""
+    out = {}
+    for name in DUNGEONS:
+        path = f"/dungeons/{slug(name)}"
+        raw = page(path, cache)
+        levels = {m.group(1): int(m.group(2).replace(",", ""))
+                  for m in re.finditer(r"(Transcendence Stage \d): ([\d,]+)", text_of(raw))}
+        marks = [(m.start(), m.group(1)) for m in re.finditer(
+            r'text-ink">(Transcendence Stage \d)</span><span class="[^"]*">\d+<!-- --> items', raw)]
+        stages = {}
+        for k, (at, stage) in enumerate(marks):
+            end = marks[k + 1][0] if k + 1 < len(marks) else len(raw)
+            arcana, other = [], []
+            for _, grade, item, kind, chance in REWARD.findall(raw[at:end]):
+                item, chance = html.unescape(item), round(float(chance) / 100, 5)
+                m = re.match(r"Arcana: (\w+) of (\w+)", item)
+                if kind == "Arcana" and m:
+                    arcana.append([m.group(1), m.group(2), "Epic" if grade == "Legend" else grade, chance])
+                else:
+                    other.append([item, chance])
+            stages[stage] = {"il": levels.get(stage, 0), "arcana": arcana, "other": other}
+        out[name] = {"url": BASE + path, "stages": stages}
+    return out
+
+
 def main(folder, cache_dir=None):
     raw = Path(folder)
     cache = Path(cache_dir) if cache_dir else ROOT / "build" / "arcana_pages"
@@ -129,11 +163,13 @@ def main(folder, cache_dir=None):
                   "(random) by +1, up to +4 each",
           "slots": {"41": "Chalice", "42": "Parchment", "43": "Compass", "44": "Bell", "45": "Mirror"},
           "cards": dict(sorted(cards.items())), "pools": pools, "enhance": enhance_tables(arcana),
-          "sets": sets_of(arcana), "create": create_of(arcana), "training": training}
+          "sets": sets_of(arcana), "create": create_of(arcana), "training": training,
+          "transcendence": transcendence(cache)}
     (ROOT / "data" / "arcana_db.json").write_text(json.dumps(db, ensure_ascii=False, indent=1), encoding="utf-8")
     sizes = {k: sum(len(v) for v in p.values()) for k, p in pools.items()}
     print(f"{len(cards)} cards, pools {sizes}, {len(training)} training items, sets {list(db['sets'])}, "
-          f"enhance {[(g, len(t['exp'])) for g, t in db['enhance'].items()]}, create {db['create']}")
+          f"enhance {[(g, len(t['exp'])) for g, t in db['enhance'].items()]}, create {db['create']}, "
+          f"transcendence {[(d, len(v['stages'])) for d, v in db['transcendence'].items()]}")
 
 
 if __name__ == "__main__":

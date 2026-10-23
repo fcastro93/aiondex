@@ -68,6 +68,7 @@ class ArcanaDB:
                         for kind, by in data.get("pools", {}).items()}
         self.enhance = data.get("enhance", {})
         self.sets = data.get("sets", {})
+        self.transcendence = data.get("transcendence", {})       # dungeon -> {"url", "stages": {stage: {il, arcana}}}
         self.create = data.get("create") or {}
         self.training = {int(k): v for k, v in data.get("training", {}).items()}
         self.credit = data.get("credit") or {"text": "aion2data.com", "url": "https://aion2data.com/arcana"}
@@ -609,6 +610,74 @@ def level_food(plan, db, card, skip=()):
     goal = min((s for s in reach if s * unit >= need), key=lambda s: (s, len(reach[s])))
     picks = [items[i] for i in reach[goal]]
     return picks, need, sum(e for _, e, _ in picks)
+
+
+@dataclass
+class Farm:
+    dungeon: str
+    stage: str               # the highest Transcendence stage you can enter, or the first one when you cannot yet
+    il: int                  # the equipped Item Level it asks for
+    can: bool
+    kinds: list              # the card kinds it drops
+    better: dict             # kind -> chance per clear of a card that would improve yours (a higher grade, or a
+    #                          Unique when yours already is one and a better one is possible for your skills)
+    food: float              # expected food exp per clear (every card it drops, at +0)
+    score: float
+    next_stage: tuple = None  # (stage, il) of the next one up, when there is one
+    top_grade: str = ""      # the best grade it drops at this stage
+    first_at: dict = field(default_factory=dict)    # grade -> (stage, il) where it first drops
+    future: float = 0.0      # the same score at its last stage: what it is worth for you in the long run
+
+
+def farm_options(plan, db, item_level):
+    """Where to farm cards, the best for you first: per Transcendence dungeon its highest stage you can enter
+    (item_level: your equipped Item Level, None when unknown - then every stage counts as open)."""
+    out = []
+    for dungeon, info in db.transcendence.items():
+        stages = sorted(info.get("stages", {}).items(), key=lambda kv: kv[1].get("il", 0))
+        if not stages:
+            continue
+        open_ = [kv for kv in stages if item_level is None or item_level >= kv[1].get("il", 0)]
+        stage, data = (open_ or stages[:1])[-1]
+        later = [kv for kv in stages if kv[1].get("il", 0) > data.get("il", 0)]
+        rows = data.get("arcana", [])
+        kinds, better, food, score = _farm_value(plan, db, rows)
+        future = _farm_value(plan, db, stages[-1][1].get("arcana", []))[3]
+        first_at = {}
+        for st, d in stages:
+            for _, _, grade, _ in d.get("arcana", []):
+                first_at.setdefault(grade, (st, d.get("il", 0)))
+        top = max((r[2] for r in rows), key=lambda g: GRADE_ORDER.get(g, -1), default="")
+        out.append(Farm(dungeon, stage, data.get("il", 0), bool(open_), kinds, better, food, score,
+                        (later[0][0], later[0][1].get("il", 0)) if later else None, top, first_at, future))
+    return sorted(out, key=lambda f: (not f.can, -round(f.score, 6), -f.future))
+
+
+def _farm_value(plan, db, rows):
+    """(kinds, {kind: chance per clear of a card better than yours}, food exp per clear, score) of a stage's drops."""
+    kinds = [k for k in TYPES if any(r[0] == k for r in rows)]
+    better, score = {}, 0.0
+    for kind in kinds:
+        card = plan.best.get(kind)
+        mine = GRADE_ORDER.get(card.grade, -1) if card else -1
+        w = worth(card, plan, db) if card else None
+        gap = (w.possible - w.mine) if w and w.verdict == "ok" else 0
+        want = plan.pick.get(kind) if plan.pick_from.get(kind) == "you" else None
+        if card is None or mine < GRADE_ORDER["Unique"]:
+            need, weight = mine + 1, 1.0 + gap           # any higher grade: item level, its stat, 4 effects
+        elif gap:
+            need, weight = GRADE_ORDER["Unique"], float(gap)   # a Unique that may bring more of your skills
+        else:
+            continue
+        miss = 1.0
+        for k, version, grade, chance in rows:
+            if k == kind and GRADE_ORDER.get(grade, -1) >= need and (want is None or version == want):
+                miss *= 1 - chance
+        if miss < 1:
+            better[kind] = 1 - miss
+            score += better[kind] * weight
+    food = sum(chance * db.food(grade, 0) for _, _, grade, chance in rows)
+    return kinds, better, food, score + food / 20000
 
 
 def card_name(db, kind, version):

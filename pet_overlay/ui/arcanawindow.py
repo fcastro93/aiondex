@@ -12,8 +12,8 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxL
 
 from .. import APP_NAME
 from ..arcanagrid import grid_order
-from ..arcana import (DEFAULT_ACTIVE_TARGET, GRADE_COLOR, TYPES, Card, effect_notes, level_food, pantheon,
-                      raise_luck, short_kind, worth)
+from ..arcana import (DEFAULT_ACTIVE_TARGET, GRADE_COLOR, TYPES, Card, effect_notes, farm_options, level_food,
+                      pantheon, raise_luck, short_kind, worth)
 from . import theme
 from .mapwindow import STYLE, badge_label
 from .theme import Fonts
@@ -200,10 +200,80 @@ class ArcanaWindow(QWidget):
                            "pongas no se pierde: pasa a la nueva).", order), f.small, theme.MUTED)
             why.setWordWrap(True)
             self.body.addWidget(why)
+        self._farm_rows(plan)
         if any(n.target for n in plan.skills) and self._fold("gear", tr("Tu equipo: líneas de skill y Sync")):
             self._gear_advice(plan)
         if self._fold("guide", tr("Cómo funcionan las arcanas")):
             self._guide()
+
+    def _farms(self, plan):
+        """farm_options for this character (their Item Level from Mejoras), kept for this drawing."""
+        key = (plan.character, id(plan))
+        if getattr(self, "_farm_cache", (None, None))[0] != key:
+            up = self.ctl.upgrade_plan(plan.character)
+            il = (up.me.item_level if up and up.me and up.me.item_level else (up.item_level if up else None)) or None
+            self._farm_cache = (key, (farm_options(plan, self.ctl.arcana_db, il), il))
+        return self._farm_cache[1][0]
+
+    @staticmethod
+    def _stage(stage):
+        return stage.replace("Transcendence ", "")
+
+    def _farm_text(self, farm):
+        """Why this dungeon: the kinds it drops that you can still improve, the chance per clear, the food."""
+        kinds = ", ".join(f"{short_kind(k)} {farm.better[k]:.0%}" for k in TYPES if k in farm.better)
+        if kinds:
+            text = tr("Suelta cartas mejores que las tuyas, con esta probabilidad por clear: {0}.", kinds)
+        elif farm.top_grade and farm.top_grade != "Unique" and "Unique" in farm.first_at:
+            epic, unique = farm.first_at.get("Epic"), farm.first_at["Unique"]
+            text = tr("En {0} lo mejor que sale es {1}: te sirve de comida, no mejora tus cartas.", self._stage(farm.stage),
+                      farm.top_grade) + " " + (
+                tr("Las Epic salen desde {0} ({1:,}) y las Unique desde {2} ({3:,}).", self._stage(epic[0]), epic[1],
+                   self._stage(unique[0]), unique[1]) if epic and epic[0] != unique[0] else
+                tr("Las Unique salen desde {0} ({1:,}).", self._stage(unique[0]), unique[1]))
+        else:
+            text = tr("Tus cartas de lo que suelta ya son las mejores posibles: vas por comida.")
+        text += " " + tr("Unos {0:,.0f} de exp de comida por clear; 2 recompensas al día (hasta 4 guardadas).", farm.food)
+        if not farm.can:
+            il = self._farm_cache[1][1]
+            text += " " + tr("Pide {0:,} de nivel de objeto (te faltan {1:,}): sube tu equipo en Mejoras.", farm.il,
+                             farm.il - (il or 0))
+        elif farm.next_stage:
+            il = self._farm_cache[1][1]
+            text += " " + tr("{0} pide {1:,} de nivel de objeto", self._stage(farm.next_stage[0]), farm.next_stage[1]) + (
+                tr(" (te faltan {0:,})", farm.next_stage[1] - il) if il else "") + "."
+        return text
+
+    def _farm_rows(self, plan):
+        """Dónde conseguir más cartas: each Transcendence dungeon at the stage you can do, what it gives you."""
+        farms = self._farms(plan)
+        if not farms:
+            return
+        f = self.fonts
+        self.body.addWidget(SectionTitle(tr("Dónde conseguir más cartas"), f))
+        for i, farm in enumerate(farms):
+            title = f"{farm.dungeon} · {self._stage(farm.stage)}" + (
+                "" if farm.can else " " + tr("(aún no entras)"))
+            chip, color = ((tr("La mejor para ti"), "#7bd88f") if i == 0 and farm.can else
+                           (tr("Transcendence"), "#8a93a8"))
+            if i == 0 and farm.can and not farm.better and len(farms) > 1 and farm.future > farms[1].future:
+                chip = tr("Mejor a la larga")
+            self._row(title + "  ·  " + ", ".join(short_kind(k) for k in farm.kinds), self._farm_short(farm), color, chip)
+
+    def _farm_short(self, farm):
+        """One line per dungeon: the best grade it drops for you, the cards better than yours, the food, what's next."""
+        bits = [tr("hasta {0}", farm.top_grade)] if farm.top_grade else []
+        bits += [tr("{0} mejor que la tuya: {1:.0%} por clear", short_kind(k), farm.better[k])
+                 for k in TYPES if k in farm.better]
+        bits.append(tr("~{0:,.0f} de exp de comida por clear", farm.food))
+        if not farm.can:
+            il = self._farm_cache[1][1]
+            bits.append(tr("pide {0:,} (te faltan {1:,})", farm.il, farm.il - (il or 0)))
+        elif farm.next_stage:
+            il = self._farm_cache[1][1]
+            bits.append(tr("{0} pide {1:,}", self._stage(farm.next_stage[0]), farm.next_stage[1]) +
+                        (tr(" (te faltan {0:,})", farm.next_stage[1] - il) if il else ""))
+        return " · ".join(bits)
 
     def _toggle_final_first(self, on):
         self.ctl.settings["arcana_final_first"] = bool(on)
@@ -248,6 +318,11 @@ class ArcanaWindow(QWidget):
                 title = tr("Ponte tu {0} ({1} +{2})", card.name, card.grade, card.enchant)
                 line = tr("+{0:.0f} niveles en skills que te faltan, en lugar de tu {1}.", gain, worn.name) if worn else \
                     tr("+{0:.0f} niveles en skills que te faltan: ese hueco está vacío.", gain)
+        elif not any(fd.useful > 0 for fd in plan.feeds) and self._farms(plan):
+            farm = self._farms(plan)[0]
+            title = tr("Farmea {0} · {1}", farm.dungeon, self._stage(farm.stage))
+            line = ((tr("Ya no te queda comida para tus cartas. ") if not plan.feeds else
+                     tr("Lo que te queda de comida ya no sube tus skills. ")) + self._farm_text(farm))
         elif plan.feeds:
             fd = plan.feeds[0]
             card = fd.target
