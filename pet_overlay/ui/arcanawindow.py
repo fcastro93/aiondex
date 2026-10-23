@@ -231,8 +231,8 @@ class ArcanaWindow(QWidget):
             active = n.kind == "active"
             fits = [p for p in pieces if (p.key in ACTIVE_SKILL_SLOTS) == active]
             have = [f"{p.slot} +{lv}" for p in fits for sid, _, lv, _ in p.soul.skill_lines if sid == n.skill]
-            detail = tr("Búscala en {0}.", tr("los anillos o el arma") if active else
-                        tr("casco, hombreras, pecho, grebas, guantes, capa, botas, collar o pendientes"))
+            detail = tr("Búscala en los anillos.") if active else tr(
+                "Búscala en casco, hombreras, pecho, grebas, guantes, capa, botas, collar o pendientes.")
             if have:
                 detail += " " + tr("Ya te la dan: {0}.", ", ".join(have))
             title = (tr("{0}. {1}: te falta 1 nivel después de las cartas", n.priority, n.name) if n.missing == 1 else
@@ -247,9 +247,12 @@ class ArcanaWindow(QWidget):
                 self._row(tr("Líneas de {0} que no buscas: candidatas a Sync", what), ", ".join(swap) + ". " +
                           tr("Sync vuelve a tirar una línea al azar: puede salir cualquier stat o cualquier skill de "
                              "tu clase de ese tipo, así que puede tomar varios intentos."), "#f08a4e", tr("Sync"))
-        if "active" in kinds:
-            self.body.addWidget(label(tr("La guía recomienda dejar los anillos para el final: primero las cartas y el arma."),
-                                      f.small, theme.MUTED))
+        if "active" in kinds and missing[0].skill // 1_000_000 == 17:      # the survey was of clerics (skills 17...)
+            note = label(tr("Así lo hace el top (49 clérigos de NA East): el arma va con stats (38 de 49 no tienen "
+                            "líneas de skill) y los anillos se terminan al final, con unas 3 líneas de skill cada uno "
+                            "(36 de 49 llevan Condemnation en al menos uno)."), f.small, theme.MUTED)
+            note.setWordWrap(True)
+            self.body.addWidget(note)
 
     def _row(self, title, detail, color, chip):
         f = self.fonts
