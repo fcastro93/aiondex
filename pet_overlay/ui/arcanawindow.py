@@ -504,6 +504,16 @@ class ArcanaWindow(QWidget):
         text.addWidget(label(title, f.name_big, QColor(GRADE_COLOR.get(card.grade, "#c8ccd6")) if card else theme.WARN))
         if card is not None:
             text.addWidget(label(f"{short_kind(card.kind)} · {card.grade} · {card.set}", f.small, theme.MUTED))
+        if lv["history"]:                       # how the last enhance went, big
+            a, b, rose = lv["history"][-1]
+            good = rose and all(serves(s) for s, _, _ in rose)
+            now = dict((s, n) for s, n in card.effects) if card else {}
+            what = ", ".join((tr("efecto nuevo {0}", name_of(s)) if new else f"{name_of(s)} +{now.get(s, d)}")
+                             for s, d, new in rose) or "?"
+            result = label((tr("✓ Salió bien: +{0} → +{1}, subió {2}", a, b, what) if good else
+                            tr("✗ No salió: +{0} → +{1}, subió {2}", a, b, what)), f.name,
+                           theme.GAIN if good else theme.WARN)
+            text.addWidget(result)
         else:
             text.addWidget(label(tr("¿La diste de comer, la cambiaste o se rompió?"), f.small, theme.MUTED))
         lay.addLayout(text, 1)

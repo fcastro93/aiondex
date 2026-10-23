@@ -54,7 +54,7 @@ from .passes import CLAIM_OPCODE as PASS_CLAIM_OPCODE, LIST_OPCODE as PASS_OPCOD
     parse_claim as parse_pass_claim, parse_list as parse_passes
 from .status import CLAIM_SECONDS
 from .armory import GROUP, LOW, Armory
-from .paths import ASSETS_DIR
+from .paths import ASSETS_DIR, DATA_DIR
 from .sounds import SoundPlayer
 from .pets import Collection, Pet, LEVEL_OPCODE, PROGRESS_OPCODE, SNAPSHOT_OPCODE, parse_level, parse_progress, \
     parse_snapshot
@@ -642,6 +642,8 @@ class Controller(QObject):
         from .arcana import ArcanaDB, parse_cards
         self.arcana_db = ArcanaDB(self.data_dir / "arcana_db.json")          # Arcanas (arcana.py)
         self.crafting.inventory.parse_cards = lambda body, update=False: parse_cards(body, self.arcana_db, update)
+        self.crafting.inventory.card_ids = set(self.arcana_db.cards)
+        self._card_dumps = 0                  # 1b56 with cards kept this session (diagnostics, the first few)
         self.crafting.inventory.track({i: t["name"] for i, t in self.arcana_db.training.items()})
         self.arcana_window = None
         self._arcana_cache = (0.0, None, None)                               # (when, character, plan)
@@ -1185,6 +1187,12 @@ class Controller(QObject):
             self.crafting.inventory.on_list(at, body)
         elif self.crafting.inventory.on_update(at, body, self.character_name()):
             self._items_timer.start()           # loot comes in bursts: one redraw after it
+            inv = self.crafting.inventory
+            if inv.cards_touched:
+                self._keep_card_change(body)
+            if inv.enhanced:
+                events, inv.enhanced = inv.enhanced, []
+                QTimer.singleShot(0, lambda: self._arcana_enhanced(events))
 
     # --- status ---------------------------------------------------------------------------------
     def on_counters(self, event):
@@ -2705,6 +2713,51 @@ class Controller(QObject):
         self.settings.setdefault("arcana_versions", {})[name] = {}
         self._save_settings()
         self.arcana_changed()
+
+    def _keep_card_change(self, body):
+        """The first few 1b56 with cards of a session, kept in diagnostics (how the game sends an enhance)."""
+        if self._card_dumps >= 3:
+            return
+        self._card_dumps += 1
+        try:
+            folder = DATA_DIR / "diagnostics"
+            folder.mkdir(parents=True, exist_ok=True)
+            (folder / time.strftime(f"arcana-1b56-%Y%m%d-%H%M%S-{self._card_dumps}.bin")).write_bytes(bytes(body))
+        except OSError:
+            log.exception("could not keep a card change")
+
+    def _arcana_enhanced(self, events):
+        """A card of yours went up (the game's own record of it): which effect rose and whether it is one of your
+        skill targets - a notice, and Arcanas › Subir shows it too."""
+        from .arcana import cards_of
+        for name, stack, item, old_n, new_n, old, new in events:
+            self._arcana_cache = (0.0, None, None)
+            plan = self.arcana_plan(name)
+            if plan is None:
+                continue
+            needs = {n.skill: n for n in plan.skills}
+            before = {s: lv for s, lv in old}
+            rose = [(s, lv - before.get(s, 0), s not in before, lv) for s, lv in new if lv > before.get(s, 0)]
+            card = next((c for c in cards_of({stack: [item, new_n, 0, 0, new, 1, None]}, self.arcana_db)), None)
+            what = ", ".join((tr("efecto nuevo {0}", needs[s].name if s in needs else s) if added else
+                              f"{needs[s].name if s in needs else s} +{lv}") for s, d, added, lv in rose) or "?"
+            good = [s for s, *_ in rose if needs.get(s) and needs[s].target and needs[s].need]
+            done = [s for s, *_ in rose if needs.get(s) and needs[s].target and not needs[s].need]
+            title = tr("{0} +{1}: subió {2}", card.name if card else item, new_n, what)
+            if good and len(good) == len(rose):
+                body = tr("✓ Salió bien: es de tus skills objetivo.")
+                kind = "levelup"
+            elif good:
+                body = tr("Salió a medias: una de las subidas es de tus skills objetivo.")
+                kind = "levelup"
+            elif done:
+                body = tr("No suma: ya llegas a tu objetivo en esa skill.")
+                kind = "info"
+            else:
+                body = tr("✗ No salió: esa skill no está en tus skills objetivo.")
+                kind = "info"
+            self.notify(kind, title, body, keep=True)
+            log.info("arcana: %s +%s -> +%s rose %s (%s)", stack, old_n, new_n, rose, kind)
 
     def arcana_characters(self):
         """The characters whose cards were read."""

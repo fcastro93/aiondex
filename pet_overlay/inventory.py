@@ -67,6 +67,10 @@ class Inventory:
         self.ids = {int(k): v for k, v in ids.items()}          # item id -> name
         self.gear_ids = {}               # gear item id -> gear.Item (the app's GearDB.by_id): the pieces kept too
         self.parse_cards = None          # arcana.parse_cards bound to the cards' database: (body, update) -> {stack: card}
+        self.card_ids = set()            # every Arcana card's item id (to see the ones a 1b56 says are gone)
+        self.enhanced = []               # [(character, stack, item, old enchant, new, old effects, new effects)] of
+        #                                  the cards that went up in the last on_update (Arcanas says how it went)
+        self.cards_touched = False       # the last on_update changed or removed cards
         self._pending = None             # (time, records, gear, cards) of a login list waiting for its character
 
     @property
@@ -107,6 +111,12 @@ class Inventory:
         records = parse_items(body, self.ids, update=True)
         gear = self._gear(body, update=True)
         cards = self._cards(body, update=True)
+        self.enhanced, self.cards_touched = [], False
+        entry = self._store.get(name) if name else None
+        held_now = (entry or {}).get("arcana") or (self._pending[3] if self._pending else {})
+        gone = self._gone_cards(body, held_now)
+        cards.update({s: [0, 0, 0, 0, [], 0, None] for s in gone if s not in cards})       # count 0: removed below
+        self.cards_touched = bool(cards)
         if not records and not gear and not cards:
             return False
         if self._pending and at - self._pending[0] <= CLAIM_SECONDS:
@@ -141,10 +151,30 @@ class Inventory:
             else:
                 pieces.pop(s, None)
         if cards and "arcana" in entry:
+            for stack, card in cards.items():
+                old = entry["arcana"].get(stack)
+                if card[5] and old and card[1] > old[1]:
+                    self.enhanced.append((name, stack, card[0], old[1], card[1], [list(e) for e in old[4]],
+                                          [list(e) for e in card[4]]))
             _apply_cards(entry["arcana"], cards)
         entry["at"] = at
         self.settings.save()
         return True
+
+    def _gone_cards(self, body, held):
+        """Stacks of the cards a 1b56 says are gone (fed to another card, or broken): the item id of a card you
+        have, count 0 and its stack id. parse_cards misses them (their record has no effects block)."""
+        if not held or not self.card_ids:
+            return set()
+        out, p, end = set(), 8, len(body) - 13
+        while p <= end:
+            item = struct.unpack_from("<I", body, p)[0]
+            if item in self.card_ids and not any(body[p + 4:p + 12]) and body[p + 12] in (11, 14):
+                stack = f"{struct.unpack_from('<I', body, p - 8)[0]}:{struct.unpack_from('<H', body, p - 3)[0]}"
+                if stack in held and held[stack][0] == item:
+                    out.add(stack)
+            p += 1
+        return out
 
     # --- what you have ---
     def known(self, name):
