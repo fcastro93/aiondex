@@ -1,13 +1,15 @@
 """Builds window: your skill setups kept on your PC beyond the game's 3 presets (builds.py): save the preset you
-have on, bring in another player's from their official profile, share or paste a code, and "Usar build": the
-changes from your preset to it, in the Skill window's order (and, when it is on, AionDex makes them itself). Its
-second tab is the Afinador of the macro (ui/tunerwindow.py), part of the builds."""
+have on, bring in another player's from their official profile, share or paste a code, and «Comparar Mastery» /
+«Comparar Stigma»: once you copied it by hand in the game's Skill window, what of your preset in use matches it and
+what does not, one tab at a time. AION 2 drops simulated clicks (SendInput and posted ones; it only takes the moves:
+2026-10-22), so AionDex no longer applies a build itself. Its second tab is the Afinador of the macro
+(ui/tunerwindow.py), part of the builds."""
 import time
 import webbrowser
 
-from PySide6.QtCore import QObject, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QPixmap
-from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QStackedWidget, QFrame, QGridLayout, QHBoxLayout, QInputDialog, QLabel,
+from PySide6.QtWidgets import (QApplication, QComboBox, QStackedWidget, QFrame, QGridLayout, QHBoxLayout, QInputDialog, QLabel,
                                QLineEdit, QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
@@ -35,10 +37,13 @@ SOURCE_TEXT = {"own": (tr("Tu preset"), "#7bd88f"), "player": (tr("Perfil oficia
 KIND_TITLE = (("active", tr("Activas")), ("passive", tr("Pasivas")), ("stigma", tr("Estigmas")))
 
 
-class _Relay(QObject):
-    """The macro's news from its thread to the window."""
-    progress = Signal(str)
-    done = Signal(bool, str)
+def _ago_exact(ts):
+    mins = max(0, (time.time() - (ts or 0)) / 60)
+    if mins < 1:
+        return tr("hace un momento")
+    if mins < 60:
+        return tr("hace {0:.0f} min", mins)
+    return tr("hace {0:.0f} h", mins / 60) if mins < 48 * 60 else tr("hace {0:.0f} días", mins / 1440)
 
 
 def _ago(ts):
@@ -53,13 +58,8 @@ class BuildsWindow(QWidget):
         self.builds = ctl.builds
         self.fonts = Fonts(1.0)
         self.selected = None
-        self.plan_for = None              # build id whose "Usar build" plan is shown
+        self.compare = None               # (build id, "mastery" | "stigma") of the comparison shown
         self.waiting = None               # (name, server, since, build id or None) of a player profile being fetched
-        self.macro_text = ""              # what the build macro is doing / did
-        self.running = False
-        self._relay = _Relay()
-        self._relay.progress.connect(self._macro_progress)
-        self._relay.done.connect(self._macro_done)
         self.setObjectName("MapWindow")
         self.setWindowTitle(f"{APP_NAME} — Builds")
         self.setWindowIcon(ctl.app_icon)
@@ -115,11 +115,6 @@ class BuildsWindow(QWidget):
         paste.setToolTip(tr("Importa la build cuyo código copiaste (de AionDex de otro jugador)"))
         paste.clicked.connect(self._paste_code)
         head.addWidget(paste)
-        calibrate = QPushButton(tr("Calibrar menú"))
-        calibrate.setToolTip(tr("Con la ventana Skill del juego abierta: arrastra unos marcadores sobre sus botones "
-                                "y celdas para que «Aplicar en el juego» haga clic justo ahí con tu resolución"))
-        calibrate.clicked.connect(self.ctl.open_calibration)
-        head.addWidget(calibrate)
         root.addLayout(head)
 
         self.import_row = QFrame()
@@ -195,10 +190,10 @@ class BuildsWindow(QWidget):
         self.setWindowTitle(f"{APP_NAME} — {tr('Afinador del macro') if key == 'afinador' else 'Builds'}")
 
     def select(self, build_id, plan=False):
-        """Show one build (and its plan, "Usar build")."""
+        """Show one build (plan: with its Mastery comparison)."""
         if self.builds.get(build_id):
             self.selected = build_id
-            self.plan_for = build_id if plan else None
+            self.compare = (build_id, "mastery") if plan else None
             self.refresh()
 
     # --- the list ---
@@ -275,7 +270,7 @@ class BuildsWindow(QWidget):
 
     def _select(self, build_id):
         self.selected = build_id
-        self.plan_for = None
+        self.compare = None
         self.refresh()
 
     # --- one build ---
@@ -310,10 +305,18 @@ class BuildsWindow(QWidget):
         self.detail.addLayout(head)
         head = QHBoxLayout()
         head.setSpacing(4)
-        use = QPushButton(tr("Usar build"))
-        use.setToolTip(tr("Lo que hay que cambiar de tu preset actual para tener esta build"))
-        use.clicked.connect(lambda: self._plan(b["id"]))
-        head.addWidget(use)
+        for part, text, tip in (("mastery", tr("Comparar Mastery"),
+                                 tr("Compara tu preset (el que tienes puesto) con la build en la pestaña Mastery del "
+                                    "juego: puntos y especialidades de activas y pasivas, y la barra")),
+                                ("stigma", tr("Comparar Stigma"),
+                                 tr("Compara tu preset con la build en la pestaña Stigma: puntos, especialidades y en "
+                                    "qué tecla va cada estigma"))):
+            button = QPushButton(text)
+            button.setToolTip(tip)
+            button.setCheckable(True)
+            button.setChecked(self.compare == (b["id"], part))
+            button.clicked.connect(lambda _=False, k=part: self._compare(b["id"], k))
+            head.addWidget(button)
         update = QPushButton(tr("Actualizar"))
         update.setToolTip(tr("Vuelve a leer las skills de esta build como están ahora: las del preset donde la tienes "
                              "puesta (niveles, especialidades y barra), o el perfil oficial del jugador"))
@@ -334,8 +337,8 @@ class BuildsWindow(QWidget):
             head.addWidget(shugo)
         head.addStretch(1)
         self.detail.addLayout(head)
-        if self.plan_for == b["id"]:
-            self.detail.addWidget(self._plan_panel(b))
+        if self.compare and self.compare[0] == b["id"]:
+            self.detail.addWidget(self._compare_panel(b, self.compare[1]))
         self.detail.addWidget(self._skills_panel(b))
         if b.get("bar"):
             self.detail.addWidget(self._bar_panel(b))
@@ -489,7 +492,8 @@ class BuildsWindow(QWidget):
         done = self.ctl.macro_to_tuner(b)
         self.subtitle.setText(done)
 
-    def _plan_panel(self, b):
+    def _compare_panel(self, b, part):
+        """Your preset in use against the build, one tab of the game's Skill window: what is right and what is not."""
         f = self.fonts
         panel = QFrame()
         panel.setObjectName("Panel")
@@ -497,121 +501,47 @@ class BuildsWindow(QWidget):
         col.setContentsMargins(14, 10, 14, 12)
         tuner = self.ctl.tuner
         preset = tuner.active_preset or 1
+        title = tr("Mastery") if part == "mastery" else tr("Stigma")
         if not tuner.own:
             col.addWidget(label(tr("Entra al juego con tu personaje con AionDex abierto: necesito tus skills para "
-                                   "comparar."),
-                                f.small, theme.WARN))
+                                   "comparar."), f.small, theme.WARN))
             return panel
-        steps = self.builds.plan(b, tuner.own, tuner.presets.get(preset, []),
-                                 tuner.spec_slots.get(tuner.active_preset))
-        col.addWidget(SectionTitle(tr("Para usarla en tu preset {0} (el que tienes puesto)", preset), f))
-        if not steps:
-            col.addWidget(label(tr("Tu preset ya es esta build."), f.name, theme.GAIN))
-            return panel
-        section = None
-        for step in steps:
-            if step.section != section:
-                section = step.section
-                col.addWidget(label(section + (tr(" (su número en la lista del juego, de arriba abajo)")
-                                               if section == tr("Especialidades") else ""), f.small, theme.MUTED))
-            line = label(f"•  {step.text}", f.body, theme.TEXT if step.kind != "info" else theme.MUTED)
-            line.setWordWrap(True)
-            col.addWidget(line)
-        col.addWidget(label(tr("Abre la ventana Skill del juego (pestañas Mastery y Stigma) y hazlo en este orden: "
-                               "bajar puntos primero libera los que piden las subidas."), f.small, theme.MUTED))
-        col.addLayout(self._macro_row(b, steps, preset))
-        if self.macro_text:
-            status = label(self.macro_text, f.small, theme.ACCENT if self.running else theme.TEXT)
-            self.macro_status = status
-            status.setWordWrap(True)
-            col.addWidget(status)
+        wrong, checked = self.builds.compare(b, part, tuner.own, tuner.presets.get(preset, []),
+                                             tuner.spec_slots.get(preset))
+        col.addWidget(SectionTitle(tr("{0}: tu preset {1} contra «{2}»", title, preset, b.get("name") or "Build"), f))
+        if not wrong:
+            col.addWidget(label(tr("✓ Todo coincide ({0} cosas revisadas)", checked), f.name, theme.GAIN))
+        else:
+            col.addWidget(label(tr("✗ {0} cosa{1} no coincide{2} (de {3} revisadas):", len(wrong),
+                                   "s" if len(wrong) != 1 else "", "n" if len(wrong) != 1 else "", checked),
+                                f.name, theme.WARN))
+            section = None
+            for step in wrong:
+                if step.section != section:
+                    section = step.section
+                    col.addWidget(label(section + (tr(" (su número en la lista del juego, de arriba abajo)")
+                                                   if section == tr("Especialidades") else ""), f.small, theme.MUTED))
+                line = label(f"•  {step.text}", f.body, theme.TEXT if step.kind != "info" else theme.MUTED)
+                line.setWordWrap(True)
+                col.addWidget(line)
+        read = tr("Lo que tengo del juego: leído {0}.", _ago_exact(tuner.loadout_at)) if tuner.loadout_at else ""
+        hint = label(read + tr(" Si cambiaste algo y no se ve, cambia de preset en el juego y vuelve al tuyo (el juego "
+                               "manda entonces todo: puntos, especialidades y barra) y compara de nuevo."),
+                     f.small, theme.MUTED)
+        hint.setWordWrap(True)
+        col.addWidget(hint)
+        again = QPushButton(tr("Comparar de nuevo"))
+        again.setProperty("flat", True)
+        again.clicked.connect(self._show_detail)
+        row = QHBoxLayout()
+        row.addWidget(again)
+        row.addStretch(1)
+        col.addLayout(row)
         return panel
 
-    def _macro_row(self, b, steps, preset):
-        """Aplicar en el juego (the macro does the points, the specialities and the bar)."""
-        from ..buildmacro import is_admin
-        f = self.fonts
-        row = QHBoxLayout()
-        doable = [s for s in steps if s.kind in ("points", "spec", "place", "clear")]
-        if not is_admin():
-            note = label(tr("Para que AionDex haga los cambios por ti, ábrelo como administrador (el juego corre "
-                            "como administrador y Windows no deja que un programa normal haga clic en él)."), f.small, theme.WARN)
-            note.setWordWrap(True)
-            row.addWidget(note, 1)
-            again = QPushButton(tr("Reiniciar como administrador"))
-            again.clicked.connect(self.ctl.restart_as_admin)
-            row.addWidget(again)
-            cal = QPushButton(tr("Calibrar menú"))
-            cal.setProperty("flat", True)
-            cal.clicked.connect(self.ctl.open_calibration)
-            row.addWidget(cal)
-            return row
-        apply = QPushButton(tr("Detener (Esc)") if self.running else tr("Aplicar en el juego ({0} cambios)", len(doable)))
-        apply.setEnabled(bool(doable) or self.running)
-        apply.setToolTip(tr("Con la ventana Skill del juego abierta: AionDex hace los cambios de puntos, "
-                            "especialidades y barra, comprobando cada uno; mover el ratón o Esc lo detiene."))
-        apply.clicked.connect(lambda: self._apply(b["id"], steps, preset))
-        row.addWidget(apply)
-        found = self.ctl.macro_layout()
-        calibrated = bool(found and found[2])
-        cal = QPushButton(tr("Calibrar menú") if not calibrated else tr("Calibrar menú (hecho)"))
-        cal.setProperty("flat", True)
-        cal.setToolTip(tr("Arrastra unos marcadores sobre los botones y celdas del menú Skill: así los clics caen "
-                          "justo ahí con tu resolución."))
-        cal.clicked.connect(self.ctl.open_calibration)
-        row.addWidget(cal)
-        row.addStretch(1)
-        always = QCheckBox(tr("Abrir siempre como administrador"))
-        always.setToolTip(tr("AionDex se abre siempre así (al abrirlo tú, al reiniciarse y tras actualizarse) sin "
-                             "que Windows pregunte: usa una tarea programada de Windows. También hace que la ruta "
-                             "del minimapa se mueva con tus teclas."))
-        always.setChecked(bool(self.ctl.settings.get("run_as_admin")))
-        always.toggled.connect(self._always_admin)
-        row.addWidget(always)
-        return row
-
-    def _always_admin(self, on):
-        from .. import elevation
-        self.ctl.settings["run_as_admin"] = on
-        self.ctl.settings.save()
-        if on:
-            elevation.create_task()          # this AionDex is elevated: the task can be made with no prompt
-        else:
-            elevation.delete_task()
-
-    def _apply(self, build_id, steps, preset):
-        if self.running:
-            self.macro_text = tr("Pulsa Esc o mueve el ratón para detenerlo.")
-            self._show_detail()
-            return
-        error = self.ctl.apply_build(steps, None, self._relay.progress.emit, self._relay.done.emit)
-        if error:
-            self.macro_text = error if error != "admin" else tr("Hace falta abrir AionDex como administrador.")
-        else:
-            self.running = True
-            self.macro_text = tr("Empezando: no muevas el ratón (Esc lo detiene)…")
-        self._show_detail()
-
-    def _macro_progress(self, text):
-        """A step of the build macro: only its line changes (the whole panel drawn again on every step jumped)."""
-        self.macro_text = text
-        status = getattr(self, "macro_status", None)
-        try:
-            if status is not None and status.isVisible():
-                status.setText(text)
-                return
-        except RuntimeError:                 # its widget was deleted with a redraw
-            pass
-        self._show_detail()
-
-    def _macro_done(self, ok, text):
-        self.running = False
-        self.macro_text = text
-        self._show_detail()
-
     # --- actions ---
-    def _plan(self, build_id):
-        self.plan_for = None if self.plan_for == build_id else build_id
+    def _compare(self, build_id, part):
+        self.compare = None if self.compare == (build_id, part) else (build_id, part)
         self._show_detail()
 
     def _save_preset(self):
@@ -647,7 +577,7 @@ class BuildsWindow(QWidget):
         if not on and b.get("source") == "own":      # changed in the game since: the preset it was saved from
             on = [n for n in tuner.presets if b.get("origin") == f"{who} · preset {n}"]
         if not on:
-            self.subtitle.setText(tr("«{0}» no está puesta en ningún preset: ponla en el juego («Usar build») y luego "
+            self.subtitle.setText(tr("«{0}» no está puesta en ningún preset: cópiala en el juego («Comparar» te dice qué falta) y luego "
                                      "Actualizar.", b.get("name") or "Build"))
             return
         preset = tuner.active_preset if tuner.active_preset in on else on[0]

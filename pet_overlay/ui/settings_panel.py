@@ -160,6 +160,7 @@ class SettingsPanel(QWidget):
             self._sound_row(key, text)
 
         self.content.addWidget(SectionTitle(tr("Sistema"), f))
+        self._admin()
         npcap = self.ctl.npcap_installed()
         self.content.addWidget(label(tr("Npcap instalado") if npcap else tr("Falta Npcap: la app no puede leer el juego"),
                                      f.small, theme.GAIN if npcap else theme.WARN))
@@ -293,6 +294,33 @@ class SettingsPanel(QWidget):
         self.ctl.sounds.toggle_mute(key)
         self.ctl.sounds.play(key)          # silent when it was just muted; a sample when it was turned back on
         self.ctl.refresh()
+
+    def _admin(self):
+        """Open as administrator: the game runs elevated, and only an elevated AionDex sees the keys you press in it
+        (the minimap's route follows them)."""
+        from ..elevation import is_admin
+        f = self.fonts
+        if is_admin():
+            row = QWidget()
+            lay = QHBoxLayout(row)
+            lay.setContentsMargins(0, f.px(4), 0, 0)
+            lay.addWidget(label(tr("Abrir siempre como administrador"), f.body, theme.TEXT), 1)
+            on = bool(self.ctl.settings.get("run_as_admin"))
+            lay.addWidget(Switch(on, f))
+            row.setCursor(Qt.PointingHandCursor)
+            row.setToolTip(tr("AionDex se abre siempre así (al abrirlo tú, al reiniciarse y tras actualizarse) sin que "
+                              "Windows pregunte: usa una tarea programada de Windows. Hace que la ruta del minimapa se "
+                              "mueva con tus teclas."))
+            row.on_click = lambda: self.ctl.set_always_admin(not on)
+            self.content.addWidget(row)
+        else:
+            line = QHBoxLayout()
+            note = label(tr("Como administrador, la ruta del minimapa se mueve con tus teclas (el juego corre como "
+                            "administrador)."), f.small, theme.MUTED)
+            note.setWordWrap(True)
+            line.addWidget(note, 1)
+            line.addWidget(PillButton(tr("Reiniciar como administrador"), f, self.ctl.restart_as_admin, small=True))
+            self.content.addLayout(line)
 
     def _toggle(self, text, key):
         row = QWidget()

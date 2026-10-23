@@ -1,7 +1,6 @@
-"""Calibrar menú: markers over the game window that you drag onto the Skill window's buttons, tabs and first grid
-cells, so the build macro (buildmacro.py) clicks exactly there at any resolution or interface size. Only the markers
-and the panel catch the mouse: clicks anywhere else reach the game (to switch tabs, open the Skill window...).
-The same window with other markers calibrates the minimap's 4 corners (Ajustes > Minimapa: minimap_calibration())."""
+"""Calibrar el minimapa (Ajustes > Minimapa: open_minimap_calibration()): markers over the game window that you drag
+onto the minimap's 4 corners. Only the markers and the panel catch the mouse: clicks anywhere else reach the game.
+"""
 import ctypes
 from ctypes import wintypes
 
@@ -9,26 +8,15 @@ from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QPolygonF
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
-from ..buildmacro import REFERENCE, default_layout
 from . import theme
 from ..i18n import tr
 
 _user32 = ctypes.windll.user32
 _user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
                                  ctypes.c_uint]
-COLORS = {"preset": "#ffd34d", "tab": "#7bd88f", "grid": "#2ec0f2", "passive": "#c38bff", "bar": "#ff8a3d",
-          "reset": "#ff5c5c", "level": "#ffd34d", "mm_": "#ff5cf0"}
+COLORS = {"mm_": "#ff5cf0"}
 R = 11
-SHORT = {"preset1": "P1", "preset2": "P2", "preset3": "P3", "tab_mastery": "Mastery", "tab_stigma": "Stigma",
-         "grid_first": "A1", "grid_right": "A2", "grid_below": "A6", "passive_first": "Pas", "bar_1": "1",
-         "bar_2": "2", "bar_5": "5", "bar_q": "Q", "bar_1_up": "1↑", "reset": "Reset", "level_up": tr("Subir"),
-         "mm_tl": "↖", "mm_tr": "↗", "mm_br": "↘", "mm_bl": "↙"}
-MENU_TEXT = (tr("<b>Calibrar el menú de skills</b><br>Abre la ventana Skill del juego (K) y arrastra cada marcador "
-                "encima de su botón o celda (los clics fuera de los marcadores van al juego).<br><br><b>P1 P2 "
-                "P3</b> los presets · <b>Mastery</b> y <b>Stigma</b> las pestañas · <b>A1</b> la 1ª skill activa, "
-                "<b>A2</b> la de su derecha, <b>A6</b> la de debajo de A1 · <b>Pas</b> la 1ª pasiva · en la barra, "
-                "la fila de abajo de las teclas <b>1</b>, <b>2</b>, <b>5</b> y <b>Q</b>, y <b>1↑</b> una fila más "
-                "arriba de la 1 · <b>Reset</b> la flecha circular · <b>Subir</b> el botón dorado de subir nivel."))
+SHORT = {"mm_tl": "↖", "mm_tr": "↗", "mm_br": "↘", "mm_bl": "↙"}
 MINIMAP = ("mm_tl", "mm_tr", "mm_br", "mm_bl")
 MINIMAP_TEXT = (tr("<b>Calibrar el minimapa</b><br>Arrastra cada esquina rosa a la esquina del mapa del minimapa "
                    "del juego (solo el mapa: sin el título de la zona ni los botones de alrededor). La ruta se "
@@ -44,15 +32,14 @@ def _color(name):
 
 
 class CalibrationWindow(QWidget):
-    def __init__(self, client, points, on_save, names=None, text=MENU_TEXT, defaults=None, outline=False,
-                 panel_at=(0.22, 0.35)):
+    def __init__(self, client, points, on_save, names, text, defaults, outline=False, panel_at=(0.22, 0.35)):
         super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.client = client                 # the game's client area (real pixels)
         self.points = dict(points)           # name -> (fx, fy)
         self.on_save = on_save
-        self.names = list(names or REFERENCE)
-        self.defaults = defaults or (lambda w, h: default_layout(w, h))   # "Restablecer"
+        self.names = list(names)
+        self.defaults = defaults             # "Restablecer": (w, h) -> {name: (fx, fy)}
         self.outline = outline               # the markers are the corners of an area: draw it
         self.panel_at = panel_at
         self.dragging = None

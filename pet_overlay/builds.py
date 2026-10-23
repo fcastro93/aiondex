@@ -12,7 +12,8 @@ Skills are kept as [points, specializations, total level]: the points are what y
 total adds your gear's bonus (+6 -> 16, what the official profile shows). A player's build has only the total.
 
 What it takes to go from your preset to a build (plan()): [Step], the points to move, the specializations and the
-bar's cells, in the order the game's Skill window goes; the build macro (buildmacro.py) carries them out.
+bar's cells, in the order the game's Skill window goes; compare() splits them by tab (Mastery / Stigma) to check
+a build you put on by hand.
 """
 import base64
 import json
@@ -228,8 +229,8 @@ class Builds:
                 continue
             old, new = "·".join(map(str, have)) or tr("ninguna"), "·".join(map(str, specs))
             if stigma:
-                steps.append(Step(tr("Especialidades"), tr("{0} (estigma): {1} → {2}; esta cámbiala tú en la pestaña "
-                                                       "Stigma", self.name_of(base), old, new), "info", base, have, list(specs)))
+                steps.append(Step(tr("Especialidades"), tr("{0} (estigma): {1} → {2}", self.name_of(base), old, new),
+                                  "spec", base, have, list(specs)))
             else:
                 steps.append(Step(tr("Especialidades"), f"{self.name_of(base)}: {old} → {new}", "spec", base, have,
                                   list(specs)))
@@ -241,6 +242,19 @@ class Builds:
                 steps.append(Step(tr("Estigmas"), tr("Usa estos estigmas (el perfil oficial no dice en qué tecla): ")
                                   + ", ".join(used), "info"))
         return steps
+
+    def compare(self, build, part, skills, bar, slots=None):
+        """One tab of the game's Skill window, your preset against the build -> ([Step] that do not match, how many
+        things were checked). part "mastery": the actives and passives (points, specializations, their cells of the
+        bar); "stigma": the stigmas (the same, plus «use these stigmas» for a player's build, which has no bar)."""
+        def ours(base):
+            stigma = self.kind_of(base) == "stigma"
+            return stigma if part == "stigma" else not stigma
+        wrong = [s for s in self.plan(build, skills, bar, slots)
+                 if (ours(s.skill) if s.skill else (s.section == tr("Estigmas")) == (part == "stigma"))]
+        mine = [int(k) for k, e in (build.get("skills") or {}).items() if ours(int(k))]
+        checked = len(mine) + sum(1 for k in mine if entry_levels(build["skills"][str(k)])[1])             + sum(len(prio) for _, base, prio in build.get("bar") or [] if any(ours(p) for p in prio or [base]))
+        return wrong, max(checked, len(wrong))
 
     def bar_steps(self, build, bar):
         """The cells of the bar to fill or empty, key by key, priority by priority."""

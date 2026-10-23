@@ -67,7 +67,7 @@ class BuildsPanel(QWidget):
                 row = QHBoxLayout()
                 row.setSpacing(f.px(6))
                 row.addWidget(label(b.get("name") or "Build", f.small, theme.TEXT, elide=True), 1)
-                use = label(tr("Usar"), f.small, theme.ACCENT)
+                use = label(tr("Comparar"), f.small, theme.ACCENT)
                 use.setAttribute(Qt.WA_TransparentForMouseEvents, False)
                 use.setCursor(Qt.PointingHandCursor)
                 use.on_click = lambda i=b["id"]: ctl.open_builds(build=i, plan=True)

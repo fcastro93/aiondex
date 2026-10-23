@@ -204,7 +204,6 @@ class Bridge(QObject):
         self.upkeep = upkeep.UpkeepRecorder()    # buffs and consumables of you and your group
         self._upkeep_failed = False
         self.position = whereami.OwnPosition()   # where you are, for the map windows
-        self.macro = None                        # the build macro running (it waits for the game's answers)
         self._position_failed = False
         self.nodes = nodes.NodeTracker()         # the gathering nodes around you
         self.mobs = MobTracker()                 # the monsters around you: spawn points, deaths, respawns
@@ -218,9 +217,6 @@ class Bridge(QObject):
     def on_message(self, op, body):
         if self.health:
             self.health.saw(OP_KIND.get(op))
-        macro = self.macro
-        if macro is not None:
-            macro.feed(op, body)
         if self.tracker:
             event = self.tracker.on_message(op, body)
             if event:
@@ -2803,62 +2799,6 @@ class Controller(QObject):
         self.builds_window.raise_()
         self.builds_window.activateWindow()
 
-    # --- the build macro ---
-    def skill_order(self):
-        """{"active", "passive", "stigma": [base ids]} in the order the Skill window's grids show them (your official
-        profile lists them so), or None while the profile is not read (it is asked for)."""
-        from .skills import base_skill
-        who, c = self.character_name(), self.character
-        if not who or not c:
-            return None
-        profile = self.armory.cached(who, c.server)
-        if profile is None or not profile.skill_list:
-            self.armory.want(who, c.server)
-            return None
-        order = {"active": [], "passive": [], "stigma": []}
-        group = {"Active": "active", "Passive": "passive", "Dp": "stigma"}
-        for s in profile.skill_list:
-            kind = group.get(s.get("category"))
-            if kind and s.get("id"):
-                order[kind].append(base_skill(int(s["id"])))
-        return order
-
-    def macro_layout(self):
-        """(Layout of the Skill window on screen, game window handle, calibrated?) or None without the game."""
-        from .buildmacro import Layout, default_layout
-        from .minimap import game_window
-        from .sniffer import game_pids
-        from .winput import real_pixels
-        real_pixels()
-        game = game_window(game_pids())
-        if game is None:
-            return None
-        hwnd, client = game
-        size = f"{client[2] - client[0]}x{client[3] - client[1]}"
-        saved = (self.settings.get("build_macro") or {}).get("layouts", {}).get(size)
-        points = default_layout(client[2] - client[0], client[3] - client[1])
-        points.update({k: tuple(v) for k, v in (saved or {}).items()})
-        return Layout(client, points), hwnd, bool(saved)
-
-    def open_calibration(self):
-        from .ui.calibrationwindow import CalibrationWindow
-        found = self.macro_layout()
-        if found is None:
-            self.notify("warn", "Builds", tr("Abre el juego para calibrar el menú de skills."))
-            return None
-        layout, _, _ = found
-        size = f"{layout.client[2] - layout.client[0]}x{layout.client[3] - layout.client[1]}"
-
-        def save(points):
-            self.settings.setdefault("build_macro", {}).setdefault("layouts", {})[size] = \
-                {k: [round(v[0], 5), round(v[1], 5)] for k, v in points.items()}
-            self._save_settings()
-            if self.builds_window and self.builds_window.isVisible():
-                self.builds_window.refresh()
-        self.calibration_window = CalibrationWindow(layout.client, layout.points, save)
-        self.calibration_window.show()
-        return self.calibration_window
-
     # --- the mob route over the minimap ---
     def _mob_names(self):
         """npc id -> monster name, for the mob tracker."""
@@ -3109,31 +3049,6 @@ class Controller(QObject):
         self._save_settings()
         self.refresh()
 
-    def apply_build(self, steps, preset, on_progress, on_done):
-        """Run the build macro (its own thread); on_progress / on_done are called from it. -> error text or None."""
-        from .buildmacro import BuildMacro, is_admin
-        if self.bridge.macro is not None:
-            return tr("Ya se está aplicando una build.")
-        if not is_admin():
-            return "admin"
-        order = self.skill_order()
-        if order is None:
-            return tr("Leyendo tu perfil oficial para saber el orden de tus skills: prueba en unos segundos.")
-        found = self.macro_layout()
-        if found is None:
-            return tr("No encuentro la ventana del juego.")
-        layout, hwnd, _ = found
-
-        def done(ok, text):
-            self.bridge.macro = None
-            on_done(ok, text)
-        macro = BuildMacro(self, steps, preset, order, layout, hwnd, on_progress, done,
-                           slots=self.tuner.spec_slots.get(self.tuner.active_preset),
-                           slots_known=self.tuner.active_preset in self.tuner.slots_known)
-        self.bridge.macro = macro
-        macro.start()
-        return None
-
     def read_game_macro(self, build):
         """The Macro window's steps from the screen: [(number, base, name, delay)], [] when it is not open, None
         without the game or OCR."""
@@ -3171,8 +3086,8 @@ class Controller(QObject):
 
     def restart_as_admin(self):
         """Open AionDex again as administrator and close this one, and keep it so (settings["run_as_admin"]): the game
-        runs as administrator, and only then can AionDex click on it or see the keys you press in it. Windows asks
-        this once; the elevated AionDex then makes the task that opens it with no prompt."""
+        runs as administrator, and only then can AionDex see the keys you press in it (the minimap's route moves with
+        them). Windows asks this once; the elevated AionDex then makes the task that opens it with no prompt."""
         from . import elevation
         self.settings["run_as_admin"] = True
         self._save_settings()
@@ -3181,6 +3096,17 @@ class Controller(QObject):
             self.quit()
             return True
         return False                             # the user said no in Windows' prompt
+
+    def set_always_admin(self, on):
+        """Ajustes › Sistema: open AionDex as administrator always (a scheduled task: no Windows prompt) or not."""
+        from . import elevation
+        self.settings["run_as_admin"] = on
+        self._save_settings()
+        if on:
+            elevation.create_task()          # this AionDex is elevated: the task can be made with no prompt
+        else:
+            elevation.delete_task()
+        self.refresh()
 
     def open_tuner(self):
         """The Afinador of the macro: the Builds window's second tab."""
