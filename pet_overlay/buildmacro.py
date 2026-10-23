@@ -157,7 +157,7 @@ class BuildMacro:
     # --- the run ---
     def _run(self):
         real_pixels()
-        self.guard = Guard(self.game)
+        self.guard = Guard(self.game, self.layout.client)
         try:
             self._to_front()
             self._apply()

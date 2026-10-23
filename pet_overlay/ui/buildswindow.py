@@ -164,6 +164,7 @@ class BuildsWindow(QWidget):
         body.addWidget(left)
         right = QScrollArea()
         right.setWidgetResizable(True)
+        self.detail_scroll = right
         holder = QWidget()
         self.detail = QVBoxLayout(holder)
         self.detail.setContentsMargins(0, 0, 6, 0)
@@ -279,6 +280,14 @@ class BuildsWindow(QWidget):
 
     # --- one build ---
     def _show_detail(self):
+        """The selected build, drawn again where you were in it (the scroll stays: rebuilding it moved the focus to the
+        last button and Qt scrolled down to it)."""
+        bar = self.detail_scroll.verticalScrollBar()
+        where = bar.value()
+        self._draw_detail()
+        QTimer.singleShot(0, lambda: bar.setValue(min(where, bar.maximum())))
+
+    def _draw_detail(self):
         f = self.fonts
         _clear(self.detail)
         b = self.builds.get(self.selected) if self.selected else None
@@ -513,6 +522,7 @@ class BuildsWindow(QWidget):
         col.addLayout(self._macro_row(b, steps, preset))
         if self.macro_text:
             status = label(self.macro_text, f.small, theme.ACCENT if self.running else theme.TEXT)
+            self.macro_status = status
             status.setWordWrap(True)
             col.addWidget(status)
         return panel
@@ -583,7 +593,15 @@ class BuildsWindow(QWidget):
         self._show_detail()
 
     def _macro_progress(self, text):
+        """A step of the build macro: only its line changes (the whole panel drawn again on every step jumped)."""
         self.macro_text = text
+        status = getattr(self, "macro_status", None)
+        try:
+            if status is not None and status.isVisible():
+                status.setText(text)
+                return
+        except RuntimeError:                 # its widget was deleted with a redraw
+            pass
         self._show_detail()
 
     def _macro_done(self, ok, text):
