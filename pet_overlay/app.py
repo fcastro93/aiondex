@@ -2734,7 +2734,7 @@ class Controller(QObject):
                 counts[item] = counts.get(item, 0) + n
         training = [(self.arcana_db.training[i]["name"], n, self.arcana_db.training[i]["exp"]) for i, n in counts.items()]
         plan = build(self.arcana_db, prefix, cards_of(stored, self.arcana_db), levels, self.skill_targets(name),
-                     names, kinds, training, self.arcana_versions(name))
+                     names, kinds, training, self.arcana_versions(name), bool(self.settings.get("arcana_final_first")))
         plan.character = name
         plan.read_at = self.crafting.inventory.read_at(name)
         self._arcana_cache = (time.time(), name, plan)

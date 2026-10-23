@@ -278,6 +278,15 @@ def _set_bonus(cards):
     return sum((n >= 2) + (n >= 4) for n in counts.values())
 
 
+def _final(card, plan):
+    """The card already has every skill you still miss that a card of its kind can have (up to 4): no card of its kind
+    can be better for your skill targets, so what you put in it stays (worth()'s "yes")."""
+    needs = {n.skill: n for n in plan.skills}
+    wanted = [s for s in plan.pool.get(card.kind, ()) if needs.get(s) and needs[s].missing]
+    mine = {s for s, _ in card.effects if s in wanted}
+    return bool(mine) and len(mine) >= min(MAX_EFFECTS, len(wanted))
+
+
 def _fed(db, card, food, pool):
     """The card after eating another (all of its exp carries over), with its effects' expected levels: each level it
     gains adds an effect from its kind's pool (any it lacks) until it has 4, then raises one of the 4 at random."""
@@ -316,12 +325,14 @@ def _enhance_value(card, needs, have, pool, db, weights=None):
     return sum(w.get(s, 1.0) for s, _ in open_ if needs.get(s, 0) > have.get(s, 0)) / len(open_) if open_ else 0.0
 
 
-def build(db, prefix, cards, levels, targets, names, kinds, training=None, versions=None):
+def build(db, prefix, cards, levels, targets, names, kinds, training=None, versions=None, final_first=False):
     """The plan of one character. levels: {skill: level now} or {skill: (level, points, [Daevanion, 0, gear, Arcana])}
     (the game's skill list, with the worn cards); targets: {skill: level wanted}, in priority order (the first counts
     most: PRIORITY_DECAY; 0 / missing = no target); names / kinds: skill -> name / "active" | "passive"; training:
     [(name, count, exp)] of the Training Arcana in the bag; versions: kind -> "Vigor" | "Magic" | "any" (the version you
-    want of each card; a kind left out goes by the top's, VERSION_PICK)."""
+    want of each card; a kind left out goes by the top's, VERSION_PICK); final_first: the food goes first to the cards
+    that are already the best possible of their kind for your skill targets (they never have to be replaced), then to
+    the one that gives the most per exp."""
     plan = ArcanaPlan()
     plan.cards = sorted(cards, key=lambda c: (not c.worn, TYPES.index(c.kind) if c.kind in TYPES else 9,
                                               -GRADE_ORDER.get(c.grade, 0), -c.enchant, -c.total))
@@ -429,6 +440,7 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
 
         plans = {c.stack: Feed(c, [], 0, 0, c.enchant, 0.0) for c in targets_}
         first_ratio = {c.stack: value(c)[0] / value(c)[1] for c in targets_}     # what its next level gives per exp
+        final = {c.stack: final_first and _final(c, plan) for c in targets_}
         for what, exp, kinah in sorted(food, key=lambda f: (not (isinstance(f[0], Card) and f[0].stack in into_new),
                                                              -f[1])):
             open_ = [c for c in targets_ if db.to_next(c.grade, state[c.stack][0]) is not None]
@@ -436,7 +448,7 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
                 break
             forced = into_new.get(what.stack) if isinstance(what, Card) else None
             target = (next((c for c in open_ if c.stack == forced), None) if forced else None) or max(
-                open_, key=lambda c: (value(c)[0] / value(c)[1], -value(c)[1]))
+                open_, key=lambda c: (final[c.stack], value(c)[0] / value(c)[1], -value(c)[1]))
             f = plans[target.stack]
             f.fodder.append((what, exp))
             f.exp += exp
@@ -456,7 +468,7 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
         # the order to enhance them: what the next level gives in your skills (weighed by priority) per exp, the
         # same measure the food went by - Qué hacer's next step and Mejoras' steps follow it
         plan.feeds = sorted((f for f in plans.values() if f.fodder),
-                            key=lambda f: (-first_ratio[f.target.stack], -f.useful))
+                            key=lambda f: (not final[f.target.stack], -first_ratio[f.target.stack], -f.useful))
     return plan
 
 

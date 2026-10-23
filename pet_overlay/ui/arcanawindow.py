@@ -160,7 +160,17 @@ class ArcanaWindow(QWidget):
         skill targets as bars with where to find what they still miss, and the rest folded away."""
         f = self.fonts
         self._hero(plan)
-        self.body.addWidget(SectionTitle(tr("Tus cartas"), f))
+        head = QHBoxLayout()
+        head.addWidget(SectionTitle(tr("Tus cartas"), f), 1)
+        final = QCheckBox(tr("Primero las que ya son la mejor posible"))
+        final.setToolTip(tr("Una carta que ya es la mejor posible de su tipo para tus skills nunca tendrás que "
+                            "cambiarla: lo que le pongas se queda. Sin esto, AionDex sube primero la que más niveles de "
+                            "tus skills da por cada exp, aunque luego te salga una mejor (su exp pasa a la nueva y "
+                            "vuelves a pagar el Kinah de la comida)."))
+        final.setChecked(bool(self.ctl.settings.get("arcana_final_first")))
+        final.toggled.connect(self._toggle_final_first)
+        head.addWidget(final)
+        self.body.addLayout(head)
         grid = QGridLayout()
         grid.setSpacing(8)
         for i, kind in enumerate(TYPES):
@@ -177,19 +187,28 @@ class ArcanaWindow(QWidget):
             self.body.addLayout(head)
             self._skill_bars(plan)
         if plan.feeds:
-            self.body.addWidget(label("⚠ " + tr("Si usas otro preset de arcanas (2 o 3), no des de comer las cartas que "
-                                                "tengas ahí: AionDex solo ve las que llevas puestas."),
-                                      f.small, theme.WARN))
+            warn = label("⚠ " + tr("Si usas otro preset de arcanas (2 o 3), no des de comer las cartas que tengas ahí: "
+                                   "AionDex solo ve las que llevas puestas."), f.small, theme.WARN)
+            warn.setWordWrap(True)
+            self.body.addWidget(warn)
         if plan.feeds and len(plan.feeds) > 1:
-            self.body.addWidget(label(tr("El número de cada carta es el orden para subirlas: primero la que más niveles "
-                                         "de tus skills da por cada exp, según tus prioridades. La etiqueta dice si ya es "
-                                         "la mejor carta posible de su tipo para tus skills o si podría salirte una "
-                                         "mejor (la exp que le pongas no se pierde: pasa a la nueva)."), f.small,
-                                      theme.MUTED))
+            order = (tr("primero las que ya son la mejor posible de su tipo y, entre ellas, la que más niveles de tus "
+                        "skills da por cada exp") if self.ctl.settings.get("arcana_final_first") else
+                     tr("primero la que más niveles de tus skills da por cada exp, según tus prioridades"))
+            why = label(tr("El número de cada carta es el orden para subirlas: {0}. La etiqueta dice si ya es la mejor "
+                           "carta posible de su tipo para tus skills o si podría salirte una mejor (la exp que le "
+                           "pongas no se pierde: pasa a la nueva).", order), f.small, theme.MUTED)
+            why.setWordWrap(True)
+            self.body.addWidget(why)
         if any(n.target for n in plan.skills) and self._fold("gear", tr("Tu equipo: líneas de skill y Sync")):
             self._gear_advice(plan)
         if self._fold("guide", tr("Cómo funcionan las arcanas")):
             self._guide()
+
+    def _toggle_final_first(self, on):
+        self.ctl.settings["arcana_final_first"] = bool(on)
+        self.ctl._save_settings()
+        self.ctl.arcana_changed()
 
     def _fold(self, key, title):
         """A folded section's header (▸ / ▾); True when it is open."""
@@ -236,9 +255,15 @@ class ArcanaWindow(QWidget):
             notes, _ = effect_notes(card, plan, self.ctl.arcana_db)
             want = [e.name for e in sorted((e for e in notes if e.status == "want" and e.rises),
                                            key=lambda e: next(n.priority for n in plan.skills if n.skill == e.skill))]
-            line = (tr("Es la que más rinde ahora según tus prioridades: cada nivel cuesta {0:,} de exp y puede subir {1}.",
-                       self.ctl.arcana_db.to_next(card.grade, card.enchant), tr(" o ").join(want)) if want else "") + \
-                " " + tr("Con la comida que ya tienes llega a +{0} · unos {1:,} Kinah.", fd.to, fd.kinah)
+            final = self.ctl.settings.get("arcana_final_first") and \
+                worth(card, plan, self.ctl.arcana_db).verdict == "yes"
+            line = ((tr("Ya es la mejor posible de su tipo, así que lo que le pongas se queda: cada nivel cuesta {0:,} "
+                        "de exp y puede subir {1}.", self.ctl.arcana_db.to_next(card.grade, card.enchant),
+                        tr(" o ").join(want)) if final else
+                     tr("Es la que más rinde ahora según tus prioridades: cada nivel cuesta {0:,} de exp y puede subir "
+                        "{1}.", self.ctl.arcana_db.to_next(card.grade, card.enchant), tr(" o ").join(want)))
+                    if want else "") + " " + tr("Con la comida que ya tienes llega a +{0} · unos {1:,} Kinah.", fd.to,
+                                                fd.kinah)
             action = (tr("Empezar"), lambda _=False, st=card.stack: self._start_leveling(st))
         elif plan.changes:
             kind, worn, card, gain = plan.changes[0]
