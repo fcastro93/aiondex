@@ -40,6 +40,14 @@ VERSION_PICK = {   # class prefix -> per card, the version (Vigor / Magic: its P
     # Vigor 32 (Life: HP), Bell Magic 34 (Destruction: Attack), Mirror Vigor 32 (Illusion: cooldowns); Compass a tie
     17: {"Chalice": "Vigor", "Parchment": "Vigor", "Bell": "Magic", "Mirror": "Vigor"},
 }
+PANTHEON = {      # what a card's Pantheon stat gives at 20 (aion2maps' cleric guide, pasted by the user on 2026-10-23;
+    # aion2data and the game's traffic only have its name and value). Game texts: not translated
+    "Time": "+2% Combat Speed and Double Resist", "Space": "+2% Move Speed and Block",
+    "Life": "+2% HP and Regeneration", "Destiny": "+2% MP and Endurance",
+    "Freedom": "+2% Accuracy and Evasion", "Death": "+2% Critical Hit rating (it stops paying at the crit cap)",
+    "Justice": "+2% Defense and Perfect", "Destruction": "+2% Attack increase and Perfect Resist",
+    "Illusion": "-2% cooldowns and +2% Endurance Penetration", "Wisdom": "+2% Double Chance and -2% MP cost",
+}
 PRIORITY_DECAY = 0.75               # a skill target's weight is this to the power of its place in your list (1, 0.75,
 #                                     0.56...): the first one counts most, but a lot of the next ones can still win
 
@@ -238,7 +246,9 @@ class ArcanaPlan:
     training: list = field(default_factory=list)    # [(name, count, exp each)] in the bag
     sets: dict = field(default_factory=dict)        # set -> cards of it among the best
     pool: dict = field(default_factory=dict)        # kind -> the skills its effects can raise for this class
-    pick: dict = field(default_factory=dict)        # kind -> the version most of the top wear (VERSION_PICK)
+    pick: dict = field(default_factory=dict)        # kind -> the version you want (Set y versión) or, if you left it
+    pick_from: dict = field(default_factory=dict)   # to the top, the one most of them wear (VERSION_PICK): "you" / "top"
+    top_pick: dict = field(default_factory=dict)    # kind -> the top's version (VERSION_PICK), for the tab
     useful_now: int = 0
     useful_best: int = 0
 
@@ -278,17 +288,24 @@ def _enhance_value(card, needs, have, pool, db, weights=None):
     return sum(w.get(s, 1.0) for s, _ in open_ if needs.get(s, 0) > have.get(s, 0)) / len(open_) if open_ else 0.0
 
 
-def build(db, prefix, cards, levels, targets, names, kinds, training=None):
+def build(db, prefix, cards, levels, targets, names, kinds, training=None, versions=None):
     """The plan of one character. levels: {skill: level now} or {skill: (level, points, [Daevanion, 0, gear, Arcana])}
     (the game's skill list, with the worn cards); targets: {skill: level wanted}, in priority order (the first counts
     most: PRIORITY_DECAY; 0 / missing = no target); names / kinds: skill -> name / "active" | "passive"; training:
-    [(name, count, exp)] of the Training Arcana in the bag."""
+    [(name, count, exp)] of the Training Arcana in the bag; versions: kind -> "Vigor" | "Magic" | "any" (the version you
+    want of each card; a kind left out goes by the top's, VERSION_PICK)."""
     plan = ArcanaPlan()
     plan.cards = sorted(cards, key=lambda c: (not c.worn, TYPES.index(c.kind) if c.kind in TYPES else 9,
                                               -GRADE_ORDER.get(c.grade, 0), -c.enchant, -c.total))
     plan.worn = {c.kind: c for c in plan.cards if c.worn}
     plan.pool = {kind: db.pool(kind, prefix) for kind in TYPES}
-    plan.pick = VERSION_PICK.get(prefix, {})
+    plan.top_pick = VERSION_PICK.get(prefix, {})
+    for kind in TYPES:
+        choice = (versions or {}).get(kind)
+        if choice in ("Vigor", "Magic"):
+            plan.pick[kind], plan.pick_from[kind] = choice, "you"
+        elif choice != "any" and kind in plan.top_pick:
+            plan.pick[kind], plan.pick_from[kind] = plan.top_pick[kind], "top"
     pool_all = {s for pool in plan.pool.values() for s in pool}
     worn_add = {}
     for c in plan.worn.values():
@@ -485,6 +502,17 @@ def worth(card, plan, db):
         value = sum(weight.get(e.skill, 0) for e in open_ if e.status == "want") / of if of else 0.0
     verdict = "ilvl" if not good else "yes" if len(mine) >= possible else "ok"
     return Worth(verdict, good, of, len(mine), possible, absent, value)
+
+
+def card_name(db, kind, version):
+    """«Chalice of Vigor» of a kind and version, from the database."""
+    return next((c["name"] for c in db.cards.values() if c["type"] == kind and c["set"] == version), f"{kind} ({version})")
+
+
+def pantheon(db, kind, version):
+    """(«Time [Siel]», what it gives) of a kind's version."""
+    stat = next((c["stat"][0] for c in db.cards.values() if c["type"] == kind and c["set"] == version), "")
+    return stat, PANTHEON.get(stat.split(" ")[0], "")
 
 
 def short_kind(kind):

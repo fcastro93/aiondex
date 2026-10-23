@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (QComboBox, QFrame, QGridLayout, QHBoxLayout, QPus
 
 from .. import APP_NAME
 from ..arcana import (DEFAULT_ACTIVE_TARGET, GRADE_COLOR, MAX_EFFECT_LEVEL, TYPES, Card, effect_notes,
-                      effects_text, feed_text, raise_luck, short_kind, worth)
+                      card_name, effects_text, feed_text, pantheon, raise_luck, short_kind, worth)
 from . import theme
 from .mapwindow import STYLE, badge_label
 from .theme import Fonts
@@ -22,7 +22,7 @@ from .widgets import SectionTitle, label
 from ..i18n import tr
 
 TABS = (("todo", tr("Qué hacer")), ("verdict", tr("¿Sirven?")), ("cards", tr("Tus cartas")),
-        ("skills", tr("Skills objetivo")))
+        ("skills", tr("Skills objetivo")), ("set", tr("Set y versión")))
 SHEET = "https://docs.google.com/spreadsheets/d/1YdTWoOg2cQYMVPyKdRuQ9rkdlOo0mvpfiywZcgPpSV4"
 NEED, DONE, IDLE = "#7bd88f", "#5fb8ff", "#8a93a8"
 
@@ -139,7 +139,8 @@ class ArcanaWindow(QWidget):
                                  plan.character, len(plan.cards), _ago(plan.read_at), plan.useful_best,
                                  sum(n.need for n in plan.skills))
                               + (tr(" · te faltan en {0}", ", ".join(n.name for n in short[:4])) if short else ""))
-        {"todo": self._todo, "verdict": self._verdicts, "cards": self._cards, "skills": self._skills}[self.tab](plan)
+        {"todo": self._todo, "verdict": self._verdicts, "cards": self._cards, "skills": self._skills,
+         "set": self._versions}[self.tab](plan)
         self.body.addStretch(1)
 
     def _todo(self, plan):
@@ -182,19 +183,28 @@ class ArcanaWindow(QWidget):
             note.setWordWrap(True)
             self.body.addWidget(note)
         self._worth(plan)
-        if plan.look_for:
+        db = self.ctl.arcana_db
+        other = {k: c for k, c in plan.best.items() if plan.pick_from.get(k) == "you" and c.set != plan.pick[k]}
+        if plan.look_for or other:
             self.body.addWidget(SectionTitle(tr("Qué buscar en cada carta"), f))
             for kind in TYPES:
                 rows = plan.look_for.get(kind)
-                if not rows:
-                    continue
                 best = plan.best.get(kind)
-                self._row(tr("{0}: {1}", short_kind(kind), ", ".join(tr("{0} (te falta{1} {2})", r[1], "n" if r[2] != 1 else "", r[2])
-                                                               for r in rows[:5])),
-                          (tr("Mejor una Unique: 4 efectos y hasta +5 (9 niveles); la tuya: {0} {1} +{2}.",
-                              best.name, best.grade, best.enchant) if best else
-                           tr("No tienes ninguna: cualquier {0} te da su stat y nivel de objeto.", short_kind(kind))),
-                          "#f0c24e", tr("Buscar"))
+                want = plan.pick.get(kind)
+                version = (" " + tr("Que sea {0}: la versión que {1}.", card_name(db, kind, want),
+                                    tr("elegiste") if plan.pick_from.get(kind) == "you" else tr("lleva la mayoría del top"))
+                           if want else "")
+                if rows:
+                    self._row(tr("{0}: {1}", short_kind(kind), ", ".join(tr("{0} (te falta{1} {2})", r[1], "n" if r[2] != 1 else "", r[2])
+                                                                   for r in rows[:5])),
+                              (tr("Mejor una Unique: 4 efectos y hasta +5 (9 niveles); la tuya: {0} {1} +{2}.",
+                                  best.name, best.grade, best.enchant) if best else
+                               tr("No tienes ninguna: cualquier {0} te da su stat y nivel de objeto.", short_kind(kind)))
+                              + version, "#f0c24e", tr("Buscar"))
+                elif kind in other:
+                    self._row(tr("{0}: busca un {1}", short_kind(kind), card_name(db, kind, want)),
+                              tr("La tuya es {0} y elegiste {1}: cuando tengas una de {1} con lo mismo de tus skills, "
+                                 "cámbiala (y dale la otra de comer).", best.name, want), "#f0c24e", tr("Buscar"))
         self._gear_advice(plan)
         self._guide()
 
@@ -436,6 +446,8 @@ class ArcanaWindow(QWidget):
             row.setContentsMargins(0, 0, 0, 0)
             row.setSpacing(8)
             row.addWidget(_chip(text, col, f))
+            if best is c and plan.pick_from.get(c.kind) == "you" and c.set != plan.pick[c.kind]:
+                why = why.rstrip(".") + ". " + tr("No es la versión que elegiste ({0}).", plan.pick[c.kind])
             luck = raise_luck(c, notes) if best is c else None
             if luck and luck[1] - luck[0] >= 1:
                 why += ". " + tr("Mala suerte en sus subidas: {0} de {1} fueron a skills que buscas (lo normal: {2:.1f}). "
@@ -480,6 +492,9 @@ class ArcanaWindow(QWidget):
         wear (arcana.VERSION_PICK), or ""."""
         if not worn or worn.set == card.set or plan.pick.get(card.kind) != card.set:
             return ""
+        if plan.pick_from.get(card.kind) == "you":
+            return tr("Mismos niveles en tus skills, pero su versión ({0}: {1}) es la que elegiste.", card.set,
+                      card.stat[0])
         return tr("Mismos niveles en tus skills, pero su versión ({0}: {1}) es la que lleva la mayoría del top.",
                   card.set, card.stat[0])
 
@@ -545,6 +560,90 @@ class ArcanaWindow(QWidget):
             lay.addLayout(row)
         lay.addStretch(1)
         return tile
+
+    def _versions(self, plan):
+        """Set y versión: per card, the version you want (Vigor or Magic: its Pantheon stat and its set), what each
+        gives, the one you wear and the set bonuses your choice adds up to."""
+        f = self.fonts
+        db = self.ctl.arcana_db
+        name = plan.character
+        head = QHBoxLayout()
+        hint = label(tr("Cada carta viene en dos versiones, Vigor y Magic: la versión decide su stat de Pantheon y "
+                        "cuenta para su set (2 y 4 cartas del mismo set dan su bonus; con las cinco, cualquier mezcla "
+                        "da dos bonus). Elige la que quieres de cada una: entre cartas que te dan los mismos niveles en "
+                        "tus skills gana esa, y Qué hacer te dice cuál buscar. Lo que no elijas va como la mayoría del "
+                        "top de clérigos (NA East)."), f.small, theme.MUTED)
+        hint.setWordWrap(True)
+        head.addWidget(hint, 1)
+        if any(k == "you" for k in plan.pick_from.values()) or self.ctl.arcana_versions(name):
+            reset = QPushButton(tr("Volver a lo del top"))
+            reset.setProperty("flat", True)
+            reset.clicked.connect(lambda: self.ctl.clear_arcana_versions(name))
+            head.addWidget(reset)
+        self.body.addLayout(head)
+        self.body.addWidget(SectionTitle(tr("La versión de cada carta"), f))
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(16)
+        grid.setVerticalSpacing(8)
+        for c, t in enumerate((tr("Carta"), "Vigor", "Magic", tr("Llevas"), tr("Quieres"))):
+            grid.addWidget(label(t, f.small, theme.MUTED), 0, c)
+        mine = self.ctl.arcana_versions(name)
+        top = Qt.AlignTop | Qt.AlignLeft
+        for r, kind in enumerate(TYPES, start=1):
+            grid.addWidget(label(short_kind(kind), f.name, theme.TEXT), r, 0, top)
+            for c, version in enumerate(("Vigor", "Magic"), start=1):
+                stat, gives = pantheon(db, kind, version)
+                grid.addWidget(label(f"{stat}\n{gives}" if gives else stat, f.small,
+                                     theme.TEXT if plan.pick.get(kind) == version else theme.MUTED), r, c, top)
+            worn = plan.worn.get(kind)
+            grid.addWidget(label(f"{worn.set} ({worn.grade} +{worn.enchant})" if worn else "—", f.small,
+                                 theme.TEXT if worn and plan.pick.get(kind) in (None, worn.set) else theme.WARN), r, 3, top)
+            box = QComboBox()
+            topv = plan.top_pick.get(kind)
+            options = [("top", tr("Como el top ({0})", topv) if topv else tr("Como el top (da igual)")),
+                       ("Vigor", "Vigor"), ("Magic", "Magic"), ("any", tr("Da igual"))]
+            for key, text in options:
+                box.addItem(text, key)
+            box.setCurrentIndex(next((i for i, (k, _) in enumerate(options) if k == mine.get(kind, "top")), 0))
+            box.currentIndexChanged.connect(lambda i, b=box, k=kind: self.ctl.set_arcana_version(name, k, b.itemData(i)))
+            grid.addWidget(box, r, 4, top)
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(2, 1)
+        self.body.addLayout(grid)
+        # what the choice adds up to: the version wanted of each card, or the one you wear where it does not matter
+        sets = {}
+        loose = 0
+        for kind in TYPES:
+            v = plan.pick.get(kind) or (plan.best.get(kind).set if plan.best.get(kind) else None)
+            if v:
+                sets[v] = sets.get(v, 0) + 1
+            else:
+                loose += 1
+        self.body.addWidget(SectionTitle(tr("Tu set"), f))
+        parts = [f"{n} {v}" for v, n in sorted(sets.items(), key=lambda kv: -kv[1])]
+        bonus = []
+        for v, n in sets.items():
+            info = db.sets.get(v, {})
+            for need in (2, 4):
+                if n >= need and info.get(str(need)):
+                    bonus.append(f"{info.get('name', v)} ({need}): {info[str(need)]}")
+        self.body.addWidget(label(" + ".join(parts) + (tr(" + {0} sin elegir", loose) if loose else ""), f.name, theme.TEXT))
+        for b in bonus:
+            line = label("• " + b, f.small, theme.GAIN)
+            line.setWordWrap(True)
+            self.body.addWidget(line)
+        note = label(tr("Lo que usa el top de clérigos: 20 de 49 llevan 4 o más de Vigor, 11 llevan 3 Vigor + 2 Magic y "
+                        "14 llevan 2 Vigor + 3 Magic; solo 4 llevan 4 o más de Magic. Por carta: Cáliz Vigor 44, "
+                        "Pergamino Vigor 32, Campana Magic 34, Espejo Vigor 32, Brújula 25 Vigor / 24 Magic. La guía "
+                        "de aion2maps recomienda Cáliz, Pergamino y Espejo de Vigor con Brújula y Campana de Magic "
+                        "(otras builds: la Brújula de Vigor para el bonus de 4 Vigor, o el Espejo de Magic)."),
+                     f.small, theme.MUTED)
+        note.setWordWrap(True)
+        self.body.addWidget(note)
+        src = label(tr("Lo que da cada stat de Pantheon (a 20) viene de la guía de aion2maps: el juego solo manda su "
+                       "nombre y su valor."), f.small, theme.MUTED)
+        src.setWordWrap(True)
+        self.body.addWidget(src)
 
     def _skills(self, plan):
         """Your skill targets: the skills you marked, each with the level you want (the list Arcanas and Mejoras go

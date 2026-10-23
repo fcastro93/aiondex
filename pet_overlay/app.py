@@ -2685,6 +2685,27 @@ class Controller(QObject):
     def clear_skill_targets(self, name):
         self._save_skill_targets(name, {})
 
+    def arcana_versions(self, name):
+        """{kind: "Vigor" | "Magic" | "any"} of a character (Personaje › Arcanas › Set y versión): the version they want
+        of each card; a kind left out goes by what most of the top wear (arcana.VERSION_PICK)."""
+        return dict(self.settings.get("arcana_versions", {}).get(name) or {})
+
+    def set_arcana_version(self, name, kind, choice):
+        """choice: "Vigor", "Magic", "any" or "top" (back to the top's)."""
+        versions = self.arcana_versions(name)
+        if choice == "top":
+            versions.pop(kind, None)
+        else:
+            versions[kind] = choice
+        self.settings.setdefault("arcana_versions", {})[name] = versions
+        self._save_settings()
+        self.arcana_changed()
+
+    def clear_arcana_versions(self, name):
+        self.settings.setdefault("arcana_versions", {})[name] = {}
+        self._save_settings()
+        self.arcana_changed()
+
     def arcana_characters(self):
         """The characters whose cards were read."""
         store = self.settings.get("crafting", {}).get("inventory", {})
@@ -2713,7 +2734,7 @@ class Controller(QObject):
                 counts[item] = counts.get(item, 0) + n
         training = [(self.arcana_db.training[i]["name"], n, self.arcana_db.training[i]["exp"]) for i, n in counts.items()]
         plan = build(self.arcana_db, prefix, cards_of(stored, self.arcana_db), levels, self.skill_targets(name),
-                     names, kinds, training)
+                     names, kinds, training, self.arcana_versions(name))
         plan.character = name
         plan.read_at = self.crafting.inventory.read_at(name)
         self._arcana_cache = (time.time(), name, plan)
@@ -2727,7 +2748,7 @@ class Controller(QObject):
         self.upgrades_changed()
 
     def open_arcana(self, tab=None):
-        """Personaje › Arcanas (tab: "todo", "cards" or "skills", the skill targets)."""
+        """Personaje › Arcanas (tab: "todo", "verdict", "cards", "skills" - the skill targets - or "set")."""
         from .ui.arcanawindow import ArcanaWindow
         if self.arcana_window is None:
             self.arcana_window = ArcanaWindow(self)
