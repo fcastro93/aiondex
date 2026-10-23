@@ -284,6 +284,29 @@ class TrackerWindow(QWidget):
         hint.setWordWrap(True)
         return hint
 
+    def _achievement(self, entry):
+        """«Logro pendiente: título» when the game has a field-boss achievement for this boss you have not claimed."""
+        if entry.kind == "event":
+            return ""
+        ctl = self.ctl
+        ms = ctl.achievements
+        name = ctl.missions_character(ms)
+        if not ms.available or not name:
+            return ""
+        for m in ms.db.values():
+            if "fieldboss" not in (m.where or []):
+                continue
+            names = {m.name, (m.asmodian or {}).get("name", "")}
+            if entry.name not in names and entry.name not in (m.desc or "") and \
+                    entry.name not in (m.asmodian or {}).get("desc", ""):
+                continue
+            p = ms.progress(name, m.id)
+            if p.done:
+                return ""
+            return tr("Logro por cobrar: {0}", m.rewards.split(" Superior")[0] if m.rewards else m.name) if p.ready \
+                else tr("Logro pendiente: {0}", m.rewards.split(" Superior")[0] if m.rewards else m.name)
+        return ""
+
     def _card(self, entry):
         """A card like the game's boss tooltip: header with emblem and name, time left, loot highlights."""
         f = self.fonts
@@ -312,6 +335,9 @@ class TrackerWindow(QWidget):
         sub = " · ".join(x for x in (tr("Nv. {0}", entry.level) if entry.level else "", entry.sub) if x)
         if sub:
             names.addWidget(label(sub, f.small, QColor("#AEB6C6"), elide=True))
+        pending = self._achievement(entry)
+        if pending:
+            names.addWidget(label(pending, f.small, theme.GOLD, elide=True))
         row.addLayout(names, 1)
         if entry.kind != "event" and self.ctl.boss_on_map(entry):
             where = QPushButton(tr("Mapa"))

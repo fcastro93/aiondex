@@ -219,6 +219,7 @@ class PetsPanel(QWidget):
         self.content.addWidget(grid_host)
         stats = self.ctl.pet_family_stats()
         if stats:
+            self._family_achievement()
             line = label(tr("Al máximo: ") + " · ".join(f"{fam} {maxed}/{total}" for fam, (_, maxed, total)
                                                     in stats.items()), f.small, theme.ACCENT)
             line.setContentsMargins(f.px(4), f.px(2), 0, 0)
@@ -233,6 +234,37 @@ class PetsPanel(QWidget):
                        theme.GAIN)
         elif not state.zone_name:
             self._note(tr("Sin zona aún: al detectarla, los pets que puedes farmear."))
+
+    def _family_achievement(self):
+        """The pet-family achievement closest to its next reward («Reach Level 2 with 3 Cogni Pets»: count/target),
+        from the game's own counters; a click opens Logros."""
+        import re
+        ctl = self.ctl
+        ms = ctl.achievements
+        name = ctl.missions_character(ms)
+        if not ms.available or not name:
+            return
+        best = None
+        for m in ms.db.values():
+            if "pets" not in (m.where or []) or not re.search(r"Reach Level \d+ with \d+", m.desc or ""):
+                continue
+            p = ms.progress(name, m.id)
+            if p.done:
+                continue
+            ratio = p.count / p.target if p.target else 0
+            if best is None or ratio > best[0]:
+                best = (ratio, m, p)
+        if best is None:
+            return
+        _, m, p = best
+        f = self.fonts
+        text = label(tr("Logro: {0} · {1}/{2}", m.desc, p.count, p.target) + (tr(" · ¡por cobrar!") if p.ready else ""),
+                     f.small, theme.GAIN if p.ready else theme.ACCENT, elide=True)
+        text.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        text.setCursor(Qt.PointingHandCursor)
+        text.setToolTip(m.name + (tr(" · premio: {0}", m.rewards) if m.rewards else ""))
+        text.on_click = ctl.open_achievements
+        self.content.addWidget(text)
 
     def _pet_menu(self, widget, pet_id, pos):
         menu = QMenu(self)

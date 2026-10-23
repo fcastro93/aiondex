@@ -460,20 +460,25 @@ class UpgradesDB:
 
 def dungeons_you_run(fights_index, now=None, seen=None):
     """Dungeons whose final boss you killed at least DUNGEON_KILLS times in the last DUNGEON_DAYS days, most first.
-    seen: {dungeon: last time} kept by the app (the fight log forgets fights after 48 hours), updated here."""
+    seen: {dungeon: [kill times]} kept by the app and updated here, because the fight log forgets fights after 48
+    hours (a dungeon you run every three days never had two kills in the log at once; 2.3.0 - before, only the last
+    time, as a number, was kept: that counts as one kill)."""
     now = now or time.time()
-    counts = {}
+    kills = {}
+    for d, times in (seen or {}).items():
+        if isinstance(times, (list, tuple)):
+            kills[d] = {float(t) for t in times}
+        else:                                     # before 2.3.0: the last time it was found run (DUNGEON_KILLS kills)
+            kills[d] = {float(times) - i for i in range(DUNGEON_KILLS)}
     for f in fights_index or []:
-        if f.get("instance") and f.get("final") and f.get("killed") and now - (f.get("start") or 0) <= \
-                DUNGEON_DAYS * 86400 and f.get("place"):
-            counts[f["place"]] = counts.get(f["place"], 0) + 1
-    found = [d for d, n in sorted(counts.items(), key=lambda x: -x[1]) if n >= DUNGEON_KILLS]
+        if f.get("instance") and f.get("final") and f.get("killed") and f.get("place") and f.get("start"):
+            kills.setdefault(f["place"], set()).add(float(f["start"]))
+    recent = {d: sorted(t for t in ts if now - t <= DUNGEON_DAYS * 86400) for d, ts in kills.items()}
     if seen is not None:
-        for d in found:
-            seen[d] = now
-        found += [d for d, at in sorted(seen.items(), key=lambda x: -x[1])
-                  if d not in found and now - at <= DUNGEON_DAYS * 86400]
-    return found
+        seen.clear()
+        seen.update({d: ts[-40:] for d, ts in recent.items() if ts})
+    return [d for d, ts in sorted(recent.items(), key=lambda x: (-len(x[1]), -(x[1][-1] if x[1] else 0)))
+            if len(ts) >= DUNGEON_KILLS]
 
 
 def character_stats(gear, profile, gear_db, role="main", live_cp=None):

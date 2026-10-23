@@ -568,6 +568,7 @@ class UpgradesWindow(QWidget):
             detail.setWordWrap(True)
             lay.addWidget(detail)
             self._parts(lay, step)
+        self._links(lay, step)
         actions = QHBoxLayout()
         if step.summary:
             actions.addWidget(_link(tr("▾ ocultar") if is_open else tr("▸ ver cómo"),
@@ -623,6 +624,7 @@ class UpgradesWindow(QWidget):
             detail.setContentsMargins(18, 2, 0, 0)
             lay.addWidget(detail)
             self._parts(lay, step)
+            self._links(lay, step)
             actions = QHBoxLayout()
             actions.setContentsMargins(18, 0, 0, 0)
             actions.addStretch(1)
@@ -632,6 +634,59 @@ class UpgradesWindow(QWidget):
                                         tr("Lo quito de tu ruta y la rehago sin él; lo recuperas en Preferencias")))
             lay.addLayout(actions)
         return row
+
+    def _links(self, lay, step):
+        """What the rest of AionDex knows about a step: on a farm step, your Odyle energy against the dungeon's
+        cubes (Status); on a boss step, the Tracker's state of the boss, its bell and the map."""
+        f = self.fonts
+        ctl = self.ctl
+        now = time.time()
+        if step.kind == "farm" and step.key.startswith("farm-dungeon:"):
+            dungeon = step.key.split(":", 1)[1]
+            cubes = [c for c in ctl.upgrades_db.cubes if c["dungeon"] == dungeon and c["open"] and c["energy"]]
+            if not cubes or not self._shown:
+                return
+            energy = min(c["energy"] for c in cubes)
+            try:
+                v = ctl.status.value(self._shown, "energy", now)
+            except Exception:                    # noqa: BLE001 - Status is its own module
+                return
+            if not v.known:
+                return
+            have = v.count + v.bonus
+            n = have // energy
+            text = (tr("Energía de Odyle: {0}(+{1}) → 1 cubo de {2} ahora", v.count, v.bonus, energy) if n == 1 else
+                    tr("Energía de Odyle: {0}(+{1}) → {2} cubos de {3} ahora", v.count, v.bonus, n, energy))
+            if v.full_at and v.full_at > now:
+                text += tr(" · llena en {0:.0f} h", (v.full_at - now) / 3600)
+            row = QHBoxLayout()
+            row.setContentsMargins(18, 0, 0, 0)
+            row.addWidget(label(text, f.small, theme.GAIN if n else theme.WARN))
+            row.addStretch(1)
+            row.addWidget(_link(tr("Abrir Status"), ctl.open_status))
+            lay.addLayout(row)
+        elif step.kind == "boss" and step.key.startswith("boss:"):
+            boss = step.key.split(":", 1)[1]
+            entry = next((e for e in ctl.tracker.entries if e.name == boss), None)
+            if entry is None:
+                return
+            from ..modules.tracker import when_text
+            st = ctl.tracker.status(entry, now)
+            text, color = when_text(st, now)
+            row = QHBoxLayout()
+            row.setContentsMargins(18, 0, 0, 0)
+            row.addWidget(label(tr("Tracker: {0}", text), f.small, color))
+            if getattr(st, "detail", ""):
+                row.addWidget(label(st.detail, f.small, theme.MUTED, elide=True), 1)
+            else:
+                row.addStretch(1)
+            on = ctl.tracker.marked(entry.id)
+            row.addWidget(_link(tr("🔔 Avisándome") if on else tr("🔔 Avisarme"),
+                                lambda _=False, i=entry.id: (ctl.tracker.toggle(i), self.refresh(), ctl.refresh()),
+                                tr("La campana del Tracker: te avisa cuando sale")))
+            if ctl.boss_on_map(entry):
+                row.addWidget(_link(tr("Mapa"), lambda _=False, e=entry: ctl.open_boss_map(e)))
+            lay.addLayout(row)
 
     def _parts(self, lay, step):
         """A card of several (the pieces of «Encanta», the voucher's choices...): each one can be left out."""
