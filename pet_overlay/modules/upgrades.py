@@ -8,6 +8,7 @@ from ..ui import theme
 from ..ui.appmenu import glyph_icon
 from ..ui.widgets import SectionTitle, label
 from ..upgrades import kinah_text, next_steps
+from ..i18n import tr
 
 GLYPH_UPGRADES = ""       # an arrow up
 SHOWN = 3
@@ -32,26 +33,26 @@ class UpgradesPanel(QWidget):
         f = self.fonts
         plan = self.ctl.upgrade_plan()
         if plan is None:
-            self._line("Entra al juego con tu personaje: leo tu equipo, tu bolsa y tu almacén y te digo qué mejorar "
-                       "primero.", theme.MUTED)
+            self._line(tr("Entra al juego con tu personaje: leo tu equipo, tu bolsa y tu almacén y te digo qué "
+                          "mejorar primero."), theme.MUTED)
         else:
             me = plan.me
-            bits = [f"Alt · {kinah_text(plan.have('kina_bound'))} Kinah ligada" if me and me.alt else
-                    f"{kinah_text(plan.have('kina'))} Kinah" + (f" + {kinah_text(plan.have('kina_bound'))} ligada"
+            bits = [tr("Alt · {0} Kinah ligada", kinah_text(plan.have('kina_bound'))) if me and me.alt else
+                    f"{kinah_text(plan.have('kina'))} Kinah" + (tr(" + {0} ligada", kinah_text(plan.have('kina_bound')))
                                                                  if plan.have("kina_bound") else ""),
                     f"{plan.have('enhance_stone'):,} Enhance Stones"]
             if me and me.item_level:
-                bits.insert(0, f"nivel de objeto {me.item_level:,}")
+                bits.insert(0, tr("nivel de objeto {0:,}", me.item_level))
             bits += [f"{n} vouchers" for n in plan.vouchers.values()][:1]
             self._line(" · ".join(bits), theme.TEXT)
-            self.content.addWidget(SectionTitle("Siguiente", f))
+            self.content.addWidget(SectionTitle(tr("Siguiente"), f))
             for n, step in enumerate(next_steps(plan, 2 if compact else SHOWN), start=1):
                 self._line(f"{n}. {step.title}", theme.GOLD if step.ready else theme.TEXT, f.name)
                 if not compact:
                     detail = label(step.summary or step.detail, f.small, theme.MUTED, elide=True)
                     detail.setContentsMargins(f.px(14), 0, 0, 0)
                     self.content.addWidget(detail)
-        link = label("Abrir Mejoras", f.name, theme.ACCENT)
+        link = label(tr("Abrir Mejoras"), f.name, theme.ACCENT)
         link.setAttribute(Qt.WA_TransparentForMouseEvents, False)
         link.setCursor(Qt.PointingHandCursor)
         link.on_click = self.ctl.open_upgrades
@@ -68,7 +69,7 @@ class UpgradesPanel(QWidget):
 
 class UpgradesModule(Module):
     key = "upgrades"
-    title = "Mejoras"
+    title = tr("Mejoras")
 
     def icon(self):
         return glyph_icon(GLYPH_UPGRADES, theme.ACCENT, self.ctl.fonts.icons_family)
@@ -84,4 +85,4 @@ class UpgradesModule(Module):
             return ModuleView()
         ready = sum(1 for s in plan.steps if s.ready and s.kind not in ("farm", "boss", "content", "goal", "spare",
                                                                         "theostone"))
-        return ModuleView(summary=f"{ready} para hacer ya" if ready else "")
+        return ModuleView(summary=tr("{0} para hacer ya", ready) if ready else "")

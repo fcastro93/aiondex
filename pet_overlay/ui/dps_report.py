@@ -15,6 +15,7 @@ from ..mvp import FORMULA, PARTS, scores
 from ..paths import ASSETS_DIR
 from .dps_panel import CLASS_ICON, mmss
 from .dps_party import CLASS_COLOR, OTHER_COLOR, compact_number, thousands
+from ..i18n import tr
 
 WIDTH = 1600
 PAD = 40
@@ -122,11 +123,11 @@ def _header(p, r):
     if not badge.isNull():
         p.drawPixmap(QRectF(PAD, 30, 70, 70), badge, QRectF(badge.rect()))
     x = PAD + 90
-    _text(p, QRectF(x, 22, 700, 22), "INFORME DE COMBATE", _font(15, QFont.Bold), TEAL)
-    title = enc.main_target or "Pelea"
+    _text(p, QRectF(x, 22, 700, 22), tr("INFORME DE COMBATE"), _font(15, QFont.Bold), TEAL)
+    title = enc.main_target or tr("Pelea")
     _text(p, QRectF(x, 44, 760, 44), QFontMetrics(_font(34, QFont.Bold)).elidedText(title, Qt.ElideRight, 760),
           _font(34, QFont.Bold), TEXT)
-    state = "✓ Derrotado" if enc.killed else ("En curso" if not enc.ended else "Sin terminar")
+    state = "✓ Derrotado" if enc.killed else (tr("En curso") if not enc.ended else tr("Sin terminar"))
     when = time.strftime("%d/%m/%Y %H:%M", time.localtime(enc.last))
     _text(p, QRectF(x, 88, 800, 26), f"{state}  ·  {mmss(r.seconds)}  ·  {r.act.label}  ·  {when}",
           _font(17), GREEN if enc.killed else MUTED)
@@ -134,13 +135,13 @@ def _header(p, r):
     group_dmg = sum(s.parts["damage"] for s in r.ranked)
     if r.max_hp:
         _text(p, right, f"{thousands(r.max_hp)} HP", _font(24, QFont.DemiBold), TEXT, Qt.AlignRight | Qt.AlignVCenter)
-    _text(p, QRectF(right.left(), 64, 360, 26), f"DPS del grupo: {thousands(group_dmg / r.seconds)}/s",
+    _text(p, QRectF(right.left(), 64, 360, 26), tr("DPS del grupo: {0}/s", thousands(group_dmg / r.seconds)),
           _font(17), MUTED, Qt.AlignRight | Qt.AlignVCenter)
     return 130
 
 
 def _name(r, actor):
-    return actor.name + (" (tú)" if actor.is_self else "")
+    return actor.name + (tr(" (tú)") if actor.is_self else "")
 
 
 def _mvp(p, r, icons, y):
@@ -149,7 +150,7 @@ def _mvp(p, r, icons, y):
     p.setBrush(CARD)
     p.drawRoundedRect(rect, 16, 16)
     if not r.ranked:
-        _text(p, rect.adjusted(30, 0, -30, 0), "Nadie de tu grupo participó en esta pelea.", _font(20), MUTED)
+        _text(p, rect.adjusted(30, 0, -30, 0), tr("Nadie de tu grupo participó en esta pelea."), _font(20), MUTED)
         return rect.bottom()
     best = r.ranked[0]
     a = best.actor
@@ -175,8 +176,8 @@ def _mvp(p, r, icons, y):
     _text(p, QRectF(x, rect.top() + 82, 470, 28), sub, _font(19), MUTED)
     _text(p, QRectF(x, rect.top() + 118, 470, 40), f"{best.points:.1f} pts", _font(32, QFont.Bold), TEXT)
     dmg = best.parts["damage"]
-    line = f"{_pct(100 * dmg / r.basis)} del daño · {thousands(dmg / r.seconds)}/s" if dmg else ""
-    _text(p, QRectF(x, rect.top() + 160, 600, 28), f"{best.points:.0f}% del aporte del grupo"
+    line = tr("{0} del daño · {1}/s", _pct(100 * dmg / r.basis), thousands(dmg / r.seconds)) if dmg else ""
+    _text(p, QRectF(x, rect.top() + 160, 600, 28), tr("{0:.0f}% del aporte del grupo", best.points)
           + (f" · {line}" if line else ""), _font(17), MUTED)
     # what made it: one bar per kind of contribution
     bx = rect.left() + 820
@@ -202,12 +203,12 @@ def _mvp(p, r, icons, y):
 def _tiles(p, r, y):
     enc = r.enc
     members = [s.actor for s in r.ranked]
-    totals = [("Daño del grupo", sum(s.parts["damage"] for s in r.ranked), True),
-              ("Curación", sum(a.healing for a in members), False),
-              ("Escudos", sum(a.shielding for a in members), False),
-              ("Daño recibido", sum(a.taken for a in members), False),
-              ("Golpes evitados", sum(a.avoided_hits for a in members), False),
-              ("Aturdimiento", sum(a.stagger for a in members), False)]
+    totals = [(tr("Daño del grupo"), sum(s.parts["damage"] for s in r.ranked), True),
+              (tr("Curación"), sum(a.healing for a in members), False),
+              (tr("Escudos"), sum(a.shielding for a in members), False),
+              (tr("Daño recibido"), sum(a.taken for a in members), False),
+              (tr("Golpes evitados"), sum(a.avoided_hits for a in members), False),
+              (tr("Aturdimiento"), sum(a.stagger for a in members), False)]
     totals = [t for t in totals if t[1]]
     if not totals:
         return y
@@ -219,7 +220,7 @@ def _tiles(p, r, y):
         p.setBrush(CARD)
         p.drawRoundedRect(rect, 12, 12)
         _text(p, QRectF(rect.left() + 18, rect.top() + 12, w - 30, 22), title.upper(), _font(13, QFont.Bold), MUTED)
-        shown = str(int(value)) if title == "Golpes evitados" else compact_number(value)
+        shown = str(int(value)) if title == tr("Golpes evitados") else compact_number(value)
         _text(p, QRectF(rect.left() + 18, rect.top() + 36, w - 30, 34), shown, _font(26, QFont.Bold), TEXT)
         if rate:
             _text(p, QRectF(rect.left() + 18, rect.top() + 66, w - 30, 22),
@@ -227,10 +228,10 @@ def _tiles(p, r, y):
     return y + 94
 
 
-COLUMNS = [("#", 40, "l"), ("Jugador", 0, "l"), ("CP", 84, "r"), ("Daño", 96, "r"), ("DPS", 92, "r"),
-           ("%", 76, "r"), ("Crít.", 64, "r"), ("Curación", 98, "r"), ("Escudos", 90, "r"),
-           ("Recibido", 96, "r"), ("Evitados", 86, "r"), ("Muertes", 78, "r"), ("Reviv.", 70, "r"),
-           ("Aggro", 70, "r"), ("Puntos MVP", 150, "r")]
+COLUMNS = [("#", 40, "l"), (tr("Jugador"), 0, "l"), ("CP", 84, "r"), (tr("Daño"), 96, "r"), ("DPS", 92, "r"),
+           ("%", 76, "r"), (tr("Crít."), 64, "r"), (tr("Curación"), 98, "r"), (tr("Escudos"), 90, "r"),
+           (tr("Recibido"), 96, "r"), (tr("Evitados"), 86, "r"), (tr("Muertes"), 78, "r"), (tr("Reviv."), 70, "r"),
+           ("Aggro", 70, "r"), (tr("Puntos MVP"), 150, "r")]
 
 
 def _table(p, r, icons, y):
@@ -269,7 +270,7 @@ def _table(p, r, icons, y):
         body = _font(17, QFont.DemiBold if i == 1 else QFont.Normal)
         for (title, _, align), x, w, value in zip(COLUMNS, xs, widths, values):
             cell = QRectF(x, rect.top(), w - 8, rect.height())
-            if title == "Jugador":
+            if title == tr("Jugador"):
                 icon = icons.get(a.class_name)
                 side = rect.height() - 12
                 if icon is not None:
@@ -277,7 +278,7 @@ def _table(p, r, icons, y):
                 name = QFontMetrics(_font(18, QFont.Bold)).elidedText(_name(r, a), Qt.ElideRight, int(w - side - 20))
                 _text(p, QRectF(x + side + 10, rect.top(), w - side - 10, rect.height()), name, _font(18, QFont.Bold),
                       GOLD if i == 1 else TEXT)
-            elif title == "Puntos MVP":
+            elif title == tr("Puntos MVP"):
                 bar = QRectF(x, rect.center().y() + 9, w - 70, 5)
                 p.setPen(Qt.NoPen)
                 p.setBrush(QColor(255, 255, 255, 22))
@@ -294,7 +295,7 @@ def _table(p, r, icons, y):
         rect = QRectF(PAD, y, WIDTH - 2 * PAD, ROW_H - 4)
         dmg = sum(r.value(a) for a in r.outsiders)
         _text(p, QRectF(xs[1], rect.top(), widths[1] + 300, rect.height()),
-              f"Fuera de tu grupo: {len(r.outsiders)} jugadores (sin nombre)", _font(17), MUTED)
+              tr("Fuera de tu grupo: {0} jugadores (sin nombre)", len(r.outsiders)), _font(17), MUTED)
         for col, value in ((3, compact_number(dmg)), (4, thousands(dmg / r.seconds)),
                            (5, _pct(100 * dmg / r.basis))):
             _text(p, QRectF(xs[col], rect.top(), widths[col] - 8, rect.height()), value, _font(17), MUTED,
@@ -308,8 +309,8 @@ def _footer(p, y, height):
     _text(p, QRectF(PAD, y + 12, WIDTH - 2 * PAD, 70), FORMULA, _font(14), MUTED,
           Qt.AlignLeft | Qt.AlignTop | Qt.TextWordWrap)
     _text(p, QRectF(PAD, height - 34, WIDTH - 2 * PAD, 22),
-          f"{APP_NAME} {__version__} · github.com/fcastro93/aiondex · el % es sobre la vida que perdió el jefe "
-          f"(o sobre el daño de la pelea)", _font(13), QColor(139, 149, 171, 170))
+          tr("{0} {1} · github.com/fcastro93/aiondex · el % es sobre la vida que perdió el jefe (o sobre el daño de "
+             "la pelea)", APP_NAME, __version__), _font(13), QColor(139, 149, 171, 170))
 
 
 class ImageDialog(QDialog):
@@ -337,9 +338,9 @@ class ImageDialog(QDialog):
         row = QHBoxLayout()
         self.status = QLabel("")
         row.addWidget(self.status, 1)
-        copy = QPushButton("Copiar imagen")
+        copy = QPushButton(tr("Copiar imagen"))
         copy.clicked.connect(self._copy)
-        save = QPushButton("Guardar PNG…")
+        save = QPushButton(tr("Guardar PNG…"))
         save.setProperty("primary", True)
         save.clicked.connect(self._save)
         row.addWidget(copy)
@@ -348,7 +349,7 @@ class ImageDialog(QDialog):
 
     def _copy(self):
         QApplication.clipboard().setImage(self.image)
-        self.status.setText("Copiada: pégala en Discord o donde quieras (Ctrl+V).")
+        self.status.setText(tr("Copiada: pégala en Discord o donde quieras (Ctrl+V)."))
 
     def _save(self):
         folder = Path.home() / "Pictures" / APP_NAME
@@ -356,16 +357,16 @@ class ImageDialog(QDialog):
             folder.mkdir(parents=True, exist_ok=True)
         except OSError:
             folder = Path.home()
-        path, _ = QFileDialog.getSaveFileName(self, "Guardar informe", str(folder / self.file_name),
-                                              "Imagen PNG (*.png)")
+        path, _ = QFileDialog.getSaveFileName(self, tr("Guardar informe"), str(folder / self.file_name),
+                                              tr("Imagen PNG (*.png)"))
         if path:
             self.image.save(path, "PNG")
-            self.status.setText(f"Guardado en {path}")
+            self.status.setText(tr("Guardado en {0}", path))
 
 
 class ReportDialog(ImageDialog):
     """The fight report's preview."""
 
     def __init__(self, ctl, enc, parent=None):
-        name = f"informe-{_slug(enc.main_target or 'pelea')}-{time.strftime('%Y%m%d-%H%M', time.localtime(enc.last))}.png"
-        super().__init__(render(ctl, enc), name, "Informe de combate", parent)
+        name = tr("informe-{0}-{1}.png", _slug(enc.main_target or 'pelea'), time.strftime('%Y%m%d-%H%M', time.localtime(enc.last)))
+        super().__init__(render(ctl, enc), name, tr("Informe de combate"), parent)

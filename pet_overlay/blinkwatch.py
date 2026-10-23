@@ -12,6 +12,7 @@ from collections import Counter
 from ctypes import wintypes
 
 from PySide6.QtCore import QEvent, QObject, QTimer, Signal
+from .i18n import tr
 
 log = logging.getLogger(__name__)
 user32 = ctypes.windll.user32
@@ -31,8 +32,8 @@ SWP_NOZORDER = 0x0004
 GWL_EXSTYLE = -20
 WS_EX_TOPMOST = 0x00000008
 GW_HWNDPREV = 3
-KNOWN_OVERLAYS = {"discord.exe": "Discord (su overlay del juego)", "nvcontainer.exe": "NVIDIA (overlay de GeForce)",
-                  "nvidia share.exe": "NVIDIA (overlay de GeForce)", "gamebar.exe": "Xbox Game Bar",
+KNOWN_OVERLAYS = {"discord.exe": tr("Discord (su overlay del juego)"), "nvcontainer.exe": tr("NVIDIA (overlay de GeForce)"),
+                  "nvidia share.exe": tr("NVIDIA (overlay de GeForce)"), "gamebar.exe": "Xbox Game Bar",
                   "gamebarft.exe": "Xbox Game Bar", "steam.exe": "Steam (overlay)",
                   "gameoverlayui.exe": "Steam (overlay)", "rtss.exe": "RivaTuner / MSI Afterburner",
                   "msiafterburner.exe": "MSI Afterburner", "obs64.exe": "OBS", "medal.exe": "Medal",
@@ -226,81 +227,84 @@ class BlinkWatch(QObject):
         c = self.counts
         resizes = c["resize"]
         if resizes >= 3 and resizes / minutes >= 6:
-            checks.append(Check("Cambios de tamaño", "warn", f"El overlay cambió de tamaño {resizes} veces en "
-                                f"{int(seconds)} s. En algunos PCs cada cambio de tamaño de una ventana transparente "
-                                "se ve como un parpadeo."))
-            todo.append("Prueba el modo compacto (botón ⤡ de la cabecera) o un módulo que no cambie de tamaño, y "
-                        "dime si deja de parpadear.")
+            checks.append(Check(tr("Cambios de tamaño"), "warn", tr("El overlay cambió de tamaño {0} veces en {1} s. En "
+                                                                "algunos PCs cada cambio de tamaño de una ventana "
+                                                                "transparente se ve como un parpadeo.", resizes, int(seconds))))
+            todo.append(tr("Prueba el modo compacto (botón ⤡ de la cabecera) o un módulo que no cambie de tamaño, y "
+                           "dime si deja de parpadear."))
         else:
-            checks.append(Check("Cambios de tamaño", "ok", f"{resizes} en {int(seconds)} s."))
+            checks.append(Check(tr("Cambios de tamaño"), "ok", tr("{0} en {1} s.", resizes, int(seconds))))
         if c["hide"] or c["lost_topmost"]:
-            checks.append(Check("Se ocultó o dejó de estar encima", "bad",
-                                f"Se ocultó {c['hide']} veces y perdió el «siempre encima» {c['lost_topmost']} veces."))
-            todo.append("Algo está escondiendo el overlay: cierra los otros programas con ventanas encima del juego "
-                        "(mira abajo cuáles) y vuelve a probar.")
+            checks.append(Check(tr("Se ocultó o dejó de estar encima"), "bad",
+                                tr("Se ocultó {0} veces y perdió el «siempre encima» {1} veces.", c['hide'], c['lost_topmost'])))
+            todo.append(tr("Algo está escondiendo el overlay: cierra los otros programas con ventanas encima del "
+                           "juego (mira abajo cuáles) y vuelve a probar."))
         if c["zorder"] >= 3 and c["zorder"] / minutes >= 4:
-            checks.append(Check("Orden de las ventanas", "warn", f"Windows cambió {c['zorder']} veces el orden del "
-                                "overlay respecto a otras ventanas: otro programa se pone delante una y otra vez."))
+            checks.append(Check(tr("Orden de las ventanas"), "warn", tr("Windows cambió {0} veces el orden del overlay "
+                                                                    "respecto a otras ventanas: otro programa se "
+                                                                    "pone delante una y otra vez.", c['zorder'])))
         over = [(name, n) for name, n in self.above.most_common(6)]
         if over:
-            names = ", ".join(f"{KNOWN_OVERLAYS.get(n.lower(), n)} ({100 * k * POLL_MS / 1000 / seconds:.0f}% del "
-                              f"tiempo)" for n, k in over)
+            names = ", ".join(tr("{0} ({1:.0f}% del tiempo)", KNOWN_OVERLAYS.get(n.lower(), n), 100 * k * POLL_MS / 1000 / seconds) for n, k in over)
             level = "warn" if any(n.lower() in KNOWN_OVERLAYS for n, _ in over) else "info"
-            checks.append(Check("Ventanas encima del overlay", level, names))
+            checks.append(Check(tr("Ventanas encima del overlay"), level, names))
             if level == "warn":
-                todo.append("Desactiva el overlay dentro del juego de esos programas (Discord: Ajustes → Overlay del "
-                            "juego; NVIDIA: GeForce Experience → Overlay; Xbox Game Bar: Win+G → Ajustes).")
+                todo.append(tr("Desactiva el overlay dentro del juego de esos programas (Discord: Ajustes → Overlay "
+                               "del juego; NVIDIA: GeForce Experience → Overlay; Xbox Game Bar: Win+G → Ajustes)."))
         fullscreen = exclusive_fullscreen()
         if fullscreen:
-            checks.append(Check("Pantalla completa exclusiva", "bad", "El juego tiene la pantalla en modo exclusivo: "
-                                "Windows solo deja ver el overlay a ratos."))
-            todo.append("En AION 2 pon Pantalla → «Ventana sin bordes» (o Ventana).")
+            checks.append(Check(tr("Pantalla completa exclusiva"), "bad", tr("El juego tiene la pantalla en modo "
+                                                                         "exclusivo: Windows solo deja ver el "
+                                                                         "overlay a ratos.")))
+            todo.append(tr("En AION 2 pon Pantalla → «Ventana sin bordes» (o Ventana)."))
         elif fullscreen is False:
-            checks.append(Check("Pantalla completa exclusiva", "ok", "No: el juego no tiene la pantalla en modo "
-                                                                      "exclusivo."))
+            checks.append(Check(tr("Pantalla completa exclusiva"), "ok", tr("No: el juego no tiene la pantalla en modo "
+                                                                        "exclusivo.")))
         if self.refreshes:
             times = sorted(ms for _, ms, _ in self.refreshes)
             avg = sum(times) / len(times)
             slow = times[int(len(times) * 0.95) - 1] if len(times) > 1 else times[0]
             level = "warn" if slow > 60 or avg > 25 else "ok"
-            checks.append(Check("Redibujado", level, f"{len(times)} veces ({len(times) / seconds:.1f}/s), media "
-                                f"{avg:.0f} ms, el 5% más lento {slow:.0f} ms."))
+            checks.append(Check("Redibujado", level, tr("{0} veces ({1:.1f}/s), media {2:.0f} ms, el 5% más lento "
+                                                        "{3:.0f} ms.", len(times), len(times) / seconds, avg, slow)))
             if level == "warn":
-                todo.append("El PC tarda en redibujar el overlay: cierra programas pesados o baja «Tamaño de todo».")
+                todo.append(tr("El PC tarda en redibujar el overlay: cierra programas pesados o baja «Tamaño de "
+                               "todo»."))
         checks.append(Check("Pintados", "warn" if c["paint"] / seconds > 40 else "ok",
-                            f"{c['paint']} ({c['paint'] / seconds:.0f} por segundo)."))
+                            tr("{0} ({1:.0f} por segundo).", c['paint'], c['paint'] / seconds)))
         if c["wm_displaychange"] or c["wm_dpichanged"] or c["wm_dwmcompositionchanged"]:
-            checks.append(Check("Pantalla", "warn", f"Cambios de pantalla: resolución {c['wm_displaychange']}, escala "
-                                f"{c['wm_dpichanged']}, composición {c['wm_dwmcompositionchanged']}."))
+            checks.append(Check(tr("Pantalla"), "warn", tr("Cambios de pantalla: resolución {0}, escala {1}, "
+                                                       "composición {2}.", c['wm_displaychange'], c['wm_dpichanged'], c['wm_dwmcompositionchanged'])))
         cards = gpus()
         if len(cards) > 1:
-            checks.append(Check("Tarjetas gráficas", "info", " / ".join(cards) + ". Con dos gráficas (portátil), "
-                                "prueba a poner AionDex en «Alto rendimiento» en Windows → Pantalla → Gráficos."))
+            checks.append(Check(tr("Tarjetas gráficas"), "info", " / ".join(cards) + tr(". Con dos gráficas (portátil), "
+                                                                                    "prueba a poner AionDex en "
+                                                                                    "«Alto rendimiento» en Windows "
+                                                                                    "→ Pantalla → Gráficos.")))
         if not any(ch.level in ("warn", "bad") for ch in checks):
-            todo.append("En este minuto no vi nada raro. Si parpadeó mientras grababa, graba otra vez justo cuando "
-                        "pase y manda el informe.")
+            todo.append(tr("En este minuto no vi nada raro. Si parpadeó mientras grababa, graba otra vez justo "
+                           "cuando pase y manda el informe."))
         # evidence for the report
         from PySide6.QtGui import QGuiApplication
-        evidence.append("## Parpadeo: lo grabado")
-        evidence.append(f"duración={int(seconds)}s " + " ".join(f"{k}={v}" for k, v in sorted(c.items())))
-        evidence.append(f"Windows {platform.version()} · gráficas: {', '.join(cards) or '?'}")
+        evidence.append(tr("## Parpadeo: lo grabado"))
+        evidence.append(tr("duración={0}s ", int(seconds)) + " ".join(f"{k}={v}" for k, v in sorted(c.items())))
+        evidence.append(tr("Windows {0} · gráficas: {1}", platform.version(), ', '.join(cards) or '?'))
         for s in QGuiApplication.screens():
             g = s.geometry()
             evidence.append(f"pantalla {s.name()}: {g.width()}x{g.height()} escala {s.devicePixelRatio():g} "
                             f"{s.refreshRate():.0f} Hz")
-        evidence.append(f"Tamaño de todo={self.ctl.ui_scale_active:g} tamaño overlay={self.ctl.settings.get('scale')} "
-                        f"opacidad={self.ctl.settings.get('opacity')} compacto={self.ctl.settings.get('compact')} "
-                        f"módulo={self.ctl.active_module.key} pantalla_exclusiva={fullscreen}")
+        evidence.append(tr("Tamaño de todo={0:g} tamaño overlay={1} opacidad={2} compacto={3} módulo={4} "
+                           "pantalla_exclusiva={5}", self.ctl.ui_scale_active, self.ctl.settings.get('scale'), self.ctl.settings.get('opacity'), self.ctl.settings.get('compact'), self.ctl.active_module.key, fullscreen))
         if self.above:
-            evidence.append("encima del overlay: " + ", ".join(f"{n}×{k}" for n, k in self.above.most_common(10)))
+            evidence.append(tr("encima del overlay: ") + ", ".join(f"{n}×{k}" for n, k in self.above.most_common(10)))
         if self.foreground:
-            evidence.append("ventana activa: " + ", ".join(f"{n}×{k}" for n, k in self.foreground.most_common(8)))
+            evidence.append(tr("ventana activa: ") + ", ".join(f"{n}×{k}" for n, k in self.foreground.most_common(8)))
         if self.refreshes:
             per = Counter(m for _, _, m in self.refreshes)
-            evidence.append("redibujados por módulo: " + ", ".join(f"{m}={n}" for m, n in per.most_common()))
+            evidence.append(tr("redibujados por módulo: ") + ", ".join(f"{m}={n}" for m, n in per.most_common()))
         cpu1 = self._cpu()
         if self._cpu0 and cpu1:
             used = (cpu1.user + cpu1.system) - (self._cpu0.user + self._cpu0.system)
-            evidence.append(f"CPU de AionDex: {100 * used / seconds:.1f}% de un núcleo")
+            evidence.append(tr("CPU de AionDex: {0:.1f}% de un núcleo", 100 * used / seconds))
         evidence += [f"  +{t:5.1f}s {kind} {detail}" for t, kind, detail in self.events[:60]]
         return checks, todo, evidence

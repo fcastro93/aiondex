@@ -22,6 +22,7 @@ from . import market_ocr
 from .inventory import Inventory
 from .sales import Ledger
 from .professions import KNOWN_IDS
+from .i18n import N_, tr, tr_data
 
 log = logging.getLogger(__name__)
 FEE = 0.10                      # the market keeps 10% of every sale (the screen says it: "Current Tax Rate 10%")
@@ -64,14 +65,14 @@ class Shot:
 
     def caption(self):
         if not self.read:
-            return "Leyendo…"
+            return tr("Leyendo…")
         if self.error:
-            return f"No se pudo leer: {self.error}"
+            return tr("No se pudo leer: {0}", self.error)
         if self.kind == "list":
-            return f"Lista · {len(self.rows)} {'objeto' if len(self.rows) == 1 else 'objetos'}"
+            return tr("Lista · {0} {1}", len(self.rows), 'objeto' if len(self.rows) == 1 else 'objetos')
         if self.kind == "listings" and self.rows:
-            return f"Ofertas de {self.rows[0][0]} · {len(self.rows)}"
-        return "No parece el mercado"
+            return tr("Ofertas de {0} · {1}", self.rows[0][0], len(self.rows))
+        return tr("No parece el mercado")
 
 
 @dataclass
@@ -112,19 +113,19 @@ class Sales:
     def verdict(self):
         """(short text, kind) with kind "good" | "bad" | "none"."""
         if self.observations < 2:
-            return "sin datos", "none"
+            return tr("sin datos"), "none"
         unit = "uds." if self.by_offers else "ofertas"
         one = "ud." if self.by_offers else "oferta"
         if self.sold:
             if self.hours >= MIN_RATE_HOURS:
                 rate = self.per_day
                 if rate >= 1:
-                    return f"se vende · ~{rate:.0f} {unit}/día", "good"
-            return f"se vende · {self.sold} {one if self.sold == 1 else unit} en {span_text(self.hours)}", "good"
+                    return tr("se vende · ~{0:.0f} {1}/día", rate, unit), "good"
+            return tr("se vende · {0} {1} en {2}", self.sold, one if self.sold == 1 else unit, span_text(self.hours)), "good"
         if self.hours >= MIN_RATE_HOURS:
-            return "sin ventas vistas", "bad"
+            return tr("sin ventas vistas"), "bad"
         # from the list alone, new offers can hide sales: only the offers screen shows nothing was bought
-        return f"{'nada' if self.by_offers else 'sin bajas'} en {span_text(self.hours)}", "none"
+        return tr("{0} en {1}", 'nada' if self.by_offers else 'sin bajas', span_text(self.hours)), "none"
 
 
 @dataclass
@@ -245,12 +246,12 @@ class Crafting:
         db = _load(self.data_dir / "crafting_db.json", {})
         self.recipes = db.get("recipes", [])
         self.professions = {**db.get("professions", {}),
-                            MATERIALS: {"name": "Materiales",
-                                        "market": "materiales (Odyle, Ego, Mind, minerales, plantas…)"}}
+                            MATERIALS: {"name": tr("Materiales"),
+                                        "market": tr("materiales (Odyle, Ego, Mind, minerales, plantas…)")}}
         self.names = db.get("names", {})
         self.gear_names = set()               # every gear piece's name (the app's GearDB): the OCR snaps to them too
         self.inventory = Inventory(settings, db.get("ids", {}))      # your bag and storage, from the game
-        self.credit = db.get("credit")
+        self.credit = tr_data("crafting_db.json", db).get("credit")
         self.character = None            # who you are playing: profession levels are per character
         self._last_craft = None          # (when, recipe id, success) until its experience arrives
         self._synced = set()             # (character, profession id) whose level the game confirmed this session
@@ -507,17 +508,17 @@ class Crafting:
         m = self.material_info(name)
         parts = []
         if m.get("source") == "combo" and m.get("combo_of"):
-            parts.append(f"Sale como combo (25%) al craftear {m['combo_of']}.")
+            parts.append(tr("Sale como combo (25%) al craftear {0}.", m['combo_of']))
         mobs = m.get("mobs") or []
         if mobs:
-            parts.append("Lo sueltan: " + "; ".join(
-                f"{n} ({chance:g}%{f', nivel {lv[0]}–{lv[1]}' if lv else ''}{f', {where}' if where else ''})"
+            parts.append(tr("Lo sueltan: ") + "; ".join(
+                f"{n} ({chance:g}%" + (tr(", nivel {0}–{1}", lv[0], lv[1]) if lv else "") + (f", {where}" if where else "") + ")"
                 for n, chance, lv, _, where in mobs) + ".")
         drop = m.get("drop")
         if drop and not (drop[0] == "monster" and mobs):
             kind, source, detail, chance, per = drop
-            what = {"monster": "Lo suelta", "dungeon clear": "Sale en", "chest": "Sale de"}.get(kind, "Sale de")
-            per = {"kill": "por kill", "clear": "por clear", "opening": "por cofre"}.get(per, per)
+            what = {"monster": tr("Lo suelta"), "dungeon clear": "Sale en", "chest": "Sale de"}.get(kind, "Sale de")
+            per = {"kill": tr("por kill"), "clear": tr("por clear"), "opening": tr("por cofre")}.get(per, per)
             parts.append(f"{what} {source}{f' ({detail})' if detail else ''}: {chance * 100:g}% {per}.")
         return " ".join(parts)
 
@@ -653,7 +654,7 @@ class Crafting:
         for m in recipe["materials"]:
             if m["source"] != "npc" and self.mat_choice(m["name"], m["source"]) == "buy":
                 found = prices.get(m["name"])
-                parts.append(f"{m['name']} {found[0]:,.0f}" if found else f"{m['name']} sin precio")
+                parts.append(f"{m['name']} {found[0]:,.0f}" if found else tr("{0} sin precio", m['name']))
         return ", ".join(parts)
 
     def _recipe_for(self, product, faction):
@@ -979,7 +980,7 @@ class Crafting:
         crafted closest to its level give (median, within 10 levels), else (None, None)."""
         exp = self.expected_exp(row)
         if exp:
-            return exp, "visto"
+            return exp, N_("visto")
         near = []
         for other in rows:
             if other is row or abs(other.needs - row.needs) > NEAR_LEVELS:
@@ -994,7 +995,7 @@ class Crafting:
         values = sorted(v for _, v in near[:5])
         ok = values[len(values) // 2]
         s = row.success if row.success is not None else 1
-        return s * ok + (1 - s) * ok * FAIL_EXP, "estimado"
+        return s * ok + (1 - s) * ok * FAIL_EXP, N_("estimado")
 
     def leveling_plan(self, rows):
         """The recipes to level up with, best first: [(row, exp per attempt, "visto"/"estimado"/None, Kinah per

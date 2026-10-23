@@ -7,6 +7,7 @@ from .. import diagnostics
 from ..ui import theme
 from ..ui.appmenu import glyph_icon
 from ..ui.widgets import SectionTitle, label
+from ..i18n import tr
 
 GLYPH_HEALTH = ""       # medical / health check
 LEVEL_COLOR = {"warn": theme.WARN, "bad": theme.COMBAT}
@@ -33,14 +34,14 @@ class DiagnosticsPanel(QWidget):
                 item.widget().deleteLater()
         f = self.fonts
         if problems:
-            self.content.addWidget(SectionTitle("Problemas detectados", f))
+            self.content.addWidget(SectionTitle(tr("Problemas detectados"), f))
             for check in problems[:2 if compact else 5]:
                 self._line(f"● {check.title}: {check.detail}", LEVEL_COLOR[check.level])
         else:
-            self._line("Todo funciona.", theme.GAIN)
-            self._line("Si algo no va bien, abre el diagnóstico y elige el problema: AionDex busca la causa y lo "
-                       "arregla si puede.", theme.MUTED)
-        link = label("Abrir diagnóstico", f.name, theme.ACCENT)
+            self._line(tr("Todo funciona."), theme.GAIN)
+            self._line(tr("Si algo no va bien, abre el diagnóstico y elige el problema: AionDex busca la causa y lo "
+                          "arregla si puede."), theme.MUTED)
+        link = label(tr("Abrir diagnóstico"), f.name, theme.ACCENT)
         link.setAttribute(Qt.WA_TransparentForMouseEvents, False)
         link.setCursor(Qt.PointingHandCursor)
         link.on_click = self.ctl.open_diagnostics
@@ -57,7 +58,7 @@ class DiagnosticsPanel(QWidget):
 
 class DiagnosticsModule(Module):
     key = "diagnostics"
-    title = "Diagnóstico"
+    title = tr("Diagnóstico")
 
     def icon(self):
         return glyph_icon(GLYPH_HEALTH, theme.ACCENT, self.ctl.fonts.icons_family)
@@ -73,4 +74,4 @@ class DiagnosticsModule(Module):
     def render(self, compact):
         problems = open_problems(self.ctl)
         self.panel.render(compact, problems)
-        return ModuleView(summary=f"{len(problems)} aviso{'s' if len(problems) != 1 else ''}" if problems else "")
+        return ModuleView(summary=tr("{0} aviso{1}", len(problems), 's' if len(problems) != 1 else '') if problems else "")

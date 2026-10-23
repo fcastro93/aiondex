@@ -14,6 +14,7 @@ from collections import Counter, deque
 from dataclasses import dataclass, field
 
 from .protocol import read_varint
+from .i18n import tr
 
 PLAYER_SPAWN_OPCODE = bytes.fromhex("4536")
 IDLE_END = 8.0          # seconds without damage that end an encounter
@@ -256,19 +257,19 @@ class Encounter:
         outsiders = [a for a in others if a.name not in group_names]
         if len(outsiders) >= CROWD or boss_hp >= WORLD_BOSS_HP:
             if boss:
-                label = {"abismo": "Jefe del Abismo", "mundo": "Jefe de campo", "instancia": "Jefe de raid"}[place]
+                label = {"abismo": tr("Jefe del Abismo"), "mundo": tr("Jefe de campo"), "instancia": tr("Jefe de raid")}[place]
             else:
-                label = "Pelea en el Abismo" if place == "abismo" else "Pelea multitudinaria"
+                label = tr("Pelea en el Abismo") if place == "abismo" else tr("Pelea multitudinaria")
             return Activity("crowd", label, place, boss)
         if others:
             if place == "instancia":
-                label = "Jefe de mazmorra" if boss else "Mazmorra en grupo"
+                label = tr("Jefe de mazmorra") if boss else tr("Mazmorra en grupo")
             else:
-                label = "Jefe en grupo" if boss else ("Abismo en grupo" if place == "abismo" else "En grupo")
+                label = tr("Jefe en grupo") if boss else (tr("Abismo en grupo") if place == "abismo" else tr("En grupo"))
             return Activity("group_boss" if boss else "group", label, place, boss)
         if boss:
-            return Activity("solo_boss", "Jefe en solitario", place, boss)
-        return Activity("farm", "Abismo" if place == "abismo" else "Farmeo", place, boss)
+            return Activity("solo_boss", tr("Jefe en solitario"), place, boss)
+        return Activity("farm", tr("Abismo") if place == "abismo" else tr("Farmeo"), place, boss)
 
     def enemies(self, limit=None):
         """[(eid, name, hp ratio or None, dead, damage it dealt, damage it took)]: the main target first, then the
@@ -282,7 +283,7 @@ class Encounter:
             cur_max = self.hp.get(eid)
             dead = eid in self.dead
             ratio = 0.0 if dead else (max(0.0, min(1.0, cur_max[0] / cur_max[1])) if cur_max and cur_max[1] else None)
-            out.append((eid, self.target_names.get(eid) or "Enemigo", ratio, dead, self.enemy_damage[eid],
+            out.append((eid, self.target_names.get(eid) or tr("Enemigo"), ratio, dead, self.enemy_damage[eid],
                         self.targets[eid]))
         return out
 
@@ -427,10 +428,10 @@ class CombatTracker:
         """A monster came into view. Without a name (a variant no database lists) it is called by its HP, which
         tells the kinds apart; monsters that were around before AionDex listened have no spawn at all: "Enemigo"."""
         if not name and npc_id is not None and 2920000 <= npc_id < 2930000:
-            name = "Efecto enemigo"      # objects a monster leaves (they copy its HP): areas, totems, clones
+            name = tr("Efecto enemigo")      # objects a monster leaves (they copy its HP): areas, totems, clones
         elif not name:
-            name = (f"Jefe ({_hp_text(max_hp)} HP)" if max_hp and max_hp >= 300_000 else
-                    f"Enemigo ({_hp_text(max_hp)} HP)" if max_hp and max_hp >= 1000 else "Enemigo")
+            name = (tr("Jefe ({0} HP)", _hp_text(max_hp)) if max_hp and max_hp >= 300_000 else
+                    tr("Enemigo ({0} HP)", _hp_text(max_hp)) if max_hp and max_hp >= 1000 else tr("Enemigo"))
         if npc_id is not None:
             self.npc_ids[eid] = npc_id
         if boss is not None:
@@ -516,7 +517,7 @@ class CombatTracker:
         if hit.target in self.npc_names:
             enc.target_names[hit.target] = self.npc_names[hit.target]
         elif hit.target in self.players:          # the other side's players (Abyss, PvP): never named
-            enc.target_names.setdefault(hit.target, "Jugador enemigo")
+            enc.target_names.setdefault(hit.target, tr("Jugador enemigo"))
         if hit.target in self.max_hp:
             enc.target_max_hp[hit.target] = self.max_hp[hit.target]
         if hit.target in self.npc_ids:
@@ -658,7 +659,7 @@ class CombatTracker:
         self.recent.appendleft(enc)
         me = enc.actors.get(self.self_eid)
         if me and me.damage:
-            self.history.insert(0, EncounterSummary(enc.last, enc.main_target or "Pelea", enc.duration, me.damage,
+            self.history.insert(0, EncounterSummary(enc.last, enc.main_target or tr("Pelea"), enc.duration, me.damage,
                                                     enc.dps(me), me.damage / max(1, enc.total), enc.killed))
             del self.history[HISTORY_MAX:]
         return enc

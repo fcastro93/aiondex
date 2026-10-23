@@ -15,17 +15,18 @@ Item data (aion2data.com raw/items.json, the game's own tables) in data/gear_ite
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from .i18n import tr, tr_data
 
 INVENTORY_OPCODE = bytes.fromhex("1156")
 EQUIPPED = 0x0B
 SLOTS = {    # 1156 equipment position -> (key, name in Spanish)
-    1: ("weapon", "Arma"), 2: ("guard", "Guardia"), 3: ("helm", "Casco"), 4: ("shoulders", "Hombreras"),
-    5: ("chest", "Pecho"), 6: ("legs", "Grebas"), 7: ("gloves", "Guantes"), 8: ("boots", "Botas"),
-    10: ("necklace", "Collar"), 11: ("earring", "Pendiente"), 12: ("earring", "Pendiente"), 13: ("ring", "Anillo"),
-    14: ("ring", "Anillo"), 15: ("bracelet", "Brazalete"), 16: ("bracelet", "Brazalete"), 17: ("belt", "Cinturón"),
-    19: ("cloak", "Capa"), 22: ("amulet", "Amuleto"), 23: ("rune", "Runa"), 24: ("rune", "Runa"),
-    41: ("chalice", "Cáliz"), 42: ("parchment", "Pergamino"), 43: ("compass", "Brújula"), 44: ("bell", "Campana"),
-    45: ("mirror", "Espejo"),
+    1: ("weapon", tr("Arma")), 2: ("guard", tr("Guardia")), 3: ("helm", tr("Casco")), 4: ("shoulders", tr("Hombreras")),
+    5: ("chest", tr("Pecho")), 6: ("legs", tr("Grebas")), 7: ("gloves", tr("Guantes")), 8: ("boots", tr("Botas")),
+    10: ("necklace", tr("Collar")), 11: ("earring", tr("Pendiente")), 12: ("earring", tr("Pendiente")), 13: ("ring", tr("Anillo")),
+    14: ("ring", tr("Anillo")), 15: ("bracelet", tr("Brazalete")), 16: ("bracelet", tr("Brazalete")), 17: ("belt", tr("Cinturón")),
+    19: ("cloak", tr("Capa")), 22: ("amulet", tr("Amuleto")), 23: ("rune", tr("Runa")), 24: ("rune", tr("Runa")),
+    41: ("chalice", tr("Cáliz")), 42: ("parchment", tr("Pergamino")), 43: ("compass", tr("Brújula")), 44: ("bell", tr("Campana")),
+    45: ("mirror", tr("Espejo")),
 }
 POSITIONS = {}
 for _pos, (_key, _) in SLOTS.items():
@@ -328,7 +329,7 @@ class GearDB:
             data = json.loads(Path(path).read_text(encoding="utf-8"))
         except (OSError, ValueError):
             data = {}
-        self.credit = data.get("credit", {})
+        self.credit = tr_data("gear_items.json", data).get("credit", {})
         self.by_id, self.by_name = {}, {}
         for ids, name, slot, category, grade, level, required, faction in data.get("items", []):
             item = Item(tuple(ids), name, slot, category, grade, level, required, faction)
@@ -353,18 +354,18 @@ class Verdict:
     @property
     def text(self):
         if self.kind == "class":
-            return "No es un arma de tu clase."
+            return tr("No es un arma de tu clase.")
         if self.kind == "level":
-            return "Necesitas más nivel para usarlo."
+            return tr("Necesitas más nivel para usarlo.")
         if self.kind == "faction":
-            return "Es de la otra facción."
+            return tr("Es de la otra facción.")
         if self.mine is None:
-            return f"No llevas nada en {self.slot.lower()}: te sirve."
-        yours = f"{self.mine.name} +{self.mine_enchant} (nivel de objeto {self.mine_level})"
-        return {"upgrade": f"Mejora tu {self.slot.lower()}: {yours}.",
-                "base": f"Mejor base que tu {self.slot.lower()} ({self.mine.name}, {self.mine.level}), pero el tuyo "
-                        f"gana hoy con su +{self.mine_enchant} ({self.mine_level}): vale la pena si lo mejoras.",
-                "no": f"Tu {self.slot.lower()} es mejor: {yours}."}[self.kind]
+            return tr("No llevas nada en {0}: te sirve.", self.slot.lower())
+        yours = tr("{0} +{1} (nivel de objeto {2})", self.mine.name, self.mine_enchant, self.mine_level)
+        return {"upgrade": tr("Mejora tu {0}: {1}.", self.slot.lower(), yours),
+                "base": tr("Mejor base que tu {0} ({1}, {2}), pero el tuyo gana hoy con su +{3} ({4}): vale la pena "
+                           "si lo mejoras.", self.slot.lower(), self.mine.name, self.mine.level, self.mine_enchant, self.mine_level),
+                "no": tr("Tu {0} es mejor: {1}.", self.slot.lower(), yours)}[self.kind]
 
 
 def verdict(item, gear, db):

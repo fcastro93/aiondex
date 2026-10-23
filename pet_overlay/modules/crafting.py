@@ -17,6 +17,7 @@ from ..ui import theme
 from ..ui.appmenu import glyph_icon
 from ..ui.dps_panel import short_number
 from ..ui.widgets import SectionTitle, label
+from ..i18n import tr
 
 GLYPH_CRAFT = ""          # repair (hammer and wrench)
 GLYPH_MARKET = ""         # shopping cart
@@ -107,8 +108,8 @@ class CraftingPanel(_Panel):
         self._head(self._profession())
         rows = crafting.recipe_rows(self.ctl.crafting_faction(), bound=True)
         if not crafting.inventory.read_at(crafting.levels_character):
-            self._line("Entra al juego con tu personaje: AionDex lee su bolsa y su almacén y aquí verás lo que "
-                       "puedes craftear con lo que tienes.", theme.MUTED)
+            self._line(tr("Entra al juego con tu personaje: AionDex lee su bolsa y su almacén y aquí verás lo que "
+                          "puedes craftear con lo que tienes."), theme.MUTED)
         else:
             ready = []
             for row in rows:
@@ -117,15 +118,15 @@ class CraftingPanel(_Panel):
                     ready.append((makes[0], row))
             ready.sort(key=lambda e: (-e[1].needs, -e[0]))
             if ready:
-                self.content.addWidget(SectionTitle("Puedes hacer ya", self.fonts))
+                self.content.addWidget(SectionTitle(tr("Puedes hacer ya"), self.fonts))
                 for times, row in ready[:ROWS[compact]]:
                     self._row(row.product.replace(" (Bound)", ""), f"× {times}", theme.GAIN)
                 if len(ready) > ROWS[compact]:
-                    self._line(f"y {len(ready) - ROWS[compact]} recetas más", theme.MUTED)
+                    self._line(tr("y {0} recetas más", len(ready) - ROWS[compact]), theme.MUTED)
             else:
-                self._line("Con lo que tienes no te alcanza para ninguna receta: mira qué te falta en Crafting.",
+                self._line(tr("Con lo que tienes no te alcanza para ninguna receta: mira qué te falta en Crafting."),
                            theme.MUTED)
-        self._open("Abrir Crafting (recetas y materiales)", "crafting")
+        self._open(tr("Abrir Crafting (recetas y materiales)"), "crafting")
 
 
 class MarketPanel(_Panel):
@@ -135,31 +136,31 @@ class MarketPanel(_Panel):
         f, crafting = self.fonts, self.ctl.crafting
         prof = crafting.professions.get(crafting.profession, {})
         hotkey = self.ctl.settings['hotkeys'].get('crafting_scan', '')
-        self._head(prof.get("name", crafting.profession), f"Escanear ({hotkey})".replace(" ()", ""),
+        self._head(prof.get("name", crafting.profession), tr("Escanear ({0})", hotkey).replace(" ()", ""),
                    self.ctl.crafting_scan)
         shots = crafting.shots
         if shots:
             reading = sum(1 for s in shots if not s.read)
-            text = f"{len(shots)} {'captura' if len(shots) == 1 else 'capturas'} por procesar"
+            text = tr("{0} {1} por procesar", len(shots), tr("captura") if len(shots) == 1 else tr("capturas"))
             if reading:
-                text += f" · leyendo {reading}…"
+                text += tr(" · leyendo {0}…", reading)
             self._line(text, theme.GOLD)
-            self._line(f"Última: {shots[-1].caption()}", theme.MUTED)
-            self.content.addWidget(self._link("Revisar y procesar", lambda: self.ctl.open_crafting("shots")))
+            self._line(tr("Última: {0}", shots[-1].caption()), theme.MUTED)
+            self.content.addWidget(self._link(tr("Revisar y procesar"), lambda: self.ctl.open_crafting("shots")))
         elif not crafting.samples:
-            self._line(f"Abre el mercado en «{prof.get('market', '…')}», pulsa Escanear en cada página y luego "
-                       f"procesa las capturas: verás qué vale la pena craftear.", theme.MUTED)
+            self._line(tr("Abre el mercado en «{0}», pulsa Escanear en cada página y luego procesa las capturas: "
+                          "verás qué vale la pena craftear.", prof.get('market', '…')), theme.MUTED)
         today = self._sales_today()
         if today:
             self._line(today, theme.GAIN)
         rows = crafting.recommend(crafting.recipe_rows(self.ctl.crafting_faction()), n=ROWS[compact])
         if rows:
             level = crafting.level()
-            self.content.addWidget(SectionTitle(f"Más rentable ({level_text(level)}, por intento)" if level else
-                                                "Más rentable (por intento)", f))
+            self.content.addWidget(SectionTitle(tr("Más rentable ({0}, por intento)", level_text(level)) if level else
+                                                tr("Más rentable (por intento)"), f))
             for row in rows[:ROWS[compact]]:
                 self._row(row.product, money(row.profit, sign=True), theme.GAIN if row.profit > 0 else theme.COMBAT)
-        self._open("Abrir Market", "market")
+        self._open(tr("Abrir Market"), "market")
 
     def _sales_today(self):
         """'Ventas hoy: 4 · cobrado 261K · +14K' from the sales ledger, or ""."""
@@ -170,7 +171,7 @@ class MarketPanel(_Panel):
         if not sales:
             return ""
         t = ledger.totals(sales)
-        return (f"Ventas hoy: {t['count']} · cobrado {money(t['net'])}"
+        return (tr("Ventas hoy: {0} · cobrado {1}", t['count'], money(t['net']))
                 + (f" · {money(t['profit'], sign=True)}" if t["count"] > t["unknown"] else ""))
 
 
@@ -182,24 +183,24 @@ class LevelingPanel(_Panel):
         self._head(self._profession())
         level = crafting.level()
         if level is None:
-            self._line("Entra al juego con tu personaje (AionDex lee el nivel de cada profesión) o escríbelo en la "
-                       "ventana.", theme.MUTED)
+            self._line(tr("Entra al juego con tu personaje (AionDex lee el nivel de cada profesión) o escríbelo en "
+                          "la ventana."), theme.MUTED)
         else:
             exp, needed = crafting.game_exp(), crafting.level_exp()
             if exp is not None and needed:
-                self._line(f"{exp:,} / {needed:,} de experiencia en el nivel", theme.MUTED)
+                self._line(tr("{0:,} / {1:,} de experiencia en el nivel", exp, needed), theme.MUTED)
             plan = crafting.leveling_plan(crafting.recipe_rows(self.ctl.crafting_faction(), bound=True))
             if plan:
-                self.content.addWidget(SectionTitle("Para subir (Kinah por exp)", self.fonts))
+                self.content.addWidget(SectionTitle(tr("Para subir (Kinah por exp)"), self.fonts))
                 for row, exp_per, how, value, per in plan[:ROWS[compact]]:
                     right = (f"{money(per, sign=True)}/exp" if per is not None else f"{money(value, sign=True)} ?")
                     line = self._row(row.product.replace(" (Bound)", ""), right,
                                      theme.GAIN if (per if per is not None else value) >= 0 else theme.TEXT)
-                    line.setToolTip(f"{exp_per:.0f} exp por intento ({how})" if exp_per else
-                                    "Experiencia aún no vista: craftéala una vez")
+                    line.setToolTip(tr("{0:.0f} exp por intento ({1})", exp_per, tr(how)) if exp_per else
+                                    tr("Experiencia aún no vista: craftéala una vez"))
             else:
-                self._line("Falta el precio de los materiales de tu nivel: escanéalos en el mercado.", theme.MUTED)
-        self._open("Abrir la guía para subir", "leveling")
+                self._line(tr("Falta el precio de los materiales de tu nivel: escanéalos en el mercado."), theme.MUTED)
+        self._open(tr("Abrir la guía para subir"), "leveling")
 
 
 class GatheringPanel(_Panel):
@@ -207,22 +208,22 @@ class GatheringPanel(_Panel):
 
     def fill(self, compact):
         ctl = self.ctl
-        self._head("Recolección")
+        self._head(tr("Recolección"))
         route = (ctl.settings.get("crafting") or {}).get("minimap_route")
         overlay = getattr(ctl, "minimap_overlay", None)
         if route and overlay is not None and overlay.material:
-            self._line(f"Ruta en el minimapa: {overlay.material}", theme.GAIN)
+            self._line(tr("Ruta en el minimapa: {0}", overlay.material), theme.GAIN)
         recent = [n for n in ctl.crafting.config.get("recent_gather", []) if ctl.gathering.has(n)]
         if recent:
-            self.content.addWidget(SectionTitle("Vistos hace poco", self.fonts))
+            self.content.addWidget(SectionTitle(tr("Vistos hace poco"), self.fonts))
             for name in recent[:ROWS[compact]]:
                 link = self._link(f"⌖ {name}", lambda n=name: ctl.open_gather_map(n))
                 link.setContentsMargins(self.fonts.px(4), 0, 0, 0)
                 self.content.addWidget(link)
         else:
-            self._line("Busca un material por su nombre y abre su mapa: sus puntos, la mejor zona y la ruta.",
+            self._line(tr("Busca un material por su nombre y abre su mapa: sus puntos, la mejor zona y la ruta."),
                        theme.MUTED)
-        self._open("Buscar material…", "gathering")
+        self._open(tr("Buscar material…"), "gathering")
 
 
 class _ProfessionsModule(Module):
@@ -260,7 +261,7 @@ class MarketModule(_ProfessionsModule):
 
 class LevelingModule(_ProfessionsModule):
     key = "leveling"
-    title = "Levear"
+    title = tr("Levear")
     glyph = GLYPH_LEVEL
     panel_class = LevelingPanel
 

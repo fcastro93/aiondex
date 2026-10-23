@@ -15,12 +15,13 @@ from ..status import countdown, next_weekly
 from ..ui import theme
 from ..ui.appmenu import glyph_icon
 from ..ui.widgets import ProgressBar, SectionTitle, label
+from ..i18n import tr
 
 GLYPH_MISSIONS = ""        # star (Segoe MDL2 / Fluent)
 GLYPH_ACHIEVEMENTS = ""    # flag
 ROWS = {True: 3, False: 8}
 TIPS = {True: 2, False: 4}       # recommendations shown when nothing moves where you are
-PERIOD = {"weekly": "semanal", "season": "temporada", "permanent": ""}
+PERIOD = {"weekly": tr("semanal"), "season": tr("temporada"), "permanent": ""}
 
 
 class ProgressPanel(QWidget):
@@ -45,14 +46,14 @@ class ProgressPanel(QWidget):
         name = self.ctl.missions_character(ms)
         faction = self.ctl.crafting_faction()
         if not ms.available:
-            self._line("Falta su lista (data/*_db.json).", theme.WARN)
+            self._line(tr("Falta su lista (data/*_db.json)."), theme.WARN)
         elif name is None or (self.ctl.character_name() and name != self.ctl.character_name()):
             playing = self.ctl.character_name()
-            self._line(f"Aún no leí los de {playing}: el juego los manda al entrar y en cada cambio de servidor. Si "
-                       f"acabas de entrar y no salen, entra y sal de una mazmorra, del Abismo o de la Arena (o cambia de "
-                       f"canal) y aparecen." if playing else
-                       "Entra con tu personaje con AionDex abierto: aquí verás tu progreso y lo que puedes avanzar "
-                       "donde estés.", theme.MUTED)
+            self._line(tr("Aún no leí los de {0}: el juego los manda al entrar y en cada cambio de servidor. Si "
+                          "acabas de entrar y no salen, entra y sal de una mazmorra, del Abismo o de la Arena (o "
+                          "cambia de canal) y aparecen.", playing) if playing else
+                       tr("Entra con tu personaje con AionDex abierto: aquí verás tu progreso y lo que puedes "
+                          "avanzar donde estés."), theme.MUTED)
         else:
             place, tags = self.ctl.missions_place(ms)
             here = ms.for_place(name, faction, tags, now) if tags else []
@@ -61,34 +62,32 @@ class ProgressPanel(QWidget):
             if expiring:
                 ready = sum(1 for _, p, _ in expiring if p.ready)
                 left = min(d for _, _, d in expiring) - now
-                self._line(f"Expiran en {countdown(left)}: {len(expiring)} sin terminar"
-                           + (f" ({ready} con recompensa por recoger)" if ready else ""), theme.WARN)
+                self._line(tr("Expiran en {0}: {1} sin terminar", countdown(left), len(expiring))
+                           + (tr(" ({0} con recompensa por recoger)", ready) if ready else ""), theme.WARN)
             for m, p in here[:ROWS[compact]]:
                 self.content.addWidget(self._row(m, p, faction))
             if len(here) > ROWS[compact]:
-                self._line(f"y {len(here) - ROWS[compact]} más aquí (expande o abre la ventana)", theme.MUTED)
+                self._line(tr("y {0} más aquí (expande o abre la ventana)", len(here) - ROWS[compact]), theme.MUTED)
             if len(here) < 2:                    # little or nothing here: the easy ones from anywhere too
                 tips = ms.recommend(name, faction, now, skip={m.id for m, _ in here})[:TIPS[compact]]
                 if tips:
-                    self._line("Aquí no avanza nada que te falte. Fáciles desde cualquier lado:" if tags and not here
-                               else "También, fáciles desde cualquier lado:" if here else
-                               "Fáciles desde cualquier lado (o en una instancia a la que entras tú):", theme.MUTED)
+                    self._line(tr("Aquí no avanza nada que te falte. Fáciles desde cualquier lado:") if tags and not here
+                               else tr("También, fáciles desde cualquier lado:") if here else
+                               tr("Fáciles desde cualquier lado (o en una instancia a la que entras tú):"), theme.MUTED)
                 for m, p in tips:
                     self.content.addWidget(self._row(m, p, faction))
             ready = ms.ready(name, now)
             if ready:
-                self._line(f"Recompensas para recoger en el juego: {sum(p.ready for _, p in ready)} "
-                           f"({', '.join(m.view(faction)[0] for m, _ in ready[:2])}{'…' if len(ready) > 2 else ''})",
+                self._line(tr("Recompensas para recoger en el juego: {0} ({1}{2})", sum(p.ready for _, p in ready), ', '.join(m.view(faction)[0] for m, _ in ready[:2]), '…' if len(ready) > 2 else ''),
                            theme.GOLD)
             if any(m.period == "weekly" for m in ms.db.values()):
                 done, total = ms.week_summary(name, now)
-                self._line(f"Semanales: {done}/{total} hechas · reinicio en {countdown(next_weekly(now) - now)}",
+                self._line(tr("Semanales: {0}/{1} hechas · reinicio en {2}", done, total, countdown(next_weekly(now) - now)),
                            theme.MUTED)
             else:
                 _, totals = ms.stats(name, now)
-                self._line(f"Completos {totals.done}/{totals.count} ({totals.pct(totals.done):.0f}%) · pasos "
-                           f"{totals.steps_pct:.0f}%", theme.MUTED)
-        link = label("Ver todo y el resumen", f.name, theme.ACCENT)
+                self._line(tr("Completos {0}/{1} ({2:.0f}%) · pasos {3:.0f}%", totals.done, totals.count, totals.pct(totals.done), totals.steps_pct), theme.MUTED)
+        link = label(tr("Ver todo y el resumen"), f.name, theme.ACCENT)
         link.setAttribute(Qt.WA_TransparentForMouseEvents, False)
         link.setCursor(Qt.PointingHandCursor)
         link.on_click = self.open_window
@@ -102,7 +101,7 @@ class ProgressPanel(QWidget):
         tab = self.model.tabs.get(m.tab, m.tab)
         row = QWidget()
         row.setToolTip(f"{text}\n{tab}" + (f" · {PERIOD[m.period]}" if PERIOD.get(m.period) else "") +
-                       f" · paso {p.step}/{p.total}" + (f"\nRecompensas (todos los pasos): {m.rewards}"
+                       tr(" · paso {0}/{1}", p.step, p.total) + (tr("\nRecompensas (todos los pasos): {0}", m.rewards)
                                                         if m.rewards else ""))
         lay = QVBoxLayout(row)
         lay.setContentsMargins(f.px(4), f.px(1), f.px(2), f.px(1))
@@ -111,12 +110,12 @@ class ProgressPanel(QWidget):
         top.setSpacing(f.px(6))
         top.addWidget(label(mission_name, f.name, theme.TEXT, elide=True), 1)
         if p.ready:
-            top.addWidget(label("¡recógela!", f.small, theme.GOLD))
+            top.addWidget(label(tr("¡recógela!"), f.small, theme.GOLD))
         top.addWidget(label(f"{amount(m, p.count)}/{amount(m, p.target)}", f.name,
                             theme.GOLD if p.ready else theme.TEXT))
         lay.addLayout(top)
         lay.addWidget(ProgressBar(p.ratio, theme.GOLD if p.ready else theme.ACCENT, f.px(4)))
-        bits = [text, f"paso {p.step}/{p.total}", PERIOD.get(m.period) or tab]
+        bits = [text, tr("paso {0}/{1}", p.step, p.total), PERIOD.get(m.period) or tab]
         lay.addWidget(label(" · ".join(b for b in bits if b), f.small, theme.MUTED, elide=True))
         if m.rewards:
             from ..ui.missionswindow import rewards_text
@@ -152,12 +151,12 @@ class MissionsModule(Module):
         self.panel.render(compact)
         name = self.ctl.missions_character(self.model())
         ready = sum(p.ready for _, p in self.model().ready(name)) if name else 0
-        return ModuleView(summary=f"{ready} para recoger" if ready else "")
+        return ModuleView(summary=tr("{0} para recoger", ready) if ready else "")
 
 
 class AchievementsModule(MissionsModule):
     key = "achievements"
-    title = "Logros"
+    title = tr("Logros")
     glyph, color = GLYPH_ACHIEVEMENTS, "ACCENT"
 
     def model(self):

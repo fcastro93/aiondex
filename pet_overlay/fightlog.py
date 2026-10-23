@@ -19,6 +19,7 @@ from dataclasses import fields
 from pathlib import Path
 
 from .combat import ActorStats, Encounter, in_instance
+from .i18n import tr
 
 log = logging.getLogger(__name__)
 KEEP_HOURS = 48
@@ -36,7 +37,7 @@ def worth_keeping(enc, group):
 def aliases(enc, group):
     """eid -> "Jugador N" for the players outside your group, numbered by damage (as the meter shows them)."""
     outsiders = sorted((a for a in enc.actors.values() if not (a.is_self or a.name in group)), key=lambda a: -a.damage)
-    return {a.eid: f"Jugador {i}" for i, a in enumerate(outsiders, 1)}
+    return {a.eid: tr("Jugador {0}", i) for i, a in enumerate(outsiders, 1)}
 
 
 def summary(enc, group):
@@ -45,7 +46,7 @@ def summary(enc, group):
     boss = enc.main_target_eid if enc.activity(group).boss else None
     mine = (me.by_target[boss] if boss is not None else me.damage) if me else 0
     total = (enc.targets[boss] if boss is not None else enc.total) or 1
-    return {"id": enc.id, "start": enc.start, "last": enc.last, "target": enc.main_target or "Pelea",
+    return {"id": enc.id, "start": enc.start, "last": enc.last, "target": enc.main_target or tr("Pelea"),
             "label": enc.activity(group).label, "duration": enc.fight_time(group), "killed": enc.killed,
             "damage": mine, "dps": mine / enc.fight_time(group), "share": mine / total, "players": len(enc.dealers()),
             "pinned": enc.pinned, "place": enc.place, "map_id": enc.map_id, "instance": in_instance(enc.map_id),
@@ -199,7 +200,7 @@ class FightLog:
     def rename(self, npc_db, place_of, final_of=None):
         """Saved fights whose monsters had no name then (a new dungeon or difficulty the database did not have:
         "Jefe (2.9M HP)") get their names and their dungeon now that it has them."""
-        generic = ("Jefe (", "Enemigo (", "Enemigo")
+        generic = (tr("Jefe ("), tr("Enemigo"), "Jefe (", "Enemigo")     # and the fights saved in the other language
         changed = 0
         for entry in self.index:
             if not (entry.get("target", "").startswith(generic) or entry.get("place") in ("Mazmorra", "")):

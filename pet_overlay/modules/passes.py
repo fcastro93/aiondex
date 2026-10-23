@@ -11,6 +11,7 @@ from ..status import countdown, next_weekly
 from ..ui import theme
 from ..ui.appmenu import glyph_icon
 from ..ui.widgets import ProgressBar, SectionTitle, label
+from ..i18n import tr
 
 GLYPH_PASS = ""            # ribbon / badge
 OTHERS = {True: 0, False: 4}     # other characters shown (compact / expanded)
@@ -36,15 +37,15 @@ class PassesPanel(QWidget):
         names = ps.names(now, playing)
         name = playing if playing in names else (names[0] if names else None)
         if name is None:
-            self._line("Entra con tu personaje con AionDex abierto: aquí verás su Daeva Pass (nivel, EXP de la semana "
-                       "contra el tope y las recompensas por recoger).", theme.MUTED)
+            self._line(tr("Entra con tu personaje con AionDex abierto: aquí verás su Daeva Pass (nivel, EXP de la "
+                          "semana contra el tope y las recompensas por recoger)."), theme.MUTED)
         else:
             self.content.addWidget(SectionTitle(f"Daeva Pass · {name}", f))
             for pid, info, s in ps.of(name, now):
                 self._pass(pid, info, s, ps, now, compact)
             others = [n for n in names if n != name][:OTHERS[compact]]
             if others:
-                self.content.addWidget(SectionTitle("Tus otros personajes", f))
+                self.content.addWidget(SectionTitle(tr("Tus otros personajes"), f))
                 for other in others:
                     bits = []
                     for pid, info, s in ps.of(other, now):
@@ -54,7 +55,7 @@ class PassesPanel(QWidget):
                         bits.append(f"{_short(info.get('title'))} Lv {lv[0] if lv else '?'}"
                                     + (" ✓" if full else f" ({s.weekly * 100 // cap}%)" if cap else ""))
                     self._line(f"{other}: " + " · ".join(bits), theme.TEXT)
-            self._line(f"La EXP semanal vuelve a cero el miércoles (en {countdown(next_weekly(now) - now)})",
+            self._line(tr("La EXP semanal vuelve a cero el miércoles (en {0})", countdown(next_weekly(now) - now)),
                        theme.MUTED)
         self.adjustSize()
 
@@ -64,7 +65,7 @@ class PassesPanel(QWidget):
         cap = weekly_limit(pid)
         head = QHBoxLayout()
         head.setSpacing(f.px(6))
-        title = info.get("title") or f"Pase {pid}"
+        title = info.get("title") or tr("Pase {0}", pid)
         head.addWidget(label(title, f.name, theme.TEXT, elide=True), 1)
         head.addWidget(label(f"Lv {lv[0]}" if lv else f"{s.exp:,} EXP", f.name, theme.GOLD))
         holder = QWidget()
@@ -76,14 +77,14 @@ class PassesPanel(QWidget):
         if cap:
             full = s.weekly >= cap
             self._bar(min(1.0, s.weekly / cap), theme.GOLD if full else theme.GAIN,
-                      f"Semana {s.weekly:,}/{cap:,}" + (" · tope alcanzado" if full else
-                                                         f" · faltan {cap - s.weekly:,}"))
+                      tr("Semana {0:,}/{1:,}", s.weekly, cap) + (tr(" · tope alcanzado") if full else
+                                                         tr(" · faltan {0:,}", cap - s.weekly)))
         waiting = ps.waiting(s)
         end = info.get("end")
-        bits = ["Premium" if s.premium else "Básico",
-                f"termina en {countdown(end - now)}" if end and end > now else ""]
+        bits = ["Premium" if s.premium else tr("Básico"),
+                tr("termina en {0}", countdown(end - now)) if end and end > now else ""]
         if waiting:
-            bits.append(f"{waiting} {'recompensa' if waiting == 1 else 'recompensas'} por recoger")
+            bits.append(tr("1 recompensa por recoger") if waiting == 1 else tr("{0} recompensas por recoger", waiting))
         self._line(" · ".join(b for b in bits if b), theme.GOLD if waiting else theme.MUTED, indent=6)
 
     def _bar(self, ratio, color, text):
@@ -109,7 +110,7 @@ def _short(title):
 
 class PassesModule(Module):
     key = "passes"
-    title = "Pase"
+    title = tr("Pase")
 
     def icon(self):
         return glyph_icon(GLYPH_PASS, theme.ACCENT, self.ctl.fonts.icons_family)
@@ -123,4 +124,4 @@ class PassesModule(Module):
         ps = self.ctl.passes
         name = self.ctl.character_name()
         waiting = sum(ps.waiting(s) for _, _, s in ps.of(name)) if name else 0
-        return ModuleView(summary=f"{waiting} por recoger" if waiting else "")
+        return ModuleView(summary=tr("{0} por recoger", waiting) if waiting else "")

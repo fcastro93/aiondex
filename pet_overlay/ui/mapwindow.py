@@ -11,10 +11,11 @@ from .mapview import MapView, show_you
 from .theme import Fonts
 from .tiles import TileCache
 from .widgets import PetIcon, ProgressBar, label
+from ..i18n import tr
 
 OTHER_COLORS = ["#4fc3f7", "#7bd88f", "#ff9f5a", "#b48cff", "#ff7aa8", "#5ee0d0", "#c6e05a", "#ff6b6b",
                 "#8fb2ff", "#e0a0ff"]
-FACTION_CHOICES = [("auto", "Auto"), ("elyos", "Elyos"), ("asmodian", "Asmodian"), ("all", "Todas")]
+FACTION_CHOICES = [("auto", "Auto"), ("elyos", "Elyos"), ("asmodian", "Asmodian"), ("all", tr("Todas"))]
 
 STYLE = f"""
 QWidget#MapWindow {{ background: {theme.WINDOW_BG.name()}; }}
@@ -85,7 +86,7 @@ class MapWindow(QWidget):
         self.data = ctl.mapdata
         self.fonts = Fonts(1.0)
         self.setObjectName("MapWindow")
-        self.setWindowTitle(f"{APP_NAME} — Mapa de pets")
+        self.setWindowTitle(tr("{0} — Mapa de pets", APP_NAME))
         self.setWindowIcon(ctl.app_icon)
         self.setStyleSheet(STYLE)
         self.resize(1320, 800)
@@ -127,14 +128,14 @@ class MapWindow(QWidget):
         head.addWidget(badge_label(34, self.devicePixelRatioF()))
         title = QVBoxLayout()
         title.setSpacing(0)
-        title.addWidget(label("Mapa de pets", self.fonts.name_big, theme.TEXT))
+        title.addWidget(label(tr("Mapa de pets"), self.fonts.name_big, theme.TEXT))
         self.subtitle = label("", self.fonts.small, theme.MUTED)
         title.addWidget(self.subtitle)
         head.addLayout(title, 1)
         sv.addLayout(head)
 
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Buscar pet…")
+        self.search.setPlaceholderText(tr("Buscar pet…"))
         names = sorted({self.ctl.pet_info(int(pid))[1] for pid in self.ctl.db})
         self._name_to_id = {self.ctl.pet_info(int(pid))[1].lower(): int(pid) for pid in self.ctl.db}
         completer = QCompleter(QStringListModel(names, self), self)
@@ -147,7 +148,7 @@ class MapWindow(QWidget):
         sv.addWidget(self.search)
 
         frow = QHBoxLayout()
-        frow.addWidget(label("Facción", self.fonts.small, theme.MUTED))
+        frow.addWidget(label(tr("Facción"), self.fonts.small, theme.MUTED))
         self.faction_box = QComboBox()
         for key, text in FACTION_CHOICES:
             self.faction_box.addItem(text, key)
@@ -166,7 +167,7 @@ class MapWindow(QWidget):
         self.panel.setSpacing(4)
         scroll.setWidget(holder)
         sv.addWidget(scroll, 1)
-        self.footer = label("Datos y mapa: metabot.gg", self.fonts.small, theme.MUTED)
+        self.footer = label(tr("Datos y mapa: metabot.gg"), self.fonts.small, theme.MUTED)
         sv.addWidget(self.footer)
         root.addWidget(side)
         self._update_faction_label()
@@ -194,16 +195,16 @@ class MapWindow(QWidget):
         here = self.ctl.location_faction()
         own = self.ctl.character_faction()
         if here:
-            auto = f"Auto (donde estás: {theme.FACTION_LABEL[here]})"
+            auto = tr("Auto (donde estás: {0})", theme.FACTION_LABEL[here])
         elif own:
             auto = f"Auto ({theme.FACTION_LABEL[own]})"
         else:
-            auto = "Auto (sin detectar)"
+            auto = tr("Auto (sin detectar)")
         self.faction_box.setItemText(0, auto)
-        bits = [self.ctl.character_name() or "Personaje sin detectar"]
+        bits = [self.ctl.character_name() or tr("Personaje sin detectar")]
         zone = self.data.zones.get(self.ctl.current_zone or "")
         if zone:
-            bits.append(f"en {zone['name']}")
+            bits.append(tr("en {0}", zone['name']))
         self.subtitle.setText(" · ".join(bits))
 
     def _faction_changed(self):
@@ -278,7 +279,7 @@ class MapWindow(QWidget):
                 for m in mob["maps"]:
                     if m["map"] == self.map_id:
                         for x, y in m["spawns"]:
-                            self.view.add_marker(x, y, color, 4.5, tip + "\n(clic: resaltar sus puntos)",
+                            self.view.add_marker(x, y, color, 4.5, tip + tr("\n(clic: resaltar sus puntos)"),
                                                  on_click=lambda p=pid: self._toggle_highlight(p), group=pid)
 
         focus_pts = []
@@ -332,11 +333,11 @@ class MapWindow(QWidget):
     def _progress(self, pid):
         pet = self.ctl.collection.pets.get(pid)
         if pet is None:
-            return "no lo tienes"
+            return tr("no lo tienes")
         if pet.is_max:
             return "MAX"
         if pet.level == 0:
-            return f"almas {pet.progress}/{pet.threshold}"
+            return tr("almas {0}/{1}", pet.progress, pet.threshold)
         return f"N{pet.level} {pet.progress}/{pet.threshold}"
 
     # --- side panel ----------------------------------------------------------------------------
@@ -381,7 +382,7 @@ class MapWindow(QWidget):
         chips.setSpacing(6)
         excl = self.data.exclusive(pid)
         if excl:
-            chips.addWidget(chip(f"Solo {theme.FACTION_LABEL[excl]}", theme.faction_color(excl), f))
+            chips.addWidget(chip(tr("Solo {0}", theme.FACTION_LABEL[excl]), theme.faction_color(excl), f))
         else:
             for fac in sorted(self.data.factions(pid)):
                 chips.addWidget(chip(theme.FACTION_LABEL.get(fac, fac), theme.faction_color(fac), f))
@@ -392,14 +393,14 @@ class MapWindow(QWidget):
 
         faction = self.faction()
         if faction and not self.data.can_farm(pid, faction):
-            warn = label(f"No se farmea en el lado {theme.FACTION_LABEL[faction]}.", f.small, theme.WARN)
+            warn = label(tr("No se farmea en el lado {0}.", theme.FACTION_LABEL[faction]), f.small, theme.WARN)
             warn.setWordWrap(True)
             self.panel.addWidget(warn)
 
-        self._section("Dónde farmear")
+        self._section(tr("Dónde farmear"))
         sources = self._sources()
         if not sources:
-            self.panel.addWidget(label("Sin datos de aparición para esta facción.", f.small, theme.MUTED))
+            self.panel.addWidget(label(tr("Sin datos de aparición para esta facción."), f.small, theme.MUTED))
         for src, mob in sources:
             selected = self.source == src["monster"]
             item = Clickable(lambda s=src["monster"]: self.show_pet(pid, None if self.source == s else s), selected)
@@ -412,7 +413,7 @@ class MapWindow(QWidget):
             top.addWidget(label(mob["name"], f.name, theme.TEXT, elide=True), 1)
             top.addWidget(label(f"{src['chance']:g}%" if src.get("chance") is not None else "", f.small, theme.MUTED))
             lay.addLayout(top)
-            where = ", ".join(f"{z['name']} ({z['region']})" for z in mob["zones"]) or "zona desconocida"
+            where = ", ".join(f"{z['name']} ({z['region']})" for z in mob["zones"]) or tr("zona desconocida")
             meta = label(f"Lv{mob['level']} · {mob['rank']} · {where}", f.small, theme.MUTED)
             meta.setWordWrap(True)
             lay.addWidget(meta)
@@ -421,8 +422,9 @@ class MapWindow(QWidget):
         zones = self._zones()
         self._other_rows = {}
         if zones:
-            self._section("En esta zona también")
-            hint = label("Clic en un pet: resalta sus puntos en el mapa (otro clic lo quita). «Ver»: abrir ese pet.",
+            self._section(tr("En esta zona también"))
+            hint = label(tr("Clic en un pet: resalta sus puntos en el mapa (otro clic lo quita). «Ver»: abrir ese "
+                            "pet."),
                          f.small, theme.MUTED)
             hint.setWordWrap(True)
             self.panel.addWidget(hint)
@@ -449,7 +451,7 @@ class MapWindow(QWidget):
         f = self.fonts
         pet = self.ctl.collection.pets.get(pid)
         item = Clickable(lambda: self._toggle_highlight(pid), selected=pid == getattr(self, "highlight", None))
-        item.setToolTip("Clic: resaltar sus puntos en el mapa")
+        item.setToolTip(tr("Clic: resaltar sus puntos en el mapa"))
         self._other_rows.setdefault(pid, []).append(item)
         lay = QHBoxLayout(item)
         lay.setContentsMargins(6, 4, 8, 4)
@@ -463,13 +465,13 @@ class MapWindow(QWidget):
         col.addWidget(label(mobs, f.small, theme.MUTED, elide=True))
         lay.addLayout(col, 1)
         missing = pet is None or pet.level == 0
-        lay.addWidget(label("Te falta" if missing else self._progress(pid), f.small,
+        lay.addWidget(label(tr("Te falta") if missing else self._progress(pid), f.small,
                             theme.WARN if missing else theme.TEXT))
-        see = QPushButton("Ver")
+        see = QPushButton(tr("Ver"))
         see.setStyleSheet(f"QPushButton {{ background: transparent; border: none; color: {theme.ACCENT.name()}; "
                           f"padding: 2px 6px; }} QPushButton:hover {{ color: #3fd3ff; }}")
         see.setCursor(Qt.PointingHandCursor)
-        see.setToolTip("Abrir este pet en el mapa")
+        see.setToolTip(tr("Abrir este pet en el mapa"))
         see.clicked.connect(lambda _=False: self.show_pet(pid))
         lay.addWidget(see)
         return item

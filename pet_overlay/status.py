@@ -31,6 +31,7 @@ import time
 from dataclasses import dataclass
 
 from .protocol import read_varint
+from .i18n import tr
 
 LIST_OPCODE = bytes.fromhex("0b61")
 UPDATE_OPCODE = bytes.fromhex("0c61")
@@ -43,7 +44,7 @@ ENERGY_ID = 60000001
 ENERGY_CAP, ENERGY_CAP_MEMBER = 560, 840
 SPENT = 3                                 # 0c61 reason: the ticket was spent
 CLAIM_SECONDS = 30                        # a list belongs to the character the game names within this time
-ACCOUNT = "Tu cuenta"                     # the counters your characters on a server share
+ACCOUNT = tr("Tu cuenta")                     # the counters your characters on a server share
 REPEAT = HOUR                             # an alert that still holds sounds again after this
 KEEP_DAYS = 30                            # characters not seen for longer are left out
 EXPLORATION_IDS = (60001101, 60002101, 60003101, 60004101, 60007101, 60009101, 60012101, 60013101, 60014101,
@@ -65,34 +66,34 @@ class Kind:
 
 
 KINDS = [
-    Kind("energy", "Energía de Odyle", (ENERGY_ID,), (ENERGY_CAP_MEMBER,), "energy", 15, "energy", 45),
+    Kind("energy", tr("Energía de Odyle"), (ENERGY_ID,), (ENERGY_CAP_MEMBER,), "energy", 15, "energy", 45),
     Kind("nightmare", "Nightmare", (4,), (14,), "daily", 2, "nightmare", 2),
-    Kind("shugo", "Llaves del Shugo Festival", (1,), (21,), "daily", 3, "shugo", 3, account=True),
-    Kind("conquest", "Recompensas de Conquista", (60000006,), (21,), "every8h", 1, "conquest", 3),
-    Kind("fissure", "Fisura desconocida (mazmorra diaria)", (101,), (14,), "weekly", alert="weekly",
+    Kind("shugo", tr("Llaves del Shugo Festival"), (1,), (21,), "daily", 3, "shugo", 3, account=True),
+    Kind("conquest", tr("Recompensas de Conquista"), (60000006,), (21,), "every8h", 1, "conquest", 3),
+    Kind("fissure", tr("Fisura desconocida (mazmorra diaria)"), (101,), (14,), "weekly", alert="weekly",
          account=True),
-    Kind("sanctuary", "Santuarios: jefes con recompensa", (90000002, 90000004, 90000006), (1, 2, 2), "weekly",
+    Kind("sanctuary", tr("Santuarios: jefes con recompensa"), (90000002, 90000004, 90000006), (1, 2, 2), "weekly",
          alert="weekly"),
-    Kind("exploration", "Exploración: recompensas", EXPLORATION_IDS, (7,) * len(EXPLORATION_IDS), "weekly"),
-    Kind("abyss", "Horas en el Abismo", (3,), (7 * HOUR * 1000,), "weekly", hours=True),
+    Kind("exploration", tr("Exploración: recompensas"), EXPLORATION_IDS, (7,) * len(EXPLORATION_IDS), "weekly"),
+    Kind("abyss", tr("Horas en el Abismo"), (3,), (7 * HOUR * 1000,), "weekly", hours=True),
 ]
 KIND = {k.key: k for k in KINDS}
 OVERLAY_KINDS = ("energy", "nightmare", "shugo", "fissure")
-SHORT = {"energy": "Energía", "nightmare": "Nightmare", "shugo": "Shugo", "fissure": "Fisura"}
+SHORT = {"energy": tr("Energía"), "nightmare": "Nightmare", "shugo": "Shugo", "fissure": tr("Fisura")}
 
 # alert key -> (title, when it lights up)
 ALERTS = {
-    "energy": ("Energía casi llena",
-               "Le quedan 3 recargas o menos (9 h) para llenarse: gástala y no pierdas las siguientes."),
-    "nightmare": ("Nightmare casi lleno",
-                  "Con el próximo reinicio diario se llenan los intentos de Nightmare (o ya están llenos)."),
-    "shugo": ("Llaves del Shugo casi llenas",
-              "Con el próximo reinicio diario se llenan las llaves del Shugo Festival (o ya están llenas)."),
-    "conquest": ("Recompensas de Conquista casi llenas",
-                 "Se llenan en menos de un día (+1 cada 8 h) o ya están llenas."),
-    "weekly": ("Semanal sin terminar",
-               "Falta menos de un día para el reinicio del miércoles y te quedan entradas de la Fisura o jefes de "
-               "Santuario."),
+    "energy": (tr("Energía casi llena"),
+               tr("Le quedan 3 recargas o menos (9 h) para llenarse: gástala y no pierdas las siguientes.")),
+    "nightmare": (tr("Nightmare casi lleno"),
+                  tr("Con el próximo reinicio diario se llenan los intentos de Nightmare (o ya están llenos).")),
+    "shugo": (tr("Llaves del Shugo casi llenas"),
+              tr("Con el próximo reinicio diario se llenan las llaves del Shugo Festival (o ya están llenas).")),
+    "conquest": (tr("Recompensas de Conquista casi llenas"),
+                 tr("Se llenan en menos de un día (+1 cada 8 h) o ya están llenas.")),
+    "weekly": (tr("Semanal sin terminar"),
+               tr("Falta menos de un día para el reinicio del miércoles y te quedan entradas de la Fisura o jefes "
+                  "de Santuario.")),
 }
 WEEKLY_WARN = DAY
 
@@ -297,7 +298,7 @@ class Status:
         for name in self.names(now, current):
             groups.setdefault(self.server_of(name), []).append(name)
         many = len(groups) > 1
-        out = [(ACCOUNT + (f" · servidor {server}" if many and server else ""), chars)
+        out = [(ACCOUNT + (tr(" · servidor {0}", server) if many and server else ""), chars)
                for server, chars in groups.items()]
         self._labels = dict(out)
         return out
@@ -425,14 +426,14 @@ def note(v, now):
     """What happens next with this counter."""
     kind = v.kind
     if not v.known:
-        return "sin lectura todavía"
+        return tr("sin lectura todavía")
     if kind.refill == "weekly":
-        return f"vuelve al máximo el miércoles (en {countdown(next_weekly(now) - now)})"
-    every = {"energy": f"+{kind.step} cada 3 h", "daily": f"+{kind.step} cada reinicio diario",
-             "every8h": "+1 cada 8 h"}[kind.refill]
+        return tr("vuelve al máximo el miércoles (en {0})", countdown(next_weekly(now) - now))
+    every = {"energy": tr("+{0} cada 3 h", kind.step), "daily": tr("+{0} cada reinicio diario", kind.step),
+             "every8h": tr("+1 cada 8 h")}[kind.refill]
     if v.full:
-        return f"{every} · lleno: estás perdiendo recargas"
-    return every + (f" · lleno en {countdown(v.full_at - now)}" if v.full_at else "")
+        return tr("{0} · lleno: estás perdiendo recargas", every)
+    return every + (tr(" · lleno en {0}", countdown(v.full_at - now)) if v.full_at else "")
 
 
 def alert_text(status, key, chars, now=None):
@@ -445,13 +446,13 @@ def alert_text(status, key, chars, now=None):
                     for k in ("fissure", "sanctuary")
                     if KIND[k].account == status.is_account(name) and status.value(name, k, now).count > 0]
             parts.append(f"{name}: {', '.join(left)}")
-        return f"El reinicio semanal es en {countdown(next_weekly(now) - now)}. " + " · ".join(parts) + "."
+        return tr("El reinicio semanal es en {0}. ", countdown(next_weekly(now) - now)) + " · ".join(parts) + "."
     kind = next(k for k in KINDS if k.alert == key)
     parts = []
     for name in chars:
         v = status.value(name, kind.key, now)
-        parts.append(f"{name} {amount(v)}" + (" (lleno)" if v.full else
-                                              f" (lleno en {countdown(v.full_at - now)})" if v.full_at else ""))
+        parts.append(f"{name} {amount(v)}" + (tr(" (lleno)") if v.full else
+                                              tr(" (lleno en {0})", countdown(v.full_at - now)) if v.full_at else ""))
     return " · ".join(parts) + "."
 
 

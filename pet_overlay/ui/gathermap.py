@@ -23,6 +23,7 @@ from .theme import Fonts
 from .tiles import TileCache
 from .tunerwindow import EXTRA_STYLE
 from .widgets import SectionTitle, label
+from ..i18n import tr
 
 BEST = QColor("#7bd88f")
 OTHER = QColor("#f0c24e")
@@ -153,7 +154,7 @@ class GatherMapWindow(QWidget):
             sides.addWidget(button)
             self.side_buttons[side] = button
         open_names = " · ".join(sorted(MAP_NAMES.get(m, m).split(" (")[0] for m in ABYSS_OPEN))
-        self.open_only = QCheckBox(f"Solo lo abierto ahora ({open_names})")
+        self.open_only = QCheckBox(tr("Solo lo abierto ahora ({0})", open_names))
         self.open_only.setChecked(self.ctl.settings.get("crafting", {}).get("abyss_open_only", True))
         self.open_only.toggled.connect(self._open_only_toggled)
         sides.addSpacing(10)
@@ -192,12 +193,12 @@ class GatherMapWindow(QWidget):
         self.live_label.setWordWrap(True)
         self.live_label.hide()
         sv.addWidget(self.live_label)
-        self.on_minimap = QCheckBox("Ruta en el minimapa del juego")
+        self.on_minimap = QCheckBox(tr("Ruta en el minimapa del juego"))
         self.on_minimap.setToolTip(
-            "Dibuja sobre el minimapa del juego la ruta recomendada de este material, sus nodos (verde: a la vista; "
-            "X: agotado o vacío) y una línea al siguiente con su distancia.\nSigue aunque minimices o cierres esta "
-            "ventana; desmárcalo para quitarlo. Necesita ver el minimapa (que nada lo tape), y no sale en tus "
-            "capturas ni streams.")
+            tr("Dibuja sobre el minimapa del juego la ruta recomendada de este material, sus nodos (verde: a la "
+               "vista; X: agotado o vacío) y una línea al siguiente con su distancia.\nSigue aunque minimices o "
+               "cierres esta ventana; desmárcalo para quitarlo. Necesita ver el minimapa (que nada lo tape), y no "
+               "sale en tus capturas ni streams."))
         self.on_minimap.setChecked(bool(self.ctl.settings.get("crafting", {}).get("minimap_route")))
         self.on_minimap.toggled.connect(self._minimap_toggled)
         self.on_minimap.setVisible(getattr(getattr(ctl, "minimap", None), "available", False))
@@ -211,9 +212,9 @@ class GatherMapWindow(QWidget):
         self.panel.setSpacing(6)
         scroll.setWidget(holder)
         sv.addWidget(scroll, 1)
-        credit = self.gathering.credit or {"text": "Puntos de recolección: metabot.gg",
+        credit = self.gathering.credit or {"text": tr("Puntos de recolección: metabot.gg"),
                                            "url": "https://metabot.gg/en/aion-2/gathering"}
-        link = QPushButton(credit["text"] + (" + tu mapa" if self.gathering.added else "") + " · mapa: metabot.gg")
+        link = QPushButton(credit["text"] + (tr(" + tu mapa") if self.gathering.added else "") + tr(" · mapa: metabot.gg"))
         link.setProperty("flat", True)
         link.clicked.connect(lambda: webbrowser.open(credit["url"]))
         sv.addWidget(link)
@@ -225,7 +226,7 @@ class GatherMapWindow(QWidget):
         if self.on_minimap.isChecked() and hasattr(self.ctl, "route_on_minimap"):
             self.ctl.route_on_minimap(name)
         verb = "conseguir" if self.gathering.is_drop(name) else "recolectar"
-        self.setWindowTitle(f"{APP_NAME} — Dónde {verb} {name}")
+        self.setWindowTitle(tr("{0} — Dónde {1} {2}", APP_NAME, verb, name))
         faction = self.ctl.crafting_faction()
         maps = [(m, True) for m in self.gathering.maps(name)]
         for _, map_id, _, _ in self.gathering.side_regions(name, None):
@@ -236,7 +237,7 @@ class GatherMapWindow(QWidget):
         for side, button in self.side_buttons.items():
             button.setText(f"{theme.FACTION_LABEL[side]} · {counts[side]}")
             button.setEnabled(counts[side] > 0)
-            button.setToolTip(f"{counts[side]} {'mapa' if counts[side] == 1 else 'mapas'} con {name}")
+            button.setToolTip(tr("{0} {1} con {2}", counts[side], tr("mapa") if counts[side] == 1 else 'mapas', name))
         # the side of the map you are on, else yours, else the first one where it is
         here = MAP_SIDE.get(GAME_MAPS.get(self.ctl.game_map))
         self.side = next((s for s in (here, faction, *SIDES) if s and counts.get(s)), None)
@@ -245,7 +246,7 @@ class GatherMapWindow(QWidget):
                 button.setChecked(False)
             self.open_only.setVisible(False)
             self._set_tabs([])
-            self.title.setText(f"Dónde {verb} {name}")
+            self.title.setText(tr("Dónde {0} {1}", verb, name))
             self._panel([], [], [])
             return
         self._fill_tabs()
@@ -277,8 +278,7 @@ class GatherMapWindow(QWidget):
         maps.sort(key=lambda m: (m[0] != here, m[0] not in ABYSS_OPEN if abyss else False, not m[1]))
         self._set_tabs(maps)
         if not maps:                      # all of it is in Abyss maps that are not open yet
-            self.title.setText(f"Dónde {'conseguir' if self.gathering.is_drop(self.material) else 'recolectar'} "
-                               f"{self.material}")
+            self.title.setText(tr("Dónde {0} {1}", 'conseguir' if self.gathering.is_drop(self.material) else 'recolectar', self.material))
             self._panel([], [], [], closed=True)
             return
         self.tabs.setCurrentIndex(0)
@@ -293,8 +293,8 @@ class GatherMapWindow(QWidget):
         for map_id, has_points in maps:
             text = (MAP_NAMES.get(map_id) or self.ctl.mapdata.map_label(map_id)).split(" (")[0]
             if MAP_SIDE.get(map_id) == "abyss" and map_id not in ABYSS_OPEN:
-                text += " · cerrado"
-            self.tabs.addTab(text + ("" if has_points else " · zonas"))
+                text += tr(" · cerrado")
+            self.tabs.addTab(text + ("" if has_points else tr(" · zonas")))
         self.tabs.blockSignals(False)
         if not maps:
             self._clear_scene()
@@ -331,35 +331,35 @@ class GatherMapWindow(QWidget):
             if state == "up":
                 up += 1
                 left = 3 - charges
-                text = "¡nuevo!" if fresh else f"{left}/3" if charges else ""
-                tip = (f"{self.material}: disponible, {left} de 3 cargas" + (" · acaba de aparecer" if fresh else ""))
+                text = tr("¡nuevo!") if fresh else f"{left}/3" if charges else ""
+                tip = (tr("{0}: disponible, {1} de 3 cargas", self.material, left) + (tr(" · acaba de aparecer") if fresh else ""))
             elif state in ("used", "empty"):
                 since = now - used_at
                 if state == "used":
                     used += 1
-                    tip = f"Agotado hace {clock(since)}."
+                    tip = tr("Agotado hace {0}.", clock(since))
                 else:
                     gone += 1
-                    tip = (f"Vacío: pasaste cerca hace {clock(since)} y no estaba (alguien lo recolectó antes; "
-                           f"desde cuándo, no se sabe).")
+                    tip = (tr("Vacío: pasaste cerca hace {0} y no estaba (alguien lo recolectó antes; desde cuándo, "
+                              "no se sabe).", clock(since)))
                 if respawn:
                     typical, low, high = respawn
                     progress = since / typical
-                    text = (f"~{clock(typical - since)}" if since < typical else "ya?") + (" vacío" if state == "empty"
+                    text = (f"~{clock(typical - since)}" if since < typical else tr("ya?")) + (tr(" vacío") if state == "empty"
                                                                                             else "")
-                    tip += (f" Aquí suele salir otro en ~{clock(typical)} (lo visto: entre {clock(low)} y "
-                            f"{clock(high)}); se pone verde en cuanto aparezca, si estás cerca.")
+                    tip += (tr(" Aquí suele salir otro en ~{0} (lo visto: entre {1} y {2}); se pone verde en cuanto "
+                               "aparezca, si estás cerca.", clock(typical), clock(low), clock(high)))
                     if since < typical:
                         soonest = min(soonest or 1e9, typical - since)
                 else:
-                    text = "vacío" if state == "empty" else clock(since)
-                    tip += " Aún no sé cuánto tarda en salir otro aquí: lo voy aprendiendo."
+                    text = tr("vacío") if state == "empty" else clock(since)
+                    tip += tr(" Aún no sé cuánto tarda en salir otro aquí: lo voy aprendiendo.")
             else:
                 text = ""
-                tip = (f"Punto de {self.material} que viste en el juego (metabot puede no tenerlo); ahora no está a "
-                       f"la vista, no sé si sigue ahí.")
+                tip = (tr("Punto de {0} que viste en el juego (metabot puede no tenerlo); ahora no está a la vista, "
+                          "no sé si sigue ahí.", self.material))
             if mine:
-                tip += "\nLo recolectaste tú."
+                tip += tr("\nLo recolectaste tú.")
             item = LiveNode(state, text, progress, fresh, mine)
             item.setPos(u * WORLD, v * WORLD)
             item.setZValue(700 if state == "up" else 650)
@@ -367,13 +367,13 @@ class GatherMapWindow(QWidget):
             self.view.scene().addItem(item)
             self._live.append(item)
         if up or used or gone:
-            bits = [f"{up} disponible{'s' if up != 1 else ''}"] if up else []
+            bits = [tr("{0} disponible{1}", up, 's' if up != 1 else '')] if up else []
             if used:
-                bits.append(f"{used} agotado{'s' if used != 1 else ''}")
+                bits.append(tr("{0} agotado{1}", used, 's' if used != 1 else ''))
             if gone:
-                bits.append(f"{gone} vacío{'s' if gone != 1 else ''}")
-            self.live_label.setText("En vivo cerca de ti: " + " · ".join(bits) +
-                                    (f" (el próximo en ~{clock(soonest)})" if soonest else ""))
+                bits.append(tr("{0} vacío{1}", gone, 's' if gone != 1 else ''))
+            self.live_label.setText(tr("En vivo cerca de ti: ") + " · ".join(bits) +
+                                    (tr(" (el próximo en ~{0})", clock(soonest)) if soonest else ""))
         self.live_label.setVisible(bool(up or used or gone))
 
     # --- drawing ---
@@ -384,16 +384,16 @@ class GatherMapWindow(QWidget):
         g = self.gathering
         info = g.info(name)
         drop = g.is_drop(name)
-        self.title.setText(f"Dónde {'conseguir' if drop else 'recolectar'} {name}")
+        self.title.setText(tr("Dónde {0} {1}", 'conseguir' if drop else 'recolectar', name))
         if drop:
             mobs = info.get("monsters", [])
             best = g.best_drop(name)
-            self.subtitle.setText(f"Lo sueltan {len(mobs)} monstruos" +
-                                  (f" · hasta {best[0]['chance']:g}% por kill en lo abierto" if best else ""))
+            self.subtitle.setText(tr("Lo sueltan {0} monstruos", len(mobs)) +
+                                  (tr(" · hasta {0:g}% por kill en lo abierto", best[0]['chance']) if best else ""))
         else:
             node = info.get("node", name)
             level = info.get("level")
-            self.subtitle.setText(f"Nodo: {node}" + (f" · nivel de recolección {level}" if level else ""))
+            self.subtitle.setText(tr("Nodo: {0}", node) + (tr(" · nivel de recolección {0}", level) if level else ""))
         self._clear_scene()
         areas, loose = g.areas(name, map_id)
         focus = []
@@ -411,15 +411,15 @@ class GatherMapWindow(QWidget):
             for p in area.nodes:
                 bots = g.node_has_bots(name, map_id, p)
                 mob = g.monster_at(name, map_id, p)
-                what = f"{mob['name']} (Lv {mob['level']}) · {mob['chance']:g}% de {name}" if mob else name
-                tip = (f"{what} · zona {area.index}" + (" · ¡con bots!" if bots or area.bots else "") +
-                       "\nClic derecho: marcar / quitar «con bots» en este punto")
+                what = tr("{0} (Lv {1}) · {2:g}% de {3}", mob['name'], mob['level'], mob['chance'], name) if mob else name
+                tip = (tr("{0} · zona {1}", what, area.index) + (tr(" · ¡con bots!") if bots or area.bots else "") +
+                       tr("\nClic derecho: marcar / quitar «con bots» en este punto"))
                 self._node(p, BOTS if bots else color, 6.5 if best else 5, tip)
                 if best:
                     focus.append(p)
         for p in loose:
             bots = g.node_has_bots(name, map_id, p)
-            self._node(p, BOTS if bots else LOOSE, 4.5, f"{name} (punto suelto)\nClic derecho: marcar «con bots»")
+            self._node(p, BOTS if bots else LOOSE, 4.5, tr("{0} (punto suelto)\nClic derecho: marcar «con bots»", name))
         zones = []
         own = next((r for r in g.side_regions(name, None) if r[1] == map_id), None)
         if own:
@@ -440,10 +440,10 @@ class GatherMapWindow(QWidget):
     def _node(self, p, color, radius, tip):
         check = self.ctl.spot_check(self.map_id, p) if hasattr(self.ctl, "spot_check") else None
         if check and check[0] == "real":
-            tip += f"\nConfirmado con tu personaje: había un nodo ({check[1]} {'vez' if check[1] == 1 else 'veces'})."
+            tip += tr("\nConfirmado con tu personaje: había un nodo ({0} {1}).", check[1], tr("vez") if check[1] == 1 else tr("veces"))
         elif check:
-            tip += (f"\nDudoso: pasaste {check[1]} veces (en momentos distintos) y nunca hubo un nodo aquí; "
-                    f"puede que este punto no exista.")
+            tip += (tr("\nDudoso: pasaste {0} veces (en momentos distintos) y nunca hubo un nodo aquí; puede que "
+                       "este punto no exista.", check[1]))
         m = NodeMarker(p[0], p[1], color, radius, tip, on_click=lambda q=p: self.view.center_on_norm(*q),
                        on_right=lambda q=p: self._toggle_node(q))
         if check and check[0] == "dudoso":
@@ -474,7 +474,7 @@ class GatherMapWindow(QWidget):
             pen.setStyle(Qt.DashLine)
         item.setPen(pen)
         item.setZValue(120)
-        item.setToolTip(f"Zona {area.index}: {len(area.nodes)} nodos" + (" · llena de bots" if area.bots else ""))
+        item.setToolTip(tr("Zona {0}: {1} nodos", area.index, len(area.nodes)) + (tr(" · llena de bots") if area.bots else ""))
         self.view.scene().addItem(item)
         self._items.append(item)
 
@@ -487,10 +487,10 @@ class GatherMapWindow(QWidget):
         pen.setCosmetic(True)
         item.setPen(pen)
         item.setZValue(150)
-        item.setToolTip(f"Ruta recomendada: {len(route)} nodos en vuelta")
+        item.setToolTip(tr("Ruta recomendada: {0} nodos en vuelta", len(route)))
         self.view.scene().addItem(item)
         self._items.append(item)
-        start = QGraphicsSimpleTextItem("▶ inicio")
+        start = QGraphicsSimpleTextItem(tr("▶ inicio"))
         start.setBrush(QBrush(QColor("#2ec0f2")))
         start.setFont(self.fonts.name)
         start.setFlag(QGraphicsItem.ItemIgnoresTransformations)
@@ -518,7 +518,7 @@ class GatherMapWindow(QWidget):
         pill.setTransform(QTransform.fromTranslate(-box.center().x(), -box.bottom() - 10))   # screen pixels
         pill.setPos(top[0] * WORLD, top[1] * WORLD)
         pill.setZValue(255)
-        pill.setToolTip(f"Zona {area.index}: el mejor drop rate de {self.material} aquí (por kill)")
+        pill.setToolTip(tr("Zona {0}: el mejor drop rate de {1} aquí (por kill)", area.index, self.material))
         self.view.scene().addItem(pill)
         self._items.append(pill)
 
@@ -532,7 +532,7 @@ class GatherMapWindow(QWidget):
         self.view.scene().addItem(text)
         self._items.append(text)
         if not faded:                     # a zone with the material but no known points: a soft halo
-            halo = Marker(x, y, QColor(46, 192, 242, 70), 26, f"{name}: aquí hay {self.material}")
+            halo = Marker(x, y, QColor(46, 192, 242, 70), 26, tr("{0}: aquí hay {1}", name, self.material))
             halo.setPen(QPen(QColor(46, 192, 242, 180), 1.5))
             halo.setZValue(110)
             self.view.scene().addItem(halo)
@@ -550,26 +550,27 @@ class GatherMapWindow(QWidget):
         faction = self.ctl.crafting_faction()
         mobs = g.info(self.material).get("monsters", [])
         if mobs:
-            self.panel.addWidget(SectionTitle("Quién lo suelta (drop rate por kill)", f))
+            self.panel.addWidget(SectionTitle(tr("Quién lo suelta (drop rate por kill)"), f))
             for m, reachable, maps in g.drops(self.material):
                 kills = kills_for(m["chance"])
-                where = ", ".join(MAP_NAMES.get(x, x).split(" (")[0] + ("" if map_open(x) else " (cerrado)")
-                                  for x in maps) or m.get("zone") or "metabot no dice dónde está (jefe o mazmorra)"
+                where = ", ".join(MAP_NAMES.get(x, x).split(" (")[0] + ("" if map_open(x) else tr(" (cerrado)"))
+                                  for x in maps) or m.get("zone") or tr("metabot no dice dónde está (jefe o "
+                                                                        "mazmorra)")
                 line = label(f"{m['name']} · Lv {m['level']} · {m['chance']:g}%"
-                             + (f" · ~{kills} kills para un 90%" if kills and kills > 1 else "")
-                             + f"\n{where}" + (" · cerrado ahora" if reachable is False else ""),
+                             + (tr(" · ~{0} kills para un 90%", kills) if kills and kills > 1 else "")
+                             + f"\n{where}" + (tr(" · cerrado ahora") if reachable is False else ""),
                              f.small, theme.MUTED if reachable is False else theme.TEXT)
                 line.setWordWrap(True)
                 self.panel.addWidget(line)
             if not g.maps(self.material):
-                self.panel.addWidget(self._hint("metabot no dibuja dónde aparecen estos monstruos (suelen ser "
-                                                "jefes o de mazmorra)."))
+                self.panel.addWidget(self._hint(tr("metabot no dibuja dónde aparecen estos monstruos (suelen ser "
+                                                   "jefes o de mazmorra).")))
                 self.panel.addStretch(1)
                 return
         if closed:
             self.panel.addWidget(self._hint(
-                f"En lo que está abierto ahora del Abismo no hay {self.material}: solo en mapas que aún no abren. "
-                f"Desmarca «Solo lo abierto ahora» para verlos."))
+                tr("En lo que está abierto ahora del Abismo no hay {0}: solo en mapas que aún no abren. Desmarca "
+                   "«Solo lo abierto ahora» para verlos.", self.material)))
             self.panel.addStretch(1)
             return
         if hasattr(self.ctl, "spot_check") and self.map_id:
@@ -579,24 +580,23 @@ class GatherMapWindow(QWidget):
             doubt = sum(1 for c in checks if c and c[0] == "dudoso")
             if real or doubt:
                 self.panel.addWidget(self._hint(
-                    f"Comprobado con tu personaje en este mapa: {real} punto{'s' if real != 1 else ''} con nodo"
-                    + (f" · {doubt} dudoso{'s' if doubt != 1 else ''} (nunca hubo nodo al pasar; borde punteado)"
+                    tr("Comprobado con tu personaje en este mapa: {0} punto{1} con nodo", real, 's' if real != 1 else '')
+                    + (tr(" · {0} dudoso{1} (nunca hubo nodo al pasar; borde punteado)", doubt, 's' if doubt != 1 else '')
                        if doubt else "") + "."))
         for region, map_id, nodes, zone_names in g.side_regions(self.material, faction):
-            line = label(f"{region}: {nodes} nodos · {', '.join(zone_names)}", f.small, theme.TEXT)
+            line = label(tr("{0}: {1} nodos · {2}", region, nodes, ', '.join(zone_names)), f.small, theme.TEXT)
             line.setWordWrap(True)
             self.panel.addWidget(line)
         if not areas:
             self.panel.addWidget(self._hint(
-                f"De este mapa metabot no publica los puntos de {self.material} (en su página solo dibuja una región, "
-                f"hasta 40 puntos): se marcan las zonas donde está. Ahí, busca los nodos de "
-                f"{g.info(self.material).get('node', self.material)}."))
+                tr("De este mapa metabot no publica los puntos de {0} (en su página solo dibuja una región, hasta "
+                   "40 puntos): se marcan las zonas donde está. Ahí, busca los nodos de {1}.", self.material, g.info(self.material).get('node', self.material))))
             self.panel.addStretch(1)
             return
-        self.panel.addWidget(SectionTitle("Zonas", f))
-        legend = label("Verde: la que farmeas, con la ruta en azul (la recomendada: más nodos sin bots; o la que "
-                       "elijas con «Farmear aquí»). Amarillo: otras. Rojo: con bots. "
-                       f"Las marcas de bots se borran solas a los {BOT_DAYS} días (los bots se mueven).", f.small,
+        self.panel.addWidget(SectionTitle(tr("Zonas"), f))
+        legend = label(tr("Verde: la que farmeas, con la ruta en azul (la recomendada: más nodos sin bots; o la que "
+                          "elijas con «Farmear aquí»). Amarillo: otras. Rojo: con bots. Las marcas de bots se "
+                          "borran solas a los {0} días (los bots se mueven).", BOT_DAYS), f.small,
                        theme.MUTED)
         legend.setWordWrap(True)
         self.panel.addWidget(legend)
@@ -604,11 +604,12 @@ class GatherMapWindow(QWidget):
         for area in areas[:AREAS_SHOWN]:
             self.panel.addWidget(self._area_row(area, area is areas[0] and not area.bots, zones, area is chosen))
         if len(areas) > AREAS_SHOWN:
-            self.panel.addWidget(label(f"y {len(areas) - AREAS_SHOWN} zonas más pequeñas en el mapa.", f.small,
+            self.panel.addWidget(label(tr("y {0} zonas más pequeñas en el mapa.", len(areas) - AREAS_SHOWN), f.small,
                                        theme.MUTED))
         if loose:
-            self.panel.addWidget(label(f"{len(loose)} puntos sueltos (grises), lejos de las zonas.", f.small, theme.MUTED))
-        self.panel.addWidget(self._hint("Clic derecho en un punto del mapa para marcarlo «con bots»: sale de la ruta."))
+            self.panel.addWidget(label(tr("{0} puntos sueltos (grises), lejos de las zonas.", len(loose)), f.small, theme.MUTED))
+        self.panel.addWidget(self._hint(tr("Clic derecho en un punto del mapa para marcarlo «con bots»: sale de la "
+                                           "ruta.")))
         self.panel.addStretch(1)
 
     def _area_row(self, area, best, zones, chosen=False):
@@ -623,11 +624,11 @@ class GatherMapWindow(QWidget):
         cx, cy = area.center
         near = min(zones, key=lambda z: (z[1] - cx) ** 2 + (z[2] - cy) ** 2)[0] if zones else ""
         head = QHBoxLayout()
-        title = (f"{'▶ Farmeando aquí · ' if chosen else '★ Recomendada · ' if best else ''}Zona {area.index}" +
+        title = (tr("{0}Zona {1}", tr("▶ Farmeando aquí · ") if chosen else '★ Recomendada · ' if best else '', area.index) +
                  (f" · {near}" if near else ""))
         head.addWidget(label(title, f.name, BOTS if area.bots else BEST if best or chosen else theme.TEXT,
                              elide=True), 1)
-        see = QPushButton("Ver")
+        see = QPushButton(tr("Ver"))
         see.setProperty("flat", True)
         see.clicked.connect(lambda _=False, a=area: self.view.focus_points(a.nodes))
         head.addWidget(see)
@@ -638,21 +639,21 @@ class GatherMapWindow(QWidget):
             best_mob = max((mobs[i] for i in area.mobs if i < len(mobs)), key=lambda m: m["chance"])
             sub = f"{len(area.nodes)} spawns · {best_mob['name']} {best_mob['chance']:g}%"
         else:
-            sub = f"{len(area.nodes)} nodos"
+            sub = tr("{0} nodos", len(area.nodes))
         if free != len(area.nodes):
-            sub += f" · {free} sin bots en la ruta"
+            sub += tr(" · {0} sin bots en la ruta", free)
         if area.bots:
-            sub += f" · llena de bots (marcada {_ago(area.bot_at)})"
+            sub += tr(" · llena de bots (marcada {0})", _ago(area.bot_at))
         lay.addWidget(label(sub, f.small, BOTS if area.bots else theme.MUTED))
         buttons = QHBoxLayout()
         buttons.setSpacing(4)
-        farm = QPushButton("Volver a la recomendada" if chosen else "Farmear aquí")
+        farm = QPushButton(tr("Volver a la recomendada") if chosen else tr("Farmear aquí"))
         farm.setProperty("flat", True)
-        farm.setToolTip("Dibuja la ruta de esta zona en el mapa y en el minimapa del juego" if not chosen else
-                        "Deja de farmear esta zona: la ruta vuelve a la recomendada")
+        farm.setToolTip(tr("Dibuja la ruta de esta zona en el mapa y en el minimapa del juego") if not chosen else
+                        tr("Deja de farmear esta zona: la ruta vuelve a la recomendada"))
         farm.clicked.connect(lambda _=False, a=None if chosen else area: self._choose_area(a))
         buttons.addWidget(farm)
-        mark = QPushButton("Quitar «llena de bots»" if area.bots else "Marcar: llena de bots")
+        mark = QPushButton(tr("Quitar «llena de bots»") if area.bots else tr("Marcar: llena de bots"))
         mark.setProperty("flat", True)
         mark.clicked.connect(lambda _=False, a=area: self._toggle_area(a))
         buttons.addWidget(mark)
@@ -685,4 +686,4 @@ def _ago(ts):
     if not ts:
         return ""
     hours = (time.time() - ts) / 3600
-    return "hace un momento" if hours < 1 else f"hace {hours:.0f} h" if hours < 48 else f"hace {hours / 24:.0f} días"
+    return tr("hace un momento") if hours < 1 else tr("hace {0:.0f} h", hours) if hours < 48 else tr("hace {0:.0f} días", hours / 24)

@@ -43,6 +43,7 @@ from pathlib import Path
 from .metabot import UA, tile_url
 from .whereami import SPAN, to_map, to_world
 from .gathering import GAME_MAPS
+from .i18n import tr
 
 log = logging.getLogger(__name__)
 
@@ -469,7 +470,7 @@ class MinimapReader:
                 if not failed:
                     failed = True
                     log.exception("minimap reader")
-                self.status = "Minimapa: error al leerlo"
+                self.status = tr("Minimapa: error al leerlo")
 
     def read_once(self, now=None):
         now = now or time.time()
@@ -479,7 +480,7 @@ class MinimapReader:
             return None
         game = game_window(self.game_pids())
         if game is None:
-            self.status = "Minimapa: no veo la ventana del juego"
+            self.status = tr("Minimapa: no veo la ventana del juego")
             return None
         hwnd, client = game
         self.game_hwnd, self.client = hwnd, client
@@ -497,7 +498,7 @@ class MinimapReader:
             left, top, right, bottom = client
             corner = (left + (right - left) * 3 // 4, top, right, top + (bottom - top) // 4)
             if covered(hwnd, corner, self.ignore):
-                self.status = "Minimapa: otra ventana tapa esa parte del juego"
+                self.status = tr("Minimapa: otra ventana tapa esa parte del juego")
                 return None
             if not self._locate(client, now):
                 good = self._good.get((client[2] - client[0], client[3] - client[1]))
@@ -514,7 +515,7 @@ class MinimapReader:
         map_id = GAME_MAPS[game_map]
         box, unit = self._box
         if covered(hwnd, box, self.ignore):
-            self.status = "Minimapa: algo lo tapa (¿una ventana de AionDex?)"
+            self.status = tr("Minimapa: algo lo tapa (¿una ventana de AionDex?)")
             return None
         inset = round(INSET * (box[3] - box[1]))
         shot = grab((box[0] + inset, box[1] + inset, box[2] - inset, box[3] - inset))
@@ -522,7 +523,7 @@ class MinimapReader:
         found = self._match(shot, map_id, game_map, unit, now)
         if found is None:
             self._misses += 1
-            self.status = "Minimapa: no lo reconozco en el mapa"
+            self.status = tr("Minimapa: no lo reconozco en el mapa")
             good = self._good.get((client[2] - client[0], client[3] - client[1]))
             if not calibrated and good and self._box != good:
                 self._box, self._scale = good, None      # found somewhere else that does not read: back to it
@@ -642,7 +643,7 @@ class MinimapReader:
             return found is not None
         if found is None:
             self._box = None
-            self.status = "Minimapa: no lo encuentro en pantalla"
+            self.status = tr("Minimapa: no lo encuentro en pantalla")
             return False
         (bl, bt, br, bb), title, unit = found
         known = self._units.get((right - left, bottom - top))

@@ -63,6 +63,7 @@ Overlay para **AION 2** que sigue tu colección de pets en tiempo real, te dice 
 - **Pets → Ver toda la colección** (o «Colección de pets» en la bandeja): todos los pets con tu progreso, en pestañas **Todos / Subiendo / Sin empezar / Al máximo**, filtros por lado (solo Asmodian, solo Elyos, ambos), por **origen** de su alma (monstruos del mundo abierto, jefes del mundo abierto, Abismo, mazmorras e instancias, solo en mazmorras, solo de cofres), por **mapa** (cada región, capa del Abismo o mazmorra) y por **zona** de ese mapa, cada uno con cuántos pets tiene, y buscador por pet, monstruo, zona, mazmorra o cofre; cada tarjeta dice de dónde sale (Mazmorra, Jefe de mundo abierto…), qué monstruo lo suelta y dónde, y un clic lo abre en el mapa.
 - **Diagnóstico → «El overlay parpadea»**: graba un minuto lo que le pasa al overlay en ese PC (cambios de tamaño, si se oculta o pierde el «siempre encima», qué programas ponen ventanas encima —Discord, NVIDIA, Xbox Game Bar…—, si el juego está en pantalla completa exclusiva, cuánto tarda en redibujarse, gráficas y pantallas) y dice las causas probables, con un informe para copiar.
 - Clic en el **logo** de la cabecera: menú (**Pets**, **DPS**, **Personaje ›** —**Mejoras** y **Builds**, con el Afinador del macro dentro—, **Tracker**, **Crafting**, **Status**, **Progreso ›** —un submenú con **Season M.**, **Logros**, **Pase** y **Eventos**—, **Notificaciones**, **Diagnóstico**, **Ajustes**, **Reiniciar** —cierra AionDex y lo vuelve a abrir, por si algo se traba— y **Salir**).
+- **Ajustes → Idioma / Settings → Language**: los textos de AionDex en **English** (el idioma por defecto) o en **Español**; se aplica al reiniciar (botón **Reiniciar ahora**). Lo que viene del juego (pets, monstruos, objetos, mapas, mazmorras, clases, habilidades) sale siempre como lo manda el juego.
 - **Ajustes → Accesibilidad → Tamaño de todo**: de 100% a 150% de 10 en 10 (150% = «Modo Marvin»): agranda el overlay, las ventanas, los textos y los iconos para quien ve poco; se aplica al reiniciar (botón **Reiniciar ahora**).
 - Desbloqueado se puede arrastrar; clic en un pet abre el mapa; clic derecho lo fija como objetivo.
 - El icono en la bandeja del sistema tiene opacidad, tamaño, notificaciones y más.
@@ -110,8 +111,12 @@ python tools/build_pet_families.py <best.json>   # regenera data/pet_families.js
 python tools/build_pet_sources.py <carpeta raw de aion2data>   # regenera data/pet_sources.json (de dónde sale cada alma)
 python tools/build_gather_db.py   # regenera data/gather_db.json (puntos de recolección y drops, metabot)
 python tools/build_world_db.py [aion2-map.json]   # regenera data/world_db.json (Mapa del mundo) desde tu mapa
+python tools/i18n_catalog.py      # rehace pet_overlay/locale/es.json y revisa en.json (textos sin inglés, placeholders)
+python tools/i18n_catalog.py missing   # los textos que aún no tienen inglés (id <tab> español)
 python build_exe.py --installer   # dist/AionDex/ y dist/installer/AionDex-Setup-<versión>.exe (Inno Setup 6)
 ```
+
+Idiomas (`pet_overlay/i18n.py`): los textos se escriben en español en el código y pasan por `tr("Tienes {0} de {1}", a, b)`; `pet_overlay/locale/en.json` tiene su inglés por id. Un texto que el código guarda como clave (un rol, el nombre de un botón del ratón) se marca con `N_()` y se muestra con `tr(valor)`. Los textos propios de los archivos de datos (guías de eventos, eventos del Tracker, pestañas de misiones, créditos) están en `i18n.DATA_TEXTS` y se traducen al cargarlos (`tr_data`). Un texto sin inglés sale en español; `tools/i18n_catalog.py` lo avisa.
 
 Publicar una versión (solo el dueño del repo): subir `__version__` en `pet_overlay/__init__.py`, hacer commit y crear el tag `vX.Y.Z`. El workflow `Release` compila, firma y publica el instalador.
 
@@ -138,6 +143,7 @@ Publicar una versión (solo el dueño del repo): subir `__version__` en `pet_ove
 | `pet_overlay/armory.py`, `forceplan.py`, `ui/playerswindow.py` | Perfiles oficiales de tu grupo (CP, equipo, habilidades), filtros y reparto de la force |
 | `pet_overlay/status.py`, `ui/statuswindow.py` | Status: energía y tickets de cada personaje (`0b61` al entrar, `0c61` cuando cambian), recargas y alertas |
 | `pet_overlay/missions.py`, `modules/missions.py`, `ui/missionswindow.py`, `tools/build_missions_db.py`, `tools/build_achievements_db.py` | Season M. y Logros: progreso (`8356` al entrar, `8456` en cada avance), las listas con los ids del juego, dónde avanza cada uno y su peso para las recomendaciones |
+| `pet_overlay/i18n.py`, `locale/`, `tools/i18n_catalog.py` | Idioma de la app (English / Español): `tr()`, los catálogos y su revisión |
 | `pet_overlay/modules/` | Funciones del overlay (Pets, DPS, Afinador, Tracker, Crafting, Status, Notificaciones, Diagnóstico, Ajustes) |
 | `pet_overlay/notifications.py`, `ui/toasts.py` | Notificaciones e historial |
 | `pet_overlay/events.py`, `modules/events.py`, `ui/eventswindow.py` | Eventos del juego en marcha (data/events.json y la lista oficial) |

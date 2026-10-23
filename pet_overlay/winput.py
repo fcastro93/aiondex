@@ -3,6 +3,7 @@ watched by a Guard that stops everything as soon as you take the mouse, press Es
 import ctypes
 import time
 from ctypes import wintypes
+from .i18n import tr
 
 INPUT_MOUSE = 0
 MOUSEEVENTF_MOVE = 0x0001
@@ -72,11 +73,11 @@ class Guard:
         if _user32.GetAsyncKeyState(VK_ESCAPE) & 0x8000:
             raise Interrupted("Esc")
         if self.game and _user32.GetForegroundWindow() != self.game:
-            raise Interrupted("el juego dejó de estar al frente")
+            raise Interrupted(tr("el juego dejó de estar al frente"))
         if self.at is not None:
             x, y = cursor()
             if abs(x - self.at[0]) > MOVED or abs(y - self.at[1]) > MOVED:
-                raise Interrupted("moviste el ratón")
+                raise Interrupted(tr("moviste el ratón"))
 
     def move(self, x, y, steps=8, pause=0.012):
         self.check()

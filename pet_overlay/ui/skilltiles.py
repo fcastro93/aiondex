@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QWidget
 from ..skills import BAR_SLOTS, SLOT_KEYS
 from . import theme
 from .widgets import label
+from ..i18n import tr
 
 ACTIVE_BORDER = QColor("#e8963a")       # the game's orange frame for active skills and stigmas
 PASSIVE_BORDER = QColor("#4fbf63")      # green frame for passives
@@ -134,7 +135,7 @@ def tile_for(tuner, sid, size, key=None, step=None, clickable=False, dim=False, 
     kind = tuner.skill_kind(sid)
     own = tuner.own.get(tuner.fold(sid))
     name = tuner.skill_name(sid)
-    tip = name + (f" — nivel {own.level}" + (f" ({own.learned} + {own.bonus})" if own.bonus else "") if own else "")
+    tip = name + (tr(" — nivel {0}", own.level) + (f" ({own.learned} + {own.bonus})" if own.bonus else "") if own else "")
     if own and own.specs:
         tip += f"\nEspecializaciones: {', '.join(map(str, own.specs))}"
     if extra_tip:
@@ -188,7 +189,7 @@ class BarGrid(QWidget):
 def _slot_tip(tuner, slot, q, steps):
     where = tuner.slot_label(slot)
     if not q:
-        return f"{where}: vacía"
+        return tr("{0}: vacía", where)
     order = " › ".join(tuner.skill_name(s) for s in q.priority)
-    state = f"Paso {steps[slot]} de tu macro (clic para quitarla)" if slot in steps else "Clic para añadirla al macro"
-    return f"{where} · prioridad: {order}\n{state}"
+    state = tr("Paso {0} de tu macro (clic para quitarla)", steps[slot]) if slot in steps else tr("Clic para añadirla al macro")
+    return tr("{0} · prioridad: {1}\n{2}", where, order, state)

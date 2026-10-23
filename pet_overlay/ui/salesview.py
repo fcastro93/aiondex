@@ -12,10 +12,11 @@ from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QPushButton, QSi
 from ..sales import RECENT_DAYS
 from . import theme
 from .widgets import SectionTitle, label
+from ..i18n import tr
 
-PERIODS = [("day", "Hoy"), ("week", "7 días"), ("month", "30 días"), ("all", "Todo")]
+PERIODS = [("day", tr("Hoy")), ("week", tr("7 días")), ("month", tr("30 días")), ("all", tr("Todo"))]
 SALES_SHOWN = 40
-SOURCE_TEXT = {"gather": "se recolecta", "market": "botín de monstruos / mercado", "craft": "se fabrica",
+SOURCE_TEXT = {"gather": tr("se recolecta"), "market": tr("botín de monstruos / mercado"), "craft": tr("se fabrica"),
                "npc": "NPC"}
 
 
@@ -30,7 +31,7 @@ def _clock(ts):
 def _span(hours):
     if hours is None:
         return "—"
-    return f"{hours * 60:.0f} min" if hours < 1 else f"{hours:.0f} h" if hours < 48 else f"{hours / 24:.1f} días"
+    return f"{hours * 60:.0f} min" if hours < 1 else f"{hours:.0f} h" if hours < 48 else tr("{0:.1f} días", hours / 24)
 
 
 def period_start(key, now):
@@ -103,10 +104,10 @@ class SalesView(QWidget):
         crafting.forget_costs()                      # today's prices, levels or marks may have changed
         crafting.keep_yields()
         hk = self.ctl.settings["hotkeys"].get("crafting_scan", "")
-        how = label("Cuando vendas algo: en el mercado abre Settlement (antes de cobrar) y pulsa Escanear"
-                    + (f" ({hk})" if hk else "") + ". AionDex guarda cada venta con su captura como prueba y calcula "
-                    "lo que te dejó. Escanea también List para seguir lo que tienes a la venta y cuánto tarda en "
-                    "venderse.", f.small, theme.MUTED)
+        how = label(tr("Cuando vendas algo: en el mercado abre Settlement (antes de cobrar) y pulsa Escanear")
+                    + (f" ({hk})" if hk else "") + tr(". AionDex guarda cada venta con su captura como prueba y "
+                                                      "calcula lo que te dejó. Escanea también List para seguir lo "
+                                                      "que tienes a la venta y cuánto tarda en venderse."), f.small, theme.MUTED)
         how.setWordWrap(True)
         self.col.addWidget(how)
 
@@ -129,22 +130,23 @@ class SalesView(QWidget):
         tiles = QHBoxLayout()
         tiles.setSpacing(8)
         tile = self.window._tile
-        tiles.addWidget(tile("Vendido", _kinah(t["gross"]), f"{t['count']} ventas · {t['units']} uds."))
-        tiles.addWidget(tile("Impuesto del mercado", _kinah(t["tax"]),
-                             f"{t['tax'] / t['gross']:.0%} de lo vendido" if t["gross"] else ""))
-        tiles.addWidget(tile("Cobrado", _kinah(t["net"]), "lo que te llega"))
-        tiles.addWidget(tile("Materiales", _kinah(t["cost"]), "según lo que marcaste",
-                             tip="Lo que te costaron los materiales según marcaste abajo: los comprados al precio "
-                                 "medio del mercado del día de la venta (de 00:00 a 23:59; cuando el día acaba queda "
-                                 "fijo), los del NPC a su precio, los farmeados o recolectados gratis, contando los "
-                                 "intentos que fallan. Lo que no fabricas (botín, compras) no tiene coste."))
-        unknown = f" · {t['unknown']} sin precio de materiales" if t["unknown"] else ""
-        tiles.addWidget(tile("Ganancia real", _kinah(t["profit"], sign=True),
-                             (f"margen {t['margin']:.0%}" if t["margin"] is not None else "") + unknown,
+        tiles.addWidget(tile(tr("Vendido"), _kinah(t["gross"]), tr("{0} ventas · {1} uds.", t['count'], t['units'])))
+        tiles.addWidget(tile(tr("Impuesto del mercado"), _kinah(t["tax"]),
+                             tr("{0:.0%} de lo vendido", t['tax'] / t['gross']) if t["gross"] else ""))
+        tiles.addWidget(tile(tr("Cobrado"), _kinah(t["net"]), tr("lo que te llega")))
+        tiles.addWidget(tile(tr("Materiales"), _kinah(t["cost"]), tr("según lo que marcaste"),
+                             tip=tr("Lo que te costaron los materiales según marcaste abajo: los comprados al "
+                                    "precio medio del mercado del día de la venta (de 00:00 a 23:59; cuando el día "
+                                    "acaba queda fijo), los del NPC a su precio, los farmeados o recolectados "
+                                    "gratis, contando los intentos que fallan. Lo que no fabricas (botín, compras) "
+                                    "no tiene coste.")))
+        unknown = tr(" · {0} sin precio de materiales", t['unknown']) if t["unknown"] else ""
+        tiles.addWidget(tile(tr("Ganancia real"), _kinah(t["profit"], sign=True),
+                             (tr("margen {0:.0%}", t['margin']) if t["margin"] is not None else "") + unknown,
                              theme.GAIN if t["profit"] > 0 else theme.COMBAT if t["profit"] < 0 else theme.TEXT,
-                             tip="Lo cobrado (ya sin el impuesto del mercado) menos lo que te costaron los "
-                                 "materiales según lo que marcaste, con los intentos que fallan"))
-        tiles.addWidget(tile("Comprando todo", _kinah(t["buy_profit"], sign=True), "si compraras los materiales",
+                             tip=tr("Lo cobrado (ya sin el impuesto del mercado) menos lo que te costaron los "
+                                    "materiales según lo que marcaste, con los intentos que fallan")))
+        tiles.addWidget(tile(tr("Comprando todo"), _kinah(t["buy_profit"], sign=True), tr("si compraras los materiales"),
                              theme.GAIN if t["buy_profit"] > 0 else theme.COMBAT if t["buy_profit"] < 0 else theme.TEXT))
         self.col.addLayout(tiles)
         if sales:
@@ -156,24 +158,24 @@ class SalesView(QWidget):
 
         # chart
         if ledger.sales:
-            self.col.addWidget(SectionTitle(f"Últimos {RECENT_DAYS} días · azul cobrado, verde ganancia", f))
+            self.col.addWidget(SectionTitle(tr("Últimos {0} días · azul cobrado, verde ganancia", RECENT_DAYS), f))
             self.col.addWidget(SalesChart(ledger.by_day(now), f))
 
         # per product
         products = [p for p in ledger.by_product() if not query or query in p[0].lower()]
         if products:
-            self.col.addWidget(SectionTitle("Por producto (todo)", f))
+            self.col.addWidget(SectionTitle(tr("Por producto (todo)"), f))
             self._products(products)
 
         # one by one
-        self.col.addWidget(SectionTitle(f"Ventas · {dict(PERIODS)[period].lower()}", f))
+        self.col.addWidget(SectionTitle(tr("Ventas · {0}", dict(PERIODS)[period].lower()), f))
         if not sales:
-            self.col.addWidget(label("Ninguna venta en este periodo." if ledger.sales else
-                                     "Aún no hay ventas guardadas.", f.body, theme.MUTED))
+            self.col.addWidget(label(tr("Ninguna venta en este periodo.") if ledger.sales else
+                                     tr("Aún no hay ventas guardadas."), f.body, theme.MUTED))
         else:
             self._sales(list(reversed(sales))[:SALES_SHOWN])
             if len(sales) > SALES_SHOWN:
-                self.col.addWidget(label(f"y {len(sales) - SALES_SHOWN} más (busca un objeto o cambia el periodo)",
+                self.col.addWidget(label(tr("y {0} más (busca un objeto o cambia el periodo)", len(sales) - SALES_SHOWN),
                                          f.small, theme.MUTED))
 
     def _highlights(self, sales):
@@ -183,17 +185,16 @@ class SalesView(QWidget):
         lines = []
         if known:
             best = max(known, key=ledger.profit)
-            lines.append(f"Mejor venta: {best['item']} ×{best['qty']} el {_clock(best['at'])} "
-                         f"({_kinah(ledger.profit(best), sign=True)})")
+            lines.append(tr("Mejor venta: {0} ×{1} el {2} ({3})", best['item'], best['qty'], _clock(best['at']), _kinah(ledger.profit(best), sign=True)))
             days = max(1.0, (time.time() - min(s["at"] for s in sales)) / 86400)
-            lines.append(f"De media: {_kinah(sum(ledger.profit(s) for s in known) / days, sign=True)} al día")
+            lines.append(tr("De media: {0} al día", _kinah(sum(ledger.profit(s) for s in known) / days, sign=True)))
         hours = [h for h in (ledger.hours_to_sell(s) for s in sales) if h is not None]
         if hours:
-            lines.append(f"Tarda en venderse: {_span(sum(hours) / len(hours))} de media")
+            lines.append(tr("Tarda en venderse: {0} de media", _span(sum(hours) / len(hours))))
         under = [s["price"] / s["qty"] / s["market"] - 1 for s in sales if s.get("market")]
         if under:
             avg = sum(under) / len(under)
-            lines.append(f"Tu precio frente al más bajo del mercado: {avg:+.0%}")
+            lines.append(tr("Tu precio frente al más bajo del mercado: {0:+.0%}", avg))
         if lines:
             row = label("   ·   ".join(lines), f.small, theme.TEXT)
             row.setWordWrap(True)
@@ -206,15 +207,14 @@ class SalesView(QWidget):
         if not listings:
             return
         listed = listings.get("listed")
-        seen = f"{len(rows)} de {listed}" if listed and listed > len(rows) else str(len(rows))
-        self.col.addWidget(SectionTitle(f"A la venta · escaneado {_clock(listings['at'])}", f))
-        head = label(f"{seen} {'publicación' if len(rows) == 1 else 'publicaciones'} por {_kinah(total)} · cobrarías "
-                     f"{_kinah(collect)} tras el impuesto", f.body, theme.TEXT)
+        seen = tr("{0} de {1}", len(rows), listed) if listed and listed > len(rows) else str(len(rows))
+        self.col.addWidget(SectionTitle(tr("A la venta · escaneado {0}", _clock(listings['at'])), f))
+        head = label(tr("{0} {1} por {2} · cobrarías {3} tras el impuesto", seen, tr("publicación") if len(rows) == 1 else 'publicaciones', _kinah(total), _kinah(collect)), f.body, theme.TEXT)
         self.col.addWidget(head)
         grid = QGridLayout()
         grid.setHorizontalSpacing(16)
         grid.setVerticalSpacing(2)
-        for c, text in enumerate(("Objeto", "Uds", "Precio", "Por unidad", "Lleva", "Le queda", "Mercado")):
+        for c, text in enumerate((tr("Objeto"), tr("Uds"), tr("Precio"), tr("Por unidad"), tr("Lleva"), tr("Le queda"), tr("Mercado"))):
             grid.addWidget(label(text, f.small, theme.MUTED), 0, c, Qt.AlignLeft if c == 0 else Qt.AlignRight)
         gone = (now - listings["at"]) / 3600
         for r, (name, qty, price, unit, left, listed_at) in enumerate(sorted(rows, key=lambda x: x[4] or 0), start=1):
@@ -225,7 +225,7 @@ class SalesView(QWidget):
             grid.addWidget(label(_span((now - listed_at) / 3600) if listed_at else "—", f.body, theme.MUTED), r, 4,
                            Qt.AlignRight)
             remaining = None if left is None else left - gone
-            grid.addWidget(label("caducó" if remaining is not None and remaining <= 0 else _span(remaining), f.body,
+            grid.addWidget(label(tr("caducó") if remaining is not None and remaining <= 0 else _span(remaining), f.body,
                                  theme.WARN if remaining is not None and remaining < 12 else theme.MUTED), r, 5,
                            Qt.AlignRight)
             market = self.window.crafting.market_price(name)
@@ -240,8 +240,8 @@ class SalesView(QWidget):
         grid = QGridLayout()
         grid.setHorizontalSpacing(16)
         grid.setVerticalSpacing(2)
-        for c, text in enumerate(("Objeto", "Ventas", "Uds", "Cobrado", "Ganancia", "Margen", "Precio medio / ud",
-                                  "vs mercado", "Tarda")):
+        for c, text in enumerate((tr("Objeto"), tr("Ventas"), tr("Uds"), tr("Cobrado"), tr("Ganancia"), tr("Margen"), tr("Precio medio / ud"),
+                                  tr("vs mercado"), tr("Tarda"))):
             grid.addWidget(label(text, f.small, theme.MUTED), 0, c, Qt.AlignLeft if c == 0 else Qt.AlignRight)
         for r, (item, t, unit, vs, hours) in enumerate(products, start=1):
             grid.addWidget(label(item, f.body, theme.TEXT), r, 0)
@@ -266,11 +266,12 @@ class SalesView(QWidget):
         mats = crafting.sold_materials()
         if not mats:
             return
-        self.col.addWidget(SectionTitle("Materiales: ¿comprados o farmeados?", f))
-        note = label("Marca de dónde sacaste cada material de lo que vendes: los comprados cuentan al precio medio "
-                     "del mercado del día de la venta (de 00:00 a 23:59, con tus muestreos de ese día; cuando el día "
-                     "acaba queda fijo y los cambios del mercado ya no mueven tus ventas), los farmeados o recolectados "
-                     "no cuestan nada, y lo que fabricas tú cuenta sus propios materiales.",
+        self.col.addWidget(SectionTitle(tr("Materiales: ¿comprados o farmeados?"), f))
+        note = label(tr("Marca de dónde sacaste cada material de lo que vendes: los comprados cuentan al precio "
+                        "medio del mercado del día de la venta (de 00:00 a 23:59, con tus muestreos de ese día; "
+                        "cuando el día acaba queda fijo y los cambios del mercado ya no mueven tus ventas), los "
+                        "farmeados o recolectados no cuestan nada, y lo que fabricas tú cuenta sus propios "
+                        "materiales."),
                      f.small, theme.MUTED)
         note.setWordWrap(True)
         self.col.addWidget(note)
@@ -278,7 +279,7 @@ class SalesView(QWidget):
         grid = QGridLayout()
         grid.setHorizontalSpacing(14)
         grid.setVerticalSpacing(3)
-        for c, text in enumerate(("Material", "De dónde sale", "Para", "Media de hoy", "")):
+        for c, text in enumerate(("Material", tr("De dónde sale"), tr("Para"), tr("Media de hoy"), "")):
             grid.addWidget(label(text, f.small, theme.MUTED), 0, c, Qt.AlignRight if c == 3 else Qt.AlignLeft)
         npc = []
         r = 1
@@ -291,13 +292,13 @@ class SalesView(QWidget):
             used = label(", ".join(products), f.small, theme.MUTED, elide=True)
             grid.addWidget(used, r, 2)
             price = prices.get(name)
-            grid.addWidget(label(_kinah(price[0]) if price else "sin precio", f.body,
+            grid.addWidget(label(_kinah(price[0]) if price else tr("sin precio"), f.body,
                                  theme.TEXT if price else theme.WARN), r, 3, Qt.AlignRight)
             choice = crafting.mat_choice(name, source)
             buttons = QHBoxLayout()
             buttons.setSpacing(4)
-            for key, text in (("buy", "Comprado"), ("farm", "Hecho por mí" if source == "craft" else
-                                                     "Recolectado" if source == "gather" else "Farmeado")):
+            for key, text in (("buy", tr("Comprado")), ("farm", tr("Hecho por mí") if source == "craft" else
+                                                     tr("Recolectado") if source == "gather" else "Farmeado")):
                 button = QPushButton(text)
                 button.setProperty("tab", True)
                 button.setCheckable(True)
@@ -312,7 +313,7 @@ class SalesView(QWidget):
         grid.setColumnStretch(2, 1)
         self.col.addLayout(grid)
         if npc:
-            self.col.addWidget(label("Siempre comprados al NPC (a su precio): " + ", ".join(npc), f.small,
+            self.col.addWidget(label(tr("Siempre comprados al NPC (a su precio): ") + ", ".join(npc), f.small,
                                      theme.MUTED))
 
     def _set_mark(self, name, key):
@@ -325,14 +326,13 @@ class SalesView(QWidget):
         grid = QGridLayout()
         grid.setHorizontalSpacing(14)
         grid.setVerticalSpacing(2)
-        for c, text in enumerate(("Fecha", "Objeto", "Uds", "Precio", "Impuesto", "Cobrado", "Materiales", "Ganancia",
-                                  "Margen", "", "")):
+        for c, text in enumerate((tr("Fecha"), tr("Objeto"), tr("Uds"), tr("Precio"), tr("Impuesto"), tr("Cobrado"), tr("Materiales"), tr("Ganancia"),
+                                  tr("Margen"), "", "")):
             grid.addWidget(label(text, f.small, theme.MUTED), 0, c, Qt.AlignLeft if c < 2 else Qt.AlignRight)
         for r, s in enumerate(sales, start=1):
             when = label(_clock(s["at"]) + ("" if s.get("time_known") else " ?"), f.body, theme.MUTED)
             if not s.get("time_known"):
-                when.setToolTip(f"No se pudo leer la hora de la venta ({s.get('when_text') or 'vacía'}): es la del "
-                                f"escaneo.")
+                when.setToolTip(tr("No se pudo leer la hora de la venta ({0}): es la del escaneo.", s.get('when_text') or tr("vacía")))
                 when.setAttribute(Qt.WA_TransparentForMouseEvents, False)
             grid.addWidget(when, r, 0)
             grid.addWidget(label(s["item"], f.body, theme.TEXT), r, 1)
@@ -345,9 +345,9 @@ class SalesView(QWidget):
             cost_label = label(cost, f.body, theme.MUTED)
             if s.get("crafted"):
                 bought = self.window.crafting.sale_prices_text(s)
-                cost_label.setToolTip(f"Precio medio del {time.strftime('%d/%m', time.localtime(s['at']))}"
-                                      + (f" de lo comprado: {bought}" if bought else ": no compraste nada")
-                                      + f"\nComprando todos los materiales: {_kinah(ledger.cost(s, buying=True))}")
+                cost_label.setToolTip(tr("Precio medio del {0}", time.strftime('%d/%m', time.localtime(s['at'])))
+                                      + (tr(" de lo comprado: {0}", bought) if bought else tr(": no compraste nada"))
+                                      + tr("\nComprando todos los materiales: {0}", _kinah(ledger.cost(s, buying=True))))
                 cost_label.setAttribute(Qt.WA_TransparentForMouseEvents, False)
             grid.addWidget(cost_label, r, 6, Qt.AlignRight)
             profit = ledger.profit(s)
@@ -357,13 +357,13 @@ class SalesView(QWidget):
             grid.addWidget(label(f"{profit / s['net']:.0%}" if profit is not None and s["net"] else "—", f.body,
                                  theme.MUTED), r, 8, Qt.AlignRight)
             proof = ledger.proof_path(s)
-            see = QPushButton("Prueba")
+            see = QPushButton(tr("Prueba"))
             see.setProperty("flat", True)
             see.setEnabled(bool(proof and proof.exists()))
-            see.setToolTip("Abrir la captura de Settlement donde salió esta venta")
+            see.setToolTip(tr("Abrir la captura de Settlement donde salió esta venta"))
             see.clicked.connect(lambda _=False, p=proof: os.startfile(str(p)))
             grid.addWidget(see, r, 9)
-            remove = QPushButton("Borrar")
+            remove = QPushButton(tr("Borrar"))
             remove.setProperty("flat", True)
             remove.clicked.connect(lambda _=False, sale=s: self.window.delete_sale(sale))
             grid.addWidget(remove, r, 10)

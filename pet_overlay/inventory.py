@@ -19,6 +19,7 @@ pieces just broken (decomposed) and nothing else: what can still be recovered, n
 import struct
 
 from .gear import parse_owned_gear
+from .i18n import tr
 
 LIST_OPCODE = bytes.fromhex("1156")
 UPDATE_OPCODE = bytes.fromhex("1b56")
@@ -47,7 +48,7 @@ def parse_items(body, ids, update=False):
 
 
 def place(container):
-    return "Bolsa" if container == BAG else "Almacén"
+    return tr("Bolsa") if container == BAG else tr("Almacén")
 
 
 class Inventory:

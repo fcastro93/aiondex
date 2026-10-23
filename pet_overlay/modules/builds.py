@@ -9,6 +9,7 @@ from ..builds import class_of_build
 from ..ui import theme
 from ..ui.appmenu import glyph_icon
 from ..ui.widgets import SectionTitle, label
+from ..i18n import tr
 
 GLYPH_BUILDS = ""     # equalizer / sliders (the Afinador's)
 SHOWN = 3
@@ -54,18 +55,19 @@ class BuildsPanel(QWidget):
         if tuner.own:
             now = current_build(ctl)
             preset = tuner.active_preset or 1
-            self._line(f"Preset {preset} puesto" + (f" · es «{now['name']}»" if now else " · no es ninguna build guardada"),
+            self._line(tr("Preset {0} puesto", preset) + (tr(" · es «{0}»", now['name']) if now else tr(" · no es ninguna build "
+                                                                                            "guardada")),
                        theme.GAIN if now else theme.TEXT)
         else:
-            self._line("Entra al juego con tu personaje: leo tus skills y tus 3 presets.", theme.MUTED)
+            self._line(tr("Entra al juego con tu personaje: leo tus skills y tus 3 presets."), theme.MUTED)
         builds = ctl.builds.list(my_class(ctl))
         if builds:
-            self.content.addWidget(SectionTitle("Tus builds", f))
+            self.content.addWidget(SectionTitle(tr("Tus builds"), f))
             for b in builds[:2 if compact else SHOWN]:
                 row = QHBoxLayout()
                 row.setSpacing(f.px(6))
                 row.addWidget(label(b.get("name") or "Build", f.small, theme.TEXT, elide=True), 1)
-                use = label("Usar", f.small, theme.ACCENT)
+                use = label(tr("Usar"), f.small, theme.ACCENT)
                 use.setAttribute(Qt.WA_TransparentForMouseEvents, False)
                 use.setCursor(Qt.PointingHandCursor)
                 use.on_click = lambda i=b["id"]: ctl.open_builds(build=i, plan=True)
@@ -75,8 +77,8 @@ class BuildsPanel(QWidget):
                 holder.setContentsMargins(f.px(4), 0, 0, 0)
                 self.content.addWidget(holder)
             if len(builds) > (2 if compact else SHOWN):
-                self._line(f"y {len(builds) - (2 if compact else SHOWN)} más", theme.MUTED)
-        link = label("Abrir Builds", f.name, theme.ACCENT)
+                self._line(tr("y {0} más", len(builds) - (2 if compact else SHOWN)), theme.MUTED)
+        link = label(tr("Abrir Builds"), f.name, theme.ACCENT)
         link.setAttribute(Qt.WA_TransparentForMouseEvents, False)
         link.setCursor(Qt.PointingHandCursor)
         link.on_click = ctl.open_builds
@@ -88,22 +90,21 @@ class BuildsPanel(QWidget):
     def _afinador(self, compact):
         """The Afinador of the macro, part of the builds: its test going on or its last one."""
         f, tuner = self.fonts, self.ctl.tuner
-        self.content.addWidget(SectionTitle("Afinador del macro", f))
+        self.content.addWidget(SectionTitle(tr("Afinador del macro"), f))
         if tuner.recording:
             s = tuner.session
-            self._line(f"Grabando prueba… {int(s.duration)} s · {s.fired} lanzamientos", theme.ACCENT)
+            self._line(tr("Grabando prueba… {0} s · {1} lanzamientos", int(s.duration), s.fired), theme.ACCENT)
         report = tuner.last_report
         if report and not tuner.recording:
             bad = [x for x in report.findings if x.level == "bad"]
             warn = [x for x in report.findings if x.level == "warn"]
-            self._line(f"Última prueba: {int(report.duration)} s · {report.total} lanzamientos · "
-                       f"{len(bad)} problemas, {len(warn)} avisos", theme.TEXT)
+            self._line(tr("Última prueba: {0} s · {1} lanzamientos · {2} problemas, {3} avisos", int(report.duration), report.total, len(bad), len(warn)), theme.TEXT)
             for finding in (bad + warn)[:2 if compact else 4]:
                 self._line(f"• {finding.text}", theme.COMBAT if finding.level == "bad" else theme.WARN)
         elif not tuner.recording:
-            self._line("Compara lo que deberían lanzar tus macros con lo que se lanza de verdad y te dice qué "
-                       "cambiar.", theme.MUTED)
-        link = label("Abrir el afinador", f.name, theme.ACCENT)
+            self._line(tr("Compara lo que deberían lanzar tus macros con lo que se lanza de verdad y te dice qué "
+                          "cambiar."), theme.MUTED)
+        link = label(tr("Abrir el afinador"), f.name, theme.ACCENT)
         link.setAttribute(Qt.WA_TransparentForMouseEvents, False)
         link.setCursor(Qt.PointingHandCursor)
         link.on_click = self.ctl.open_tuner
@@ -132,6 +133,6 @@ class BuildsModule(Module):
         self.panel.render(compact)
         tuner = self.ctl.tuner
         if tuner.recording:
-            return ModuleView(summary="afinador grabando")
+            return ModuleView(summary=tr("afinador grabando"))
         now = current_build(self.ctl) if tuner.own else None
         return ModuleView(summary=now["name"] if now else "")

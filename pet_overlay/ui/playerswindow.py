@@ -20,16 +20,17 @@ from .mapwindow import STYLE, badge_label
 from .theme import Fonts
 from .tunerwindow import EXTRA_STYLE
 from .widgets import SectionTitle, label
+from ..i18n import tr
 
 CLASS_ES = {"Gladiator": "Gladiador", "Templar": "Templario", "Ranger": "Cazador", "Assassin": "Asesino",
             "Sorcerer": "Hechicero", "Spiritmaster": "Invocador", "Elementalist": "Invocador", "Cleric": "Clérigo",
             "Chanter": "Cantor"}
 ROLE_COLOR = {"tanque": "#7cc4ff", "sanador": "#7bd88f", "apoyo": "#f0c24e", "daño": "#ff7a59"}
-SLOT_ES = {"MainHand": "Arma", "SubHand": "Secundaria", "Helmet": "Casco", "Shoulder": "Hombreras", "Torso": "Pecho",
-           "Pants": "Grebas", "Gloves": "Guantes", "Boots": "Botas", "Cape": "Capa", "Necklace": "Collar",
-           "Earring1": "Pendiente", "Earring2": "Pendiente", "Ring1": "Anillo", "Ring2": "Anillo",
-           "Bracelet1": "Brazalete", "Bracelet2": "Brazalete", "Belt": "Cinturón", "Amulet": "Amuleto",
-           "Rune1": "Runa", "Rune2": "Runa"}
+SLOT_ES = {"MainHand": tr("Arma"), "SubHand": tr("Secundaria"), "Helmet": tr("Casco"), "Shoulder": tr("Hombreras"), "Torso": tr("Pecho"),
+           "Pants": tr("Grebas"), "Gloves": tr("Guantes"), "Boots": tr("Botas"), "Cape": tr("Capa"), "Necklace": tr("Collar"),
+           "Earring1": tr("Pendiente"), "Earring2": tr("Pendiente"), "Ring1": tr("Anillo"), "Ring2": tr("Anillo"),
+           "Bracelet1": tr("Brazalete"), "Bracelet2": tr("Brazalete"), "Belt": tr("Cinturón"), "Amulet": tr("Amuleto"),
+           "Rune1": tr("Runa"), "Rune2": tr("Runa")}
 GRADE_COLOR = {"Common": "#C3C3C3", "Rare": "#19E048", "Legend": "#379AFF", "Unique": "#FFD02B", "Epic": "#FF6C00",
                "Mythic": "#00FFD8"}
 COLUMNS = 5
@@ -61,7 +62,7 @@ class PlayersWindow(QWidget):
         self.inspect_state = {"tab": "gear", "number": "cp"}     # the inspect card's tab and CP / item level
         self._popup = None
         self.setObjectName("MapWindow")
-        self.setWindowTitle(f"{APP_NAME} — " + ("Arena" if arena else "Jugadores de tu grupo"))
+        self.setWindowTitle(f"{APP_NAME} — " + ("Arena" if arena else tr("Jugadores de tu grupo")))
         self.setWindowIcon(ctl.app_icon)
         self.setStyleSheet(STYLE + EXTRA_STYLE + WINDOW_STYLE)
         self.resize(1240, 900)
@@ -77,19 +78,20 @@ class PlayersWindow(QWidget):
         titles.setSpacing(0)
         self.title = label("", f.name_big, theme.TEXT)
         titles.addWidget(self.title)
-        about = label("Los jugadores de tu partida de Arena (el juego manda su servidor y su rating al "
-                               "empezar). El perfil (CP, item level, equipo, habilidades, Daevanion) es el oficial de "
-                               "NCSOFT, el mismo de shugo.gg, pedido a su servidor, de uno en uno." if arena else
-                               "CP e item level: los envía el juego con la lista de tu party / force (al momento). El "
-                               "perfil completo (equipo, habilidades, Daevanion) es el oficial de NCSOFT, el mismo de "
-                               "shugo.gg: se pide al abrir y con Refrescar, antes que todo lo demás: primero el CP "
-                               "y el item level de todos (los que aún no tienen CP, primero) y luego su equipo.",
+        about = label(tr("Los jugadores de tu partida de Arena (el juego manda su servidor y su rating al empezar). "
+                         "El perfil (CP, item level, equipo, habilidades, Daevanion) es el oficial de NCSOFT, el "
+                         "mismo de shugo.gg, pedido a su servidor, de uno en uno.") if arena else
+                               tr("CP e item level: los envía el juego con la lista de tu party / force (al "
+                                  "momento). El perfil completo (equipo, habilidades, Daevanion) es el oficial de "
+                                  "NCSOFT, el mismo de shugo.gg: se pide al abrir y con Refrescar, antes que todo "
+                                  "lo demás: primero el CP y el item level de todos (los que aún no tienen CP, "
+                                  "primero) y luego su equipo."),
                                f.small, theme.MUTED)
         about.setWordWrap(True)                  # a long line wraps instead of widening the window
         titles.addWidget(about)
         head.addLayout(titles, 1)
-        refresh = QPushButton("Refrescar todos")
-        refresh.setToolTip("Vuelve a pedir el perfil de cada jugador (los datos de ahora mismo)")
+        refresh = QPushButton(tr("Refrescar todos"))
+        refresh.setToolTip(tr("Vuelve a pedir el perfil de cada jugador (los datos de ahora mismo)"))
         refresh.clicked.connect(lambda: self._fetch(True))
         head.addWidget(refresh)
         root.addLayout(head)
@@ -97,7 +99,7 @@ class PlayersWindow(QWidget):
         bar = QHBoxLayout()
         bar.setSpacing(6)
         self.tab_buttons = {}
-        for key, text in (("players", "Jugadores"), ("plan", "Organizar parties")):
+        for key, text in (("players", tr("Jugadores")), ("plan", tr("Organizar parties"))):
             button = QPushButton(text)
             button.setProperty("tab", True)
             button.setCheckable(True)
@@ -105,19 +107,19 @@ class PlayersWindow(QWidget):
             bar.addWidget(button)
             self.tab_buttons[key] = button
         bar.addSpacing(16)
-        bar.addWidget(label("CP mínimo", f.small, theme.MUTED))
+        bar.addWidget(label(tr("CP mínimo"), f.small, theme.MUTED))
         self.min_cp = QSpinBox()
         self.min_cp.setRange(0, 9_999_999)
         self.min_cp.setSingleStep(1000)
         self.min_cp.setGroupSeparatorShown(True)
-        self.min_cp.setSpecialValueText("sin filtro")
+        self.min_cp.setSpecialValueText(tr("sin filtro"))
         self.min_cp.setValue(conf.get("min_cp", 0))
         bar.addWidget(self.min_cp)
-        bar.addWidget(label("Item level mínimo", f.small, theme.MUTED))
+        bar.addWidget(label(tr("Item level mínimo"), f.small, theme.MUTED))
         self.min_ilvl = QSpinBox()
         self.min_ilvl.setRange(0, 99_999)
         self.min_ilvl.setSingleStep(10)
-        self.min_ilvl.setSpecialValueText("sin filtro")
+        self.min_ilvl.setSpecialValueText(tr("sin filtro"))
         self.min_ilvl.setValue(conf.get("min_ilvl", 0))
         bar.addWidget(self.min_ilvl)
         self._filter_timer = QTimer(self, singleShot=True, interval=400, timeout=self._filters_changed)
@@ -129,7 +131,7 @@ class PlayersWindow(QWidget):
                 widget.hide()
             for i in range(bar.count()):
                 item = bar.itemAt(i).widget()
-                if isinstance(item, QLabel) and item.text() in ("CP mínimo", "Item level mínimo"):
+                if isinstance(item, QLabel) and item.text() in (tr("CP mínimo"), tr("Item level mínimo")):
                     item.hide()
         bar.addSpacing(10)
         bar.addWidget(self.summary)
@@ -146,8 +148,8 @@ class PlayersWindow(QWidget):
         root.addWidget(scroll, 1)
 
         foot = QHBoxLayout()
-        for text, url in (("Datos: NCSOFT (aion2.plaync.com)", "https://aion2.plaync.com/en-us/characters/index"),
-                          ("Reglas de buffs: tooltips del juego en shugo.gg", "https://shugo.gg/skills/chanter")):
+        for text, url in ((tr("Datos: NCSOFT (aion2.plaync.com)"), "https://aion2.plaync.com/en-us/characters/index"),
+                          (tr("Reglas de buffs: tooltips del juego en shugo.gg"), "https://shugo.gg/skills/chanter")):
             link = QPushButton(text)
             link.setProperty("flat", True)
             link.clicked.connect(lambda _=False, u=url: webbrowser.open(u))
@@ -223,17 +225,17 @@ class PlayersWindow(QWidget):
             n = len(match.rivals(self.ctl._me())) if match else 0
             self.title.setText(f"Arena {match.size} · {n} {'rival' if n == 1 else 'rivales'}" if match else "Arena")
         else:
-            self.title.setText(f"Tu force ({len(members)})" if force else f"Tu party ({len(members)})" if members
-                               else "Jugadores de tu grupo")
+            self.title.setText(tr("Tu force ({0})", len(members)) if force else tr("Tu party ({0})", len(members)) if members
+                               else tr("Jugadores de tu grupo"))
         for key, button in self.tab_buttons.items():
             button.setChecked(key == self.tab)
         self.tab_buttons["plan"].setEnabled(len(members) > 1)
         if not members:
             self.summary.setText("")
-            self.body.addWidget(label("Cuando entres a una partida de Arena, aquí salen tu rival (o los 10 en 5v5) con "
-                                      "su perfil." if self.arena else
-                                      "No estás en party ni en force (o AionDex aún no recibió la lista: el juego la "
-                                      "manda al entrar, al cambiar de mapa o al unirte).", self.fonts.body,
+            self.body.addWidget(label(tr("Cuando entres a una partida de Arena, aquí salen tu rival (o los 10 en "
+                                         "5v5) con su perfil.") if self.arena else
+                                      tr("No estás en party ni en force (o AionDex aún no recibió la lista: el "
+                                         "juego la manda al entrar, al cambiar de mapa o al unirte)."), self.fonts.body,
                                       theme.MUTED))
             self.body.addStretch(1)
             return
@@ -248,15 +250,15 @@ class PlayersWindow(QWidget):
         ils = [il for _, il in numbers if il]
         bits = []
         if cps:
-            bits.append(f"CP medio {sum(cps) / len(cps):,.0f} (de {min(cps):,} a {max(cps):,})")
+            bits.append(tr("CP medio {0:,.0f} (de {1:,} a {2:,})", sum(cps) / len(cps), min(cps), max(cps)))
         if ils:
-            bits.append(f"item level medio {sum(ils) / len(ils):,.0f}")
+            bits.append(tr("item level medio {0:,.0f}", sum(ils) / len(ils)))
         if len(cps) < len(members):
-            bits.append(f"{len(members) - len(cps)} sin CP aún")
+            bits.append(tr("{0} sin CP aún", len(members) - len(cps)))
         if self.min_cp.value() or self.min_ilvl.value():
-            bits.append(f"{len(failing)} de {len(members)} no cumplen" if failing else "todos cumplen")
+            bits.append(tr("{0} de {1} no cumplen", len(failing), len(members)) if failing else tr("todos cumplen"))
         if loading:
-            bits.append(f"cargando {loading}…")
+            bits.append(tr("cargando {0}…", loading))
         self.summary.setText(" · ".join(bits))
         self.summary.setStyleSheet(f"color: {'#ff7a7a' if failing else theme.TEXT.name()};")
         if self.tab == "plan" and len(members) > 1:
@@ -268,11 +270,11 @@ class PlayersWindow(QWidget):
     def _players(self, members, profiles):
         f = self.fonts
         if self.arena:
-            groups = [("Rivales", [m for m in members if not m[3] and not m[4]]),
-                      ("Tu equipo", [m for m in members if m[3] or m[4]])]
+            groups = [(tr("Rivales"), [m for m in members if not m[3] and not m[4]]),
+                      (tr("Tu equipo"), [m for m in members if m[3] or m[4]])]
         else:
-            groups = [("Tu party", [m for m in members if m[3]]),
-                      ("Resto de la force", [m for m in members if not m[3]])]
+            groups = [(tr("Tu party"), [m for m in members if m[3]]),
+                      (tr("Resto de la force"), [m for m in members if not m[3]])]
             if not groups[0][1]:
                 groups = [("", members)]
         if self.selected in profiles and profiles[self.selected]:
@@ -337,10 +339,10 @@ class PlayersWindow(QWidget):
         top.addWidget(self._portrait(profile, cls))
         right = QVBoxLayout()
         right.setSpacing(0)
-        right.addWidget(label(name + ("  (tú)" if me else ""), f.name, theme.GOLD if me else theme.TEXT, elide=True))
+        right.addWidget(label(name + (tr("  (tú)") if me else ""), f.name, theme.GOLD if me else theme.TEXT, elide=True))
         role = ROLE.get(cls, "")
-        right.addWidget(label(f"{cls or 'clase ?'}" + (f" · {role}" if role else "") +
-                              (f" · Nv {profile.level}" if profile and profile.level else ""), f.small,
+        right.addWidget(label((cls or tr("clase ?")) + (f" · {tr(role)}" if role else "") +
+                              (tr(" · Nv {0}", profile.level) if profile and profile.level else ""), f.small,
                               theme.MUTED, elide=True))
         right.addWidget(label(f"{cp:,}" if cp is not None else "CP ?", f.name_big, theme.GOLD))
         right.addWidget(label(f"CP · item level {il:,}" if il else "CP", f.small, theme.MUTED))
@@ -349,34 +351,34 @@ class PlayersWindow(QWidget):
         lay.addLayout(top)
         if self.arena:
             player = (self.ctl.arena() or None) and self.ctl.arena().me(name)
-            bits = [f"Servidor {profile.server_name if profile and profile.server_name else server}"]
+            bits = [tr("Servidor {0}", profile.server_name if profile and profile.server_name else server)]
             if player is not None and player.rating:
                 bits.append(f"rating {player.rating:,}")
             lay.addWidget(label(" · ".join(bits), f.small, theme.ACCENT, elide=True))
         if profile:
             if profile.legion:
-                lay.addWidget(label(f"Legión {profile.legion}", f.small, theme.TEXT, elide=True))
+                lay.addWidget(label(tr("Legión {0}", profile.legion), f.small, theme.TEXT, elide=True))
             weapon = profile.weapon
             if weapon:
                 lay.addWidget(label(f"{weapon[1]} +{weapon[2]}" + (f" ◆{weapon[3]}" if weapon[3] else ""), f.small,
                                     QColor(GRADE_COLOR.get(weapon[4], "#D6DAE3")), elide=True))
             avg = profile.enchant_avg
             nodes = sum(o for _, o, _ in profile.daevanion), sum(t for _, _, t in profile.daevanion)
-            lay.addWidget(label((f"Equipo +{avg:.1f} de media" if avg is not None else "") +
+            lay.addWidget(label((tr("Equipo +{0:.1f} de media", avg) if avg is not None else "") +
                                 (f" · Daevanion {nodes[0]}/{nodes[1]}" if nodes[1] else ""), f.small, theme.MUTED,
                                 elide=True))
             best = sorted(profile.skills, key=lambda s: -s[2])[:3]
             if best:
                 lay.addWidget(label(" · ".join(f"{s[0]} {s[2]}" for s in best), f.small, theme.MUTED, elide=True))
-        status = ("perfil: cargando…" if self.armory.loading_info(name) else
-                  "CP al día · equipo: cargando…" if self.armory.loading(name) else
-                  f"perfil sin datos: {self.armory.error(name)}" if not profile and self.armory.error(name) else
-                  "perfil sin datos todavía" if not profile else
-                  f"perfil leído {_ago(profile.at)}")
+        status = (tr("perfil: cargando…") if self.armory.loading_info(name) else
+                  tr("CP al día · equipo: cargando…") if self.armory.loading(name) else
+                  tr("perfil sin datos: {0}", self.armory.error(name)) if not profile and self.armory.error(name) else
+                  tr("perfil sin datos todavía") if not profile else
+                  tr("perfil leído {0}", _ago(profile.at)))
         if not profile and cp is not None:
-            status = "CP e item level del juego · " + status
+            status = tr("CP e item level del juego · ") + status
         if fails:
-            lay.addWidget(label("No cumple: " + ", ".join(fails), f.small, QColor("#ff7a7a"), elide=True))
+            lay.addWidget(label(tr("No cumple: ") + ", ".join(fails), f.small, QColor("#ff7a7a"), elide=True))
         state = label(status, f.small, theme.MUTED, elide=True)
         state.setToolTip(status)
         lay.addWidget(state)
@@ -385,16 +387,16 @@ class PlayersWindow(QWidget):
         shugo.setProperty("flat", True)
         server_name = profile.server_name if profile and profile.server_name else self.ctl.server_name(server)
         shugo.setEnabled(bool(server_name))
-        shugo.setToolTip(f"Abrir su página en shugo.gg ({server_name})" if server_name else
-                         "Cuando cargue su perfil (hace falta el nombre de su servidor)")
+        shugo.setToolTip(tr("Abrir su página en shugo.gg ({0})", server_name) if server_name else
+                         tr("Cuando cargue su perfil (hace falta el nombre de su servidor)"))
         shugo.clicked.connect(lambda _=False, s=server_name: webbrowser.open(shugo_url(name, server, s)))
         links.addWidget(shugo)
         if profile and profile.character_id:
-            official = QPushButton("Oficial")
+            official = QPushButton(tr("Oficial"))
             official.setProperty("flat", True)
             official.clicked.connect(lambda _=False: webbrowser.open(official_url(server, profile.character_id)))
             links.addWidget(official)
-        again = QPushButton("Refrescar")
+        again = QPushButton(tr("Refrescar"))
         again.setProperty("flat", True)
         again.clicked.connect(lambda _=False: (self.armory.want(name, server, True, priority=GROUP), self.refresh()))
         links.addWidget(again)
@@ -430,8 +432,9 @@ class PlayersWindow(QWidget):
         roster = [Member(name, class_of(profiles[name], job), self.numbers(name, profiles[name])[0])
                   for name, server, job, *_ in members]
         parties, advice = plan(roster)
-        intro = label("Propuesta: un Clérigo y un Cantor por party mientras haya (sus curas y buffs solo llegan a su "
-                      "party, a 40 m), los Templarios repartidos y el CP lo más parejo posible. Debajo, qué vigilar.",
+        intro = label(tr("Propuesta: un Clérigo y un Cantor por party mientras haya (sus curas y buffs solo llegan "
+                         "a su party, a 40 m), los Templarios repartidos y el CP lo más parejo posible. Debajo, qué "
+                         "vigilar."),
                       f.small, theme.MUTED)
         intro.setWordWrap(True)
         self.body.addWidget(intro)
@@ -446,7 +449,7 @@ class PlayersWindow(QWidget):
             lay.setContentsMargins(10, 8, 10, 8)
             lay.setSpacing(3)
             lay.addWidget(label(f"Party {i}", f.name, theme.TEXT))
-            lay.addWidget(label(f"CP medio {party.avg(fill):,.0f}", f.small, theme.MUTED))
+            lay.addWidget(label(tr("CP medio {0:,.0f}", party.avg(fill)), f.small, theme.MUTED))
             for m in sorted(party.members, key=lambda m: ("tanque sanador apoyo daño".split().index(
                     ROLE.get(m.cls, "daño")), -(m.cp or 0))):
                 role = ROLE.get(m.cls, "daño")
@@ -459,11 +462,11 @@ class PlayersWindow(QWidget):
             lay.addStretch(1)
             cols.addWidget(col, 1)
         self.body.addLayout(cols)
-        copy = QPushButton("Copiar el reparto para el chat")
+        copy = QPushButton(tr("Copiar el reparto para el chat"))
         copy.clicked.connect(lambda: self._copy(parties))
         self.body.addWidget(copy, 0, Qt.AlignLeft)
         if advice:
-            self.body.addWidget(SectionTitle("Qué vigilar", f))
+            self.body.addWidget(SectionTitle(tr("Qué vigilar"), f))
             for text in advice:
                 note = label("• " + text, f.body, theme.TEXT)
                 note.setWordWrap(True)
@@ -473,12 +476,12 @@ class PlayersWindow(QWidget):
         from PySide6.QtWidgets import QApplication
         text = " | ".join(f"P{i}: " + ", ".join(m.name for m in p.members) for i, p in enumerate(parties, 1))
         QApplication.clipboard().setText(text)
-        self.ctl.notify("info", "Reparto copiado", "Pégalo en el chat de la force.")
+        self.ctl.notify("info", tr("Reparto copiado"), tr("Pégalo en el chat de la force."))
 
 
 def _ago(ts):
     mins = max(0, (time.time() - ts) / 60)
-    return "hace un momento" if mins < 1 else f"hace {mins:.0f} min" if mins < 90 else f"hace {mins / 60:.0f} h"
+    return tr("hace un momento") if mins < 1 else tr("hace {0:.0f} min", mins) if mins < 90 else tr("hace {0:.0f} h", mins / 60)
 
 
 def _clear(layout):

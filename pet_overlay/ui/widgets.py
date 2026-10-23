@@ -6,6 +6,7 @@ from PySide6.QtGui import QColor, QPainter, QPainterPath, QPixmap, QRadialGradie
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 from . import theme
+from ..i18n import tr
 
 _icon_cache = {}
 LED_COLORS = {"red": QColor("#ff4d4d"), "green": QColor("#46d97a"), "grey": QColor("#5a6478")}
@@ -188,7 +189,7 @@ def _progress_text(pet):
     if pet.is_max:
         return "MAX"
     if pet.level == 0:
-        return f"{pet.progress}/{pet.threshold} almas"
+        return tr("{0}/{1} almas", pet.progress, pet.threshold)
     return f"{pet.progress}/{pet.threshold}" if pet.threshold else str(pet.progress)
 
 

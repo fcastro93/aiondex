@@ -17,6 +17,7 @@ from .theme import Fonts
 from .trackerwindow import CARD_STYLE
 from .tunerwindow import EXTRA_STYLE
 from .widgets import LED_COLORS, Led, SectionTitle, label
+from ..i18n import tr
 
 GLYPH_BELL, GLYPH_BELL_OFF = "", ""
 LED = 14
@@ -30,7 +31,7 @@ class StatusWindow(QWidget):
         self.status = ctl.status
         self.fonts = Fonts(1.0)
         self.setObjectName("MapWindow")
-        self.setWindowTitle(f"{APP_NAME} — Status de tus personajes")
+        self.setWindowTitle(tr("{0} — Status de tus personajes", APP_NAME))
         self.setWindowIcon(ctl.app_icon)
         self.setStyleSheet(STYLE + EXTRA_STYLE + CARD_STYLE)
         self.resize(1080, 860)
@@ -43,13 +44,13 @@ class StatusWindow(QWidget):
         head.addWidget(badge_label(30, self.devicePixelRatioF()))
         titles = QVBoxLayout()
         titles.setSpacing(0)
-        titles.addWidget(label("Status de tus personajes", f.name_big, theme.TEXT))
-        titles.addWidget(label("AionDex lo lee del juego cada vez que entras con un personaje; los que no estás jugando "
-                               "se calculan con sus recargas.", f.small, theme.MUTED))
+        titles.addWidget(label(tr("Status de tus personajes"), f.name_big, theme.TEXT))
+        titles.addWidget(label(tr("AionDex lo lee del juego cada vez que entras con un personaje; los que no estás "
+                                  "jugando se calculan con sus recargas."), f.small, theme.MUTED))
         head.addLayout(titles, 1)
-        self.membership = QCheckBox("Membresía (energía hasta 840)")
+        self.membership = QCheckBox(tr("Membresía (energía hasta 840)"))
         self.membership.setChecked(self.status.membership)
-        self.membership.setToolTip("Sin membresía la energía de Odyle llega hasta 560.")
+        self.membership.setToolTip(tr("Sin membresía la energía de Odyle llega hasta 560."))
         self.membership.toggled.connect(self._set_membership)
         head.addWidget(self.membership)
         root.addLayout(head)
@@ -66,7 +67,7 @@ class StatusWindow(QWidget):
         root.addWidget(scroll, 1)
 
         foot = QHBoxLayout()
-        for text, url in (("Límites y recargas: metabot.gg", "https://metabot.gg/en/aion-2/weekly-reset"),
+        for text, url in ((tr("Límites y recargas: metabot.gg"), "https://metabot.gg/en/aion-2/weekly-reset"),
                           ("aion2data.com", "https://aion2data.com/checklist")):
             credit = QPushButton(text)
             credit.setProperty("flat", True)
@@ -96,15 +97,13 @@ class StatusWindow(QWidget):
         _clear(self.body)
         f, st, now = self.fonts, self.status, time.time()
         daily, weekly = next_daily(now), next_weekly(now)
-        self.resets.setText(f"Reinicio diario: {time.strftime('%H:%M', time.localtime(daily))} (en "
-                            f"{countdown(daily - now)})   ·   Reinicio semanal: miércoles "
-                            f"{time.strftime('%H:%M', time.localtime(weekly))} (en {countdown(weekly - now)})")
+        self.resets.setText(tr("Reinicio diario: {0} (en {1})   ·   Reinicio semanal: miércoles {2} (en {3})", time.strftime('%H:%M', time.localtime(daily)), countdown(daily - now), time.strftime('%H:%M', time.localtime(weekly)), countdown(weekly - now)))
         playing = self.ctl.character_name()
         names = st.names(now, playing)
 
-        self.body.addWidget(SectionTitle("Alertas", f))
-        hint = label("La luz dice si se cumple ahora. Con la campana encendida AionDex te avisa (con sonido) en cuanto "
-                     "se cumple y luego cada hora mientras siga igual. Todas empiezan apagadas.", f.small, theme.MUTED)
+        self.body.addWidget(SectionTitle(tr("Alertas"), f))
+        hint = label(tr("La luz dice si se cumple ahora. Con la campana encendida AionDex te avisa (con sonido) en "
+                        "cuanto se cumple y luego cada hora mientras siga igual. Todas empiezan apagadas."), f.small, theme.MUTED)
         hint.setWordWrap(True)
         self.body.addWidget(hint)
         alerts = QFrame()
@@ -118,9 +117,9 @@ class StatusWindow(QWidget):
 
         accounts = st.accounts(now, playing)
         if accounts:
-            self.body.addWidget(SectionTitle("Tu cuenta", f))
-            hint = label("Lo que comparten tus personajes del mismo servidor: un solo valor para todos (el de la "
-                         "última lectura de cualquiera de ellos).", f.small, theme.MUTED)
+            self.body.addWidget(SectionTitle(tr("Tu cuenta"), f))
+            hint = label(tr("Lo que comparten tus personajes del mismo servidor: un solo valor para todos (el de la "
+                            "última lectura de cualquiera de ellos)."), f.small, theme.MUTED)
             hint.setWordWrap(True)
             self.body.addWidget(hint)
             grid = QGridLayout()
@@ -131,10 +130,10 @@ class StatusWindow(QWidget):
                 grid.setColumnStretch(c, 1)
             self.body.addLayout(grid)
 
-        self.body.addWidget(SectionTitle("Personajes", f))
+        self.body.addWidget(SectionTitle(tr("Personajes"), f))
         if not names:
-            empty = label("Todavía no hay lecturas. Entra al juego con AionDex abierto (o cambia de personaje): cada "
-                          "personaje aparece aquí en cuanto entra.", f.body, theme.MUTED)
+            empty = label(tr("Todavía no hay lecturas. Entra al juego con AionDex abierto (o cambia de personaje): "
+                             "cada personaje aparece aquí en cuanto entra."), f.body, theme.MUTED)
             empty.setWordWrap(True)
             self.body.addWidget(empty)
         grid = QGridLayout()
@@ -159,18 +158,18 @@ class StatusWindow(QWidget):
         desc = label(when, f.small, theme.MUTED)
         desc.setWordWrap(True)
         text.addWidget(desc)
-        now_text = (f"Ahora: {', '.join(chars)}" if chars else "Ahora: nadie")
+        now_text = (tr("Ahora: {0}", ', '.join(chars)) if chars else tr("Ahora: nadie"))
         text.addWidget(label(now_text, f.small, LED_COLORS["red"] if chars else LED_COLORS["green"]))
         lay.addLayout(text, 1)
         on = self.status.alert_on(key)
-        bell = QPushButton("Te aviso cada hora" if on else "Avisarme")
+        bell = QPushButton(tr("Te aviso cada hora") if on else tr("Avisarme"))
         bell.setProperty("bell", True)
         bell.setCheckable(True)
         bell.setChecked(on)
         bell.setIcon(glyph_icon(GLYPH_BELL if on else GLYPH_BELL_OFF, theme.GOLD if on else theme.MUTED,
                                 f.icons_family))
         bell.setIconSize(QSize(16, 16))
-        bell.setToolTip("Apagar la alerta" if on else "Encender la alerta")
+        bell.setToolTip(tr("Apagar la alerta") if on else tr("Encender la alerta"))
         bell.clicked.connect(lambda checked, k=key: self._toggle(k, checked))
         lay.addWidget(bell, 0, Qt.AlignVCenter)
         return row
@@ -195,12 +194,12 @@ class StatusWindow(QWidget):
         hl.addWidget(Led("red" if red else "green", LED + 4))
         hl.addWidget(label(name, f.name_big, theme.TEXT), 1)
         if shared_by is not None:
-            when = f"de {', '.join(shared_by)} · leído {ago(st.read_at(name), now)}"
+            when = tr("de {0} · leído {1}", ', '.join(shared_by), ago(st.read_at(name), now))
             hl.addWidget(label(when, f.small, theme.MUTED))
         else:
             level = self.ctl.settings.get("characters", {}).get(name, {}).get("level")
-            when = "en juego ahora" if playing else f"leído {ago(st.read_at(name), now)} · calculado desde entonces"
-            hl.addWidget(label((f"Nivel {level} · " if level else "") + when, f.small, theme.MUTED))
+            when = tr("en juego ahora") if playing else tr("leído {0} · calculado desde entonces", ago(st.read_at(name), now))
+            hl.addWidget(label((tr("Nivel {0} · ", level) if level else "") + when, f.small, theme.MUTED))
         lay.addWidget(head)
         for kind in [k for k in KINDS if k.account == (shared_by is not None)]:
             v = st.value(name, kind.key, now)

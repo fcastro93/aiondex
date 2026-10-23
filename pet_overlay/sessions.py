@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .combat import ABYSS_MAPS, aggro_counts, in_instance
+from .i18n import tr
 
 
 class SessionLog:
@@ -36,7 +37,7 @@ class SessionLog:
 
     def start(self, name):
         self.end()
-        session = {"id": str(int(time.time() * 1000)), "name": name.strip() or time.strftime("Sesión %d/%m %H:%M"),
+        session = {"id": str(int(time.time() * 1000)), "name": name.strip() or time.strftime(tr("Sesión %d/%m %H:%M")),
                    "start": time.time(), "end": None, "fights": []}
         self.sessions.append(session)
         self.save()
@@ -89,7 +90,7 @@ class Run:
         out = []
         for enc, group in self.fights:
             if enc.activity(group).boss:
-                out.append((enc.main_target or "Jefe", enc.killed))
+                out.append((enc.main_target or tr("Jefe"), enc.killed))
         return out
 
 

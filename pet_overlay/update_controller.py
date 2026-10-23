@@ -14,6 +14,7 @@ from PySide6.QtCore import QObject, QThread, QTimer, Signal
 
 from . import __version__, updater
 from .paths import DATA_DIR, FROZEN
+from .i18n import tr
 
 log = logging.getLogger(__name__)
 CHECK_EVERY_MS = 6 * 3600 * 1000
@@ -78,7 +79,7 @@ class UpdateController(QObject):
         if not manual and not auto:
             return
         self._install_when_ready = manual or time.time() - self.started < STARTUP_WINDOW
-        self._set("checking", "Buscando actualizaciones…")
+        self._set("checking", tr("Buscando actualizaciones…"))
         self._worker = _Worker(download=self.can_install)
         self._worker.progress.connect(self._on_progress)
         self._worker.done.connect(lambda r, p, e: self._on_done(r, p, e, manual))
@@ -88,8 +89,8 @@ class UpdateController(QObject):
         if self.installer and self.can_install:
             self._wait_game.stop()
             log.info("installing update %s: AionDex closes and opens again", self.release.version)
-            self.ctl.notify("info", f"Instalando {self.ctl.app_name} {self.release.version}",
-                            "La app se cerrará y volverá a abrirse sola")
+            self.ctl.notify("info", tr("Instalando {0} {1}", self.ctl.app_name, self.release.version),
+                            tr("La app se cerrará y volverá a abrirse sola"))
             QTimer.singleShot(1500, self._launch)
 
     @staticmethod
@@ -110,48 +111,48 @@ class UpdateController(QObject):
         try:
             updater.launch_installer(self.installer)
         except OSError as exc:
-            self._set("error", f"No se pudo iniciar el instalador: {exc}")
+            self._set("error", tr("No se pudo iniciar el instalador: {0}", exc))
             return
         self.ctl.quit()
 
     def _on_progress(self, pct):
         self.progress = pct
-        self._set("downloading", f"Descargando {self.release_version_text()}… {pct}%")
+        self._set("downloading", tr("Descargando {0}… {1}%", self.release_version_text(), pct))
 
     def release_version_text(self):
-        return f"v{self.release.version}" if self.release else "actualización"
+        return f"v{self.release.version}" if self.release else tr("actualización")
 
     def _on_done(self, release, path, error, manual):
         self.last_check = time.time()
         if error:
-            self._set("error", f"No se pudo buscar: {error}")
+            self._set("error", tr("No se pudo buscar: {0}", error))
             if manual:
-                self.ctl.notify("warn", "No se pudo actualizar", error)
+                self.ctl.notify("warn", tr("No se pudo actualizar"), error)
             return
         self.release, self.installer = release, path
         if release is None or not updater.is_newer(release):
-            self._set("up_to_date", f"Estás al día (v{__version__})")
+            self._set("up_to_date", tr("Estás al día (v{0})", __version__))
             if manual:
-                self.ctl.notify("info", "Estás al día", f"{self.ctl.app_name} v{__version__} es la última versión")
+                self.ctl.notify("info", tr("Estás al día"), tr("{0} v{1} es la última versión", self.ctl.app_name, __version__))
             return
         if not self.can_install:
-            self._set("available", f"Hay una versión nueva: v{release.version} (instálala desde GitHub)")
+            self._set("available", tr("Hay una versión nueva: v{0} (instálala desde GitHub)", release.version))
             if manual:
-                self.ctl.notify("info", f"Versión {release.version} disponible", "Ejecutando desde el código", keep=True)
+                self.ctl.notify("info", tr("Versión {0} disponible", release.version), tr("Ejecutando desde el código"), keep=True)
             return
-        self._set("ready", f"v{release.version} lista para instalar")
+        self._set("ready", tr("v{0} lista para instalar", release.version))
         if self._install_when_ready and not manual and self._game_open():
             log.info("update %s ready: waiting for the game to close", release.version)
-            self._set("ready", f"v{release.version} lista: se instala al cerrar el juego")
-            self.ctl.notify("info", f"{self.ctl.app_name} {release.version} lista",
-                            "Se instala sola cuando cierres el juego (o ahora desde Ajustes › Buscar updates), para no "
-                            "cerrarse mientras juegas.", keep=True)
+            self._set("ready", tr("v{0} lista: se instala al cerrar el juego", release.version))
+            self.ctl.notify("info", tr("{0} {1} lista", self.ctl.app_name, release.version),
+                            tr("Se instala sola cuando cierres el juego (o ahora desde Ajustes › Buscar updates), "
+                               "para no cerrarse mientras juegas."), keep=True)
             self._wait_game.start()
         elif self._install_when_ready:
             self.install_now()
         else:
-            self.ctl.notify("info", f"{self.ctl.app_name} {release.version} disponible",
-                            "Se instalará al reiniciar la app, o ahora desde Ajustes", keep=True)
+            self.ctl.notify("info", tr("{0} {1} disponible", self.ctl.app_name, release.version),
+                            tr("Se instalará al reiniciar la app, o ahora desde Ajustes"), keep=True)
 
     def _set(self, state, detail):
         self.state, self.detail = state, detail

@@ -18,6 +18,8 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .i18n import tr_data
+
 EPS = 2.5
 DROP_EPS = 0.02          # monsters' spawns come in small camps far apart: a hunting area is at least this wide
 MIN_NODES = 3
@@ -80,7 +82,7 @@ class Gathering:
             db = {}
         self.materials = db.get("materials", {})
         self.zones = db.get("zones", {})
-        self.credit = db.get("credit")
+        self.credit = tr_data("gather_db.json", db).get("credit")
         self.added = self._merge_world(Path(data_dir) / "world_db.json")
 
     def _merge_world(self, path):

@@ -2,13 +2,14 @@ from . import Module, ModuleView
 from ..ui import theme
 from ..ui.appmenu import glyph_icon
 from ..ui.notifications_panel import NotificationsPanel
+from ..i18n import tr
 
 GLYPH_BELL = ""
 
 
 class NotificationsModule(Module):
     key = "notifications"
-    title = "Notificaciones"
+    title = tr("Notificaciones")
 
     def icon(self):
         return glyph_icon(GLYPH_BELL, theme.ACCENT, self.ctl.fonts.icons_family)

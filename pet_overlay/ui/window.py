@@ -11,6 +11,7 @@ from . import theme, winapi
 from .appmenu import build_app_menu
 from .mapwindow import badge_label
 from .widgets import label
+from ..i18n import tr
 
 GLYPH_CHEVRON = ""
 GLYPH_BELL = ""
@@ -44,7 +45,7 @@ class MenuButton(QWidget):
     def __init__(self, fonts, dpr, parent=None):
         super().__init__(parent)
         self.setCursor(Qt.PointingHandCursor)
-        self.setToolTip("Menú")
+        self.setToolTip(tr("Menú"))
         self.setAttribute(Qt.WA_StyledBackground)
         lay = QHBoxLayout(self)
         lay.setContentsMargins(fonts.px(3), fonts.px(2), fonts.px(6), fonts.px(2))
@@ -109,14 +110,14 @@ class OverlayWindow(QWidget):
         header.addWidget(self.dot)
         self.summary = label("", fonts.small, theme.MUTED, elide=True)   # gives way to the title
         header.addWidget(self.summary, 1)
-        self.btn_bell = GlyphButton(GLYPH_BELL, fonts, "Notificaciones")
+        self.btn_bell = GlyphButton(GLYPH_BELL, fonts, tr("Notificaciones"))
         self.btn_bell.clicked.connect(lambda: controller.switch_module("notifications"))
         self.unread = label("", fonts.badge, theme.GOLD)
         header.addWidget(self.btn_bell)
         header.addWidget(self.unread)
         self.btn_compact = GlyphButton(theme.GLYPH_EXPAND, fonts, "Expandir / compactar")
         self.btn_compact.clicked.connect(controller.toggle_compact)
-        self.btn_lock = GlyphButton(theme.GLYPH_UNLOCK, fonts, "Bloquear (los clics pasan al juego)")
+        self.btn_lock = GlyphButton(theme.GLYPH_UNLOCK, fonts, tr("Bloquear (los clics pasan al juego)"))
         self.btn_lock.clicked.connect(controller.toggle_lock)
         header.addWidget(self.btn_compact)
         header.addWidget(self.btn_lock)
@@ -185,7 +186,7 @@ class OverlayWindow(QWidget):
     def set_unread(self, count):
         self.unread.setText(str(count) if count else "")
         self.unread.setVisible(bool(count))
-        self.btn_bell.setToolTip(f"Notificaciones ({count} sin leer)" if count else "Notificaciones")
+        self.btn_bell.setToolTip(tr("Notificaciones ({0} sin leer)", count) if count else tr("Notificaciones"))
 
     def open_menu(self):
         menu = build_app_menu(self.ctl, self.fonts, self)
@@ -220,7 +221,7 @@ class OverlayWindow(QWidget):
     def apply_lock(self, locked):
         winapi.set_click_through(int(self.winId()), locked)
         self.btn_lock.setText(theme.GLYPH_LOCK if locked else theme.GLYPH_UNLOCK)
-        self.btn_lock.setToolTip("Desbloquear" if locked else "Bloquear (los clics pasan al juego)")
+        self.btn_lock.setToolTip(tr("Desbloquear") if locked else tr("Bloquear (los clics pasan al juego)"))
         self.update()
 
     def mousePressEvent(self, event):

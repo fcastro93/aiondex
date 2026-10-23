@@ -7,22 +7,23 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 from . import theme
 from .toasts import kind_color
 from .widgets import label, pet_pixmap
+from ..i18n import tr
 
 
-KIND_LABEL = {"progress": "Progreso de pet", "levelup": "Subida de nivel", "unlock": "Pet nuevo",
-              "zone": "Zona", "sync": "Colección", "info": "Aviso", "warn": "Atención",
-              "combat": "Combate", "tracker": "Tracker"}
+KIND_LABEL = {"progress": tr("Progreso de pet"), "levelup": tr("Subida de nivel"), "unlock": tr("Pet nuevo"),
+              "zone": tr("Zona"), "sync": tr("Colección"), "info": tr("Aviso"), "warn": tr("Atención"),
+              "combat": tr("Combate"), "tracker": "Tracker"}
 
 
 def ago(ts, now=None):
     seconds = int((now or time.time()) - ts)
     if seconds < 60:
-        return "ahora"
+        return tr("ahora")
     if seconds < 3600:
-        return f"hace {seconds // 60} min"
+        return tr("hace {0} min", seconds // 60)
     if seconds < 86400:
-        return f"hace {seconds // 3600} h"
-    return f"hace {seconds // 86400} d"
+        return tr("hace {0} h", seconds // 3600)
+    return tr("hace {0} d", seconds // 86400)
 
 
 class NotificationsPanel(QWidget):
@@ -42,15 +43,15 @@ class NotificationsPanel(QWidget):
                 item.widget().deleteLater()
         f = self.fonts
         if not notices:
-            self.content.addWidget(label("Sin notificaciones todavía", f.body, theme.MUTED))
+            self.content.addWidget(label(tr("Sin notificaciones todavía"), f.body, theme.MUTED))
         for n in notices:
             self.content.addWidget(self._row(n, n.id in unread_ids))
         if total > len(notices):
-            more = label(f"y {total - len(notices)} más (expande para ver más)", f.small, theme.MUTED)
+            more = label(tr("y {0} más (expande para ver más)", total - len(notices)), f.small, theme.MUTED)
             more.setContentsMargins(f.px(4), f.px(2), 0, 0)
             self.content.addWidget(more)
         if notices:
-            clear = label("Limpiar historial", f.small, theme.ACCENT)
+            clear = label(tr("Limpiar historial"), f.small, theme.ACCENT)
             clear.setAttribute(Qt.WA_TransparentForMouseEvents, False)
             clear.setCursor(Qt.PointingHandCursor)
             clear.on_click = self.ctl.notifications.clear     # shell runs on_click on a plain click

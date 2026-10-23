@@ -15,6 +15,7 @@ from calendar import timegm
 from pathlib import Path
 
 from .status import WEEK, next_weekly
+from .i18n import thousands, tr_data
 
 log = logging.getLogger(__name__)
 LIVE_URL = ("https://promotion.plaync.com/en-us/eventon/item?tag=MKT_PROMOTION,DOMAIN_AION2_GLOBAL,COUNTRY_US,"
@@ -68,7 +69,7 @@ def event_missions(events, now=None):
                 out.append({"id": extra["id"], "tab": "event", "sub": "weekly", "period": "weekly", "name": name,
                             "desc": extra.get("desc", what), "steps": [extra.get("target", 1)],
                             "where": extra.get("where", []), "easy": extra.get("easy", 0),
-                            "rewards": f"{amount:,} {reward}".replace(",", ".")})
+                            "rewards": thousands(f"{amount:,} {reward}")})
     return out
 
 
@@ -92,7 +93,8 @@ class Events:
         self.dir = Path(data_dir)
         self.on_live = on_live or (lambda: None)       # called on the worker thread: post to the UI yourself
         try:
-            self.curated = json.loads((self.dir / "events.json").read_text(encoding="utf-8")).get("events", [])
+            self.curated = tr_data("events.json", json.loads((self.dir / "events.json").read_text(
+                encoding="utf-8"))).get("events", [])
         except (OSError, ValueError):
             self.curated = []
         try:

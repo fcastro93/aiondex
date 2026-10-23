@@ -12,6 +12,7 @@ from PySide6.QtWidgets import QGridLayout, QMenu, QSizePolicy, QVBoxLayout, QWid
 
 from . import theme
 from .widgets import PetRow, SectionTitle, label
+from ..i18n import tr
 
 NEARBY_ROWS = {True: 4, False: 10}      # compact / expanded
 
@@ -77,19 +78,19 @@ class PetsPanel(QWidget):
         self._rows = {}
         nearby_ids = {p.pet_id for p, _ in state.nearby}
         if state.pinned and state.pinned.pet_id not in nearby_ids:
-            self._section("Fijado")
+            self._section(tr("Fijado"))
             self._row(state.pinned)
         if state.nearby:
-            self._section(f"Cerca de ti · {state.zone_name}")
+            self._section(tr("Cerca de ti · {0}", state.zone_name))
             limit = NEARBY_ROWS[compact]
             for pet, mobs in state.nearby[:limit]:
                 self._row(pet, mobs)
             if len(state.nearby) > limit:
-                self._note(f"y {len(state.nearby) - limit} más en esta zona (expande o abre el mapa)")
+                self._note(tr("y {0} más en esta zona (expande o abre el mapa)", len(state.nearby) - limit))
         else:
             self._stats(state)
         if not compact and state.recent:
-            self._section("Esta sesión")
+            self._section(tr("Esta sesión"))
             for pet in state.recent:
                 self._row(pet)
         for pid in state.flash_ids:
@@ -97,20 +98,20 @@ class PetsPanel(QWidget):
                 self._rows[pid].flash()
         self._mob_route(state, compact)
         focus = bool(self.ctl.settings.get("pets_focus"))
-        toggle = label("◉ Modo Focus activo · quitar" if focus else "○ Modo Focus: tus pets junto a las misiones",
+        toggle = label(tr("◉ Modo Focus activo · quitar") if focus else tr("○ Modo Focus: tus pets junto a las misiones"),
                        self.fonts.name, theme.GAIN if focus else theme.ACCENT)
         toggle.setAttribute(Qt.WA_TransparentForMouseEvents, False)
         toggle.setCursor(Qt.PointingHandCursor)
-        toggle.setToolTip("Pone la lista de los pets que estás farmeando en el juego, justo debajo de tus misiones "
-                          "(bajo el minimapa) y con su mismo estilo: se mueve cuando la lista de misiones crece o "
-                          "se acorta. No sale en tus capturas ni en tus streams.")
+        toggle.setToolTip(tr("Pone la lista de los pets que estás farmeando en el juego, justo debajo de tus "
+                             "misiones (bajo el minimapa) y con su mismo estilo: se mueve cuando la lista de "
+                             "misiones crece o se acorta. No sale en tus capturas ni en tus streams."))
         toggle.on_click = lambda: self.ctl.set_pets_focus(not focus)
         toggle.setContentsMargins(self.fonts.px(4), self.fonts.px(6), 0, 0)
         self.content.addWidget(toggle)
-        for text, tip, action in (("Ver toda la colección", "Todos los pets con tu progreso: subiendo, sin empezar y "
-                                                            "al máximo, con buscador", self.ctl.open_collection),
-                                  ("Pets exclusivos de cada lado", "Los pets que solo se farmean en el lado Asmodian "
-                                                                   "o en el Elyos, con tu progreso",
+        for text, tip, action in ((tr("Ver toda la colección"), tr("Todos los pets con tu progreso: subiendo, sin "
+                                                               "empezar y al máximo, con buscador"), self.ctl.open_collection),
+                                  (tr("Pets exclusivos de cada lado"), tr("Los pets que solo se farmean en el lado "
+                                                                      "Asmodian o en el Elyos, con tu progreso"),
                                    self.ctl.open_exclusive_pets)):
             link = label(text, self.fonts.name, theme.ACCENT)
             link.setAttribute(Qt.WA_TransparentForMouseEvents, False)
@@ -140,7 +141,7 @@ class PetsPanel(QWidget):
     def _row(self, pet, local_mobs=None):
         info, name = self.ctl.pet_info(pet.pet_id)
         if local_mobs:
-            info = {**info, "mob": "Mata: " + ", ".join(local_mobs)}
+            info = {**info, "mob": tr("Mata: {0}", ", ".join(local_mobs))}
         family = self.ctl.pet_family(pet.pet_id)
         if family:
             info = {**info, "mob": f"{family} · {info.get('mob') or ''}".rstrip(" ·")}
@@ -157,13 +158,13 @@ class PetsPanel(QWidget):
         f, ctl = self.fonts, self.ctl
         route = ctl.settings.get("mob_route") or {}
         on = bool(route.get("on"))
-        toggle = self._link("◉ Ruta de mobs en el minimapa · quitar" if on else
-                            "○ Ruta de mobs en el minimapa (se arma con lo que matas)",
+        toggle = self._link(tr("◉ Ruta de mobs en el minimapa · quitar") if on else
+                            tr("○ Ruta de mobs en el minimapa (se arma con lo que matas)"),
                             theme.GAIN if on else theme.ACCENT, lambda: ctl.set_mob_route(not on),
-                            "Dibuja sobre el minimapa del juego los spawns de los mobs que farmeas, una ruta por "
-                            "los más cercanos y cuántos segundos le faltan a cada uno muerto para reaparecer (lo "
-                            "aprende viéndolos; aro rosa: lo mataste tú, gris: otro jugador). Cada mob que matas "
-                            "entra solo; los de pets que ya tienes al máximo, no.")
+                            tr("Dibuja sobre el minimapa del juego los spawns de los mobs que farmeas, una ruta por "
+                               "los más cercanos y cuántos segundos le faltan a cada uno muerto para reaparecer (lo "
+                               "aprende viéndolos; aro rosa: lo mataste tú, gris: otro jugador). Cada mob que matas "
+                               "entra solo; los de pets que ya tienes al máximo, no."))
         toggle.setContentsMargins(f.px(4), f.px(6), 0, 0)
         if not on:
             return
@@ -175,12 +176,12 @@ class PetsPanel(QWidget):
             spread = ctl.bridge.mobs.respawn_range(name)
             when = ""
             if respawn:
-                when = f" · reaparece en {respawn:.0f} s"
+                when = tr(" · reaparece en {0:.0f} s", respawn)
                 if spread and spread[1] > 1.6 * max(1.0, spread[0]):
-                    when = f" · reaparece en {spread[0]:.0f}–{spread[1]:.0f} s"
+                    when = tr(" · reaparece en {0:.0f}–{1:.0f} s", spread[0], spread[1])
             line = self._link(f"{'☑' if name in chosen else '☐'} {name}{when}",
                               theme.TEXT if name in chosen else theme.MUTED, lambda n=name: ctl.toggle_mob(n),
-                              "Clic: meterlo en la ruta o sacarlo")
+                              tr("Clic: meterlo en la ruta o sacarlo"))
             line.setContentsMargins(f.px(14), 0, 0, 0)
 
     def _link(self, text, color, action, tip=""):
@@ -196,8 +197,8 @@ class PetsPanel(QWidget):
         f = self.fonts
         owned = sum(count for lbl, count, _ in state.stats[:3])
         pct = round(100 * owned / state.total) if state.total else 0
-        self._section("Tu colección")
-        headline = label(f"{owned} de {state.total} pets desbloqueados ({pct}%)", f.name, theme.TEXT)
+        self._section(tr("Tu colección"))
+        headline = label(tr("{0} de {1} pets desbloqueados ({2}%)", owned, state.total, pct), f.name, theme.TEXT)
         headline.setContentsMargins(f.px(4), 0, 0, f.px(3))
         self.content.addWidget(headline)
         bar = StatsBar(state.stats, state.total, f.px(8))
@@ -218,28 +219,28 @@ class PetsPanel(QWidget):
         self.content.addWidget(grid_host)
         stats = self.ctl.pet_family_stats()
         if stats:
-            line = label("Al máximo: " + " · ".join(f"{fam} {maxed}/{total}" for fam, (_, maxed, total)
+            line = label(tr("Al máximo: ") + " · ".join(f"{fam} {maxed}/{total}" for fam, (_, maxed, total)
                                                     in stats.items()), f.small, theme.ACCENT)
             line.setContentsMargins(f.px(4), f.px(2), 0, 0)
-            line.setToolTip("Cada pet al nivel máximo suma su stat para siempre: "
-                            + ", ".join(f"cada {fam} +1 {stat} (llevas +{maxed})" for fam, (stat, maxed, _)
+            line.setToolTip(tr("Cada pet al nivel máximo suma su stat para siempre: ")
+                            + ", ".join(tr("cada {0} +1 {1} (llevas +{2})", fam, stat, maxed) for fam, (stat, maxed, _)
                                         in stats.items())
-                            + ". Súbelos primero (guía de kanonxo).")
+                            + tr(". Súbelos primero (guía de kanonxo)."))
             line.setAttribute(Qt.WA_TransparentForMouseEvents, False)
             self.content.addWidget(line)
         if state.zone_name and state.zone_maxed:
-            self._note(f"En {state.zone_name} ya tienes al máximo todos los pets ({state.zone_maxed}).",
+            self._note(tr("En {0} ya tienes al máximo todos los pets ({1}).", state.zone_name, state.zone_maxed),
                        theme.GAIN)
         elif not state.zone_name:
-            self._note("Cuando AionDex detecte la zona en la que estás, aquí verás los pets que puedes farmear.")
+            self._note(tr("Cuando AionDex detecte la zona en la que estás, aquí verás los pets que puedes farmear."))
 
     def _pet_menu(self, widget, pet_id, pos):
         menu = QMenu(self)
-        menu.addAction("Ver en el mapa", lambda: self.ctl.open_map(pet_id))
+        menu.addAction(tr("Ver en el mapa"), lambda: self.ctl.open_map(pet_id))
         if self.ctl.settings["pinned"] == pet_id:
-            menu.addAction("Quitar fijado", lambda: self.ctl.pin(None))
+            menu.addAction(tr("Quitar fijado"), lambda: self.ctl.pin(None))
         else:
-            menu.addAction("Fijar arriba", lambda: self.ctl.pin(pet_id))
+            menu.addAction(tr("Fijar arriba"), lambda: self.ctl.pin(pet_id))
         menu.exec(widget.mapToGlobal(pos))
 
 

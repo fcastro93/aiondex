@@ -16,16 +16,17 @@ from .mapwindow import STYLE, badge_label
 from .theme import Fonts
 from .tunerwindow import EXTRA_STYLE
 from .widgets import SectionTitle, label
+from ..i18n import tr
 
-TABS = [("marked", "Marcados"), ("field", "Jefes de campo"), ("abyss", "Abismo"), ("event", "Eventos")]
+TABS = [("marked", tr("Marcados")), ("field", tr("Jefes de campo")), ("abyss", tr("Abismo")), ("event", tr("Eventos"))]
 # item rank -> rarity colour, the game's (metabot uses the same; gold and teal checked against the game's tooltip)
 RANK_COLOR = {0: "#C3C3C3", 1: "#19E048", 2: "#379AFF", 3: "#FFD02B", 4: "#FF6C00", 6: "#00FFD8"}
 PORTRAIT = 64
 ITEM_ICON = 30
-GRADE_ES = {"Common": "Común", "Rare": "Raro", "Epic": "Épico", "Unique": "Único", "Special": "Especial"}
-VERDICT_MARK = {"upgrade": ("↑ mejora", "#7bd88f"), "base": ("≈ mejor base", "#e0a050"), "no": ("", "#8a93a8"),
-                "class": ("otra clase", "#8a93a8"), "level": ("más nivel", "#8a93a8"),
-                "faction": ("otra facción", "#8a93a8")}
+GRADE_ES = {"Common": tr("Común"), "Rare": tr("Raro"), "Epic": tr("Épico"), "Unique": tr("Único"), "Special": tr("Especial")}
+VERDICT_MARK = {"upgrade": (tr("↑ mejora"), "#7bd88f"), "base": (tr("≈ mejor base"), "#e0a050"), "no": ("", "#8a93a8"),
+                "class": (tr("otra clase"), "#8a93a8"), "level": (tr("más nivel"), "#8a93a8"),
+                "faction": (tr("otra facción"), "#8a93a8")}
 CHIP_STYLE = ("color: {c}; background: rgba({r},{g},{b},0.14); border: 1px solid rgba({r},{g},{b},0.55); "
               "border-radius: 8px; padding: 0px 6px;")
 DROPS_SHOWN = 5
@@ -52,7 +53,7 @@ class TrackerWindow(QWidget):
         self._images = {}                 # path -> QPixmap of the downloaded images
         self._wanted = set()              # images the cards on screen use
         self.setObjectName("MapWindow")
-        self.setWindowTitle(f"{APP_NAME} — Tracker de jefes y eventos")
+        self.setWindowTitle(tr("{0} — Tracker de jefes y eventos", APP_NAME))
         self.setWindowIcon(ctl.app_icon)
         self.setStyleSheet(STYLE + EXTRA_STYLE + CARD_STYLE)
         self.resize(1180, 860)
@@ -65,25 +66,25 @@ class TrackerWindow(QWidget):
         head.addWidget(badge_label(30, self.devicePixelRatioF()))
         titles = QVBoxLayout()
         titles.setSpacing(0)
-        titles.addWidget(label("Tracker de jefes y eventos", f.name_big, theme.TEXT))
-        titles.addWidget(label("Marca con la campana lo que te interesa y AionDex te avisará antes de que salga.",
+        titles.addWidget(label(tr("Tracker de jefes y eventos"), f.name_big, theme.TEXT))
+        titles.addWidget(label(tr("Marca con la campana lo que te interesa y AionDex te avisará antes de que salga."),
                                f.small, theme.MUTED))
         head.addLayout(titles, 1)
-        head.addWidget(label("Servidor:", f.small, theme.MUTED))
+        head.addWidget(label(tr("Servidor:"), f.small, theme.MUTED))
         self.region = QComboBox()
         for rid, (text, _, _) in REGIONS.items():
             self.region.addItem(text, rid)
         self.region.setCurrentIndex(max(0, self.region.findData(self.tracker.region)))
         self.region.currentIndexChanged.connect(lambda _: self._set("region", self.region.currentData()))
         head.addWidget(self.region)
-        head.addWidget(label("Avisarme", f.small, theme.MUTED))
+        head.addWidget(label(tr("Avisarme"), f.small, theme.MUTED))
         self.lead = QComboBox()
         for m in LEADS:
-            self.lead.addItem(f"{m} min antes", m)
+            self.lead.addItem(tr("{0} min antes", m), m)
         self.lead.setCurrentIndex(max(0, self.lead.findData(self.tracker.lead)))
         self.lead.currentIndexChanged.connect(lambda _: self._set("lead", self.lead.currentData()))
         head.addWidget(self.lead)
-        self.gear_label = label("Comparar con", f.small, theme.MUTED)
+        self.gear_label = label(tr("Comparar con"), f.small, theme.MUTED)
         head.addWidget(self.gear_label)
         self.gear_box = QComboBox()
         self.gear_box.currentIndexChanged.connect(lambda _: None if self._filling_gear else self.refresh())
@@ -103,19 +104,19 @@ class TrackerWindow(QWidget):
             tabs.addWidget(button)
             self.tab_buttons[key] = button
         tabs.addStretch(1)
-        boss_map = QPushButton("Mapa de jefes")
+        boss_map = QPushButton(tr("Mapa de jefes"))
         boss_map.setProperty("tab", True)
-        boss_map.setToolTip("El Mapa del mundo con los jefes del Tracker sobre su punto y su estado en vivo")
+        boss_map.setToolTip(tr("El Mapa del mundo con los jefes del Tracker sobre su punto y su estado en vivo"))
         boss_map.clicked.connect(lambda: self.ctl.open_boss_map())
         tabs.addWidget(boss_map)
-        self.upgrades_only = QPushButton("Solo con mejoras")
+        self.upgrades_only = QPushButton(tr("Solo con mejoras"))
         self.upgrades_only.setProperty("tab", True)
         self.upgrades_only.setCheckable(True)
-        self.upgrades_only.setToolTip("Solo los jefes que sueltan algo mejor que lo que lleva tu personaje")
+        self.upgrades_only.setToolTip(tr("Solo los jefes que sueltan algo mejor que lo que lleva tu personaje"))
         self.upgrades_only.toggled.connect(lambda _: self.refresh())
         tabs.addWidget(self.upgrades_only)
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Buscar jefe, zona u objeto…")
+        self.search.setPlaceholderText(tr("Buscar jefe, zona u objeto…"))
         self.search.setClearButtonEnabled(True)
         self.search.setMinimumWidth(260)
         self._search_timer = QTimer(self, singleShot=True, interval=250, timeout=self.refresh)
@@ -133,7 +134,7 @@ class TrackerWindow(QWidget):
         root.addWidget(scroll, 1)
 
         foot = QHBoxLayout()
-        for c in self.tracker.credits or [{"text": "Horarios, jefes y botín: metabot.gg",
+        for c in self.tracker.credits or [{"text": tr("Horarios, jefes y botín: metabot.gg"),
                                            "url": "https://metabot.gg/en/aion-2"}]:
             credit = QPushButton(c["text"])
             credit.setProperty("flat", True)
@@ -176,12 +177,12 @@ class TrackerWindow(QWidget):
             entries = [e for e in entries if self._entry_upgrades(e)]
         if query and not _in_tab(self.tab, entries, tracker):
             elsewhere = [f"{text} ({n})" for key, text in TABS if (n := len(_in_tab(key, entries, tracker)))]
-            self.body.addWidget(label(f"Nada coincide con «{self.search.text().strip()}» en esta pestaña"
-                                      + (f"; sí en: {', '.join(elsewhere)}." if elsewhere else "."), f.body, theme.MUTED))
+            self.body.addWidget(label(tr("Nada coincide con «{0}» en esta pestaña", self.search.text().strip())
+                                      + (tr("; sí en: {0}.", ', '.join(elsewhere)) if elsewhere else "."), f.body, theme.MUTED))
         if self.tab == "marked":
             rows = _in_tab("marked", entries, tracker)
             if not rows and not query:
-                self.body.addWidget(label("Aún no marcaste nada. Busca en las otras pestañas y pulsa «Avisarme».",
+                self.body.addWidget(label(tr("Aún no marcaste nada. Busca en las otras pestañas y pulsa «Avisarme»."),
                                           f.body, theme.MUTED))
             self._grid(rows)
         elif self.tab == "field":
@@ -189,9 +190,9 @@ class TrackerWindow(QWidget):
             for e in _in_tab("field", entries, tracker):
                 maps.setdefault(e.map_id, []).append(e)
             if not tracker.states:
-                self.body.addWidget(self._hint("Los tiempos de los jefes de campo los manda el propio juego: abre una "
-                                               "vez el mapa (M) → monstruos de campo y AionDex los recuerda; también "
-                                               "apunta las muertes que ve."))
+                self.body.addWidget(self._hint(tr("Los tiempos de los jefes de campo los manda el propio juego: "
+                                                  "abre una vez el mapa (M) → monstruos de campo y AionDex los "
+                                                  "recuerda; también apunta las muertes que ve.")))
             side = self.ctl.location_faction() or self.ctl.character_faction()
             order = sorted(maps, key=lambda m: (0 if {1010: "elyos", 1110: "asmodian"}.get(m) == side else 1, m))
             for map_id in order:
@@ -308,21 +309,21 @@ class TrackerWindow(QWidget):
         title_font = QFont(f.name_big)
         title_font.setPixelSize(19)
         names.addWidget(label(entry.name, title_font, QColor("#FFFFFF"), elide=True))
-        sub = " · ".join(x for x in (f"Nv. {entry.level}" if entry.level else "", entry.sub) if x)
+        sub = " · ".join(x for x in (tr("Nv. {0}", entry.level) if entry.level else "", entry.sub) if x)
         if sub:
             names.addWidget(label(sub, f.small, QColor("#AEB6C6"), elide=True))
         row.addLayout(names, 1)
         if entry.kind != "event" and self.ctl.boss_on_map(entry):
-            where = QPushButton("Mapa")
+            where = QPushButton(tr("Mapa"))
             where.setProperty("bell", True)
-            where.setToolTip("Abre el Mapa del mundo en este jefe, con su estado y tu posición")
+            where.setToolTip(tr("Abre el Mapa del mundo en este jefe, con su estado y tu posición"))
             where.clicked.connect(lambda _=False, e=entry: self.ctl.open_boss_map(e))
             row.addWidget(where)
-        bell = QPushButton("Avisarme")
+        bell = QPushButton(tr("Avisarme"))
         bell.setProperty("bell", True)
         bell.setCheckable(True)
         bell.setChecked(self.tracker.marked(entry.id))
-        bell.setText("Te aviso" if bell.isChecked() else "Avisarme")
+        bell.setText(tr("Te aviso") if bell.isChecked() else tr("Avisarme"))
         bell.clicked.connect(lambda _=False, e=entry: self._toggle(e))
         row.addWidget(bell)
         col.addWidget(head)
@@ -338,7 +339,7 @@ class TrackerWindow(QWidget):
         self._status_labels.append((entry, status))
         upgrades = self._entry_upgrades(entry)
         if upgrades:
-            mine = label(f"↑ Para {self.gear_box.currentText()}: mejora tu {', '.join(upgrades).lower()}", f.small,
+            mine = label(tr("↑ Para {0}: mejora tu {1}", self.gear_box.currentText(), ', '.join(upgrades).lower()), f.small,
                          theme.GAIN)
             mine.setWordWrap(True)
             inner.addWidget(mine)
@@ -348,14 +349,14 @@ class TrackerWindow(QWidget):
                                                 time.time()) if s > time.time()][:4]
             if nexts:
                 times = " · ".join(time.strftime("%H:%M", time.localtime(s)) for s in nexts)
-                more = label(f"Próximas (tu hora): {times}", f.small, theme.MUTED)
+                more = label(tr("Próximas (tu hora): {0}", times), f.small, theme.MUTED)
                 inner.addWidget(more)
         if entry.respawn_min:
-            again = label(f"Reaparece {_duration(entry.respawn_min)} después de morir", f.small, theme.MUTED)
+            again = label(tr("Reaparece {0} después de morir", _duration(entry.respawn_min)), f.small, theme.MUTED)
             inner.addWidget(again)
         if entry.drops:
             inner.addSpacing(4)
-            inner.addWidget(label("Botín destacado", f.small, QColor("#89B7BF")))
+            inner.addWidget(label(tr("Botín destacado"), f.small, QColor("#89B7BF")))
             for drop in entry.drops[:DROPS_SHOWN]:
                 color = RANK_COLOR.get(drop.get("rank"), "#D6DAE3")
                 line = QWidget()
@@ -372,11 +373,10 @@ class TrackerWindow(QWidget):
                     line.setToolTip(self._pieces_tip(drop, verdicts))
                 elif verdicts:
                     _, item, v = verdicts[0]
-                    line.setToolTip(f"<b>{item.name}</b> · nivel de objeto {item.level} · "
-                                    f"{GRADE_ES.get(item.grade, item.grade)}<br>{v.text}")
+                    line.setToolTip(tr("<b>{0}</b> · nivel de objeto {1} · {2}<br>{3}", item.name, item.level, GRADE_ES.get(item.grade, item.grade), v.text))
                 inner.addWidget(line)
             if len(entry.drops) > DROPS_SHOWN:
-                rest = label(f"y {len(entry.drops) - DROPS_SHOWN} más", f.small, theme.MUTED)
+                rest = label(tr("y {0} más", len(entry.drops) - DROPS_SHOWN), f.small, theme.MUTED)
                 rest.setAttribute(Qt.WA_TransparentForMouseEvents, False)
                 rest.setToolTip("<br>".join(_drop_text(d) for d in entry.drops[DROPS_SHOWN:]))
                 inner.addWidget(rest)
@@ -395,9 +395,9 @@ class TrackerWindow(QWidget):
                       else "")
             rows.append(f"<tr><td>{icon}</td><td>{piece['name']}</td><td align='right'>&nbsp;{piece['chance']:g}%</td>"
                         f"<td style='color:{color}'>&nbsp;{mark}{detail}</td></tr>")
-        head = "<b>Sale una de estas piezas</b>"
+        head = tr("<b>Sale una de estas piezas</b>")
         if verdicts:
-            head += f" · comparado con el equipo de {self.gear_box.currentText()}"
+            head += tr(" · comparado con el equipo de {0}", self.gear_box.currentText())
         return f"{head}<table>{''.join(rows)}</table>"
 
     # --- your gear -------------------------------------------------------------------------------------
@@ -410,7 +410,7 @@ class TrackerWindow(QWidget):
         self.gear_box.clear()
         for name in names:
             self.gear_box.addItem(name, name)
-        self.gear_box.addItem("Nadie (no comparar)", None)
+        self.gear_box.addItem(tr("Nadie (no comparar)"), None)
         idx = self.gear_box.findData(current) if current in names else (0 if names else -1)
         self.gear_box.setCurrentIndex(idx if idx >= 0 else self.gear_box.count() - 1)
         self._filling_gear = False
@@ -422,9 +422,9 @@ class TrackerWindow(QWidget):
         self._verdicts = {}
         if self._gear_state:
             when = time.strftime("%d/%m %H:%M", time.localtime(self._gear_state.get("at", 0)))
-            self.gear_box.setToolTip(f"Equipo de {self.gear_box.currentText()} leído el {when}. Se actualiza al "
-                                     f"entrar con el personaje (los anillos, el cinturón y demás piezas que no se ven "
-                                     f"solo al entrar; lo visible, cada minuto).")
+            self.gear_box.setToolTip(tr("Equipo de {0} leído el {1}. Se actualiza al entrar con el personaje (los "
+                                        "anillos, el cinturón y demás piezas que no se ven solo al entrar; lo "
+                                        "visible, cada minuto).", self.gear_box.currentText(), when))
 
     def _drop_verdicts(self, drop):
         """[(piece name, Item, Verdict)] of the equipment in a drop (each piece of a set), vs your gear."""
@@ -455,9 +455,9 @@ class TrackerWindow(QWidget):
         if not verdicts or not (ups or bases):
             return None
         if len(verdicts) == 1:
-            text = "↑ Mejora" if ups else "≈ Mejor base"
+            text = tr("↑ Mejora") if ups else tr("≈ Mejor base")
         else:
-            text = f"↑ {ups} de {len(verdicts)}" if ups else f"≈ {bases} de {len(verdicts)}"
+            text = tr("↑ {0} de {1}", ups, len(verdicts)) if ups else tr("≈ {0} de {1}", bases, len(verdicts))
         color = QColor(VERDICT_MARK["upgrade" if ups else "base"][1])
         chip = QLabel(text)
         chip.setFont(self.fonts.small)
@@ -475,16 +475,16 @@ class TrackerWindow(QWidget):
         for entry, status in self._status_labels:
             st = self.tracker.status(entry, now)
             if st.state == "vivo":
-                text, color = "Vivo" + (f" · desde hace {countdown(now - st.start)}" if st.start else ""), theme.GAIN
+                text, color = tr("Vivo") + (tr(" · desde hace {0}", countdown(now - st.start)) if st.start else ""), theme.GAIN
             elif st.state == "en curso":
-                text, color = f"En curso · termina en {countdown(st.end - now)}", theme.GAIN
+                text, color = tr("En curso · termina en {0}", countdown(st.end - now)), theme.GAIN
             elif st.state == "quizá":
-                text, color = f"Quizá ahora · hasta dentro de {countdown(st.end - now)} (no sale todas las horas)", \
+                text, color = tr("Quizá ahora · hasta dentro de {0} (no sale todas las horas)", countdown(st.end - now)), \
                     theme.WARN
             elif st.state == "debería estar":
-                text, color = "Ya debería haber salido (sin confirmar)", theme.WARN
+                text, color = tr("Ya debería haber salido (sin confirmar)"), theme.WARN
             elif st.start is not None:
-                text = f"Sale en {countdown(st.start - now)} · {st.detail}"
+                text = tr("Sale en {0} · {1}", countdown(st.start - now), st.detail)
                 color = theme.TEXT
             else:
                 text, color = st.detail, theme.MUTED

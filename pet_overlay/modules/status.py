@@ -11,6 +11,7 @@ from ..status import KIND, OVERLAY_KINDS, SHORT, amount, countdown, next_daily, 
 from ..ui import theme
 from ..ui.appmenu import glyph_icon
 from ..ui.widgets import LED_COLORS, Led, SectionTitle, label
+from ..i18n import tr
 
 GLYPH_STATUS = ""        # checklist
 ROWS = {True: 1, False: 4}
@@ -19,12 +20,12 @@ ROWS = {True: 1, False: 4}
 def ago(ts, now):
     minutes = (now - ts) / 60
     if minutes < 2:
-        return "hace un momento"
+        return tr("hace un momento")
     if minutes < 90:
-        return f"hace {minutes:.0f} min"
+        return tr("hace {0:.0f} min", minutes)
     if minutes < 48 * 60:
-        return f"hace {minutes / 60:.0f} h"
-    return f"hace {minutes / 1440:.0f} días"
+        return tr("hace {0:.0f} h", minutes / 60)
+    return tr("hace {0:.0f} días", minutes / 1440)
 
 
 class StatusPanel(QWidget):
@@ -47,19 +48,18 @@ class StatusPanel(QWidget):
         playing = self.ctl.character_name()
         names = st.names(now, playing)
         if not names:
-            self._line("Entra con cada personaje con AionDex abierto: aquí verás su energía, Nightmare, llaves del "
-                       "Shugo y la mazmorra diaria, con una luz roja cuando algo esté por llenarse.", theme.MUTED)
+            self._line(tr("Entra con cada personaje con AionDex abierto: aquí verás su energía, Nightmare, llaves "
+                          "del Shugo y la mazmorra diaria, con una luz roja cuando algo esté por llenarse."), theme.MUTED)
         else:
-            self.content.addWidget(SectionTitle("Tus personajes", f))
+            self.content.addWidget(SectionTitle(tr("Tus personajes"), f))
             own = [k for k in OVERLAY_KINDS if not KIND[k].account]
             shared = [k for k in OVERLAY_KINDS if KIND[k].account]
             for name in names[:ROWS[compact]]:
-                self._who(name, "en juego" if name == playing else ago(st.read_at(name), now), own, now)
+                self._who(name, tr("en juego") if name == playing else ago(st.read_at(name), now), own, now)
             for account, _ in st.accounts(now, playing):
                 self._who(account, ago(st.read_at(account), now), shared, now)
-        self._line(f"Reinicio diario en {countdown(next_daily(now) - now)} · semanal (miércoles) en "
-                   f"{countdown(next_weekly(now) - now)}", theme.MUTED)
-        link = label("Abrir Status", f.name, theme.ACCENT)
+        self._line(tr("Reinicio diario en {0} · semanal (miércoles) en {1}", countdown(next_daily(now) - now), countdown(next_weekly(now) - now)), theme.MUTED)
+        link = label(tr("Abrir Status"), f.name, theme.ACCENT)
         link.setAttribute(Qt.WA_TransparentForMouseEvents, False)
         link.setCursor(Qt.PointingHandCursor)
         link.on_click = self.ctl.open_status
@@ -115,4 +115,4 @@ class StatusModule(Module):
         shared = [k for k in OVERLAY_KINDS if KIND[k].account]
         red = sum(1 for n in st.names(now) if any(st.lit(n, k, now) == "red" for k in own)) + \
             sum(1 for a, _ in st.accounts(now) if any(st.lit(a, k, now) == "red" for k in shared))
-        return ModuleView(summary=f"{red} en rojo" if red else "")
+        return ModuleView(summary=tr("{0} en rojo", red) if red else "")

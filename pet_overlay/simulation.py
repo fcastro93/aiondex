@@ -36,6 +36,7 @@ from collections import deque
 
 from .combat import in_instance
 from .protocol import read_varint
+from .i18n import tr, tr_data
 
 WINDOW = 1200            # seconds of recording kept
 STEP = 0.2               # seconds between two kept positions of one entity
@@ -611,10 +612,10 @@ def build(events, enc, people, boss_db, t0=None, t1=None, rage=None, skills=None
         else:
             kind = "ring" if grow else "pool"
         role = roles.get(eid)
-        label = cast or ("Ola que avanza" if wave else "Aro que crece" if grow else
-                         "Zona de daño" if npc in lingering else "Área del jefe")
+        label = cast or (tr("Ola que avanza") if wave else tr("Aro que crece") if grow else
+                         tr("Zona de daño") if npc in lingering else tr("Área del jefe"))
         if role:
-            label = ("Separarse" if role == "spread" else "Juntarse") + (f" · {cast}" if cast else "")
+            label = (tr("Separarse") if role == "spread" else tr("Juntarse")) + (f" · {cast}" if cast else "")
         r0, r1 = (grow[0], grow[0] + grow[1] * (end - t)) if grow else (radius, radius)
         zones.append([rel(t), rel(end), round(center[0], 2), round(center[1], 2), round(r0, 1),
                       round(max(0.5, min(40.0, r1)), 1), kind, label, zone_color(label), npc,
@@ -635,7 +636,7 @@ def build(events, enc, people, boss_db, t0=None, t1=None, rage=None, skills=None
     return {
         "v": 1, "t0": t0, "length": round(t1 - t0, 2),
         "people": [{"eid": e, "name": n, "class": c, "me": bool(me)} for e, (n, c, me) in people.items()],
-        "bosses": [{"eid": e, "name": enc.target_names.get(e) or "Jefe", "npc": enc.target_npc.get(e)}
+        "bosses": [{"eid": e, "name": enc.target_names.get(e) or tr("Jefe"), "npc": enc.target_npc.get(e)}
                    for e in boss_eids],
         "adds": adds,
         "tracks": {str(e): lite(tr) for e, tr in tracks.items() if e in shown},
@@ -658,7 +659,7 @@ class BossDb:
             db = {}
         self.bosses = db.get("bosses", {})
         self.face_url = db.get("face_url", "https://aion2data.com/game/monsters/")
-        self.credit = db.get("credit")
+        self.credit = tr_data("boss_db.json", db).get("credit")
 
     def get(self, npc_id):
         from .npcs import base_variant
@@ -836,4 +837,4 @@ class Replay:
         for b in self.bosses:
             if b["eid"] == eid:
                 return b["name"]
-        return "Enemigo"
+        return tr("Enemigo")

@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .status import CLAIM_SECONDS, WEEK, next_weekly
+from .i18n import tr_data
 
 log = logging.getLogger(__name__)
 LIST_OPCODE = bytes.fromhex("24e3")
@@ -105,7 +106,7 @@ class Passes:
             db = json.loads(Path(db_path).read_text(encoding="utf-8"))
         except (OSError, ValueError):
             db = {}
-        self.credit = db.get("credit")
+        self.credit = tr_data("passes_db.json", db).get("credit")
         self.db = {int(k): v for k, v in db.get("passes", {}).items()}
         try:
             state = json.loads(self.path.read_text(encoding="utf-8")) if persist else {}

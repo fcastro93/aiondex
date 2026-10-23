@@ -12,6 +12,7 @@ from .mapwindow import STYLE, badge_label
 from .theme import Fonts
 from .tunerwindow import EXTRA_STYLE
 from .widgets import SectionTitle, label
+from ..i18n import tr
 
 PROBLEM_STYLE = f"""
 QPushButton[problem="true"] {{ background: #0f1830; color: {theme.TEXT.name()}; border: 1px solid #24345a;
@@ -32,7 +33,7 @@ class DiagnosticsWindow(QWidget):
         self.problem = None              # (key, label, function) shown on the right
         self.diagnosis = None
         self.setObjectName("MapWindow")
-        self.setWindowTitle(f"{APP_NAME} — Diagnóstico")
+        self.setWindowTitle(tr("{0} — Diagnóstico", APP_NAME))
         self.setWindowIcon(ctl.app_icon)
         self.setStyleSheet(STYLE + EXTRA_STYLE + PROBLEM_STYLE)
         self.resize(1040, 720)
@@ -49,15 +50,16 @@ class DiagnosticsWindow(QWidget):
         left = QWidget()
         col = QVBoxLayout(left)
         col.setSpacing(8)
-        col.addWidget(SectionTitle("Estado de AionDex", f))
+        col.addWidget(SectionTitle(tr("Estado de AionDex"), f))
         status_holder = QWidget()
         self.status_rows = QVBoxLayout(status_holder)
         self.status_rows.setContentsMargins(0, 0, 0, 0)
         self.status_rows.setSpacing(5)
         col.addWidget(status_holder)
         col.addSpacing(8)
-        col.addWidget(SectionTitle("¿Qué problema tienes?", f))
-        hint = label("Elige uno: AionDex revisa lo que está viendo, arregla lo que puede él solo y te dice qué hacer.",
+        col.addWidget(SectionTitle(tr("¿Qué problema tienes?"), f))
+        hint = label(tr("Elige uno: AionDex revisa lo que está viendo, arregla lo que puede él solo y te dice qué "
+                        "hacer."),
                      f.small, theme.MUTED)
         hint.setWordWrap(True)
         col.addWidget(hint)
@@ -86,7 +88,7 @@ class DiagnosticsWindow(QWidget):
         head.addWidget(badge_label(30, self.devicePixelRatioF()))
         titles = QVBoxLayout()
         titles.setSpacing(0)
-        titles.addWidget(label("Diagnóstico", f.name_big, theme.TEXT))
+        titles.addWidget(label(tr("Diagnóstico"), f.name_big, theme.TEXT))
         titles.addWidget(label(f"AionDex {__version__}", f.small, theme.MUTED))
         head.addLayout(titles, 1)
         right.addLayout(head)
@@ -99,15 +101,15 @@ class DiagnosticsWindow(QWidget):
         result_scroll.setWidget(holder)
         right.addWidget(result_scroll, 1)
 
-        right.addWidget(SectionTitle("¿Sigue igual?", f))
-        send = label("Copia el informe y mándaselo al creador de AionDex (no lleva tu nombre de personaje ni tu "
-                     "usuario de Windows).", f.small, theme.MUTED)
+        right.addWidget(SectionTitle(tr("¿Sigue igual?"), f))
+        send = label(tr("Copia el informe y mándaselo al creador de AionDex (no lleva tu nombre de personaje ni tu "
+                        "usuario de Windows)."), f.small, theme.MUTED)
         send.setWordWrap(True)
         right.addWidget(send)
         buttons = QHBoxLayout()
-        copy = QPushButton("Copiar informe")
+        copy = QPushButton(tr("Copiar informe"))
         copy.clicked.connect(self.copy_report)
-        github = QPushButton("Reportar en GitHub")
+        github = QPushButton(tr("Reportar en GitHub"))
         github.setProperty("secondary", True)
         github.clicked.connect(self.open_issue)
         buttons.addWidget(copy)
@@ -160,8 +162,8 @@ class DiagnosticsWindow(QWidget):
     # --- diagnosis ------------------------------------------------------------------------------------
     def _intro(self):
         _clear(self.result)
-        text = label("Elige a la izquierda el problema que tienes. AionDex mirará lo que está recibiendo del juego, "
-                     "arreglará lo que pueda él solo y te dirá qué hacer con lo demás.", self.fonts.body, theme.MUTED)
+        text = label(tr("Elige a la izquierda el problema que tienes. AionDex mirará lo que está recibiendo del "
+                        "juego, arreglará lo que pueda él solo y te dirá qué hacer con lo demás."), self.fonts.body, theme.MUTED)
         text.setWordWrap(True)
         self.result.addWidget(text)
         self.result.addStretch(1)
@@ -175,8 +177,8 @@ class DiagnosticsWindow(QWidget):
         except Exception as exc:                 # a diagnosis must never take the app down
             import logging
             logging.getLogger(__name__).exception("diagnosis %s failed", problem[0])
-            self.diagnosis = diagnostics.Diagnosis(problem[1], [diagnostics.Check("Diagnóstico", "bad",
-                                                                                  f"Falló: {exc}")])
+            self.diagnosis = diagnostics.Diagnosis(problem[1], [diagnostics.Check(tr("Diagnóstico"), "bad",
+                                                                                  tr("Falló: {0}", exc))])
         self._show(self.diagnosis)
         self.refresh_status()
 
@@ -184,22 +186,22 @@ class DiagnosticsWindow(QWidget):
         f = self.fonts
         _clear(self.result)
         self.result.addWidget(label(d.title, f.name_big, theme.TEXT))
-        verdict = {"ok": ("Todo lo que puedo revisar está bien.", theme.GAIN),
-                   "warn": ("Encontré algo que revisar.", theme.WARN),
-                   "bad": ("Encontré el problema.", theme.COMBAT)}[d.level]
+        verdict = {"ok": (tr("Todo lo que puedo revisar está bien."), theme.GAIN),
+                   "warn": (tr("Encontré algo que revisar."), theme.WARN),
+                   "bad": (tr("Encontré el problema."), theme.COMBAT)}[d.level]
         if d.fixed and d.level == "ok":
-            verdict = ("Lo arreglé.", theme.GAIN)
+            verdict = (tr("Lo arreglé."), theme.GAIN)
         self.result.addWidget(label(verdict[0], f.name, verdict[1]))
 
-        self.result.addWidget(SectionTitle("Lo que revisé", f))
+        self.result.addWidget(SectionTitle(tr("Lo que revisé"), f))
         for check in d.checks:
             self.result.addWidget(self._check_row(check))
         if d.fixed:
-            self.result.addWidget(SectionTitle("Lo que arreglé", f))
+            self.result.addWidget(SectionTitle(tr("Lo que arreglé"), f))
             for text in d.fixed:
                 self.result.addWidget(self._bullet(text, theme.GAIN))
         if d.todo:
-            self.result.addWidget(SectionTitle("Qué hacer", f))
+            self.result.addWidget(SectionTitle(tr("Qué hacer"), f))
             for text in d.todo:
                 self.result.addWidget(self._bullet(text, theme.TEXT))
         actions = QHBoxLayout()
@@ -207,7 +209,7 @@ class DiagnosticsWindow(QWidget):
             button = QPushButton(action.label)
             button.clicked.connect(lambda _=False, a=action: self._do(a))
             actions.addWidget(button)
-        again = QPushButton("Volver a revisar")
+        again = QPushButton(tr("Volver a revisar"))
         again.setProperty("secondary", True)
         again.clicked.connect(lambda: self.run(self.problem))
         actions.addWidget(again)
@@ -227,13 +229,13 @@ class DiagnosticsWindow(QWidget):
     # --- report ---------------------------------------------------------------------------------------
     def copy_report(self):
         QGuiApplication.clipboard().setText(diagnostics.report(self.ctl, self.diagnosis))
-        self.copied.setText("Informe copiado: pégalo (Ctrl+V) en Discord, WhatsApp o donde hables con el creador.")
+        self.copied.setText(tr("Informe copiado: pégalo (Ctrl+V) en Discord, WhatsApp o donde hables con el creador."))
 
     def open_issue(self):
         self.copy_report()
-        title = f"[{__version__}] {self.diagnosis.title if self.diagnosis else 'Problema'}"
+        title = f"[{__version__}] {self.diagnosis.title if self.diagnosis else tr('Problema')}"
         webbrowser.open(diagnostics.github_issue_url(title))
-        self.copied.setText("Informe copiado: en la página de GitHub, pégalo (Ctrl+V) donde se indica.")
+        self.copied.setText(tr("Informe copiado: en la página de GitHub, pégalo (Ctrl+V) donde se indica."))
 
 
 def _clear(layout):

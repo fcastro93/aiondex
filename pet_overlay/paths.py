@@ -12,6 +12,7 @@ ROOT = Path(sys.executable).parent if FROZEN else Path(__file__).resolve().paren
 _BUNDLE = Path(getattr(sys, "_MEIPASS", ROOT))
 # Read-only assets and the seed database are bundled inside the exe.
 ASSETS_DIR = _BUNDLE / "assets"
+LOCALE_DIR = _BUNDLE / "pet_overlay" / "locale"       # the translations (i18n.py)
 SEED_DIR = _BUNDLE / "seed" if FROZEN else ROOT / "data"
 # Writable user data: %LOCALAPPDATA%\AionDex when installed, ./data when running from source.
 DATA_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / APP_NAME if FROZEN else ROOT / "data"

@@ -7,6 +7,7 @@ from . import Module, ModuleView
 from ..ui import theme
 from ..ui.appmenu import glyph_icon
 from ..ui.widgets import SectionTitle, label
+from ..i18n import tr
 
 GLYPH_TUNE = ""       # equalizer / sliders
 
@@ -29,20 +30,19 @@ class TunerPanel(QWidget):
         f, tuner = self.fonts, self.ctl.tuner
         if tuner.recording:
             s = tuner.session
-            self._line(f"Grabando prueba… {int(s.duration)} s · {s.fired} lanzamientos", theme.ACCENT)
+            self._line(tr("Grabando prueba… {0} s · {1} lanzamientos", int(s.duration), s.fired), theme.ACCENT)
         report = tuner.last_report
         if report and not tuner.recording:
             bad = [x for x in report.findings if x.level == "bad"]
             warn = [x for x in report.findings if x.level == "warn"]
-            self.content.addWidget(SectionTitle("Última prueba", f))
-            self._line(f"{int(report.duration)} s · {report.total} lanzamientos · "
-                       f"{len(bad)} problemas, {len(warn)} avisos", theme.TEXT)
+            self.content.addWidget(SectionTitle(tr("Última prueba"), f))
+            self._line(tr("{0} s · {1} lanzamientos · {2} problemas, {3} avisos", int(report.duration), report.total, len(bad), len(warn)), theme.TEXT)
             for finding in (bad + warn)[:2 if compact else 5]:
                 self._line(f"• {finding.text}", theme.COMBAT if finding.level == "bad" else theme.WARN)
         elif not tuner.recording:
-            self._line("Compara lo que deberían lanzar tus macros (del juego y externo) con lo que se lanza de "
-                       "verdad, y te dice qué cambiar.", theme.MUTED)
-        link = label("Abrir el afinador", f.name, theme.ACCENT)
+            self._line(tr("Compara lo que deberían lanzar tus macros (del juego y externo) con lo que se lanza de "
+                          "verdad, y te dice qué cambiar."), theme.MUTED)
+        link = label(tr("Abrir el afinador"), f.name, theme.ACCENT)
         link.setAttribute(Qt.WA_TransparentForMouseEvents, False)
         link.setCursor(Qt.PointingHandCursor)
         link.on_click = self.ctl.open_tuner
@@ -59,7 +59,7 @@ class TunerPanel(QWidget):
 
 class TunerModule(Module):
     key = "tuner"
-    title = "Afinador"
+    title = tr("Afinador")
 
     def icon(self):
         return glyph_icon(GLYPH_TUNE, theme.ACCENT, self.ctl.fonts.icons_family)

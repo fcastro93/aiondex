@@ -26,10 +26,11 @@ from .theme import Fonts
 from .tiles import TileCache
 from .tunerwindow import EXTRA_STYLE
 from .widgets import SectionTitle, label
+from ..i18n import thousands, tr
 
 # the groups of the side panel, in order, with the categories on when you first open it
-GROUPS = (("service", "Servicios"), ("location", "Lugares"), ("collectable", "Coleccionables"),
-          ("gatherable", "Recolección"), ("npc", "NPCs"), ("monster", "Monstruos"))
+GROUPS = (("service", tr("Servicios")), ("location", tr("Lugares")), ("collectable", tr("Coleccionables")),
+          ("gatherable", tr("Recolección")), ("npc", "NPCs"), ("monster", tr("Monstruos")))
 FIRST_ON = {"teleport", "storage", "shop", "shop-craft", "shop-conversion", "alchemy", "blacksmith", "cook",
             "jewelcraft", "tailor", "instance", "arena", "dungeon-entrance", "portal", "teleport-artifact", "rift",
             "stronghold", "lord-monolith", "named"}
@@ -225,12 +226,12 @@ def boss_state(tracker, entry, now):
     """(short text, colour) of a Tracker boss for its map label."""
     st = tracker.status(entry, now)
     if st.state in ("vivo", "en curso"):
-        return "vivo", theme.GAIN
+        return tr("vivo"), theme.GAIN
     if st.state in ("debería estar", "quizá"):
-        return "¿vivo?", theme.WARN
+        return tr("¿vivo?"), theme.WARN
     if st.start is not None and st.start > now:
-        return f"en {countdown(st.start - now)}", theme.GOLD
-    return "¿?", theme.MUTED
+        return tr("en {0}", countdown(st.start - now)), theme.GOLD
+    return tr("¿?"), theme.MUTED
 
 
 class WorldMapWindow(QWidget):
@@ -255,7 +256,7 @@ class WorldMapWindow(QWidget):
         self.checks = {}
         self.setObjectName("MapWindow")
         self.setWindowIcon(ctl.app_icon)
-        self.setWindowTitle(f"{APP_NAME} — Mapa del mundo")
+        self.setWindowTitle(tr("{0} — Mapa del mundo", APP_NAME))
         self.setStyleSheet(STYLE + EXTRA_STYLE)
         self.resize(1360, 860)
 
@@ -301,14 +302,14 @@ class WorldMapWindow(QWidget):
         head.addWidget(badge_label(34, self.devicePixelRatioF()))
         titles = QVBoxLayout()
         titles.setSpacing(0)
-        self.title = label("Mapa del mundo", self.fonts.name_big, theme.TEXT)
+        self.title = label(tr("Mapa del mundo"), self.fonts.name_big, theme.TEXT)
         titles.addWidget(self.title)
         self.subtitle = label("", self.fonts.small, theme.MUTED)
         titles.addWidget(self.subtitle)
         head.addLayout(titles, 1)
         sv.addLayout(head)
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Buscar en este mapa (NPC, monstruo, lugar…)")
+        self.search.setPlaceholderText(tr("Buscar en este mapa (NPC, monstruo, lugar…)"))
         self.search.setClearButtonEnabled(True)
         self.completer = QCompleter(self)
         self.completer.setCaseSensitivity(Qt.CaseInsensitive)
@@ -322,14 +323,14 @@ class WorldMapWindow(QWidget):
         self.found_label.setWordWrap(True)
         self.found_label.hide()
         sv.addWidget(self.found_label)
-        self.zones_check = QCheckBox("Nombres y bordes de las zonas")
+        self.zones_check = QCheckBox(tr("Nombres y bordes de las zonas"))
         self.zones_check.setChecked(saved.get("zones", True))
         self.zones_check.toggled.connect(self._zones_toggled)
         sv.addWidget(self.zones_check)
-        self.bosses_check = QCheckBox("Jefes del Tracker con su estado en vivo")
-        self.bosses_check.setToolTip("Los jefes de campo y del Abismo del Tracker sobre su punto: vivo, cuánto falta para "
-                                     "que vuelva o «¿?» si aún no lo sabe (abre en el juego la lista de monstruos de "
-                                     "campo, M)")
+        self.bosses_check = QCheckBox(tr("Jefes del Tracker con su estado en vivo"))
+        self.bosses_check.setToolTip(tr("Los jefes de campo y del Abismo del Tracker sobre su punto: vivo, cuánto "
+                                        "falta para que vuelva o «¿?» si aún no lo sabe (abre en el juego la lista "
+                                        "de monstruos de campo, M)"))
         self.bosses_check.setChecked(saved.get("bosses", True))
         self.bosses_check.toggled.connect(self._bosses_toggled)
         sv.addWidget(self.bosses_check)
@@ -342,7 +343,7 @@ class WorldMapWindow(QWidget):
         self.panel.setSpacing(2)
         scroll.setWidget(holder)
         sv.addWidget(scroll, 1)
-        credit = label("Puntos: tu mapa (aion2-map.json) · imágenes del mapa: metabot.gg", self.fonts.small,
+        credit = label(tr("Puntos: tu mapa (aion2-map.json) · imágenes del mapa: metabot.gg"), self.fonts.small,
                        theme.MUTED)
         credit.setWordWrap(True)
         sv.addWidget(credit)
@@ -430,7 +431,7 @@ class WorldMapWindow(QWidget):
             for u, v in named.get(entry.name, []):
                 item = BossLabel(entry)
                 item.setPos(u * WORLD, v * WORLD)
-                item.setToolTip(" · ".join(x for x in (entry.name, f"Nv. {entry.level}" if entry.level else "",
+                item.setToolTip(" · ".join(x for x in (entry.name, tr("Nv. {0}", entry.level) if entry.level else "",
                                                        entry.sub) if x))
                 scene.addItem(item)
                 self.boss_items.append(item)
@@ -508,14 +509,14 @@ class WorldMapWindow(QWidget):
         self.checks = {}
         counts = {c: len(pts) for c, (_, pts, _) in self.atlas.layers.items()}
         total = sum(counts.values())
-        self.subtitle.setText(f"{self.db['maps'][self.map_id]['name']} · {total:,} puntos".replace(",", "."))
+        self.subtitle.setText(thousands(tr("{0} · {1:,} puntos", self.db['maps'][self.map_id]['name'], total)))
         for typ, title in GROUPS:
             cats = [c for c, (_, t) in self.cats.items() if t == typ and counts.get(c)]
             if not cats:
                 continue
             head = QHBoxLayout()
             head.addWidget(SectionTitle(title, self.fonts), 1)
-            for text, on in (("todo", True), ("nada", False)):
+            for text, on in ((tr("todo"), True), (tr("nada"), False)):
                 button = QPushButton(text)
                 button.setProperty("flat", True)
                 button.clicked.connect(lambda _=False, cs=cats, v=on: self._set_many(cs, v))
@@ -524,7 +525,7 @@ class WorldMapWindow(QWidget):
             box.setLayout(head)
             self.panel.addWidget(box)
             for cat in sorted(cats, key=lambda c: -counts[c]):
-                check = QCheckBox(f"{self.cats[cat][0]}  ·  {counts[cat]:,}".replace(",", "."))
+                check = QCheckBox(thousands(f"{self.cats[cat][0]}  ·  {counts[cat]:,}"))
                 check.setChecked(cat in self.shown)
                 color = COLORS.get(cat, "#ffffff")
                 check.setStyleSheet(f"QCheckBox {{ color: {theme.TEXT.name()}; }} QCheckBox::indicator {{ width: 12px; "
@@ -572,7 +573,7 @@ class WorldMapWindow(QWidget):
         self.atlas.update()
         self.found_label.setText(f"{len(found)} {'punto' if len(found) == 1 else 'puntos'}: "
                                  + ", ".join(sorted(self.cats.get(c, (c,))[0] for c in cats)) if found else
-                                 "Nada con ese nombre en este mapa.")
+                                 tr("Nada con ese nombre en este mapa."))
         self.found_label.show()
         if found:
             self.view.focus_points([(q.x() / WORLD, q.y() / WORLD) for q in found], max_zoom_scale=1.2)

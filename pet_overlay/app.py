@@ -84,6 +84,7 @@ from .ui.toasts import ToastManager
 from .ui.appmenu import styled_menu
 from .ui.pets_panel import ViewState
 from .ui.window import OverlayWindow
+from .i18n import DEFAULT as DEFAULT_LANGUAGE, LANGUAGES, tr
 
 log = logging.getLogger(__name__)
 HOTKEY_ACTIONS = ["toggle_visible", "toggle_lock", "toggle_compact", "toggle_map", "crafting_scan"]
@@ -100,25 +101,25 @@ def _next_step(pet):
     """What the player needs next, as a sentence."""
     left = pet.remaining
     if left is None:
-        return "Ya está al nivel máximo."
+        return tr("Ya está al nivel máximo.")
     if pet.level == 0:
-        return f"Te {'falta' if left == 1 else 'faltan'} {_plural(left, 'alma', 'almas')} para desbloquearlo."
-    return f"Te {'falta' if left == 1 else 'faltan'} {_plural(left, 'kill', 'kills')} para el nivel {pet.level + 1}."
+        return tr("Te {0} {1} para desbloquearlo.", tr("falta") if left == 1 else tr("faltan"), _plural(left, 'alma', 'almas'))
+    return tr("Te {0} {1} para el nivel {2}.", tr("falta") if left == 1 else tr("faltan"), _plural(left, 'kill', 'kills'), pet.level + 1)
 
 
 def _progress_sentence(pet):
     if pet.is_max:
-        return "Ya está al nivel máximo."
-    where = "Almas" if pet.level == 0 else f"Nivel {pet.level}"
+        return tr("Ya está al nivel máximo.")
+    where = tr("Almas") if pet.level == 0 else tr("Nivel {0}", pet.level)
     return f"{where}: {pet.progress}/{pet.threshold}. {_next_step(pet)}"
 
 
 def _short_state(pet):
     if pet.is_max:
-        return "al máximo"
+        return tr("al máximo")
     if pet.level == 0:
-        return "aún no lo tienes" if pet.progress == 0 else f"almas {pet.progress}/{pet.threshold}"
-    return f"nivel {pet.level}, {pet.progress}/{pet.threshold}"
+        return tr("aún no lo tienes") if pet.progress == 0 else tr("almas {0}/{1}", pet.progress, pet.threshold)
+    return tr("nivel {0}, {1}/{2}", pet.level, pet.progress, pet.threshold)
 
 
 # message kinds counted for the Diagnóstico module
@@ -547,7 +548,7 @@ class Controller(QObject):
         self.map_window = None
         self.exclusive_window = None
         self.collection_window = None
-        self.capture_status = "Iniciando captura…"
+        self.capture_status = tr("Iniciando captura…")
         self.flash_ids = set()
         self.sniffer = None             # set by run.py (not in preview)
         self.health = Health(self.data_dir)
@@ -777,13 +778,13 @@ class Controller(QObject):
             self._ensure_icons()
             self._health_tick.start()
             if not self.npcap_installed():
-                self._problems_notified.add("Lectura del juego")
-                self.notify("warn", "Falta Npcap: AionDex no puede leer el juego",
-                            "Instálalo desde npcap.com (el enlace está en Ajustes) y vuelve a abrir AionDex.")
+                self._problems_notified.add(tr("Lectura del juego"))
+                self.notify("warn", tr("Falta Npcap: AionDex no puede leer el juego"),
+                            tr("Instálalo desde npcap.com (el enlace está en Ajustes) y vuelve a abrir AionDex."))
             prev = self.health.previous
             if prev and prev["clean"] is False:
-                self.notify("warn", "AionDex se cerró de forma inesperada la última vez",
-                            "Si no lo cerraste tú, abre Diagnóstico → «Se cerró solo» y envía el informe.")
+                self.notify("warn", tr("AionDex se cerró de forma inesperada la última vez"),
+                            tr("Si no lo cerraste tú, abre Diagnóstico → «Se cerró solo» y envía el informe."))
 
     # --- game events (UI thread) -----------------------------------------------------
     def on_snapshot(self, snapshot):
@@ -795,9 +796,9 @@ class Controller(QObject):
             self._synced_for = who or ""
             owned = [p for p in self.collection.pets.values() if p.level >= 1]
             _, total = self.collection_stats()
-            self.notify("sync", "Colección cargada desde el juego",
-                        f"Tienes {len(owned)} de {total} pets, {sum(p.is_max for p in owned)} al nivel máximo"
-                        + (f" (personaje {who})." if who else "."))
+            self.notify("sync", tr("Colección cargada desde el juego"),
+                        tr("Tienes {0} de {1} pets, {2} al nivel máximo", len(owned), total, sum(p.is_max for p in owned))
+                        + (tr(" (personaje {0}).", who) if who else "."))
         self.refresh()
 
     def on_progress(self, updates):
@@ -1036,14 +1037,14 @@ class Controller(QObject):
         from . import market_ocr
         from .sniffer import game_pids
         if not market_ocr.ocr_available():
-            self.notify("warn", "Crafting: falta el lector de texto",
-                        "Esta instalación no trae el OCR de Windows. Actualiza AionDex.")
+            self.notify("warn", tr("Crafting: falta el lector de texto"),
+                        tr("Esta instalación no trae el OCR de Windows. Actualiza AionDex."))
             return
         rect = market_ocr.game_window_rect(game_pids())
         if rect is None:
-            self.notify("warn", "Crafting: no encuentro la ventana del juego",
-                        "Abre AION 2 (en ventana o ventana sin bordes, sin minimizar) con el mercado abierto y vuelve "
-                        "a escanear.")
+            self.notify("warn", tr("Crafting: no encuentro la ventana del juego"),
+                        tr("Abre AION 2 (en ventana o ventana sin bordes, sin minimizar) con el mercado abierto y "
+                           "vuelve a escanear."))
             return
         hidden = [(w, w.windowOpacity()) for w in QApplication.topLevelWidgets()
                   if w.isVisible() and w.windowOpacity() > 0]
@@ -1067,13 +1068,13 @@ class Controller(QObject):
                 except RuntimeError:            # a notification bubble that closed meanwhile
                     pass
         if image is None:
-            self.notify("warn", "Crafting: no se pudo capturar la pantalla", "Vuelve a intentarlo.")
+            self.notify("warn", tr("Crafting: no se pudo capturar la pantalla"), tr("Vuelve a intentarlo."))
             return
         if image.convert("L").getextrema()[1] < 16:
             path.unlink(missing_ok=True)
-            self.notify("warn", "Crafting: la captura salió negra",
-                        "El juego está en pantalla completa exclusiva: ponlo en «ventana sin bordes» en sus "
-                        "opciones de vídeo y vuelve a escanear.")
+            self.notify("warn", tr("Crafting: la captura salió negra"),
+                        tr("El juego está en pantalla completa exclusiva: ponlo en «ventana sin bordes» en sus "
+                           "opciones de vídeo y vuelve a escanear."))
             return
         shot = self.crafting.add_shot(path)
         self._ocr.add(shot)
@@ -1097,40 +1098,40 @@ class Controller(QObject):
         new = self.crafting.take_sales_shot(shot, self.crafting_faction())
         if shot.kind == "mylist":
             listed = info.get("listed")
-            hidden = f" Se ven {len(rows)} de {listed}: baja la lista y escanea otra vez para el resto." \
+            hidden = tr(" Se ven {0} de {1}: baja la lista y escanea otra vez para el resto.", len(rows), listed) \
                 if listed and listed > len(rows) else ""
-            self.notify("info", f"Ventas: {len(rows)} {'cosa' if len(rows) == 1 else 'cosas'} a la venta",
-                        f"Por {money(sum(r[2] for r in rows))} en total.{hidden}")
+            self.notify("info", tr("Ventas: {0} {1} a la venta", len(rows), 'cosa' if len(rows) == 1 else 'cosas'),
+                        tr("Por {0} en total.{1}", money(sum(r[2] for r in rows)), hidden))
         elif new:
             net = sum(s["net"] for s in new)
             known = [s for s in new if self.crafting.ledger.profit(s) is not None]
             profit = sum(self.crafting.ledger.profit(s) for s in known)
-            self.notify("info", f"Ventas: {len(new)} {'venta nueva' if len(new) == 1 else 'ventas nuevas'}",
-                        f"Cobras {money(net)} (ya sin el impuesto)" +
-                        (f"; te dejan {money(profit, sign=True)} tras los materiales." if known else ".") +
-                        " La captura queda guardada como prueba.")
+            self.notify("info", tr("Ventas: {0} {1}", len(new), tr("venta nueva") if len(new) == 1 else tr("ventas nuevas")),
+                        tr("Cobras {0} (ya sin el impuesto)", money(net)) +
+                        (tr("; te dejan {0} tras los materiales.", money(profit, sign=True)) if known else ".") +
+                        tr(" La captura queda guardada como prueba."))
         elif rows:
-            self.notify("info", "Ventas: nada nuevo", "Esas ventas ya estaban guardadas.")
+            self.notify("info", tr("Ventas: nada nuevo"), tr("Esas ventas ya estaban guardadas."))
         else:
-            self.notify("info", "Ventas: no hay nada por cobrar",
-                        "Settlement está vacío: cuando algo se venda, escanéalo ahí antes de cobrar.")
+            self.notify("info", tr("Ventas: no hay nada por cobrar"),
+                        tr("Settlement está vacío: cuando algo se venda, escanéalo ahí antes de cobrar."))
         sold = info.get("sold")
         if shot.kind == "settlement" and sold and sold > len(rows):
-            self.notify("warn", f"Ventas: se leyeron {len(rows)} de {sold}",
-                        "Baja la lista de Settlement y escanea otra vez: las que ya estén no se repiten.")
+            self.notify("warn", tr("Ventas: se leyeron {0} de {1}", len(rows), sold),
+                        tr("Baja la lista de Settlement y escanea otra vez: las que ya estén no se repiten."))
         if self.crafting_window and self.crafting_window.isVisible():
             self.crafting_window.show_tab("sales")
         self._crafting_changed()
 
     def crafting_processed(self, sample):
         n = len(sample["items"])
-        when = time.strftime("%d/%m a las %H:%M", time.localtime(sample["at"]))
+        when = time.strftime(tr("%d/%m a las %H:%M"), time.localtime(sample["at"]))
         if sample.pop("merged", False):
-            self.notify("info", f"Crafting: capturas sumadas al muestreo del {when}",
-                        f"Ahora tiene {n} {'objeto' if n == 1 else 'objetos'}. Mira la pestaña Rentabilidad.")
+            self.notify("info", tr("Crafting: capturas sumadas al muestreo del {0}", when),
+                        tr("Ahora tiene {0} {1}. Mira la pestaña Rentabilidad.", n, 'objeto' if n == 1 else 'objetos'))
         else:
-            self.notify("info", f"Crafting: muestreo guardado ({n} {'objeto' if n == 1 else 'objetos'})",
-                        f"Precios del {when}. Mira la pestaña Rentabilidad.")
+            self.notify("info", tr("Crafting: muestreo guardado ({0} {1})", n, 'objeto' if n == 1 else 'objetos'),
+                        tr("Precios del {0}. Mira la pestaña Rentabilidad.", when))
         self.market_share.upload(sample, self.market_key())
         self._crafting_changed()
 
@@ -1148,8 +1149,8 @@ class Controller(QObject):
             if up:
                 profession, level = up
                 name = self.crafting.professions.get(profession, {}).get("name", profession)
-                self.notify("info", f"¡{name} subió a {level_text(level)}!",
-                            "Crafting ya calcula tu probabilidad de éxito con el nivel nuevo.")
+                self.notify("info", tr("¡{0} subió a {1}!", name, level_text(level)),
+                            tr("Crafting ya calcula tu probabilidad de éxito con el nivel nuevo."))
                 self.sounds.play("pet_level_up")        # the same level-up sound as the pets
         self._crafting_changed()
 
@@ -1197,7 +1198,7 @@ class Controller(QObject):
     def on_missions(self, event):
         """Your season missions from the game: the whole list (before the game names your character) or what moved."""
         kind, at, records = event
-        models = ((self.missions, "Misión lista", "Season Mission"), (self.achievements, "Logro listo", "Achievements"))
+        models = ((self.missions, tr("Misión lista"), "Season Mission"), (self.achievements, tr("Logro listo"), "Achievements"))
         if kind == "list":
             for model, _, _ in models:
                 model.on_list(at, records)
@@ -1210,8 +1211,7 @@ class Controller(QObject):
                 if now.ready > before.ready:
                     mission_name, text, _ = mission.view(faction)
                     self.notify("info", f"{title}: {mission_name}",
-                                f"Paso {now.reached}/{now.total} hecho ({text}). Recoge la recompensa en la ventana "
-                                f"{window} del juego.", keep=True)
+                                tr("Paso {0}/{1} hecho ({2}). Recoge la recompensa en la ventana {3} del juego.", now.reached, now.total, text, window), keep=True)
         self.missions_changed()
 
     def _passes_settle(self):
@@ -1251,7 +1251,7 @@ class Controller(QObject):
         if region is None and map_id is not None:
             region = SEAL_REGIONS.get(map_id // 1000)          # a sealed dungeon counts for its region's
             if region:
-                return f"En una mazmorra sellada de {region}", {f"region:{region}"}
+                return tr("En una mazmorra sellada de {0}", region), {f"region:{region}"}
         return (model or self.missions).context(map_id, map_id in ABYSS_MAPS, region)
 
     def open_missions(self):
@@ -1259,17 +1259,17 @@ class Controller(QObject):
         if self.missions_window is None:
             self.missions_window = MissionsWindow(
                 self, self.missions, "Season Missions",
-                "AionDex lee tu progreso del juego al entrar y en cada avance. Las semanales vuelven a cero el "
-                "miércoles; las de temporada, al acabar la temporada.")
+                tr("AionDex lee tu progreso del juego al entrar y en cada avance. Las semanales vuelven a cero el "
+                   "miércoles; las de temporada, al acabar la temporada."))
         self._show_window(self.missions_window)
 
     def open_achievements(self):
         from .ui.missionswindow import MissionsWindow
         if self.achievements_window is None:
             self.achievements_window = MissionsWindow(
-                self, self.achievements, "Logros",
-                "Los logros del juego (ventana Achievements) con tu progreso, leído del juego al entrar y en cada "
-                "avance.")
+                self, self.achievements, tr("Logros"),
+                tr("Los logros del juego (ventana Achievements) con tu progreso, leído del juego al entrar y en "
+                   "cada avance."))
         self._show_window(self.achievements_window)
 
     def open_events(self):
@@ -1307,9 +1307,9 @@ class Controller(QObject):
             ready = sum(1 for _, p, _ in items if p.ready)
             faction = self.crafting_faction()
             shown = ", ".join(m.view(faction)[0] for m, _, _ in items[:3]) + ("…" if len(items) > 3 else "")
-            self.notify("status", f"Season M.: expiran en {countdown(left)}",
-                        f"{name}: {len(items)} sin terminar ({shown})"
-                        + (f"; {ready} con la recompensa esperando, recógela antes" if ready else "") + ".",
+            self.notify("status", tr("Season M.: expiran en {0}", countdown(left)),
+                        tr("{0}: {1} sin terminar ({2})", name, len(items), shown)
+                        + (tr("; {0} con la recompensa esperando, recógela antes", ready) if ready else "") + ".",
                         keep=True, same=f"missions-expiry|{name}")
 
     def _on_status_tick(self, refresh=True):
@@ -1409,8 +1409,8 @@ class Controller(QObject):
     def start_session(self, name):
         session = self.sessions.start(name)
         log.info("session started: %s", session["name"])
-        self.notify("info", f"Sesión «{session['name']}» en marcha",
-                    "Cada pelea se guarda en ella. Al terminarla verás el informe de toda la sesión.")
+        self.notify("info", tr("Sesión «{0}» en marcha", session['name']),
+                    tr("Cada pelea se guarda en ella. Al terminarla verás el informe de toda la sesión."))
         self.refresh()
         return session
 
@@ -1443,14 +1443,13 @@ class Controller(QObject):
         from PySide6.QtWidgets import QInputDialog, QMessageBox
         session = self.sessions.active()
         if session is None:
-            name, ok = QInputDialog.getText(None, "Comenzar sesión", "Nombre de la sesión (por ejemplo «Draupnir x3 con "
-                                            "la legión»):", text=time.strftime("Sesión %d/%m %H:%M"))
+            name, ok = QInputDialog.getText(None, tr("Comenzar sesión"), tr("Nombre de la sesión (por ejemplo «Draupnir "
+                                                                        "x3 con la legión»):"), text=time.strftime(tr("Sesión %d/%m %H:%M")))
             if ok:
                 self.start_session(name)
             return
-        answer = QMessageBox.question(None, "Terminar sesión",
-                                      f"¿Terminar «{session['name']}»? Tiene {len(session['fights'])} peleas; luego "
-                                      f"verás su informe.")
+        answer = QMessageBox.question(None, tr("Terminar sesión"),
+                                      tr("¿Terminar «{0}»? Tiene {1} peleas; luego verás su informe.", session['name'], len(session['fights'])))
         if answer == QMessageBox.Yes:
             self.end_session()
 
@@ -1499,19 +1498,18 @@ class Controller(QObject):
         if not me or enc.duration < 8 and not enc.killed:
             return
         from .ui.dps_panel import mmss, pct, short_number
-        target = enc.main_target or "un enemigo"
+        target = enc.main_target or tr("un enemigo")
         others = len(enc.dealers()) - 1
         c = enc.contribution(self.combat.group) if others else None
         if c and c.hp_lost and c.seen < 0.9:          # world boss: most hits are not visible to us
-            group = f" Aportaste el {pct(c.share(c.me))} del daño al jefe."
+            group = tr(" Aportaste el {0} del daño al jefe.", pct(c.share(c.me)))
         else:
-            group = f" Hiciste el {100 * me.damage / max(1, enc.total):.0f}% del daño de la pelea." if others else ""
+            group = tr(" Hiciste el {0:.0f}% del daño de la pelea.", 100 * me.damage / max(1, enc.total)) if others else ""
         boss_view = self.settings.get("dps_boss_only", True) and enc.activity(self.combat.group).boss
         seconds = enc.fight_time(self.combat.group, boss_view)
         mine = me.by_target[enc.main_target_eid] if boss_view else me.damage
-        self.notify("combat", f"Pelea terminada: {target}{' (derrotado)' if enc.killed else ''}",
-                    f"Tu DPS fue {short_number(mine / seconds)}/s durante {mmss(seconds)} "
-                    f"({short_number(mine)} de daño).{group}")
+        self.notify("combat", tr("Pelea terminada: {0}{1}", target, ' (derrotado)' if enc.killed else ''),
+                    tr("Tu DPS fue {0}/s durante {1} ({2} de daño).{3}", short_number(mine / seconds), mmss(seconds), short_number(mine), group))
 
     def on_character(self, info):
         claimed = [m.claim(info.name, time.time()) for m in (self.missions, self.achievements, self.passes)]
@@ -1670,7 +1668,7 @@ class Controller(QObject):
                 return
             # 2b96 never includes you: a member whose spawn came before AionDex listened (it was already near you).
             # It counts from now on, named "Compañero N" until the game sends its name.
-            name = f"Compañero {len(self._placeholders) + 1}"
+            name = tr("Compañero {0}", len(self._placeholders) + 1)
             self._placeholders[eid] = name
             self.combat.add_player(eid, name)
             self.bridge.feed.players[eid] = name
@@ -1760,9 +1758,9 @@ class Controller(QObject):
         if rivals:
             shown = ", ".join(f"{p.name} ({p.server}" + (f", rating {p.rating:,}" if p.rating else "") + ")"
                               for p in rivals[:3]) + ("…" if len(rivals) > 3 else "")
-            self.notify("info", f"Arena {match.size}: contra {shown}",
-                        "Cargando sus perfiles oficiales (CP, item level, equipo). Clic en la tarjeta de la Arena "
-                        "del DPS para verlos.")
+            self.notify("info", tr("Arena {0}: contra {1}", match.size, shown),
+                        tr("Cargando sus perfiles oficiales (CP, item level, equipo). Clic en la tarjeta de la "
+                           "Arena del DPS para verlos."))
         if self.arena_window and self.arena_window.isVisible():
             self.arena_window.refresh()
         self.refresh()
@@ -1827,7 +1825,7 @@ class Controller(QObject):
     def on_own_entity(self, eid):
         """Your entity id, learnt from your own skill presses before the game resent your character: the meter
         counts your damage from now on (named after the character you last played until the info arrives)."""
-        name = self.character.name if self.character else self.settings.get("last_character") or "Tú"
+        name = self.character.name if self.character else self.settings.get("last_character") or tr("Tú")
         self.combat.set_self(eid, name)
         log.info("own entity %s found (%s)", eid, name)
         old = self._placeholders.pop(eid, None)     # (2b96 skips you, so this should not happen)
@@ -1910,10 +1908,10 @@ class Controller(QObject):
             return
         self._last_zone_notice[zone_slug] = now
         shown = [f"{self.pet_info(p.pet_id)[1]} ({_short_state(p)})" for p, _ in nearby[:3]]
-        more = f" y {len(nearby) - 3} más" if len(nearby) > 3 else ""
+        more = tr(" y {0} más", len(nearby) - 3) if len(nearby) > 3 else ""
         count = f"{len(nearby)} pet" + ("s" if len(nearby) > 1 else "")
-        self.notify("zone", f"Estás en {zone['name']} ({zone['region']})",
-                    f"Aquí puedes farmear {count}: {', '.join(shown)}{more}.")
+        self.notify("zone", tr("Estás en {0} ({1})", zone['name'], zone['region']),
+                    tr("Aquí puedes farmear {0}: {1}{2}.", count, ', '.join(shown), more))
 
     def on_status(self, text):
         self.capture_status = text
@@ -1933,16 +1931,16 @@ class Controller(QObject):
         _, name = self.pet_info(event.pet_id)
         if event.leveled_up:
             if pet.level == 1:
-                self.notify("unlock", f"¡Desbloqueaste un pet nuevo: {name}!",
-                            f"Ya está en tu colección (nivel 1). {_next_step(pet)}", pet_id=pet.pet_id)
+                self.notify("unlock", tr("¡Desbloqueaste un pet nuevo: {0}!", name),
+                            tr("Ya está en tu colección (nivel 1). {0}", _next_step(pet)), pet_id=pet.pet_id)
             else:
-                self.notify("levelup", f"¡{name} subió a nivel {pet.level}!",
-                            "Llegó al nivel máximo." if pet.is_max else _next_step(pet), pet_id=pet.pet_id,
+                self.notify("levelup", tr("¡{0} subió a nivel {1}!", name, pet.level),
+                            tr("Llegó al nivel máximo.") if pet.is_max else _next_step(pet), pet_id=pet.pet_id,
                             keep=pet.is_max)
             self.sounds.play("pet_level_up")
         elif self.settings["toast_progress"]:
             self.notify("progress", "", _progress_sentence(pet), pet_id=pet.pet_id, key=f"progress:{pet.pet_id}",
-                        amount=event.gain, title_template=f"{name}: +{{amount}} de progreso")
+                        amount=event.gain, title_template=tr("{0}: +{{amount}} de progreso", name))
 
     # --- notifications ------------------------------------------------------------------------
     def notify(self, kind, title, body="", **kwargs):
@@ -2254,11 +2252,11 @@ class Controller(QObject):
         for p in self.collection.pets.values():
             by_level[p.level] = by_level.get(p.level, 0) + 1
         rows = [
-            ("Nivel máximo", by_level.get(3, 0), theme.GOLD),
-            ("Nivel 2", by_level.get(2, 0), theme.ACCENT),
-            ("Nivel 1", by_level.get(1, 0), theme.ELYOS),
-            ("Con almas, sin desbloquear", by_level.get(0, 0), theme.WARN),
-            ("Sin empezar", max(0, total - len(self.collection.pets)), theme.MUTED),
+            (tr("Nivel máximo"), by_level.get(3, 0), theme.GOLD),
+            (tr("Nivel 2"), by_level.get(2, 0), theme.ACCENT),
+            (tr("Nivel 1"), by_level.get(1, 0), theme.ELYOS),
+            (tr("Con almas, sin desbloquear"), by_level.get(0, 0), theme.WARN),
+            (tr("Sin empezar"), max(0, total - len(self.collection.pets)), theme.MUTED),
         ]
         return rows, total
 
@@ -2274,18 +2272,18 @@ class Controller(QObject):
             status = f"Sincronizado {time.strftime('%H:%M', time.localtime(self.collection.synced_at))}"
             color = theme.GAIN
         elif self.collection.loaded_from_disk:
-            status = "Datos guardados · entra con un personaje para sincronizar"
+            status = tr("Datos guardados · entra con un personaje para sincronizar")
             color = theme.WARN
         else:
-            status = "Sin datos · entra con un personaje con el overlay abierto"
+            status = tr("Sin datos · entra con un personaje con el overlay abierto")
             color = theme.MUTED
-        if self.capture_status.startswith("Esperando"):
+        if self.capture_status == tr("Esperando a AION2…"):
             status, color = self.capture_status, theme.MUTED
         where = None
         if zone:
             where = zone["name"]
         elif self.location_faction():
-            where = f"lado {theme.FACTION_LABEL[self.location_faction()]}"
+            where = tr("lado {0}", theme.FACTION_LABEL[self.location_faction()])
         status = " · ".join(t for t in (self.character_name(), where, status) if t)
 
         return ViewState(
@@ -2301,14 +2299,14 @@ class Controller(QObject):
         if not s.gains:
             return ""
         minutes = int(s.active_time() // 60)
-        parts = [f"Sesión {minutes // 60}:{minutes % 60:02d}", f"+{s.gains}"]
+        parts = [tr("Sesión {0}:{1:02d}", minutes // 60, minutes % 60), f"+{s.gains}"]
         rate = s.rate_per_hour()
         if rate:
             parts.append(f"{rate:.0f}/h")
         if s.level_ups:
-            parts.append(f"{s.level_ups} subida{'s' if s.level_ups > 1 else ''}")
+            parts.append(tr("{0} subida{1}", s.level_ups, 's' if s.level_ups > 1 else ''))
         if s.is_idle():
-            parts.append("en pausa")
+            parts.append(tr("en pausa"))
         return " · ".join(parts)
 
     def refresh(self):
@@ -2336,7 +2334,7 @@ class Controller(QObject):
     # --- actions ----------------------------------------------------------------------------
     def open_map(self, pet_id=None):
         if not self.mapdata.available:
-            self.notify("warn", "Falta la base de datos del mapa", "Usa «Actualizar base de datos» en la bandeja")
+            self.notify("warn", tr("Falta la base de datos del mapa"), tr("Usa «Actualizar base de datos» en la bandeja"))
             return
         from .ui.mapwindow import MapWindow
         if self.map_window is None:
@@ -2374,7 +2372,7 @@ class Controller(QObject):
     def update_database(self):
         if getattr(self, "_db_thread", None) and self._db_thread.isRunning():
             return
-        self.notify("info", "Actualizando base de datos", "Descargando desde metabot.gg…")
+        self.notify("info", tr("Actualizando base de datos"), tr("Descargando desde metabot.gg…"))
         self._db_thread = DbUpdateThread(self.data_dir)
         self._db_thread.progress.connect(lambda text: self.tray.setToolTip(f"{self.app_name} — {text}"))
         self._db_thread.done.connect(self._database_updated)
@@ -2390,7 +2388,7 @@ class Controller(QObject):
                 self.map_window.data = self.mapdata
                 self.map_window.refresh()
             self.refresh()
-        self.notify("info" if ok else "warn", f"Base de datos {'actualizada' if ok else 'NO actualizada'}", summary)
+        self.notify("info" if ok else "warn", tr("Base de datos {0}", 'actualizada' if ok else tr("NO actualizada")), summary)
 
     def reset_zone(self):
         """Forget the nearby NPCs and the zone; it is detected again from what spawns next."""
@@ -2432,9 +2430,8 @@ class Controller(QObject):
         for title, check in bad.items():
             if now - self._problems_seen[title] >= 25 and title not in self._problems_notified:
                 self._problems_notified.add(title)
-                self.notify("warn", f"Problema: {title.lower()}",
-                            f"{check.detail} Abre Diagnóstico en el menú: AionDex busca la causa y te dice cómo "
-                            f"arreglarlo.")
+                self.notify("warn", tr("Problema: {0}", title.lower()),
+                            tr("{0} Abre Diagnóstico en el menú: AionDex busca la causa y te dice cómo arreglarlo.", check.detail))
         if self.active_module.key == "diagnostics":
             self.refresh()
 
@@ -2577,8 +2574,8 @@ class Controller(QObject):
                 items = [(i["name"], i.get("chance") or 0) for d in e.drops for i in d.get("items", [])]
                 if e.kind == "event" or not items:
                     continue
-                respawn = (f"Vuelve {e.respawn_min} min después de morir" if e.respawn_min else
-                           "Sale a horas fijas" if e.slots else "")
+                respawn = (tr("Vuelve {0} min después de morir", e.respawn_min) if e.respawn_min else
+                           tr("Sale a horas fijas") if e.slots else "")
                 out.append({"name": e.name, "where": e.sub.split(" · ")[-1] if e.sub else "", "level": e.level,
                             "abyss": e.kind == "abyss" or e.map_id == 20, "map_id": e.map_id, "items": items,
                             "respawn": respawn})
@@ -2727,7 +2724,7 @@ class Controller(QObject):
         from .ui.calibrationwindow import CalibrationWindow
         found = self.macro_layout()
         if found is None:
-            self.notify("warn", "Builds", "Abre el juego para calibrar el menú de skills.")
+            self.notify("warn", "Builds", tr("Abre el juego para calibrar el menú de skills."))
             return None
         layout, _, _ = found
         size = f"{layout.client[2] - layout.client[0]}x{layout.client[3] - layout.client[1]}"
@@ -2897,7 +2894,7 @@ class Controller(QObject):
         slug = self.mapdata.db.get("npcs", {}).get(str(npc_id))
         name = (self.mapdata.monsters.get(slug, {}).get("name") if slug else None) or self.npc_db.name(npc_id) or \
             (tracked.name if tracked else None) or self.boss_names.get(npc_id)
-        return name or f"Objetivo de {max_hp / 1e6:.1f}M HP", boss
+        return name or tr("Objetivo de {0:.1f}M HP", max_hp / 1e6), boss
 
     def boss_rows(self):
         """The bosses and siege cores around you as rows of the panel under the quest list."""
@@ -2911,12 +2908,12 @@ class Controller(QObject):
         for name, hp, top, in_sight, since, dead, far in foes.rows(time.time(), me):
             ratio = hp / top if top else 0.0
             if dead:
-                sub = "muerto"
+                sub = tr("muerto")
             elif not in_sight:
-                sub = f"fuera de vista hace {int(since)} s · {_short_hp(hp)} HP"
+                sub = tr("fuera de vista hace {0} s · {1} HP", int(since), _short_hp(hp))
             else:
                 sub = f"{_short_hp(hp)} / {_short_hp(top)} HP" + (f" · a {far:.0f} m" if far is not None else "")
-            rows.append(FocusRow(0, name, "muerto" if dead else f"{ratio:.1%}", ratio, sub, kind="boss",
+            rows.append(FocusRow(0, name, tr("muerto") if dead else f"{ratio:.1%}", ratio, sub, kind="boss",
                                  faded=dead or not in_sight))
         return rows
 
@@ -2934,7 +2931,7 @@ class Controller(QObject):
             count = "MAX" if pet.is_max else (f"{pet.progress}/{pet.threshold}" if pet.threshold else str(pet.progress))
             gained = self.session.per_pet.get(pet.pet_id, 0)
             what = ", ".join(mobs) if mobs else (info.get("mob") or "").removeprefix("Mata: ")
-            rows.append(FocusRow(pet.pet_id, name, count, pet.ratio, f"Mata: {what}" if what else "",
+            rows.append(FocusRow(pet.pet_id, name, count, pet.ratio, tr("Mata: {0}", what) if what else "",
                                  f"+{gained}" if gained else "", pet.is_max))
         return rows
 
@@ -2959,7 +2956,7 @@ class Controller(QObject):
         real_pixels()
         game = game_window(game_pids())
         if game is None:
-            self.notify("warn", "Minimapa", "Abre el juego para calibrar el minimapa.")
+            self.notify("warn", tr("Minimapa"), tr("Abre el juego para calibrar el minimapa."))
             return None
         _, client = game
         left, top, right, bottom = client
@@ -2996,15 +2993,15 @@ class Controller(QObject):
         """Run the build macro (its own thread); on_progress / on_done are called from it. -> error text or None."""
         from .buildmacro import BuildMacro, is_admin
         if self.bridge.macro is not None:
-            return "Ya se está aplicando una build."
+            return tr("Ya se está aplicando una build.")
         if not is_admin():
             return "admin"
         order = self.skill_order()
         if order is None:
-            return "Leyendo tu perfil oficial para saber el orden de tus skills: prueba en unos segundos."
+            return tr("Leyendo tu perfil oficial para saber el orden de tus skills: prueba en unos segundos.")
         found = self.macro_layout()
         if found is None:
-            return "No encuentro la ventana del juego."
+            return tr("No encuentro la ventana del juego.")
         layout, hwnd, _ = found
 
         def done(ok, text):
@@ -3042,14 +3039,14 @@ class Controller(QObject):
             slot = next((s for s, prio in bar if prio and prio[0] == base), None) or \
                 next((s for s, prio in bar if base in prio), None)
             if slot is None:
-                return f"{name} no está en la barra: no sé qué tecla pulsa ese paso."
+                return tr("{0} no está en la barra: no sé qué tecla pulsa ese paso.", name)
             prio = next(p for s, p in bar if s == slot)
             lines.append(MacroLine(list(prio), int(delay or 10), slot))
         setup = tuner.setup
         setup.ingame = lines
         tuner.save()
         self.tuner_changed()
-        return f"Macro pasado al Afinador (preset {tuner.preset}): {len(lines)} pasos."
+        return tr("Macro pasado al Afinador (preset {0}): {1} pasos.", tuner.preset, len(lines))
 
     def restart_as_admin(self):
         """Open AionDex again as administrator and close this one, and keep it so (settings["run_as_admin"]): the game
@@ -3095,10 +3092,11 @@ class Controller(QObject):
             self.window.apply_lock(self.settings["locked"])
         elif source != "menú":
             hk = self.settings["hotkeys"].get("toggle_visible")
-            how = "con el atajo" if source == "atajo" else "con un clic en el icono de AionDex de la bandeja"
-            self.notify("info", "AionDex oculto",
-                        f"Lo ocultaste {how}. Para verlo otra vez: " + (f"{hk} o " if hk else "")
-                        + "clic en el icono de AionDex junto al reloj. Puedes cambiar o quitar el atajo en Ajustes.")
+            how = tr("con el atajo") if source == "atajo" else tr("con un clic en el icono de AionDex de la bandeja")
+            self.notify("info", tr("AionDex oculto"),
+                        tr("Lo ocultaste {0}. Para verlo otra vez: ", how) + (tr("{0} o ", hk) if hk else "")
+                        + tr("clic en el icono de AionDex junto al reloj. Puedes cambiar o quitar el atajo en "
+                             "Ajustes."))
         self._save_settings()
 
     def toggle_lock(self):
@@ -3158,14 +3156,26 @@ class Controller(QObject):
         self.window.update()
 
     def _blink_done(self):
-        self.notify("info", "Diagnóstico de parpadeo listo",
-                    "Abre Diagnóstico → «El overlay parpadea» para ver lo que encontré y copiar el informe.")
+        self.notify("info", tr("Diagnóstico de parpadeo listo"),
+                    tr("Abre Diagnóstico → «El overlay parpadea» para ver lo que encontré y copiar el informe."))
         if self.diag_window is not None:
             self.diag_window.rerun("blink")
 
     def set_ui_scale(self, value):
         """'Tamaño de todo': saved now, applied when AionDex starts again (Reiniciar ahora)."""
         self.settings["ui_scale"] = value
+        self._save_settings()
+        self.refresh()
+
+    @property
+    def language(self):
+        """The app's language as saved (English unless Español was chosen); i18n.LANG is the one running."""
+        return self.settings.get("language") if self.settings.get("language") in LANGUAGES else DEFAULT_LANGUAGE
+
+    def set_language(self, lang):
+        """Idioma / Language: saved now, applied when AionDex starts again (Reiniciar ahora). The game's own words
+        (pets, monsters, items, maps, classes, skills) stay as the game sends them."""
+        self.settings["language"] = lang
         self._save_settings()
         self.refresh()
 
@@ -3196,7 +3206,7 @@ class Controller(QObject):
     def set_scale(self, value):
         self.settings["scale"] = value
         self._save_settings()
-        self.notify("info", "Tamaño cambiado", "Se aplica al reiniciar el overlay")
+        self.notify("info", tr("Tamaño cambiado"), tr("Se aplica al reiniciar el overlay"))
 
     def reset_position(self):
         self.settings["pos"] = None
@@ -3246,7 +3256,7 @@ class Controller(QObject):
                 failed.append(combo)
         if failed:
             log.warning("hotkeys not registered: %s", failed)
-            self.notify("warn", "Atajos no registrados", f"{', '.join(failed)} ya están en uso por otra app")
+            self.notify("warn", tr("Atajos no registrados"), tr("{0} ya están en uso por otra app", ', '.join(failed)))
 
     def _save_settings(self):
         self.settings.save()
@@ -3263,27 +3273,27 @@ class Controller(QObject):
         self.tray = QSystemTrayIcon(self.app_icon, self)
         menu = styled_menu()
         hk = self.settings["hotkeys"]
-        menu.addAction(f"Abrir mapa de pets\t{hk['toggle_map']}", self.open_map)
-        menu.addAction("Mapa del mundo", self.open_world_map)
-        menu.addAction("Colección de pets", self.open_collection)
-        menu.addAction("Pets exclusivos (Asmodian / Elyos)", self.open_exclusive_pets)
-        menu.addAction("Jugadores de tu party / force", self.open_players)
-        menu.addAction("Builds de skills (y Afinador del macro)", self.open_builds)
-        menu.addAction("Profesiones y Market", self.open_crafting)
-        menu.addAction(f"Escanear el mercado (Crafting)\t{hk.get('crafting_scan', '')}", self.crafting_scan)
-        menu.addAction("Abrir Status de tus personajes", self.open_status)
+        menu.addAction(tr("Abrir mapa de pets\t{0}", hk['toggle_map']), self.open_map)
+        menu.addAction(tr("Mapa del mundo"), self.open_world_map)
+        menu.addAction(tr("Colección de pets"), self.open_collection)
+        menu.addAction(tr("Pets exclusivos (Asmodian / Elyos)"), self.open_exclusive_pets)
+        menu.addAction(tr("Jugadores de tu party / force"), self.open_players)
+        menu.addAction(tr("Builds de skills (y Afinador del macro)"), self.open_builds)
+        menu.addAction(tr("Profesiones y Market"), self.open_crafting)
+        menu.addAction(tr("Escanear el mercado (Crafting)\t{0}", hk.get('crafting_scan', '')), self.crafting_scan)
+        menu.addAction(tr("Abrir Status de tus personajes"), self.open_status)
         menu.addAction("Season Missions", self.open_missions)
-        menu.addAction("Logros", self.open_achievements)
+        menu.addAction(tr("Logros"), self.open_achievements)
         menu.addSeparator()
-        menu.addAction(f"Mostrar / ocultar\t{hk['toggle_visible']}", self.toggle_visible)
-        menu.addAction(f"Bloquear / desbloquear\t{hk['toggle_lock']}", self.toggle_lock)
-        menu.addAction(f"Compacto / expandido\t{hk['toggle_compact']}", self.toggle_compact)
+        menu.addAction(tr("Mostrar / ocultar\t{0}", hk['toggle_visible']), self.toggle_visible)
+        menu.addAction(tr("Bloquear / desbloquear\t{0}", hk['toggle_lock']), self.toggle_lock)
+        menu.addAction(tr("Compacto / expandido\t{0}", hk['toggle_compact']), self.toggle_compact)
         menu.addSeparator()
-        menu.addAction("Quitar pet fijado", lambda: self.pin(None))
-        menu.addAction("Reiniciar sesión", self.reset_session)
-        menu.addAction("Restablecer posición", self.reset_position)
+        menu.addAction(tr("Quitar pet fijado"), lambda: self.pin(None))
+        menu.addAction(tr("Reiniciar sesión"), self.reset_session)
+        menu.addAction(tr("Restablecer posición"), self.reset_position)
 
-        opacity = _submenu(menu, "Opacidad del fondo")
+        opacity = _submenu(menu, tr("Opacidad del fondo"))
         group = QActionGroup(opacity)
         for value in (0.5, 0.7, 0.85, 1.0):
             act = QAction(f"{round(value * 100)}%", opacity, checkable=True,
@@ -3291,7 +3301,7 @@ class Controller(QObject):
             act.triggered.connect(lambda _, v=value: self.set_opacity(v))
             group.addAction(act)
             opacity.addAction(act)
-        scale = _submenu(menu, "Tamaño")
+        scale = _submenu(menu, tr("Tamaño"))
         group = QActionGroup(scale)
         for value in (0.9, 1.0, 1.15, 1.3):
             act = QAction(f"{round(value * 100)}%", scale, checkable=True,
@@ -3299,18 +3309,18 @@ class Controller(QObject):
             act.triggered.connect(lambda _, v=value: self.set_scale(v))
             group.addAction(act)
             scale.addAction(act)
-        notices = _submenu(menu, "Notificaciones")
-        for key, text in (("toasts", "Globos de notificación"), ("toast_progress", "Globo en cada +1")):
+        notices = _submenu(menu, tr("Notificaciones"))
+        for key, text in (("toasts", tr("Globos de notificación")), ("toast_progress", tr("Globo en cada +1"))):
             act = QAction(text, notices, checkable=True, checked=self.settings[key])
             act.toggled.connect(lambda on, k=key: (self.settings.__setitem__(k, on), self._save_settings()))
             notices.addAction(act)
-        notices.addAction("Sonidos y volumen…", lambda: self.switch_module("settings"))
+        notices.addAction(tr("Sonidos y volumen…"), lambda: self.switch_module("settings"))
         notices.addSeparator()
-        notices.addAction("Ver historial", lambda: self.switch_module("notifications"))
-        menu.addAction("Actualizar base de datos", self.update_database)
+        notices.addAction(tr("Ver historial"), lambda: self.switch_module("notifications"))
+        menu.addAction(tr("Actualizar base de datos"), self.update_database)
         menu.addSeparator()
-        menu.addAction("Reiniciar AionDex", self.restart_app)
-        menu.addAction("Salir", self.quit)
+        menu.addAction(tr("Reiniciar AionDex"), self.restart_app)
+        menu.addAction(tr("Salir"), self.quit)
         self.tray.setContextMenu(menu)
         self.tray.activated.connect(
             lambda reason: self.toggle_visible("bandeja") if reason == QSystemTrayIcon.Trigger else None)

@@ -22,6 +22,7 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from . import APP_NAME, REPO, __version__
+from .i18n import tr
 
 PUBLIC_KEY = "M4zmw9/aR3jCiLwUs09tFj4RanARf8VFt0qsURWnRuU="
 API_LATEST = f"https://api.github.com/repos/{REPO}/releases/latest"
@@ -49,7 +50,7 @@ def parse_version(text):
     try:
         return tuple(int(p) for p in parts[:3]) + (0,) * (3 - len(parts[:3]))
     except ValueError:
-        raise UpdateError(f"versión inválida: {text!r}") from None
+        raise UpdateError(tr("versión inválida: {0!r}", text)) from None
 
 
 def is_newer(release, current=__version__):
@@ -69,7 +70,7 @@ def verify_manifest(data, signature_b64, public_key_b64=PUBLIC_KEY):
     try:
         key.verify(base64.b64decode(signature_b64), data)
     except (InvalidSignature, ValueError):
-        raise UpdateError("la firma de la actualización no es válida") from None
+        raise UpdateError(tr("la firma de la actualización no es válida")) from None
 
 
 def check_latest():
@@ -79,19 +80,19 @@ def check_latest():
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
             return None
-        raise UpdateError(f"GitHub respondió {exc.code}") from None
+        raise UpdateError(tr("GitHub respondió {0}", exc.code)) from None
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise UpdateError(f"sin conexión con GitHub ({exc})") from None
+        raise UpdateError(tr("sin conexión con GitHub ({0})", exc)) from None
     assets = {a["name"]: a["browser_download_url"] for a in info.get("assets", [])}
     if MANIFEST not in assets or SIGNATURE not in assets:
-        raise UpdateError("la release no trae manifiesto firmado")
+        raise UpdateError(tr("la release no trae manifiesto firmado"))
     manifest = _get(assets[MANIFEST])
     verify_manifest(manifest, _get(assets[SIGNATURE]).decode().strip())
     m = json.loads(manifest)
     if parse_version(m["version"]) != parse_version(info.get("tag_name", "")):
-        raise UpdateError("el manifiesto no corresponde a la release")
+        raise UpdateError(tr("el manifiesto no corresponde a la release"))
     if m["installer"] not in assets:
-        raise UpdateError("falta el instalador en la release")
+        raise UpdateError(tr("falta el instalador en la release"))
     return Release(m["version"], m["installer"], assets[m["installer"]], m["sha256"].lower(), int(m["size"]),
                    m.get("notes", ""))
 
@@ -117,10 +118,10 @@ def download(release, folder, progress=None):
                     progress(min(100, done * 100 // release.size))
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         partial.unlink(missing_ok=True)
-        raise UpdateError(f"la descarga falló ({exc})") from None
+        raise UpdateError(tr("la descarga falló ({0})", exc)) from None
     if done != release.size or digest.hexdigest() != release.sha256:
         partial.unlink(missing_ok=True)
-        raise UpdateError("el instalador descargado no coincide con el firmado")
+        raise UpdateError(tr("el instalador descargado no coincide con el firmado"))
     partial.replace(target)
     return target
 

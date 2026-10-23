@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .skills import SLOT_KEYS, base_skill
+from .i18n import tr
 
 CODE_PREFIX = "AIONDEX-BUILD:"
 CLASS_OF_PREFIX = {11: "Gladiador", 12: "Templario", 13: "Asesino", 14: "Cazador", 15: "Hechicero",
@@ -165,18 +166,17 @@ class Builds:
             mine = skills.get(base)
             have = mine.learned if mine else 0
             target, exact = self.target_points(build, base, mine)
-            note = "" if exact else " (aprox.: su nivel menos tu bonus)"
+            note = "" if exact else tr(" (aprox.: su nivel menos tu bonus)")
             if target < have:
-                downs.append(Step("Puntos", f"Baja {self.name_of(base)} de {have} a {target} puntos{note}", "points",
+                downs.append(Step(tr("Puntos"), tr("Baja {0} de {1} a {2} puntos{3}", self.name_of(base), have, target, note), "points",
                                   base, have, target))
             elif target > have:
-                ups.append(Step("Puntos", f"Sube {self.name_of(base)} de {have} a {target} puntos{note}", "points",
+                ups.append(Step(tr("Puntos"), tr("Sube {0} de {1} a {2} puntos{3}", self.name_of(base), have, target, note), "points",
                                 base, have, target))
         if build.get("source") != "player":
             for base, mine in sorted(skills.items()):
                 if base not in want and mine.learned > 1 and self.kind_of(base) in ("active", "passive"):
-                    downs.append(Step("Puntos", f"Baja {self.name_of(base)} de {mine.learned} a 1 punto (la build no "
-                                      f"la usa)", "points", base, mine.learned, 1))
+                    downs.append(Step(tr("Puntos"), tr("Baja {0} de {1} a 1 punto (la build no la usa)", self.name_of(base), mine.learned), "points", base, mine.learned, 1))
         steps += downs + ups
         for base in sorted(want):
             entry = build["skills"][str(base)]
@@ -189,19 +189,19 @@ class Builds:
             have = sorted(v for v in held.values() if v) if held is not None else sorted(mine.specs)
             if have == sorted(specs):
                 continue
-            old, new = "·".join(map(str, have)) or "ninguna", "·".join(map(str, specs))
+            old, new = "·".join(map(str, have)) or tr("ninguna"), "·".join(map(str, specs))
             if stigma:
-                steps.append(Step("Especialidades", f"{self.name_of(base)} (estigma): {old} → {new}; esta cámbiala "
-                                  f"tú en la pestaña Stigma", "info", base, have, list(specs)))
+                steps.append(Step(tr("Especialidades"), tr("{0} (estigma): {1} → {2}; esta cámbiala tú en la pestaña "
+                                                       "Stigma", self.name_of(base), old, new), "info", base, have, list(specs)))
             else:
-                steps.append(Step("Especialidades", f"{self.name_of(base)}: {old} → {new}", "spec", base, have,
+                steps.append(Step(tr("Especialidades"), f"{self.name_of(base)}: {old} → {new}", "spec", base, have,
                                   list(specs)))
         if build.get("bar"):
             steps += self.bar_steps(build, bar)
         elif build.get("equipped"):
             used = [self.name_of(b) for b in build["equipped"] if self.kind_of(b) == "stigma"]
             if used:
-                steps.append(Step("Estigmas", "Usa estos estigmas (el perfil oficial no dice en qué tecla): "
+                steps.append(Step(tr("Estigmas"), tr("Usa estos estigmas (el perfil oficial no dice en qué tecla): ")
                                   + ", ".join(used), "info"))
         return steps
 
@@ -216,10 +216,10 @@ class Builds:
             key = SLOT_KEYS.get(slot, slot)
             for i, base in enumerate(want):
                 if i >= len(have) or have[i] != base:
-                    steps.append(Step("Barra", f"Tecla {key}, prioridad {i + 1}: {self.name_of(base)}", "place", base,
+                    steps.append(Step(tr("Barra"), tr("Tecla {0}, prioridad {1}: {2}", key, i + 1, self.name_of(base)), "place", base,
                                       slot=slot, row=i))
             for i in range(len(have) - 1, len(want) - 1, -1):
-                steps.append(Step("Barra", f"Tecla {key}, prioridad {i + 1}: vaciar ({self.name_of(have[i])})",
+                steps.append(Step(tr("Barra"), tr("Tecla {0}, prioridad {1}: vaciar ({2})", key, i + 1, self.name_of(have[i])),
                                   "clear", have[i], slot=slot, row=i))
         return steps
 

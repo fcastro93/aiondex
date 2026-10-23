@@ -1,4 +1,5 @@
 from PySide6.QtGui import QColor, QFont, QFontDatabase
+from ..i18n import tr
 
 TEXT = QColor("#e8ecf4")
 MUTED = QColor("#8a93a8")
@@ -20,7 +21,7 @@ def faction_color(faction):
     return {"elyos": ELYOS, "asmodian": ASMODIAN}.get(faction, MUTED)
 
 
-FACTION_LABEL = {"elyos": "Elyos", "asmodian": "Asmodian", "abyss": "Abismo"}
+FACTION_LABEL = {"elyos": "Elyos", "asmodian": "Asmodian", "abyss": tr("Abismo")}
 
 
 def panel_color(opacity):

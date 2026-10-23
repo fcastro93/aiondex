@@ -13,22 +13,23 @@ from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel, QPushBu
 
 from . import theme
 from .widgets import label
+from ..i18n import tr
 
 GRADE_COLOR = {"Common": "#C3C3C3", "Rare": "#19E048", "Legend": "#379AFF", "Unique": "#FFD02B", "Epic": "#FF6C00",
                "Mythic": "#00FFD8", "Special": "#C77DFF"}
-GRADE_ES = {"Common": "Común", "Rare": "Raro", "Legend": "Legendario", "Unique": "Único", "Epic": "Épico",
-            "Mythic": "Mítico", "Special": "Especial"}
+GRADE_ES = {"Common": tr("Común"), "Rare": tr("Raro"), "Legend": tr("Legendario"), "Unique": tr("Único"), "Epic": tr("Épico"),
+            "Mythic": tr("Mítico"), "Special": tr("Especial")}
 LEFT = [("MainHand", "SubHand"), ("Helmet", "Shoulder"), ("Torso", "Belt"), ("Pants", "Gloves"), ("Cape", "Boots"),
         ("Rune1", "Rune2")]
 RIGHT = [("Earring1", "Earring2"), ("Necklace", "Amulet"), ("Ring1", "Ring2"), ("Bracelet1", "Bracelet2")]
-SLOT_ES = {"MainHand": "Arma", "SubHand": "Secundaria", "Helmet": "Casco", "Shoulder": "Hombreras", "Torso": "Pecho",
-           "Pants": "Grebas", "Gloves": "Guantes", "Boots": "Botas", "Cape": "Capa", "Necklace": "Collar",
-           "Earring1": "Pendiente", "Earring2": "Pendiente", "Ring1": "Anillo", "Ring2": "Anillo",
-           "Bracelet1": "Brazalete", "Bracelet2": "Brazalete", "Belt": "Cinturón", "Amulet": "Amuleto",
-           "Rune1": "Runa", "Rune2": "Runa"}
-CATEGORY = [("Active", "Activas"), ("Passive", "Pasivas"), ("Dp", "Stigmas")]
-KIND_ES = {"damage": "Daño", "heal": "Curación", "dot": "Daño en el tiempo", "hot": "Curación en el tiempo",
-           "shield": "Escudo"}
+SLOT_ES = {"MainHand": tr("Arma"), "SubHand": tr("Secundaria"), "Helmet": tr("Casco"), "Shoulder": tr("Hombreras"), "Torso": tr("Pecho"),
+           "Pants": tr("Grebas"), "Gloves": tr("Guantes"), "Boots": tr("Botas"), "Cape": tr("Capa"), "Necklace": tr("Collar"),
+           "Earring1": tr("Pendiente"), "Earring2": tr("Pendiente"), "Ring1": tr("Anillo"), "Ring2": tr("Anillo"),
+           "Bracelet1": tr("Brazalete"), "Bracelet2": tr("Brazalete"), "Belt": tr("Cinturón"), "Amulet": tr("Amuleto"),
+           "Rune1": tr("Runa"), "Rune2": tr("Runa")}
+CATEGORY = [("Active", tr("Activas")), ("Passive", tr("Pasivas")), ("Dp", "Stigmas")]
+KIND_ES = {"damage": tr("Daño"), "heal": tr("Curación"), "dot": tr("Daño en el tiempo"), "hot": tr("Curación en el tiempo"),
+           "shield": tr("Escudo")}
 SLOT = 56
 SKILL = 42
 CENTER = 230                     # the middle column (portrait, level, CP, item level) like the game's
@@ -142,7 +143,7 @@ class InspectView(QFrame):
         root.setSpacing(8)
         root.addLayout(self._header())
         tabs = QHBoxLayout()
-        for key, text in (("gear", "Equipo"), ("skills", "Skills y Daevanion")):
+        for key, text in (("gear", tr("Equipo")), ("skills", tr("Skills y Daevanion"))):
             button = QPushButton(text)
             button.setProperty("tab", True)
             button.setCheckable(True)
@@ -150,7 +151,7 @@ class InspectView(QFrame):
             button.clicked.connect(lambda _=False, k=key: self._tab(k))
             tabs.addWidget(button)
         tabs.addStretch(1)
-        close = QPushButton("Cerrar")
+        close = QPushButton(tr("Cerrar"))
         close.setProperty("flat", True)
         close.clicked.connect(lambda: self.host.close_inspect())
         tabs.addWidget(close)
@@ -175,7 +176,7 @@ class InspectView(QFrame):
         level.setAlignment(Qt.AlignCenter)
         level.setFont(f.name_big)
         level.setStyleSheet("color: #ffffff; background: #16233f; border: 2px solid #c9a75b; border-radius: 27px;")
-        level.setToolTip("Nivel")
+        level.setToolTip(tr("Nivel"))
         row.addWidget(level)
         col = QVBoxLayout()
         col.setSpacing(1)
@@ -187,10 +188,10 @@ class InspectView(QFrame):
         number = label(value + "   ⇄", f.name, QColor("#5fe0ff") if showing_cp else theme.GOLD)
         number.setAttribute(Qt.WA_TransparentForMouseEvents, False)
         number.setCursor(Qt.PointingHandCursor)
-        number.setToolTip("Clic: cambiar entre CP e item level")
+        number.setToolTip(tr("Clic: cambiar entre CP e item level"))
         number.mousePressEvent = lambda e: self._swap()
         col.addWidget(number)
-        bits = [p.legion and f"Legión {p.legion}" or "Sin legión", p.title or "Sin título", p.class_name, p.race]
+        bits = [p.legion and tr("Legión {0}", p.legion) or tr("Sin legión"), p.title or tr("Sin título"), p.class_name, p.race]
         col.addWidget(label(" · ".join(b for b in bits if b), f.small, theme.MUTED))
         row.addLayout(col, 1)
         return row
@@ -224,12 +225,12 @@ class InspectView(QFrame):
             portrait.setAlignment(Qt.AlignCenter)
             col.addWidget(portrait)
         col.addStretch(1)
-        for text, font, color in ((f"Nivel {p.level}" if p.level else "", f.name, theme.TEXT),
+        for text, font, color in ((tr("Nivel {0}", p.level) if p.level else "", f.name, theme.TEXT),
                                   (f"⚔ {self.cp:,} CP" if self.cp is not None else "", f.name, QColor("#5fe0ff")),
                                   (f"◆ {self.item_level:,} item level" if self.item_level else "", f.name, theme.GOLD)):
             if text:
                 col.addWidget(label(text, font, color), 0, Qt.AlignHCenter)
-        for text in (f"Mascota: {p.pet}" if p.pet else "", f"Alas: {p.wing}" if p.wing else ""):
+        for text in (tr("Mascota: {0}", p.pet) if p.pet else "", tr("Alas: {0}", p.wing) if p.wing else ""):
             if text:
                 col.addWidget(label(text, f.small, theme.MUTED), 0, Qt.AlignHCenter)
         row.addWidget(center)
@@ -248,7 +249,7 @@ class InspectView(QFrame):
         grid.setContentsMargins(12, 10, 12, 10)
         grid.setHorizontalSpacing(10)
         grid.setVerticalSpacing(3)
-        grid.addWidget(label("Estadísticas", f.name, theme.TEXT), 0, 0, 1, 2)
+        grid.addWidget(label(tr("Estadísticas"), f.name, theme.TEXT), 0, 0, 1, 2)
         for i, (name, value) in enumerate(p.stats, 1):
             grid.addWidget(label(str(name), f.small, theme.MUTED), i, 0)
             grid.addWidget(label(f"{value:,}" if isinstance(value, int) else str(value), f.small, theme.TEXT), i, 1,
@@ -268,11 +269,11 @@ class InspectView(QFrame):
     def _piece(self, slot):
         item = self.p.items.get(slot)
         if not item:
-            return _Square(SLOT, None, color="#3a4254", dim=True, tip=f"{SLOT_ES.get(slot, slot)}: vacío")
+            return _Square(SLOT, None, color="#3a4254", dim=True, tip=tr("{0}: vacío", SLOT_ES.get(slot, slot)))
         icon = _pixmap(self.armory.icon(item.get("icon")), SLOT, self.devicePixelRatioF() or 1.0)
         plus = item.get("enchantLevel") or 0
         exceed = item.get("exceedLevel") or 0
-        tip = f"{item.get('name')} +{plus}" + (f" ◆{exceed}" if exceed else "") + " · clic para ver el detalle"
+        tip = f"{item.get('name')} +{plus}" + (f" ◆{exceed}" if exceed else "") + tr(" · clic para ver el detalle")
         return _Square(SLOT, icon, f"+{plus}" if plus else "", GRADE_COLOR.get(item.get("grade"), "#C3C3C3"),
                        mark=f"◆{exceed}" if exceed else "", tip=tip,
                        on_click=lambda w, s=slot: self.host.open_popup(ItemPopup, self.p, s, w))
@@ -291,8 +292,8 @@ class InspectView(QFrame):
             skills.sort(key=lambda s: (not (s.get("acquired") and s.get("skillLevel")), -(s.get("equip") or 0),
                                        -(s.get("skillLevel") or 0)))
             learnt = sum(1 for s in skills if s.get("acquired") and s.get("skillLevel"))
-            col.addWidget(label(f"{title} · {learnt} de {len(skills)}" +
-                                (f" · {sum(1 for s in skills if s.get('equip') and s.get('skillLevel'))} equipados"
+            col.addWidget(label(tr("{0} · {1} de {2}", title, learnt, len(skills)) +
+                                (tr(" · {0} equipados", sum(1 for s in skills if s.get('equip') and s.get('skillLevel')))
                                  if cat == "Dp" else ""), f.name, theme.TEXT))
             grid = QGridLayout()
             grid.setSpacing(5)
@@ -302,7 +303,7 @@ class InspectView(QFrame):
                 icon = _pixmap(self.armory.icon(s.get("icon")), SKILL, self.devicePixelRatioF() or 1.0)
                 square = _Square(SKILL, icon, str(lv) if have else "", "#8fb3ff" if cat != "Dp" else "#c38bff",
                                  dim=not have, mark="E" if cat == "Dp" and s.get("equip") and have else "",
-                                 tip=f"{s.get('name')} · nivel {lv}" if have else f"{s.get('name')} · sin aprender",
+                                 tip=tr("{0} · nivel {1}", s.get('name'), lv) if have else tr("{0} · sin aprender", s.get('name')),
                                  on_click=lambda w, sk=s: self.host.open_popup(SkillPopup, self.p, sk, w))
                 grid.addWidget(square, i // 14, i % 14)
             grid.setColumnStretch(14, 1)
@@ -316,7 +317,7 @@ class InspectView(QFrame):
                 cell.setSpacing(0)
                 icon = _pixmap(self.armory.icon(b.get("icon")), 34, self.devicePixelRatioF() or 1.0)
                 square = _Square(38, icon, color="#c9a75b", dim=not b.get("open"),
-                                 tip=f"{b.get('name')}: {b.get('openNodeCount', 0)}/{b.get('totalNodeCount', 0)} nodos")
+                                 tip=tr("{0}: {1}/{2} nodos", b.get('name'), b.get('openNodeCount', 0), b.get('totalNodeCount', 0)))
                 cell.addWidget(square, 0, Qt.AlignHCenter)
                 cell.addWidget(label(f"{b.get('name')}", f.small, theme.TEXT), 0, Qt.AlignHCenter)
                 cell.addWidget(label(f"{b.get('openNodeCount', 0)}/{b.get('totalNodeCount', 0)} · "
@@ -385,7 +386,8 @@ class ItemPopup(_Popup):
             error = self.armory.item_error(p, slot)
             self.line(f"{GRADE_ES.get(item.get('grade'), item.get('grade'))} · {SLOT_ES.get(slot, slot)}", None,
                       theme.MUTED)
-            self.line(f"No se pudo leer el detalle: {error}" if error else "Leyendo el detalle de la página oficial…",
+            self.line(tr("No se pudo leer el detalle: {0}", error) if error else tr("Leyendo el detalle de la página "
+                                                                              "oficial…"),
                       None, theme.WARN if error else theme.MUTED)
             return
         d = detail
@@ -425,7 +427,7 @@ class ItemPopup(_Popup):
         if d.get("costumes"):
             self.gap()
             self.line("Skin: " + ", ".join(d["costumes"]), None, theme.MUTED)
-        bits = [f"Nivel requerido {d.get('equipLevel')}" if d.get("equipLevel") else "",
+        bits = [tr("Nivel requerido {0}", d.get('equipLevel')) if d.get("equipLevel") else "",
                 ", ".join(d.get("classNames") or [])]
         if any(bits):
             self.gap()
@@ -456,20 +458,20 @@ class SkillPopup(_Popup):
         lv = s.get("skillLevel") or 0
         cat = dict(CATEGORY).get(s.get("category"), s.get("category"))
         self.line(s.get("name") or "", f.name_big, theme.TEXT)
-        top = f"{cat[:-1] if cat.endswith('s') else cat} · nivel {lv}" if lv else f"{cat} · sin aprender"
+        top = tr("{0} · nivel {1}", cat[:-1] if cat.endswith('s') else cat, lv) if lv else tr("{0} · sin aprender", cat)
         if info:
-            top += f" de {info[3]}"
+            top += tr(" de {0}", info[3])
         if s.get("category") == "Dp" and lv:
             top += " · equipado" if s.get("equip") else " · no equipado"
         self.line(top, f.body, theme.ACCENT)
         if not info:
-            self.line("Sin descripción en los datos de aion2data.", None, theme.MUTED)
+            self.line(tr("Sin descripción en los datos de aion2data."), None, theme.MUTED)
             return
         name, cls, category, max_level, learn_max, text, damage, levels = info
         self.gap()
         self.line(text, f.body, theme.TEXT)
         if learn_max:
-            self.line(f"(el texto es a nivel {learn_max})", None, theme.MUTED)
+            self.line(tr("(el texto es a nivel {0})", learn_max), None, theme.MUTED)
         if lv:
             self.gap()
             for kind, hits, rows in damage:
@@ -477,17 +479,17 @@ class SkillPopup(_Popup):
                 if value:
                     lo, hi, pct = value
                     amount = f"{lo:,}" if lo == hi else f"{lo:,}–{hi:,}"
-                    self.line(f"{KIND_ES.get(kind, kind)} a nivel {lv}: {amount} (+{pct:g}% Ataque)"
+                    self.line(tr("{0} a nivel {1}: {2} (+{3:g}% Ataque)", KIND_ES.get(kind, kind), lv, amount, pct)
                               + (f" × {hits}" if hits and hits > 1 else ""), f.body, theme.GOLD)
             row = at_level(levels, lv)
             if row:
                 cooldown, cast, mp = row
-                bits = [f"Reutilización {cooldown / 1000:g} s" if cooldown else "",
+                bits = [tr("Reutilización {0:g} s", cooldown / 1000) if cooldown else "",
                         f"Lanzamiento {cast / 1000:g} s" if cast else "", f"MP {mp}" if mp else ""]
                 if any(bits):
                     self.line(" · ".join(b for b in bits if b), None, theme.MUTED)
         self.gap()
-        self.line("Datos de la habilidad: aion2data.com", None, theme.MUTED)
+        self.line(tr("Datos de la habilidad: aion2data.com"), None, theme.MUTED)
 
 
 def _clear(layout):

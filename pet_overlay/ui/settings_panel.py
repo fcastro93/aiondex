@@ -1,4 +1,5 @@
-"""Overlay panel of the Ajustes module: version, updates, auto-update switch, alert sounds, Npcap status, links."""
+"""Overlay panel of the Ajustes module: version, updates, auto-update switch, language, size, minimap, alert sounds,
+Npcap status, links."""
 import webbrowser
 
 from PySide6.QtCore import QRectF, Qt
@@ -10,13 +11,16 @@ from ..sounds import SOUNDS, VOLUME_STEPS
 from . import theme
 from .notifications_panel import ago
 from .widgets import SectionTitle, label
+from .. import i18n
+from ..i18n import LANGUAGES, tr
 
 
 class PillButton(QLabel):
     """Clickable pill; the overlay shell calls on_click on a plain click."""
 
-    def __init__(self, text, fonts, on_click, enabled=True, small=False):
+    def __init__(self, text, fonts, on_click, enabled=True, small=False, outline=False):
         super().__init__(text)
+        self.outline = outline
         self.setFont(fonts.small if small else fonts.name)
         self.setAlignment(Qt.AlignCenter)
         self.enabled = enabled
@@ -30,6 +34,11 @@ class PillButton(QLabel):
     def _style(self, hover):
         if not self.enabled:
             bg, fg = "rgba(255,255,255,0.06)", theme.MUTED.name()
+        elif self.outline:                       # a choice that is not the chosen one
+            border = "#3fd3ff" if hover else theme.ACCENT.name()
+            self.setStyleSheet(f"background: transparent; color: {theme.TEXT.name()}; border: 1px solid {border}; "
+                               f"border-radius: {self.radius}px;")
+            return
         else:
             bg, fg = ("#3fd3ff" if hover else theme.ACCENT.name()), "#06101f"
         self.setStyleSheet(f"background: {bg}; color: {fg}; border-radius: {self.radius}px;")
@@ -124,39 +133,40 @@ class SettingsPanel(QWidget):
         f = self.fonts
         up = self.ctl.updates
 
-        self.content.addWidget(SectionTitle("Actualizaciones", f))
+        self.content.addWidget(SectionTitle(tr("Actualizaciones"), f))
         version = QHBoxLayout()
         version.addWidget(label(f"{self.ctl.app_name} v{__version__}", f.name, theme.TEXT), 1)
         busy = up.state in ("checking", "downloading")
         if up.state == "ready" and up.can_install:
-            version.addWidget(PillButton(f"Instalar v{up.release.version}", f, up.install_now))
+            version.addWidget(PillButton(tr("Instalar v{0}", up.release.version), f, up.install_now))
         else:
-            version.addWidget(PillButton("Buscando…" if busy else "Buscar updates", f,
+            version.addWidget(PillButton(tr("Buscando…") if busy else tr("Buscar updates"), f,
                                          lambda: up.check(manual=True), enabled=not busy))
         self.content.addLayout(version)
         color = {"error": theme.WARN, "ready": theme.GAIN, "available": theme.GAIN}.get(up.state, theme.MUTED)
-        status = label(up.detail or "Aún no se buscaron actualizaciones", f.small, color)
+        status = label(up.detail or tr("Aún no se buscaron actualizaciones"), f.small, color)
         status.setWordWrap(True)
         self.content.addWidget(status)
         if up.last_check:
-            self.content.addWidget(label(f"Última búsqueda: {ago(up.last_check)}", f.small, theme.MUTED))
-        self.content.addWidget(self._toggle("Actualizar automáticamente", "auto_update"))
+            self.content.addWidget(label(tr("Última búsqueda: {0}", ago(up.last_check)), f.small, theme.MUTED))
+        self.content.addWidget(self._toggle(tr("Actualizar automáticamente"), "auto_update"))
 
+        self._language()
         self._ui_scale()
         self._minimap()
 
-        self.content.addWidget(SectionTitle("Sonidos", f))
+        self.content.addWidget(SectionTitle(tr("Sonidos"), f))
         for key, (text, _) in SOUNDS.items():
             self._sound_row(key, text)
 
-        self.content.addWidget(SectionTitle("Sistema", f))
+        self.content.addWidget(SectionTitle(tr("Sistema"), f))
         npcap = self.ctl.npcap_installed()
-        self.content.addWidget(label("Npcap instalado" if npcap else "Falta Npcap: la app no puede leer el juego",
+        self.content.addWidget(label(tr("Npcap instalado") if npcap else tr("Falta Npcap: la app no puede leer el juego"),
                                      f.small, theme.GAIN if npcap else theme.WARN))
         if not npcap:
-            self.content.addWidget(_link("Descargar Npcap", "https://npcap.com/#download", f))
-        self.content.addWidget(_link("Ver el proyecto en GitHub", f"https://github.com/{REPO}", f))
-        credit = label("Datos y mapas: metabot.gg · No afiliado a NCSoft", f.small, theme.MUTED)
+            self.content.addWidget(_link(tr("Descargar Npcap"), "https://npcap.com/#download", f))
+        self.content.addWidget(_link(tr("Ver el proyecto en GitHub"), f"https://github.com/{REPO}", f))
+        credit = label(tr("Datos y mapas: metabot.gg · No afiliado a NCSoft"), f.small, theme.MUTED)
         credit.setWordWrap(True)
         self.content.addWidget(credit)
         self.adjustSize()
@@ -164,34 +174,59 @@ class SettingsPanel(QWidget):
     def _minimap(self):
         """Minimapa: its 4 corners, where the route over it is drawn (and what is read of it)."""
         f = self.fonts
-        self.content.addWidget(SectionTitle("Minimapa", f))
+        self.content.addWidget(SectionTitle(tr("Minimapa"), f))
         sizes = sorted(((self.ctl.settings.get("minimap") or {}).get("corners") or {}))
-        text = (f"Esquinas calibradas ({', '.join(sizes)}): la ruta se dibuja solo dentro de ellas." if sizes else
-                "AionDex lo encuentra solo por el nombre de la zona. Si la ruta se sale del minimapa, calibra sus "
-                "4 esquinas.")
+        text = (tr("Esquinas calibradas ({0}): la ruta se dibuja solo dentro de ellas.", ', '.join(sizes)) if sizes else
+                tr("AionDex lo encuentra solo por el nombre de la zona. Si la ruta se sale del minimapa, calibra "
+                   "sus 4 esquinas."))
         note = label(text, f.small, theme.GAIN if sizes else theme.MUTED)
         note.setWordWrap(True)
         self.content.addWidget(note)
-        self.content.addWidget(self._toggle("Vida de jefes bajo el minimapa", "abyss_bosses"))
-        hint = label("Los jefes que tienes cerca (mazmorras, world bosses, el Abismo y sus cores de asedio), con su "
-                     "vida siempre a la vista bajo tus misiones (y fuera de vista, la última que se vio).", f.small,
+        self.content.addWidget(self._toggle(tr("Vida de jefes bajo el minimapa"), "abyss_bosses"))
+        hint = label(tr("Los jefes que tienes cerca (mazmorras, world bosses, el Abismo y sus cores de asedio), con "
+                        "su vida siempre a la vista bajo tus misiones (y fuera de vista, la última que se vio)."), f.small,
                      theme.MUTED)
         hint.setWordWrap(True)
         self.content.addWidget(hint)
         row = QHBoxLayout()
-        row.addWidget(PillButton("Calibrar esquinas", f, self.ctl.open_minimap_calibration, small=True))
+        row.addWidget(PillButton(tr("Calibrar esquinas"), f, self.ctl.open_minimap_calibration, small=True))
         if sizes:
-            row.addWidget(PillButton("Automático", f, self.ctl.reset_minimap_calibration, small=True))
+            row.addWidget(PillButton(tr("Automático"), f, self.ctl.reset_minimap_calibration, small=True))
         row.addStretch(1)
         self.content.addLayout(row)
+
+    def _language(self):
+        """Idioma / Language: the app's texts in English (the default) or Spanish; the game's names stay as they are."""
+        f = self.fonts
+        self.content.addWidget(SectionTitle(tr("Idioma"), f))
+        chosen = self.ctl.language
+        row = QHBoxLayout()
+        row.setSpacing(f.px(6))
+        for lang, name in LANGUAGES.items():
+            if lang == chosen:
+                row.addWidget(PillButton(f"✓ {name}", f, lambda: None, small=True))
+            else:
+                row.addWidget(PillButton(name, f, lambda v=lang: self.ctl.set_language(v), small=True, outline=True))
+        row.addStretch(1)
+        self.content.addLayout(row)
+        if chosen != i18n.LANG:
+            line = QHBoxLayout()
+            line.addWidget(label(tr("Se aplica al reiniciar AionDex"), f.small, theme.WARN), 1)
+            line.addWidget(PillButton(tr("Reiniciar ahora"), f, self.ctl.restart_app, small=True))
+            self.content.addLayout(line)
+        else:
+            note = label(tr("Los textos de AionDex. Los nombres del juego (pets, monstruos, objetos, mapas, clases, "
+                            "habilidades) salen como los manda el juego."), f.small, theme.MUTED)
+            note.setWordWrap(True)
+            self.content.addWidget(note)
 
     def _ui_scale(self):
         """Accesibilidad: the size of everything (overlay, windows, texts), 100-250%."""
         f = self.fonts
-        self.content.addWidget(SectionTitle("Accesibilidad", f))
+        self.content.addWidget(SectionTitle(tr("Accesibilidad"), f))
         chosen = min(float(self.ctl.settings.get("ui_scale", 1.0) or 1.0), UI_SCALES[-1])
         head = QHBoxLayout()
-        head.addWidget(label("Tamaño de todo", f.body, theme.TEXT), 1)
+        head.addWidget(label(tr("Tamaño de todo"), f.body, theme.TEXT), 1)
         head.addWidget(label(f"{round(chosen * 100)}%", f.name, theme.TEXT))
         self.content.addLayout(head)
         row = QHBoxLayout()                    # the slider: one step per size, filled up to the chosen one
@@ -202,17 +237,17 @@ class SettingsPanel(QWidget):
             row.addWidget(step)
         row.addSpacing(f.px(6))
         if chosen >= UI_SCALES[-1] - 0.01:     # the slider at its end
-            row.addWidget(label("Modo Marvin", f.name, theme.GOLD))
+            row.addWidget(label(tr("Modo Marvin"), f.name, theme.GOLD))
         row.addStretch(1)
         self.content.addLayout(row)
         if abs(chosen - self.ctl.ui_scale_active) > 0.01:
             line = QHBoxLayout()
-            note = label("Se aplica al reiniciar AionDex", f.small, theme.WARN)
+            note = label(tr("Se aplica al reiniciar AionDex"), f.small, theme.WARN)
             line.addWidget(note, 1)
-            line.addWidget(PillButton("Reiniciar ahora", f, self.ctl.restart_app, small=True))
+            line.addWidget(PillButton(tr("Reiniciar ahora"), f, self.ctl.restart_app, small=True))
             self.content.addLayout(line)
         else:
-            self.content.addWidget(label("Agranda el overlay, las ventanas, los textos y los iconos.", f.small,
+            self.content.addWidget(label(tr("Agranda el overlay, las ventanas, los textos y los iconos."), f.small,
                                          theme.MUTED))
 
     def _sound_row(self, key, text):
@@ -222,7 +257,7 @@ class SettingsPanel(QWidget):
         head = QHBoxLayout()
         head.setContentsMargins(0, f.px(4), 0, 0)
         head.addWidget(label(text, f.body, theme.TEXT), 1)
-        test = label("▶ Probar", f.small, theme.ACCENT)
+        test = label(tr("▶ Probar"), f.small, theme.ACCENT)
         test.setAttribute(Qt.WA_TransparentForMouseEvents, False)
         test.setCursor(Qt.PointingHandCursor)
         test.on_click = lambda: sounds.play(key, test=True)
@@ -236,7 +271,7 @@ class SettingsPanel(QWidget):
             row.addWidget(VolumeStep(i <= level, conf["muted"], f,
                                      lambda v=i * 100 // VOLUME_STEPS: self._set_volume(key, v)))
         row.addSpacing(f.px(6))
-        row.addWidget(label("silenciado" if conf["muted"] else f"{conf['volume']}%", f.small,
+        row.addWidget(label(tr("silenciado") if conf["muted"] else f"{conf['volume']}%", f.small,
                             theme.MUTED if conf["muted"] else theme.TEXT))
         row.addStretch(1)
         switch = QWidget()
@@ -244,7 +279,7 @@ class SettingsPanel(QWidget):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.addWidget(Switch(not conf["muted"], f))
         switch.setCursor(Qt.PointingHandCursor)
-        switch.setToolTip("Activar / silenciar este sonido")
+        switch.setToolTip(tr("Activar / silenciar este sonido"))
         switch.on_click = lambda: self._toggle_mute(key)
         row.addWidget(switch)
         self.content.addLayout(row)

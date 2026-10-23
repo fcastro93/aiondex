@@ -23,6 +23,7 @@ from pathlib import Path
 
 from .inventory import parse_items
 from .protocol import read_varint
+from .i18n import tr
 
 EFFECT_ON = bytes.fromhex("2a38")
 EFFECT_OFF = bytes.fromhex("2c38")
@@ -35,7 +36,7 @@ LEARN_SECONDS = 1.5
 POTIONS = range(2_010_000, 2_030_000)
 ITEM_SKILLS = range(2_000_000, 3_000_000)
 SEEDED = {2010101: "Life Serum", 2011101: "Life Potion", 2020101: "Healing Potion"}   # learned from the captures
-CATEGORY = {"Food": "Comida", "Beverage": "Bebida", "Potion": "Poción", "Scroll": "Pergamino"}
+CATEGORY = {"Food": tr("Comida"), "Beverage": tr("Bebida"), "Potion": tr("Poción"), "Scroll": tr("Pergamino")}
 
 
 def is_class_effect(effect):
@@ -164,7 +165,7 @@ class Consumables:
         item = self.learned.get(int(skill))
         if item in self.items:
             return CATEGORY.get(self.items[item][1], self.items[item][1])
-        return "Poción" if int(skill) in POTIONS else ""
+        return tr("Poción") if int(skill) in POTIONS else ""
 
     # --- learning from your own uses ---
     def on_cast(self, at, skill):

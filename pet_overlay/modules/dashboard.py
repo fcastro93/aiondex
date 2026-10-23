@@ -22,17 +22,18 @@ from ..ui.appmenu import glyph_icon
 from ..ui.dps_panel import Pill
 from ..ui.widgets import label
 from .tracker import when_text
+from ..i18n import thousands, tr
 
 GLYPH_HOME = ""
 ROTATE = 6                  # seconds each mission / achievement left stays before the next one
 ROTATING = 12               # at most this many are rotated (achievements: the closest to done)
-CARDS = (("clock", "Reloj local y del servidor", ""),
-         ("activity", "Siguiente actividad del Tracker", ""),
-         ("pets", "Pets por subir cerca de ti", ""),
-         ("event", "Misión del evento", ""),
-         ("season", "Misión semanal de temporada", ""),
-         ("achievement", "Logro", ""),
-         ("status", "Aviso de Status", ""))
+CARDS = (("clock", tr("Reloj local y del servidor"), ""),
+         ("activity", tr("Siguiente actividad del Tracker"), ""),
+         ("pets", tr("Pets por subir cerca de ti"), ""),
+         ("event", tr("Misión del evento"), ""),
+         ("season", tr("Misión semanal de temporada"), ""),
+         ("achievement", tr("Logro"), ""),
+         ("status", tr("Aviso de Status"), ""))
 CARD_STYLE = ("QFrame#DashCard { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); "
               "border-radius: %dpx; }")
 
@@ -83,9 +84,9 @@ class DashboardPanel(QWidget):
         head = QWidget()
         hl = QHBoxLayout(head)
         hl.setContentsMargins(f.px(2), 0, 0, 0)
-        hl.addWidget(label("EDITAR DASHBOARD" if self.editing else "DASHBOARD", f.section, theme.MUTED), 1)
-        hl.addWidget(Pill("Listo" if self.editing else "Editar", f, lambda: self._edit(not self.editing),
-                          selected=self.editing, tip="Elegir qué recuadros salen en el Dashboard"))
+        hl.addWidget(label(tr("EDITAR DASHBOARD") if self.editing else "DASHBOARD", f.section, theme.MUTED), 1)
+        hl.addWidget(Pill(tr("Listo") if self.editing else tr("Editar"), f, lambda: self._edit(not self.editing),
+                          selected=self.editing, tip=tr("Elegir qué recuadros salen en el Dashboard")))
         self.content.addWidget(head)
         if self.editing:
             hidden = self.hidden
@@ -94,9 +95,9 @@ class DashboardPanel(QWidget):
                 card = self._card(glyph, theme.ACCENT if on else theme.MUTED, "", title,
                                   "☑" if on else "☐", theme.GAIN if on else theme.MUTED)
                 card.on_click = lambda k=key: self._toggle(k)
-                card.setToolTip("Clic para mostrarlo u ocultarlo")
+                card.setToolTip(tr("Clic para mostrarlo u ocultarlo"))
                 self.content.addWidget(card)
-            note = label("Los marcados salen en el Dashboard cuando tienen algo que mostrar.", f.small, theme.MUTED)
+            note = label(tr("Los marcados salen en el Dashboard cuando tienen algo que mostrar."), f.small, theme.MUTED)
             note.setWordWrap(True)
             self.content.addWidget(note)
             self.adjustSize()
@@ -110,7 +111,7 @@ class DashboardPanel(QWidget):
                 self.content.addWidget(card)
                 shown += 1
         if not shown:
-            self.content.addWidget(label("Nada pendiente ahora mismo.", f.small, theme.MUTED))
+            self.content.addWidget(label(tr("Nada pendiente ahora mismo."), f.small, theme.MUTED))
         self.adjustSize()
 
     def _card(self, glyph, glyph_color, title, text, value="", value_color=None, sub=""):
@@ -165,7 +166,7 @@ class DashboardPanel(QWidget):
         now = time.time()
         local.setText(time.strftime("%H:%M:%S", time.localtime(now)))
         region = self.ctl.tracker.region
-        server.setText("Servidor " + time.strftime("%H:%M:%S", time.gmtime(now + utc_offset(region, now) * 3600))
+        server.setText(tr("Servidor ") + time.strftime("%H:%M:%S", time.gmtime(now + utc_offset(region, now) * 3600))
                        + f" · {_short_region(region)}")
 
     def _rotating(self, items):
@@ -188,7 +189,7 @@ class DashboardPanel(QWidget):
         place, tags = self.ctl.missions_place(ms)
         here = [m for m, _ in ms.for_place(name, faction, tags, now) if pick(m)] if tags else []
         if ready:
-            m, where, color = ready[0], "¡recompensa por cobrar!" + (f" (+{len(ready) - 1})" if len(ready) > 1 else ""), \
+            m, where, color = ready[0], tr("¡recompensa por cobrar!") + (f" (+{len(ready) - 1})" if len(ready) > 1 else ""), \
                 theme.GAIN
         elif here:
             m, where, color = here[0], f"{place.lower()}", theme.ACCENT
@@ -201,24 +202,24 @@ class DashboardPanel(QWidget):
                 left = started[:ROTATING] or [m for m, _ in ms.recommend(name, faction, now)[:ROTATING]] \
                     or left[:ROTATING]
             m, position = self._rotating(left[:ROTATING] if model != "missions" else left)
-            where, color = f"por hacer {position}", theme.MUTED
+            where, color = tr("por hacer {0}", position), theme.MUTED
         p = progress[m.id]
         shown_name, _, _ = m.view(faction)
-        value = "✓" if p.done else f"{p.count:,}/{p.target:,}".replace(",", ".")
+        value = "✓" if p.done else thousands(f"{p.count:,}/{p.target:,}")
         card = self._card(glyph, theme.GOLD if p.ready else theme.ACCENT, f"{title} · {where}".upper(), shown_name,
                           value, theme.GAIN if p.ready else theme.TEXT, sub=m.view(faction)[1])
         card.on_click = lambda: self.ctl.switch_module(open_module)
         return card
 
     def _event(self, glyph):
-        return self._mission(glyph, "missions", "Evento", lambda m: m.tab == "event", "events")
+        return self._mission(glyph, "missions", tr("Evento"), lambda m: m.tab == "event", "events")
 
     def _season(self, glyph):
-        return self._mission(glyph, "missions", "Season semanal",
+        return self._mission(glyph, "missions", tr("Season semanal"),
                              lambda m: m.tab != "event" and m.period == "weekly", "missions")
 
     def _achievement(self, glyph):
-        return self._mission(glyph, "achievements", "Logro", lambda m: True, "achievements")
+        return self._mission(glyph, "achievements", tr("Logro"), lambda m: True, "achievements")
 
     def _activity(self, glyph):
         rows = self.ctl.tracker.upcoming()
@@ -230,8 +231,8 @@ class DashboardPanel(QWidget):
         if len(rows) > 1:
             nxt_entry, nxt = rows[1]
             nxt_text, _ = when_text(nxt, time.time())
-            after = f"después: {nxt_entry.name} {nxt_text}"
-        card = self._card(glyph, theme.ACCENT, "SIGUIENTE ACTIVIDAD", entry.name, text, color, sub=after)
+            after = tr("después: {0} {1}", nxt_entry.name, nxt_text)
+        card = self._card(glyph, theme.ACCENT, tr("SIGUIENTE ACTIVIDAD"), entry.name, text, color, sub=after)
         card.on_click = lambda: self.ctl.switch_module("tracker")
         return card
 
@@ -240,8 +241,8 @@ class DashboardPanel(QWidget):
         left = [p for p, _ in nearby if not p.is_max]
         if not zone or not left:
             return None
-        card = self._card(glyph, theme.GOLD, f"PETS CERCA · {zone.get('name', '')}".upper(),
-                          f"{len(left)} {'pet' if len(left) == 1 else 'pets'} por subir a nivel máximo aquí",
+        card = self._card(glyph, theme.GOLD, tr("PETS CERCA · {0}", zone.get('name', '')).upper(),
+                          tr("{0} {1} por subir a nivel máximo aquí", len(left), 'pet' if len(left) == 1 else 'pets'),
                           str(len(left)), theme.GOLD)
         card.on_click = lambda: self.ctl.switch_module("pets")
         return card
@@ -254,10 +255,10 @@ class DashboardPanel(QWidget):
             return None
         key, who = alerts[0]
         more = sum(len(w) for _, w in alerts)
-        card = self._card(glyph, theme.COMBAT, "STATUS REQUIERE ATENCIÓN", ALERTS[key][0],
-                          f"{more} {'aviso' if more == 1 else 'avisos'}", theme.COMBAT,
-                          sub=", ".join(who[:3]) + (" y más" if len(who) > 3 else ""))
-        card.setToolTip("Clic para abrir Status y ver qué es")
+        card = self._card(glyph, theme.COMBAT, tr("STATUS REQUIERE ATENCIÓN"), ALERTS[key][0],
+                          tr("1 aviso") if more == 1 else tr("{0} avisos", more), theme.COMBAT,
+                          sub=", ".join(who[:3]) + (tr(" y más") if len(who) > 3 else ""))
+        card.setToolTip(tr("Clic para abrir Status y ver qué es"))
         card.on_click = lambda: self.ctl.switch_module("status")
         return card
 

@@ -27,6 +27,7 @@ from ..gathering import GAME_MAPS
 from ..minimap import covered, fallback_geometry, overlay_geometry
 from ..motion import Motion
 from ..whereami import to_world
+from ..i18n import tr
 
 log = logging.getLogger(__name__)
 _user32 = ctypes.windll.user32
@@ -316,7 +317,7 @@ class MinimapOverlay(QWidget):
                 p.setBrush(MOB_DEAD)
                 p.drawEllipse(c, r, r)
                 seconds = None if left is None else left - now_left
-                text = "?" if seconds is None else "ya" if seconds <= 0 else \
+                text = "?" if seconds is None else tr("ya") if seconds <= 0 else \
                     f"{int(seconds)} s" if seconds < 60 else f"{int(seconds) // 60}:{int(seconds) % 60:02d}"
                 self._label(p, c + QPointF(r + 3 * unit, 4 * unit), text, unit * 0.85,
                             MOB if seconds is not None and seconds <= 0 else NEXT)
@@ -338,7 +339,7 @@ class MinimapOverlay(QWidget):
                 p.setBrush(Qt.NoBrush)
                 p.drawEllipse(c, 9 * unit, 9 * unit)
                 if wait > 1:
-                    self._label(p, c + QPointF(-10 * unit, -12 * unit), f"espera {int(wait)} s", unit * 0.85, MOB)
+                    self._label(p, c + QPointF(-10 * unit, -12 * unit), tr("espera {0} s", int(wait)), unit * 0.85, MOB)
             self._label(p, c + QPointF(-4 * unit, -7 * unit), str(i + 1), unit * 0.8, QColor(255, 255, 255))
 
     def _arrow(self, p, start, tip, unit):

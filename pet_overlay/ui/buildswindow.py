@@ -19,6 +19,7 @@ from .mapwindow import STYLE, badge_label
 from .theme import Fonts
 from .tunerwindow import EXTRA_STYLE
 from .widgets import SectionTitle, label
+from ..i18n import tr
 
 ICON = 34
 SIDE_STYLE = """
@@ -28,8 +29,8 @@ QFrame#Panel { background: #0f1830; border: 1px solid #1a2643; border-radius: 10
 QPushButton[flat="true"] { background: transparent; color: #2ec0f2; padding: 4px 8px; }
 QPushButton[flat="true"]:hover { color: #7fe0ff; }
 """
-SOURCE_TEXT = {"own": ("Tu preset", "#7bd88f"), "player": ("Perfil oficial", "#c38bff"), "code": ("Código", "#f0c24e")}
-KIND_TITLE = (("active", "Activas"), ("passive", "Pasivas"), ("stigma", "Estigmas"))
+SOURCE_TEXT = {"own": (tr("Tu preset"), "#7bd88f"), "player": (tr("Perfil oficial"), "#c38bff"), "code": (tr("Código"), "#f0c24e")}
+KIND_TITLE = (("active", tr("Activas")), ("passive", tr("Pasivas")), ("stigma", tr("Estigmas")))
 
 
 class _Relay(QObject):
@@ -40,7 +41,7 @@ class _Relay(QObject):
 
 def _ago(ts):
     days = (time.time() - (ts or 0)) / 86400
-    return "hoy" if days < 1 else "ayer" if days < 2 else f"hace {days:.0f} días"
+    return tr("hoy") if days < 1 else tr("ayer") if days < 2 else tr("hace {0:.0f} días", days)
 
 
 class BuildsWindow(QWidget):
@@ -71,7 +72,7 @@ class BuildsWindow(QWidget):
         tabs.setContentsMargins(16, 0, 16, 4)
         tabs.setSpacing(6)
         self.tab_buttons = {}
-        for key, text in (("builds", "Builds"), ("afinador", "Afinador del macro")):
+        for key, text in (("builds", "Builds"), ("afinador", tr("Afinador del macro"))):
             button = QPushButton(text)
             button.setProperty("tab", True)
             button.setCheckable(True)
@@ -100,20 +101,21 @@ class BuildsWindow(QWidget):
         self.cls = QComboBox()
         self.cls.currentIndexChanged.connect(lambda _: self.refresh())
         head.addWidget(self.cls)
-        save = QPushButton("Guardar mi preset")
-        save.setToolTip("Guarda el preset que tienes puesto en el juego (sus puntos, especialidades, estigmas y barra)")
+        save = QPushButton(tr("Guardar mi preset"))
+        save.setToolTip(tr("Guarda el preset que tienes puesto en el juego (sus puntos, especialidades, estigmas y "
+                           "barra)"))
         save.clicked.connect(self._save_preset)
         head.addWidget(save)
-        imp = QPushButton("Importar de jugador")
+        imp = QPushButton(tr("Importar de jugador"))
         imp.clicked.connect(lambda: self.import_row.setVisible(not self.import_row.isVisible()))
         head.addWidget(imp)
-        paste = QPushButton("Pegar código")
-        paste.setToolTip("Importa la build cuyo código copiaste (de AionDex de otro jugador)")
+        paste = QPushButton(tr("Pegar código"))
+        paste.setToolTip(tr("Importa la build cuyo código copiaste (de AionDex de otro jugador)"))
         paste.clicked.connect(self._paste_code)
         head.addWidget(paste)
-        calibrate = QPushButton("Calibrar menú")
-        calibrate.setToolTip("Con la ventana Skill del juego abierta: arrastra unos marcadores sobre sus botones y "
-                             "celdas para que «Aplicar en el juego» haga clic justo ahí con tu resolución")
+        calibrate = QPushButton(tr("Calibrar menú"))
+        calibrate.setToolTip(tr("Con la ventana Skill del juego abierta: arrastra unos marcadores sobre sus botones "
+                                "y celdas para que «Aplicar en el juego» haga clic justo ahí con tu resolución"))
         calibrate.clicked.connect(self.ctl.open_calibration)
         head.addWidget(calibrate)
         root.addLayout(head)
@@ -122,26 +124,26 @@ class BuildsWindow(QWidget):
         self.import_row.setObjectName("Panel")
         row = QHBoxLayout(self.import_row)
         row.setContentsMargins(12, 8, 12, 8)
-        row.addWidget(label("Jugador", f.small, theme.MUTED))
+        row.addWidget(label(tr("Jugador"), f.small, theme.MUTED))
         self.import_name = QLineEdit()
-        self.import_name.setPlaceholderText("Nombre del personaje")
+        self.import_name.setPlaceholderText(tr("Nombre del personaje"))
         self.import_name.returnPressed.connect(self._import_player)
         row.addWidget(self.import_name, 1)
-        row.addWidget(label("Servidor", f.small, theme.MUTED))
+        row.addWidget(label(tr("Servidor"), f.small, theme.MUTED))
         self.import_server = QLineEdit()
         self.import_server.setFixedWidth(70)
         row.addWidget(self.import_server)
-        go = QPushButton("Traer build")
+        go = QPushButton(tr("Traer build"))
         go.clicked.connect(self._import_player)
         row.addWidget(go)
-        meter = QPushButton("Builds de notmeter")
+        meter = QPushButton(tr("Builds de notmeter"))
         meter.setProperty("flat", True)
-        meter.setToolTip("Las builds y equipos que corren los jugadores de cada clase (notmeter, lo recomienda la guía "
-                         "de kanonxo): ábrelo, elige una y tráela con el nombre del jugador")
+        meter.setToolTip(tr("Las builds y equipos que corren los jugadores de cada clase (notmeter, lo recomienda "
+                            "la guía de kanonxo): ábrelo, elige una y tráela con el nombre del jugador"))
         meter.clicked.connect(lambda: webbrowser.open("https://notmeter.com/?view=setup-guide"))
         row.addWidget(meter)
-        self.import_status = label("Del perfil oficial de NCSOFT (lo mismo que muestra shugo.gg): sus skills, niveles "
-                                   "y estigmas equipados. No trae especialidades ni barra.", f.small, theme.MUTED)
+        self.import_status = label(tr("Del perfil oficial de NCSOFT (lo mismo que muestra shugo.gg): sus skills, "
+                                      "niveles y estigmas equipados. No trae especialidades ni barra."), f.small, theme.MUTED)
         self.import_status.setWordWrap(True)
         row.addWidget(self.import_status, 2)
         self.import_row.hide()
@@ -187,7 +189,7 @@ class BuildsWindow(QWidget):
             self.stack.setCurrentIndex(0)
         for k, button in self.tab_buttons.items():
             button.setChecked(k == key)
-        self.setWindowTitle(f"{APP_NAME} — {'Afinador del macro' if key == 'afinador' else 'Builds'}")
+        self.setWindowTitle(f"{APP_NAME} — {tr('Afinador del macro') if key == 'afinador' else 'Builds'}")
 
     def select(self, build_id, plan=False):
         """Show one build (and its plan, "Usar build")."""
@@ -202,7 +204,7 @@ class BuildsWindow(QWidget):
         classes = sorted(set(self.builds.classes()) | ({mine} if mine else set()))
         self.cls.blockSignals(True)
         self.cls.clear()
-        self.cls.addItem("Todas las clases", None)
+        self.cls.addItem(tr("Todas las clases"), None)
         for c in classes:
             self.cls.addItem(c, c)
         self.cls.setCurrentIndex(max(0, self.cls.findData(mine)) if mine else 0)
@@ -215,12 +217,11 @@ class BuildsWindow(QWidget):
     def refresh(self):
         f = self.fonts
         builds = self.builds.list(self.cls.currentData())
-        self.subtitle.setText(f"Guardadas en tu PC · {len(self.builds.items)} "
-                              f"{'build' if len(self.builds.items) == 1 else 'builds'}")
+        self.subtitle.setText(tr("Guardadas en tu PC · {0} {1}", len(self.builds.items), 'build' if len(self.builds.items) == 1 else 'builds'))
         _clear(self.list)
         if not builds:
-            hint = label("Aún no hay builds de esta clase. Guarda tu preset (el que tienes puesto en el juego), "
-                         "importa la de un jugador o pega un código.", f.small, theme.MUTED)
+            hint = label(tr("Aún no hay builds de esta clase. Guarda tu preset (el que tienes puesto en el juego), "
+                            "importa la de un jugador o pega un código."), f.small, theme.MUTED)
             hint.setWordWrap(True)
             self.list.addWidget(hint)
         for b in builds:
@@ -266,24 +267,24 @@ class BuildsWindow(QWidget):
         titles = QVBoxLayout()
         titles.setSpacing(0)
         titles.addWidget(label(b.get("name") or "Build", f.name_big, theme.TEXT))
-        titles.addWidget(label(f"{class_of_build(b)} · {b.get('origin', '')} · guardada {_ago(b.get('at'))}",
+        titles.addWidget(label(tr("{0} · {1} · guardada {2}", class_of_build(b), b.get('origin', ''), _ago(b.get('at'))),
                                f.small, theme.MUTED))
         head.addLayout(titles, 1)
         self.detail.addLayout(head)
         head = QHBoxLayout()
         head.setSpacing(4)
-        use = QPushButton("Usar build")
-        use.setToolTip("Lo que hay que cambiar de tu preset actual para tener esta build")
+        use = QPushButton(tr("Usar build"))
+        use.setToolTip(tr("Lo que hay que cambiar de tu preset actual para tener esta build"))
         use.clicked.connect(lambda: self._plan(b["id"]))
         head.addWidget(use)
-        for text, action in (("Copiar código", lambda: self._copy_code(b)), ("Renombrar", lambda: self._rename(b)),
-                             ("Borrar", lambda: self._delete(b))):
+        for text, action in ((tr("Copiar código"), lambda: self._copy_code(b)), (tr("Renombrar"), lambda: self._rename(b)),
+                             (tr("Borrar"), lambda: self._delete(b))):
             button = QPushButton(text)
             button.setProperty("flat", True)
             button.clicked.connect(action)
             head.addWidget(button)
         if b.get("player"):
-            shugo = QPushButton("Ver en shugo.gg")
+            shugo = QPushButton(tr("Ver en shugo.gg"))
             shugo.setProperty("flat", True)
             name, server = b["player"]
             shugo.clicked.connect(lambda: webbrowser.open(shugo_url(name, server,
@@ -298,7 +299,8 @@ class BuildsWindow(QWidget):
             self.detail.addWidget(self._bar_panel(b))
             self.detail.addWidget(self._macro_panel(b))
         elif b.get("source") == "player":
-            self.detail.addWidget(label("El perfil oficial no publica la barra ni las especialidades de un jugador.",
+            self.detail.addWidget(label(tr("El perfil oficial no publica la barra ni las especialidades de un "
+                                           "jugador."),
                                         f.small, theme.MUTED))
         self.detail.addStretch(1)
         self._want_icons(b)
@@ -350,7 +352,7 @@ class BuildsWindow(QWidget):
         panel.setObjectName("Panel")
         col = QVBoxLayout(panel)
         col.setContentsMargins(14, 10, 14, 12)
-        col.addWidget(SectionTitle("Barra (como en la ventana Skill: prioridad 0 abajo)", f))
+        col.addWidget(SectionTitle(tr("Barra (como en la ventana Skill: prioridad 0 abajo)"), f))
         grid = QGridLayout()
         grid.setHorizontalSpacing(6)
         grid.setVerticalSpacing(4)
@@ -362,9 +364,9 @@ class BuildsWindow(QWidget):
                 prio = by_slot.get(slot, [])
                 cell = self._icon(prio[r]) if r < len(prio) else _empty_cell()
                 if r < len(prio):
-                    cell.setToolTip(f"{SLOT_KEYS[slot]} · prioridad {r}: {self.builds.name_of(prio[r])}")
+                    cell.setToolTip(tr("{0} · prioridad {1}: {2}", tr(SLOT_KEYS[slot]), r, self.builds.name_of(prio[r])))
                 grid.addWidget(cell, rows - 1 - r, column, Qt.AlignCenter)
-            grid.addWidget(label(SLOT_KEYS[slot], f.name, theme.ACCENT), rows, column, Qt.AlignCenter)
+            grid.addWidget(label(tr(SLOT_KEYS[slot]), f.name, theme.ACCENT), rows, column, Qt.AlignCenter)
         for r in range(rows):
             grid.addWidget(label(str(r), f.small, theme.MUTED), rows - 1 - r, 14, Qt.AlignCenter)
         grid.setColumnMinimumWidth(4, 10)
@@ -379,7 +381,7 @@ class BuildsWindow(QWidget):
         panel.setObjectName("Panel")
         col = QVBoxLayout(panel)
         col.setContentsMargins(14, 10, 14, 12)
-        col.addWidget(SectionTitle("Macro del juego", f))
+        col.addWidget(SectionTitle(tr("Macro del juego"), f))
         steps = b.get("macro") or []
         if steps:
             row = QHBoxLayout()
@@ -398,23 +400,23 @@ class BuildsWindow(QWidget):
             row.addStretch(1)
             col.addLayout(row)
         else:
-            hint = label("Sin macro guardado. En el juego abre la ventana Skill con el preset de esta build, pulsa "
-                         "«Macro» y luego «Leer macro del juego».", f.small, theme.MUTED)
+            hint = label(tr("Sin macro guardado. En el juego abre la ventana Skill con el preset de esta build, "
+                            "pulsa «Macro» y luego «Leer macro del juego»."), f.small, theme.MUTED)
             hint.setWordWrap(True)
             col.addWidget(hint)
         buttons = QHBoxLayout()
-        read = QPushButton("Leer macro del juego")
-        read.setToolTip("Con la ventana Macro del juego abierta: lee sus pasos (si no caben todos, baja la lista del "
-                        "juego y vuelve a leer: se agregan)")
+        read = QPushButton(tr("Leer macro del juego"))
+        read.setToolTip(tr("Con la ventana Macro del juego abierta: lee sus pasos (si no caben todos, baja la lista "
+                           "del juego y vuelve a leer: se agregan)"))
         read.clicked.connect(lambda: self._read_macro(b))
         buttons.addWidget(read)
         if steps:
-            tuner = QPushButton("Pasarlo al Afinador")
+            tuner = QPushButton(tr("Pasarlo al Afinador"))
             tuner.setProperty("flat", True)
-            tuner.setToolTip("Pone este macro como el macro del juego del preset activo en el Afinador")
+            tuner.setToolTip(tr("Pone este macro como el macro del juego del preset activo en el Afinador"))
             tuner.clicked.connect(lambda: self._macro_to_tuner(b))
             buttons.addWidget(tuner)
-            clear = QPushButton("Borrar macro")
+            clear = QPushButton(tr("Borrar macro"))
             clear.setProperty("flat", True)
             clear.clicked.connect(lambda: self._set_macro(b, []))
             buttons.addWidget(clear)
@@ -426,16 +428,15 @@ class BuildsWindow(QWidget):
         from .. import macroread
         steps = self.ctl.read_game_macro(b)
         if steps is None:
-            self.subtitle.setText("No pude leer la pantalla del juego (¿está abierto y sin minimizar?).")
+            self.subtitle.setText(tr("No pude leer la pantalla del juego (¿está abierto y sin minimizar?)."))
             return
         if not steps:
-            self.subtitle.setText("No veo la ventana Macro: en la ventana Skill del juego pulsa «Macro» y vuelve a "
-                                  "intentarlo.")
+            self.subtitle.setText(tr("No veo la ventana Macro: en la ventana Skill del juego pulsa «Macro» y vuelve "
+                                     "a intentarlo."))
             return
         merged = macroread.merge(b.get("macro"), steps)
         self._set_macro(b, merged)
-        self.subtitle.setText(f"Macro leído: {len(merged)} pasos. Si tiene más, baja la lista del juego y vuelve a "
-                              f"leer.")
+        self.subtitle.setText(tr("Macro leído: {0} pasos. Si tiene más, baja la lista del juego y vuelve a leer.", len(merged)))
 
     def _set_macro(self, b, steps):
         b["macro"] = [list(s) for s in steps]
@@ -455,26 +456,27 @@ class BuildsWindow(QWidget):
         tuner = self.ctl.tuner
         preset = tuner.active_preset or 1
         if not tuner.own:
-            col.addWidget(label("Entra al juego con tu personaje con AionDex abierto: necesito tus skills para comparar.",
+            col.addWidget(label(tr("Entra al juego con tu personaje con AionDex abierto: necesito tus skills para "
+                                   "comparar."),
                                 f.small, theme.WARN))
             return panel
         steps = self.builds.plan(b, tuner.own, tuner.presets.get(preset, []),
                                  tuner.spec_slots.get(tuner.active_preset))
-        col.addWidget(SectionTitle(f"Para usarla en tu preset {preset} (el que tienes puesto)", f))
+        col.addWidget(SectionTitle(tr("Para usarla en tu preset {0} (el que tienes puesto)", preset), f))
         if not steps:
-            col.addWidget(label("Tu preset ya es esta build.", f.name, theme.GAIN))
+            col.addWidget(label(tr("Tu preset ya es esta build."), f.name, theme.GAIN))
             return panel
         section = None
         for step in steps:
             if step.section != section:
                 section = step.section
-                col.addWidget(label(section + (" (su número en la lista del juego, de arriba abajo)"
-                                               if section == "Especialidades" else ""), f.small, theme.MUTED))
+                col.addWidget(label(section + (tr(" (su número en la lista del juego, de arriba abajo)")
+                                               if section == tr("Especialidades") else ""), f.small, theme.MUTED))
             line = label(f"•  {step.text}", f.body, theme.TEXT if step.kind != "info" else theme.MUTED)
             line.setWordWrap(True)
             col.addWidget(line)
-        col.addWidget(label("Abre la ventana Skill del juego (pestañas Mastery y Stigma) y hazlo en este orden: bajar "
-                            "puntos primero libera los que piden las subidas.", f.small, theme.MUTED))
+        col.addWidget(label(tr("Abre la ventana Skill del juego (pestañas Mastery y Stigma) y hazlo en este orden: "
+                               "bajar puntos primero libera los que piden las subidas."), f.small, theme.MUTED))
         col.addLayout(self._macro_row(b, steps, preset))
         if self.macro_text:
             status = label(self.macro_text, f.small, theme.ACCENT if self.running else theme.TEXT)
@@ -489,37 +491,37 @@ class BuildsWindow(QWidget):
         row = QHBoxLayout()
         doable = [s for s in steps if s.kind in ("points", "spec", "place", "clear")]
         if not is_admin():
-            note = label("Para que AionDex haga los cambios por ti, ábrelo como administrador (el juego corre como "
-                         "administrador y Windows no deja que un programa normal haga clic en él).", f.small, theme.WARN)
+            note = label(tr("Para que AionDex haga los cambios por ti, ábrelo como administrador (el juego corre "
+                            "como administrador y Windows no deja que un programa normal haga clic en él)."), f.small, theme.WARN)
             note.setWordWrap(True)
             row.addWidget(note, 1)
-            again = QPushButton("Reiniciar como administrador")
+            again = QPushButton(tr("Reiniciar como administrador"))
             again.clicked.connect(self.ctl.restart_as_admin)
             row.addWidget(again)
-            cal = QPushButton("Calibrar menú")
+            cal = QPushButton(tr("Calibrar menú"))
             cal.setProperty("flat", True)
             cal.clicked.connect(self.ctl.open_calibration)
             row.addWidget(cal)
             return row
-        apply = QPushButton("Detener (Esc)" if self.running else f"Aplicar en el juego ({len(doable)} cambios)")
+        apply = QPushButton(tr("Detener (Esc)") if self.running else tr("Aplicar en el juego ({0} cambios)", len(doable)))
         apply.setEnabled(bool(doable) or self.running)
-        apply.setToolTip("Con la ventana Skill del juego abierta: AionDex hace los cambios de puntos, especialidades "
-                         "y barra, comprobando cada uno; mover el ratón o Esc lo detiene.")
+        apply.setToolTip(tr("Con la ventana Skill del juego abierta: AionDex hace los cambios de puntos, "
+                            "especialidades y barra, comprobando cada uno; mover el ratón o Esc lo detiene."))
         apply.clicked.connect(lambda: self._apply(b["id"], steps, preset))
         row.addWidget(apply)
         found = self.ctl.macro_layout()
         calibrated = bool(found and found[2])
-        cal = QPushButton("Calibrar menú" if not calibrated else "Calibrar menú (hecho)")
+        cal = QPushButton(tr("Calibrar menú") if not calibrated else tr("Calibrar menú (hecho)"))
         cal.setProperty("flat", True)
-        cal.setToolTip("Arrastra unos marcadores sobre los botones y celdas del menú Skill: así los clics caen justo "
-                       "ahí con tu resolución.")
+        cal.setToolTip(tr("Arrastra unos marcadores sobre los botones y celdas del menú Skill: así los clics caen "
+                          "justo ahí con tu resolución."))
         cal.clicked.connect(self.ctl.open_calibration)
         row.addWidget(cal)
         row.addStretch(1)
-        always = QCheckBox("Abrir siempre como administrador")
-        always.setToolTip("AionDex se abre siempre así (al abrirlo tú, al reiniciarse y tras actualizarse) sin que "
-                          "Windows pregunte: usa una tarea programada de Windows. También hace que la ruta del minimapa "
-                          "se mueva con tus teclas.")
+        always = QCheckBox(tr("Abrir siempre como administrador"))
+        always.setToolTip(tr("AionDex se abre siempre así (al abrirlo tú, al reiniciarse y tras actualizarse) sin "
+                             "que Windows pregunte: usa una tarea programada de Windows. También hace que la ruta "
+                             "del minimapa se mueva con tus teclas."))
         always.setChecked(bool(self.ctl.settings.get("run_as_admin")))
         always.toggled.connect(self._always_admin)
         row.addWidget(always)
@@ -536,15 +538,15 @@ class BuildsWindow(QWidget):
 
     def _apply(self, build_id, steps, preset):
         if self.running:
-            self.macro_text = "Pulsa Esc o mueve el ratón para detenerlo."
+            self.macro_text = tr("Pulsa Esc o mueve el ratón para detenerlo.")
             self._show_detail()
             return
         error = self.ctl.apply_build(steps, None, self._relay.progress.emit, self._relay.done.emit)
         if error:
-            self.macro_text = error if error != "admin" else "Hace falta abrir AionDex como administrador."
+            self.macro_text = error if error != "admin" else tr("Hace falta abrir AionDex como administrador.")
         else:
             self.running = True
-            self.macro_text = "Empezando: no muevas el ratón (Esc lo detiene)…"
+            self.macro_text = tr("Empezando: no muevas el ratón (Esc lo detiene)…")
         self._show_detail()
 
     def _macro_progress(self, text):
@@ -566,10 +568,10 @@ class BuildsWindow(QWidget):
         who = self.ctl.character_name() or self.ctl.settings.get("last_character")
         preset = tuner.active_preset or 1
         if not tuner.own or not who:
-            self.subtitle.setText("Entra al juego con tu personaje con AionDex abierto: el juego manda tus skills al "
-                                  "entrar y al cambiar de preset.")
+            self.subtitle.setText(tr("Entra al juego con tu personaje con AionDex abierto: el juego manda tus "
+                                     "skills al entrar y al cambiar de preset."))
             return
-        name, ok = QInputDialog.getText(self, "Guardar build", "Nombre de la build:", text=f"{who} · preset {preset}")
+        name, ok = QInputDialog.getText(self, tr("Guardar build"), tr("Nombre de la build:"), text=f"{who} · preset {preset}")
         if not ok:
             return
         b = self.builds.add(self.builds.from_preset(name.strip() or f"{who} · preset {preset}", who, preset, tuner.own,
@@ -581,7 +583,7 @@ class BuildsWindow(QWidget):
     def _paste_code(self):
         b = Builds.from_code(QApplication.clipboard().text())
         if b is None:
-            self.subtitle.setText("En el portapapeles no hay un código de build (empieza por AIONDEX-BUILD:).")
+            self.subtitle.setText(tr("En el portapapeles no hay un código de build (empieza por AIONDEX-BUILD:)."))
             return
         b = self.builds.add(b)
         self.selected = b["id"]
@@ -590,11 +592,11 @@ class BuildsWindow(QWidget):
 
     def _copy_code(self, b):
         QApplication.clipboard().setText(Builds.to_code(b))
-        self.subtitle.setText(f"Código de «{b.get('name')}» copiado: pégalo en Discord; con AionDex se importa con "
-                              f"«Pegar código».")
+        self.subtitle.setText(tr("Código de «{0}» copiado: pégalo en Discord; con AionDex se importa con «Pegar "
+                                 "código».", b.get('name')))
 
     def _rename(self, b):
-        name, ok = QInputDialog.getText(self, "Renombrar build", "Nombre:", text=b.get("name") or "")
+        name, ok = QInputDialog.getText(self, tr("Renombrar build"), tr("Nombre:"), text=b.get("name") or "")
         if ok:
             self.builds.rename(b["id"], name)
             self.refresh()
@@ -611,12 +613,11 @@ class BuildsWindow(QWidget):
         except ValueError:
             server = 0
         if not name or not server:
-            self.import_status.setText("Escribe el nombre del personaje y su servidor (número, el tuyo es "
-                                       f"{self._my_server() or '—'}).")
+            self.import_status.setText(tr("Escribe el nombre del personaje y su servidor (número, el tuyo es {0}).", self._my_server() or '—'))
             return
         self.ctl.armory.want(name, server, refresh=True)
         self.waiting = (name, server, time.time())
-        self.import_status.setText(f"Buscando a {name} en el perfil oficial…")
+        self.import_status.setText(tr("Buscando a {0} en el perfil oficial…", name))
         self._poll.start()
 
     def _check_import(self):
@@ -631,12 +632,12 @@ class BuildsWindow(QWidget):
         self.waiting = None
         profile = armory.cached(name, server)
         if profile is None or not profile.skill_list:
-            self.import_status.setText(armory.error(name) or f"No encontré a {name} en el servidor {server}.")
+            self.import_status.setText(armory.error(name) or tr("No encontré a {0} en el servidor {1}.", name, server))
             return
         b = self.builds.add(Builds.from_profile(f"{profile.name} · {profile.class_name or ''}".strip(" ·"), profile,
                                                 profile.server_name or ""))
         self.selected = b["id"]
-        self.import_status.setText(f"Build de {profile.name} guardada.")
+        self.import_status.setText(tr("Build de {0} guardada.", profile.name))
         self._fill_classes()
         self.cls.setCurrentIndex(max(0, self.cls.findData(class_of_build(b))))
         self.refresh()

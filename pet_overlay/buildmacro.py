@@ -30,6 +30,7 @@ from pathlib import Path
 
 from .skills import SLOT_KEYS, parse_spec_slots
 from .winput import Guard, Interrupted, real_pixels
+from .i18n import tr
 
 # the reference layout: the game's client area at 1920 x 1080 (it scales with the height); anchor: which edge the
 # element keeps its distance to when the window is wider or narrower than 16:9
@@ -44,12 +45,12 @@ REFERENCE = {
 }
 LABELS = {
     "preset1": "Preset 1", "preset2": "Preset 2", "preset3": "Preset 3",
-    "tab_mastery": "Pestaña Mastery", "tab_stigma": "Pestaña Stigma",
-    "grid_first": "Activas: 1ª skill", "grid_right": "Activas: 2ª (a su derecha)",
-    "grid_below": "Activas: la de abajo de la 1ª", "passive_first": "Pasivas: 1ª skill",
-    "bar_1": "Barra: tecla 1 (fila de abajo)", "bar_2": "Barra: tecla 2", "bar_5": "Barra: tecla 5",
-    "bar_q": "Barra: tecla Q", "bar_1_up": "Barra: tecla 1, una fila arriba",
-    "reset": "Botón reset (flecha circular)", "level_up": "Botón subir nivel (dorado)",
+    "tab_mastery": tr("Pestaña Mastery"), "tab_stigma": tr("Pestaña Stigma"),
+    "grid_first": tr("Activas: 1ª skill"), "grid_right": tr("Activas: 2ª (a su derecha)"),
+    "grid_below": tr("Activas: la de abajo de la 1ª"), "passive_first": tr("Pasivas: 1ª skill"),
+    "bar_1": tr("Barra: tecla 1 (fila de abajo)"), "bar_2": tr("Barra: tecla 2"), "bar_5": tr("Barra: tecla 5"),
+    "bar_q": tr("Barra: tecla Q"), "bar_1_up": tr("Barra: tecla 1, una fila arriba"),
+    "reset": tr("Botón reset (flecha circular)"), "level_up": tr("Botón subir nivel (dorado)"),
 }
 GROUPS = {"1-4": [2, 3, 4, 5], "5-8": [20, 21, 22, 23], "QE": [6, 7, 0, 1]}      # bar slots by key group
 COLUMNS = 5
@@ -159,18 +160,19 @@ class BuildMacro:
         try:
             self._apply()
             left = self._bar_left()
-            self.on_done(not left, f"Listo: {self.done_steps} cambios hechos en el juego." + (
-                f" Pero la barra no quedó igual en: {left}." if left else ""))
+            self.on_done(not left, tr("Listo: {0} cambios hechos en el juego.", self.done_steps) + (
+                tr(" Pero la barra no quedó igual en: {0}.", left) if left else ""))
         except Interrupted as e:
-            self.on_done(False, f"Detenido ({e}) tras {self.done_steps} cambios.")
+            self.on_done(False, tr("Detenido ({0}) tras {1} cambios.", e, self.done_steps))
         except Failed as e:
-            self.on_done(False, f"{e} Se hicieron {self.done_steps} cambios; lo demás quedó como estaba.")
+            self.on_done(False, tr("{0} Se hicieron {1} cambios; lo demás quedó como estaba.", e, self.done_steps))
         except Exception as e:                       # noqa: BLE001
             self.on_done(False, f"Error inesperado: {e}")
 
     def _apply(self):
         if not self._window_open():
-            raise Failed("No veo la ventana Skill del juego: ábrela (tecla K) y vuelve a pulsar «Aplicar en el juego».")
+            raise Failed(tr("No veo la ventana Skill del juego: ábrela (tecla K) y vuelve a pulsar «Aplicar en el "
+                            "juego»."))
         if self.preset:
             self._say(f"Preset {self.preset}")
             self._drain()
@@ -198,14 +200,14 @@ class BuildMacro:
             self.guard.click(*self.layout.at("reset"))
             time.sleep(0.4)
             self.guard.click(*self._confirm_button())
-            self._wait({"4438"}, 3.0, what="el reset")
+            self._wait({"4438"}, 3.0, what=tr("el reset"))
             have = 1
         while have < step.to:
             self._drain()
             self.guard.click(*self.layout.at("level_up"))
             if not self._wait({"0551"}, ANSWER, optional=True):
                 self.guard.click(*self.layout.at("level_up"))          # one more try (a click can be dropped)
-                self._wait({"0551"}, ANSWER, what="subir el nivel (¿te quedan puntos?)")
+                self._wait({"0551"}, ANSWER, what=tr("subir el nivel (¿te quedan puntos?)"))
             have += 1
             time.sleep(0.05)
         self.done_steps += 1
@@ -216,15 +218,15 @@ class BuildMacro:
         another preset and back to yours (nothing else changes)."""
         active = self.ctl.tuner.active_preset
         if not active:
-            raise Failed("No sé qué preset tienes puesto: cambia de preset una vez en la ventana Skill y vuelve a "
-                         "intentarlo.")
-        self._say("Leyendo tus especialidades (cambio de preset y vuelta)")
+            raise Failed(tr("No sé qué preset tienes puesto: cambia de preset una vez en la ventana Skill y vuelve "
+                            "a intentarlo."))
+        self._say(tr("Leyendo tus especialidades (cambio de preset y vuelta)"))
         for number in (1 if active != 1 else 2, active):
             if number == active:
                 self.slots = {}                          # only your preset's
             self._drain()
             self.guard.click(*self.layout.at(f"preset{number}"))
-            self._wait({"90e2"}, 3.0, what=f"el cambio al preset {number}")
+            self._wait({"90e2"}, 3.0, what=tr("el cambio al preset {0}", number))
             self._wait({"0051"}, 3.0, optional=True)    # the skill list closes what a switch sends
             time.sleep(0.3)
 
@@ -250,7 +252,7 @@ class BuildMacro:
             time.sleep(0.3)
             self.guard.click(*spots.remove(slot))
             if not self._wait_slot(base, slot, 0):
-                raise Failed(f"No pude quitar la especialidad de la casilla {slot} de {name}.")
+                raise Failed(tr("No pude quitar la especialidad de la casilla {0} de {1}.", slot, name))
             time.sleep(0.35)
         for spec, slot in zip(missing, free):              # the list's line, then the slot
             spots = self._spec_spots()
@@ -259,8 +261,8 @@ class BuildMacro:
             time.sleep(0.3)
             self.guard.click(*spots.slot(slot))
             if not self._wait_slot(base, slot, spec):
-                raise Failed(f"El juego no puso la especialidad {spec} de {name} en su casilla {slot}: ¿la casilla o "
-                             f"la especialidad siguen bloqueadas por el nivel de la skill?")
+                raise Failed(tr("El juego no puso la especialidad {0} de {1} en su casilla {2}: ¿la casilla o la "
+                                "especialidad siguen bloqueadas por el nivel de la skill?", spec, name, slot))
             time.sleep(0.35)
         self.done_steps += 1
 
@@ -271,12 +273,12 @@ class BuildMacro:
         box = (left, top + round(110 * scale), left + round(450 * scale), bottom - round(40 * scale))
         lines = self._ocr(box)
         if lines is None:
-            raise Failed("No puedo leer la pantalla (OCR de Windows) para encontrar las especialidades.")
+            raise Failed(tr("No puedo leer la pantalla (OCR de Windows) para encontrar las especialidades."))
         for text, x0, _, y in lines:
             word = re.sub(r"[^a-zé]", "", text.lower())
             if word.startswith(SPEC_TITLES) and len(word) <= 16:
                 return SpecSpots(x0, y, scale)
-        raise Failed("No encuentro «Specialty» en el panel de la skill (ventana Skill, a la izquierda).")
+        raise Failed(tr("No encuentro «Specialty» en el panel de la skill (ventana Skill, a la izquierda)."))
 
     def _wait_slot(self, base, slot, spec, timeout=2.5):
         """Wait until the game says the skill's slot has that specialization (0 = empty)."""
@@ -304,7 +306,7 @@ class BuildMacro:
             self._open_tab("tab_stigma" if kind == "stigma" else "tab_mastery")
             self._pick(step.skill, kind)
             self.guard.click(x, y)
-        self._wait({"0856"}, 2.5, what=f"la tecla {SLOT_KEYS.get(step.slot, step.slot)}")
+        self._wait({"0856"}, 2.5, what=tr("la tecla {0}", SLOT_KEYS.get(step.slot, step.slot)))
         self.done_steps += 1
 
     def _bar_left(self):
@@ -346,13 +348,13 @@ class BuildMacro:
         group = "stigma" if kind == "stigma" else "passive" if kind == "passive" else "active"
         skills = self.order.get(group) or []
         if base not in skills:
-            raise Failed(f"No sé dónde está {self.ctl.builds.name_of(base)} en la ventana Skill.")
+            raise Failed(tr("No sé dónde está {0} en la ventana Skill.", self.ctl.builds.name_of(base)))
         self.guard.click(*self.layout.grid_cell(skills.index(base), passive=group == "passive"))
         time.sleep(0.35)
         name = self.ctl.builds.name_of(base)
         title = self._read_title()
         if title is not None and not _same_name(title, name):
-            raise Failed(f"Quise elegir {name} y el juego muestra «{title}»: calibra el menú (Calibrar menú).")
+            raise Failed(tr("Quise elegir {0} y el juego muestra «{1}»: calibra el menú (Calibrar menú).", name, title))
 
     def _read_title(self):
         """The selected skill's name at the top of the left panel (OCR), or None when it cannot be read."""
@@ -428,7 +430,7 @@ class BuildMacro:
                 return True
         if optional:
             return False
-        raise Failed(f"El juego no respondió a {what or 'un clic'}.")
+        raise Failed(tr("El juego no respondió a {0}.", what or tr("un clic")))
 
 
 class SpecSpots:

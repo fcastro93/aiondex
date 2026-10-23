@@ -12,6 +12,7 @@ from ..sessions import player_totals, runs_of
 from .dps_party import CLASS_COLOR, OTHER_COLOR, compact_number, thousands
 from .dps_report import (BG, CARD, CARD_LINE, GOLD, GREEN, MUTED, PAD, TEAL, TEXT, ImageDialog, _font, _IconCache,
                          _slug, _text)
+from ..i18n import tr
 
 WIDTH = 1600
 ROW = 46
@@ -59,8 +60,8 @@ def render_session(ctl, session):
     y = _players(p, d, icons, y + 22)
     y = _runs(p, d, y + 30)
     p.fillRect(QRectF(PAD, y + 18, WIDTH - 2 * PAD, 1), CARD_LINE)
-    _text(p, QRectF(PAD, y + 30, WIDTH - 2 * PAD, 70), FORMULA + " MVP de la sesión: el aporte de cada uno sumado en "
-          "todas las peleas.", _font(14), MUTED, Qt.AlignLeft | Qt.AlignTop | Qt.TextWordWrap)
+    _text(p, QRectF(PAD, y + 30, WIDTH - 2 * PAD, 70), FORMULA + tr(" MVP de la sesión: el aporte de cada uno "
+                                                                    "sumado en todas las peleas."), _font(14), MUTED, Qt.AlignLeft | Qt.AlignTop | Qt.TextWordWrap)
     from .. import APP_NAME, __version__
     _text(p, QRectF(PAD, height - 34, WIDTH - 2 * PAD, 22), f"{APP_NAME} {__version__} · github.com/fcastro93/aiondex",
           _font(13), QColor(139, 149, 171, 170))
@@ -79,7 +80,7 @@ def _header(p, d):
     if not badge.isNull():
         p.drawPixmap(QRectF(PAD, 30, 70, 70), badge, QRectF(badge.rect()))
     x = PAD + 90
-    _text(p, QRectF(x, 22, 700, 22), "INFORME DE SESIÓN", _font(15, QFont.Bold), TEAL)
+    _text(p, QRectF(x, 22, 700, 22), tr("INFORME DE SESIÓN"), _font(15, QFont.Bold), TEAL)
     _text(p, QRectF(x, 44, 900, 44), QFontMetrics(_font(34, QFont.Bold)).elidedText(s["name"], Qt.ElideRight, 900),
           _font(34, QFont.Bold), TEXT)
     end = s.get("end") or time.time()
@@ -92,8 +93,8 @@ def _header(p, d):
                                              f"{party}", Qt.ElideRight, WIDTH - x - 400), _font(17), MUTED)
     group_dmg = sum(t.damage for t in d.totals.values())
     right = QRectF(WIDTH - PAD - 360, 30, 360, 30)
-    _text(p, right, f"{thousands(group_dmg)} de daño", _font(24, QFont.DemiBold), TEXT, Qt.AlignRight | Qt.AlignVCenter)
-    _text(p, QRectF(right.left(), 64, 360, 26), f"En combate: {_span(d.combat)}", _font(17), MUTED,
+    _text(p, right, tr("{0} de daño", thousands(group_dmg)), _font(24, QFont.DemiBold), TEXT, Qt.AlignRight | Qt.AlignVCenter)
+    _text(p, QRectF(right.left(), 64, 360, 26), tr("En combate: {0}", _span(d.combat)), _font(17), MUTED,
           Qt.AlignRight | Qt.AlignVCenter)
     return 130
 
@@ -104,7 +105,7 @@ def _mvp(p, d, icons, y):
     p.setBrush(CARD)
     p.drawRoundedRect(rect, 16, 16)
     if not d.ranked:
-        _text(p, rect.adjusted(30, 0, -30, 0), "Aún no hay peleas en esta sesión.", _font(20), MUTED)
+        _text(p, rect.adjusted(30, 0, -30, 0), tr("Aún no hay peleas en esta sesión."), _font(20), MUTED)
         return rect.bottom()
     best = d.ranked[0]
     totals = d.totals.get(best.name)
@@ -120,7 +121,7 @@ def _mvp(p, d, icons, y):
     p.setPen(Qt.NoPen)
     p.setBrush(GOLD)
     p.drawRoundedRect(tag, 17, 17)
-    _text(p, tag, "MVP SESIÓN", _font(17, QFont.Black), QColor("#1a1206"), Qt.AlignCenter)
+    _text(p, tag, tr("MVP SESIÓN"), _font(17, QFont.Black), QColor("#1a1206"), Qt.AlignCenter)
     x = disc.right() + 34
     _text(p, QRectF(x, rect.top() + 30, 600, 46), best.name, _font(36, QFont.Bold), GOLD)
     cp = d.cp_of(best.name)
@@ -129,8 +130,7 @@ def _mvp(p, d, icons, y):
     _text(p, QRectF(x, rect.top() + 112, 600, 40), f"{best.points:.1f} pts", _font(32, QFont.Bold), TEXT)
     if totals:
         _text(p, QRectF(x, rect.top() + 154, 700, 28),
-              f"{best.points:.0f}% del aporte de la party en {totals.fights} peleas · "
-              f"{thousands(totals.damage / max(1, totals.seconds))}/s de media", _font(17), MUTED)
+              tr("{0:.0f}% del aporte de la party en {1} peleas · {2}/s de media", best.points, totals.fights, thousands(totals.damage / max(1, totals.seconds))), _font(17), MUTED)
     bx = rect.left() + 900
     bw = rect.right() - 30 - bx
     parts = [(key, title, best.parts.get(key, 0)) for key, title in PARTS if best.parts.get(key, 0) > 0]
@@ -154,12 +154,12 @@ def _mvp(p, d, icons, y):
 def _tiles(p, d, y):
     killed = sum(1 for _, k in d.bosses if k)
     totals = d.totals.values()
-    tiles = [("Runs", str(len(d.runs)), ""), ("Jefes derrotados", f"{killed} de {len(d.bosses)}", ""),
-             ("En combate", _span(d.combat), f"{len(d.fights)} peleas"),
-             ("Daño de la party", compact_number(sum(t.damage for t in totals)),
+    tiles = [("Runs", str(len(d.runs)), ""), (tr("Jefes derrotados"), tr("{0} de {1}", killed, len(d.bosses)), ""),
+             (tr("En combate"), _span(d.combat), tr("{0} peleas", len(d.fights))),
+             (tr("Daño de la party"), compact_number(sum(t.damage for t in totals)),
               f"{compact_number(sum(t.damage for t in totals) / max(1, d.combat))}/s"),
-             ("Muertes", str(sum(t.deaths for t in totals)), ""),
-             ("Revividos", str(sum(t.revives for t in totals)), "por healers")]
+             (tr("Muertes"), str(sum(t.deaths for t in totals)), ""),
+             (tr("Revividos"), str(sum(t.revives for t in totals)), tr("por healers"))]
     gap = 14
     w = (WIDTH - 2 * PAD - gap * (len(tiles) - 1)) / len(tiles)
     for i, (title, value, sub) in enumerate(tiles):
@@ -174,9 +174,9 @@ def _tiles(p, d, y):
     return y + 94
 
 
-PLAYER_COLUMNS = [("#", 40, "l"), ("Jugador", 0, "l"), ("CP", 84, "r"), ("Daño", 100, "r"), ("DPS", 92, "r"),
-                  ("A jefes", 100, "r"), ("Curación", 100, "r"), ("Escudos", 90, "r"), ("Recibido", 96, "r"),
-                  ("Muertes", 80, "r"), ("Reviv.", 74, "r"), ("Aggro", 74, "r"), ("Puntos MVP", 150, "r")]
+PLAYER_COLUMNS = [("#", 40, "l"), (tr("Jugador"), 0, "l"), ("CP", 84, "r"), (tr("Daño"), 100, "r"), ("DPS", 92, "r"),
+                  (tr("A jefes"), 100, "r"), (tr("Curación"), 100, "r"), (tr("Escudos"), 90, "r"), (tr("Recibido"), 96, "r"),
+                  (tr("Muertes"), 80, "r"), (tr("Reviv."), 74, "r"), ("Aggro", 74, "r"), (tr("Puntos MVP"), 150, "r")]
 
 
 def _columns(spec):
@@ -202,7 +202,7 @@ def _heading(p, spec, xs, widths, y, title):
 
 def _players(p, d, icons, y):
     xs, widths = _columns(PLAYER_COLUMNS)
-    y = _heading(p, PLAYER_COLUMNS, xs, widths, y, "JUGADORES (TODA LA SESIÓN)")
+    y = _heading(p, PLAYER_COLUMNS, xs, widths, y, tr("JUGADORES (TODA LA SESIÓN)"))
     top = d.ranked[0].points if d.ranked else 1
     for i, s in enumerate(d.ranked, 1):
         t = d.totals.get(s.name)
@@ -224,7 +224,7 @@ def _players(p, d, icons, y):
                   str(t.aggro) if t and t.aggro else "—", None]
         for (title, _, align), x, w, value in zip(PLAYER_COLUMNS, xs, widths, values):
             cell = QRectF(x, rect.top(), w - 8, rect.height())
-            if title == "Jugador":
+            if title == tr("Jugador"):
                 icon = icons.get(s.class_name)
                 side = rect.height() - 12
                 if icon is not None:
@@ -232,7 +232,7 @@ def _players(p, d, icons, y):
                 _text(p, QRectF(x + side + 10, rect.top(), w - side - 10, rect.height()),
                       QFontMetrics(_font(18, QFont.Bold)).elidedText(s.name, Qt.ElideRight, int(w - side - 20)),
                       _font(18, QFont.Bold), GOLD if i == 1 else TEXT)
-            elif title == "Puntos MVP":
+            elif title == tr("Puntos MVP"):
                 bar = QRectF(x, rect.center().y() + 9, w - 70, 5)
                 p.setPen(Qt.NoPen)
                 p.setBrush(QColor(255, 255, 255, 22))
@@ -248,15 +248,15 @@ def _players(p, d, icons, y):
     return y
 
 
-RUN_COLUMNS = [("#", 40, "l"), ("Run", 0, "l"), ("Hora", 140, "l"), ("Duración", 100, "r"), ("Jefes", 420, "l"),
-               ("Muertes", 86, "r"), ("Mejor DPS", 230, "r"), ("MVP", 170, "r")]
+RUN_COLUMNS = [("#", 40, "l"), ("Run", 0, "l"), (tr("Hora"), 140, "l"), (tr("Duración"), 100, "r"), (tr("Jefes"), 420, "l"),
+               (tr("Muertes"), 86, "r"), (tr("Mejor DPS"), 230, "r"), ("MVP", 170, "r")]
 
 
 def _runs(p, d, y):
     xs, widths = _columns(RUN_COLUMNS)
     y = _heading(p, RUN_COLUMNS, xs, widths, y, "RUNS")
     if not d.runs:
-        _text(p, QRectF(PAD, y, 600, ROW), "Sin peleas todavía.", _font(17), MUTED)
+        _text(p, QRectF(PAD, y, 600, ROW), tr("Sin peleas todavía."), _font(17), MUTED)
         return y + ROW
     for i, run in enumerate(d.runs, 1):
         rect = QRectF(PAD, y, WIDTH - 2 * PAD, ROW - 4)
@@ -267,7 +267,7 @@ def _runs(p, d, y):
         best = max(totals.values(), key=lambda t: t.damage / max(1, t.seconds), default=None)
         mvp = session_scores(run.fights, d.ctl.settings.get("dps_boss_only", True))
         bosses = run.bosses()
-        boss_text = ", ".join(f"{name}{' ✓' if killed else ''}" for name, killed in bosses) or "sin jefes"
+        boss_text = ", ".join(f"{name}{' ✓' if killed else ''}" for name, killed in bosses) or tr("sin jefes")
         values = [str(i), run.place,
                   time.strftime("%H:%M", time.localtime(run.start)) + "–" + time.strftime("%H:%M",
                                                                                            time.localtime(run.end)),
@@ -276,7 +276,7 @@ def _runs(p, d, y):
                   mvp[0].name if mvp else "—"]
         for (title, _, align), x, w, value in zip(RUN_COLUMNS, xs, widths, values):
             font = _font(17, QFont.Bold) if title in ("Run", "MVP") else _font(16)
-            color = GOLD if title == "MVP" else GREEN if title == "Jefes" and bosses and all(k for _, k in bosses) \
+            color = GOLD if title == "MVP" else GREEN if title == tr("Jefes") and bosses and all(k for _, k in bosses) \
                 else TEXT
             text = QFontMetrics(font).elidedText(value, Qt.ElideRight, int(w - 10))
             _text(p, QRectF(x, rect.top(), w - 8, rect.height()), text, font, color,
@@ -288,5 +288,5 @@ def _runs(p, d, y):
 class SessionReportDialog(ImageDialog):
     def __init__(self, ctl, session, parent=None):
         image = render_session(ctl, session)
-        name = f"sesion-{_slug(session['name'])}-{time.strftime('%Y%m%d-%H%M', time.localtime(session['start']))}.png"
-        super().__init__(image, name, "Informe de sesión", parent)
+        name = tr("sesion-{0}-{1}.png", _slug(session['name']), time.strftime('%Y%m%d-%H%M', time.localtime(session['start'])))
+        super().__init__(image, name, tr("Informe de sesión"), parent)

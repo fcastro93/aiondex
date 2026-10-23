@@ -16,6 +16,7 @@ from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass, field
 
 from .skills import REJECT_TOO_SOON, base_skill, is_basic_attack
+from .i18n import tr
 
 IDLE_GAP = 1.5          # seconds without any cast while fighting counted as an idle gap
 LOW_MP_SHARE = 0.15     # below this share of max MP you are out of mana: that time is left out of the measurements
@@ -48,9 +49,9 @@ class MacroEvent:
     ms: int = 0                 # length of a wait
 
 
-ROLES = {"macro": "Tecla de Macro del juego (K → Macro)", "click": "Ataque normal (ranura del ratón)",
-         "other": "Otra cosa"}
-GENERIC_KEY = {"macro": "tu tecla de Macro", "click": "tu tecla de ataque normal"}
+ROLES = {"macro": tr("Tecla de Macro del juego (K → Macro)"), "click": tr("Ataque normal (ranura del ratón)"),
+         "other": tr("Otra cosa")}
+GENERIC_KEY = {"macro": tr("tu tecla de Macro"), "click": tr("tu tecla de ataque normal")}
 MOUSE_WORDS = ("clic", "click", "botón", "button", "mouse", "ratón")
 OLD_KEYS = {"click_izq": "Clic izquierdo", "click_der": "Clic derecho", "macro": "Tecla del macro", "otra": "Otra tecla"}
 
@@ -68,7 +69,8 @@ def guess_role(key):
 
 # The game's key bindings that matter for the macros (Esc → Settings → Keys), two keys each like the game shows:
 # "Macro" (Gameplay) and "Skill Quickslot: Quick Use 1", which is the bar's mouse slot (the left click by default).
-BINDINGS = {"macro": "Macro (Gameplay)", "click": "Ataque normal — Skill Quickslot: Quick Use 1 (ranura del ratón)"}
+BINDINGS = {"macro": "Macro (Gameplay)", "click": tr("Ataque normal — Skill Quickslot: Quick Use 1 (ranura del "
+                                                     "ratón)")}
 DEFAULT_BINDINGS = {"macro": ["", ""], "click": ["Clic izquierdo", ""]}
 
 
@@ -333,7 +335,7 @@ def analyze(session, setup, name=lambda sid: f"#{sid}", click_skills=()):
     uses_click = any(step.key == "click_izq" for step in setup.external)
     uses_macro = any(step.key == "macro" for step in setup.external)
     basic = {s for s in fired | rejected if is_basic_attack(s)} | set(click_skills)
-    click = " / ".join(name(s) for s in click_skills) or "el ataque básico"
+    click = " / ".join(name(s) for s in click_skills) or tr("el ataque básico")
 
     # per-skill comparison ------------------------------------------------------------------------
     rows = {}
@@ -344,13 +346,13 @@ def analyze(session, setup, name=lambda sid: f"#{sid}", click_skills=()):
             last = session.prior.get(s)
             ready_from = last[0] + last[1] / 1000 if last else windows[0][0]
             possible, ready_s = cooldown_usage([ts for ts, x in accepted if x == s], cd_s, windows, ready_from)
-        where = f"Paso {step_of[s]}" if s in step_of else ("Ataque normal" if s in basic and uses_click else "")
+        where = tr("Paso {0}", step_of[s]) if s in step_of else (tr("Ataque normal") if s in basic and uses_click else "")
         rows[s] = SkillRow(s, fired[s], rejected[s], possible, ready_s, where)
 
     findings = []
     if len(accepted) < 10:
-        findings.append(Finding("warn", "La prueba tiene muy pocos lanzamientos para sacar conclusiones.",
-                                "Pelea al menos 30 segundos manteniendo tus macros como siempre."))
+        findings.append(Finding("warn", tr("La prueba tiene muy pocos lanzamientos para sacar conclusiones."),
+                                tr("Pelea al menos 30 segundos manteniendo tus macros como siempre.")))
 
     # 1. external macro pressing the basic attack and the in-game macro key: does each part fire?
     macro_skills = set(step_of)
@@ -359,20 +361,19 @@ def analyze(session, setup, name=lambda sid: f"#{sid}", click_skills=()):
         n_macro = sum(fired[s] for s in macro_skills)
         attack_key, macro_key = setup.key_name("click"), setup.key_name("macro")
         if n_basic == 0 or (macro_skills and n_macro == 0):
-            missing = (f"lo de {attack_key} ({click})" if n_basic == 0 else
-                       f"ninguna habilidad del macro del juego ({macro_key})")
+            missing = (tr("lo de {0} ({1})", attack_key, click) if n_basic == 0 else
+                       tr("ninguna habilidad del macro del juego ({0})", macro_key))
             findings.append(Finding(
-                "bad", f"Tu macro externo pulsa {attack_key} y {macro_key}, pero no salió {missing}.",
+                "bad", tr("Tu macro externo pulsa {0} y {1}, pero no salió {2}.", attack_key, macro_key, missing),
                 _external_conflict_advice(setup, presses)))
         elif macro_skills and min(n_basic, n_macro) / max(n_basic, n_macro) < 0.5:
             # each cycle presses both once: if both landed, both counts would be close
-            weak = f"lo de {attack_key} ({click})" if n_basic < n_macro else f"el macro del juego ({macro_key})"
+            weak = tr("lo de {0} ({1})", attack_key, click) if n_basic < n_macro else tr("el macro del juego ({0})", macro_key)
             ratio = min(n_basic, n_macro) / max(n_basic, n_macro)
             findings.append(Finding(
                 "bad" if ratio < 0.25 else "warn",
-                f"Tu macro externo pulsa {attack_key} y {macro_key} en cada ciclo, pero {weak} sale mucho menos: "
-                f"{n_basic} de {attack_key} y {n_macro} de {macro_key} (~{abs(n_basic - n_macro)} pulsaciones que no "
-                f"llegaron a lanzarse).",
+                tr("Tu macro externo pulsa {0} y {1} en cada ciclo, pero {2} sale mucho menos: {3} de {4} y {5} de "
+                   "{6} (~{7} pulsaciones que no llegaron a lanzarse).", attack_key, macro_key, weak, n_basic, attack_key, n_macro, macro_key, abs(n_basic - n_macro)),
                 _external_conflict_advice(setup, presses)))
 
     # 2. only the first step of the in-game macro runs (the macro restarts every time its key is pressed again)
@@ -388,17 +389,17 @@ def analyze(session, setup, name=lambda sid: f"#{sid}", click_skills=()):
             steps = ", ".join(str(i) for i in starved)
             skills = ", ".join(name(s) for s in lines[starved[0] - 1].skills)
             findings.insert(0, Finding(
-                "bad", f"Tu macro del juego casi nunca llega al paso {steps}: el paso 1 se lanzó {per_step[0]} veces "
-                       f"y el {starved[0]} ({skills}) solo {per_step[starved[0] - 1]}.",
+                "bad", tr("Tu macro del juego casi nunca llega al paso {0}: el paso 1 se lanzó {1} veces y el {2} "
+                          "({3}) solo {4}.", steps, per_step[0], starved[0], skills, per_step[starved[0] - 1]),
                 _restart_advice(setup, starved)))
 
     # 3. macro skills that never fired (not the ones of a step the macro never reaches: finding 2 covers them)
     for s in step_of:
         if fired[s] == 0 and s not in starved_skills:
             if rejected[s]:
-                text = f"{name(s)} está en tu macro del juego: se pulsó {rejected[s]} veces y el juego la rechazó siempre."
+                text = tr("{0} está en tu macro del juego: se pulsó {1} veces y el juego la rechazó siempre.", name(s), rejected[s])
             else:
-                text = f"{name(s)} está en tu macro del juego pero no se lanzó nunca."
+                text = tr("{0} está en tu macro del juego pero no se lanzó nunca.", name(s))
             findings.append(Finding("bad", text, _never_fired_advice(s, setup, fired, name)))
 
     # 4. macro skills that sat ready (fired far below what their cooldown allows): what took their turn?
@@ -413,8 +414,7 @@ def analyze(session, setup, name=lambda sid: f"#{sid}", click_skills=()):
             busy = _fired_while_ready(s, cd_s, accepted, windows, last[0] + last[1] / 1000 if last else windows[0][0])
             took = ", ".join(f"{name(x)} ×{n}" for x, n in busy.most_common(2))
             findings.append(Finding(
-                level, f"{name(s)} se lanzó {row.fired} de ~{row.possible} veces posibles; estuvo lista "
-                       f"{row.ready_s:.0f} s sin usarse" + (f" mientras salían {took}." if took else "."),
+                level, tr("{0} se lanzó {1} de ~{2} veces posibles; estuvo lista {3:.0f} s sin usarse", name(s), row.fired, row.possible, row.ready_s) + (tr(" mientras salían {0}.", took) if took else "."),
                 _ready_advice(s, setup, busy, step_of, cooldowns, name, basic)))
 
     # 5. priority: a lower skill of a line fired while a higher one of the same line was ready
@@ -423,11 +423,10 @@ def analyze(session, setup, name=lambda sid: f"#{sid}", click_skills=()):
         for (high, low), n in masked.items():
             if n >= 3 and n >= 0.2 * fired[low]:
                 findings.append(Finding(
-                    "warn", f"Paso {i}: {n} veces se lanzó {name(low)} aunque {name(high)}, que tiene más prioridad, "
-                            f"estaba lista.",
-                    f"Puede que {name(high)} pida una condición (distancia, objetivo, un combo o buff previo) o que "
-                    f"el paso se pulse antes de que el juego actualice su recarga. Si debería salir antes, ponla en su "
-                    f"propio paso o sube {line.delay_ms + 20} ms el retraso de este."))
+                    "warn", tr("Paso {0}: {1} veces se lanzó {2} aunque {3}, que tiene más prioridad, estaba lista.", i, n, name(low), name(high)),
+                    tr("Puede que {0} pida una condición (distancia, objetivo, un combo o buff previo) o que el "
+                       "paso se pulse antes de que el juego actualice su recarga. Si debería salir antes, ponla en "
+                       "su propio paso o sube {1} ms el retraso de este.", name(high), line.delay_ms + 20)))
 
     # 6. presses the game rejected
     n_rej = sum(rejected.values())
@@ -440,18 +439,18 @@ def analyze(session, setup, name=lambda sid: f"#{sid}", click_skills=()):
     idle = sum(1 for g in gaps if g > IDLE_GAP)
     median_ms = statistics.median(gaps) * 1000 if gaps else None
     if idle >= 3:
-        findings.append(Finding("warn", f"{idle} veces pasaron más de {IDLE_GAP:.1f} s sin lanzar nada mientras "
-                                        f"peleabas.",
-                                "Si estabas pegando a un objetivo todo el rato con el macro pulsado, se quedó atascado: "
-                                "alguna habilidad pide una condición (posición, objetivo, buff) que no se cumple, o el "
-                                "macro externo soltó la tecla. Si te movías entre enemigos, ignóralo."))
+        findings.append(Finding("warn", tr("{0} veces pasaron más de {1:.1f} s sin lanzar nada mientras peleabas.", idle, IDLE_GAP),
+                                tr("Si estabas pegando a un objetivo todo el rato con el macro pulsado, se quedó "
+                                   "atascado: alguna habilidad pide una condición (posición, objetivo, buff) que no "
+                                   "se cumple, o el macro externo soltó la tecla. Si te movías entre enemigos, "
+                                   "ignóralo.")))
     if not setup.skill_queue:
-        findings.append(Finding("warn", "Tienes la cola de habilidades (Skill Queue) desactivada.",
-                                "Casi todas las guías la recomiendan activada: el juego guarda la siguiente "
-                                "habilidad mientras termina la animación y se pierden menos pulsaciones."))
+        findings.append(Finding("warn", tr("Tienes la cola de habilidades (Skill Queue) desactivada."),
+                                tr("Casi todas las guías la recomiendan activada: el juego guarda la siguiente "
+                                   "habilidad mientras termina la animación y se pierden menos pulsaciones.")))
     if not findings:
-        findings.append(Finding("ok", "Todo lo que esperaban tus macros se está lanzando.",
-                                "Si quieres más ritmo, prueba a bajar un retraso 10 ms y repite la prueba."))
+        findings.append(Finding("ok", tr("Todo lo que esperaban tus macros se está lanzando."),
+                                tr("Si quieres más ritmo, prueba a bajar un retraso 10 ms y repite la prueba.")))
     findings.sort(key=lambda f: {"bad": 0, "warn": 1, "ok": 2}[f.level])
     ping = statistics.median(session.rtts) if len(session.rtts) >= 3 else None
     n_click = sum(fired[s] for s in basic)
@@ -539,26 +538,23 @@ def _mana_finding(mana, step_of, attack, name):
     runs_out = mana.low_share > 0.1 or (mana.seconds_to_empty is not None and mana.seconds_to_empty < 90)
     if not runs_out:
         return None
-    text = (f"Te quedas sin maná: gastas {mana.spent_per_min:.0f} MP por minuto y recuperas "
-            f"{mana.gained_per_min:.0f}")
+    text = (tr("Te quedas sin maná: gastas {0:.0f} MP por minuto y recuperas {1:.0f}", mana.spent_per_min, mana.gained_per_min))
     if mana.seconds_to_empty is not None:
-        text += f"; con el maná lleno ({mana.max_mp}) aguantas unos {mana.seconds_to_empty:.0f} s"
+        text += tr("; con el maná lleno ({0}) aguantas unos {1:.0f} s", mana.max_mp, mana.seconds_to_empty)
     if mana.low_share > 0.05:
-        text += f"; pasaste el {100 * mana.low_share:.0f}% de la pelea sin maná"
+        text += tr("; pasaste el {0:.0f}% de la pelea sin maná", 100 * mana.low_share)
     spenders = [r for r in mana.skills if r[1] > 0 and r[0] in step_of and r[2] > 0]
     restorers = [r for r in mana.skills if r[1] < 0]
     advice = ""
     if spenders:
         with_damage = [r for r in spenders if r[4] is not None]
         worst = min(with_damage, key=lambda r: r[4]) if with_damage else max(spenders, key=lambda r: r[3])
-        advice = (f"{name(worst[0])} (paso {step_of[worst[0]]}) gasta {worst[1]} MP y sale {worst[2]:.1f} veces por "
-                  f"minuto: {worst[3]:.0f} MP/min"
-                  + (f", con solo {worst[4]:.1f} de daño por MP" if worst[4] is not None else "") +
-                  ". Bájala de prioridad o sácala del macro")
+        advice = (tr("{0} (paso {1}) gasta {2} MP y sale {3:.1f} veces por minuto: {4:.0f} MP/min", name(worst[0]), step_of[worst[0]], worst[1], worst[2], worst[3])
+                  + (tr(", con solo {0:.1f} de daño por MP", worst[4]) if worst[4] is not None else "") +
+                  tr(". Bájala de prioridad o sácala del macro"))
         restorer = max((r for r in restorers if r[0] in attack), key=lambda r: r[2], default=None) or             max(restorers, key=lambda r: r[2], default=None)
         if restorer:
-            advice += (f", y deja que {name(restorer[0])} haga de relleno: recupera {-restorer[1]} MP cada vez que "
-                       f"sale")
+            advice += (tr(", y deja que {0} haga de relleno: recupera {1} MP cada vez que sale", name(restorer[0]), -restorer[1]))
         advice += "."
     return Finding("bad" if mana.low_share > 0.25 else "warn", text + ".", advice)
 
@@ -619,8 +615,8 @@ def calibration_run(value, report, setup):
     fired = {row.skill for row in report.rows if row.fired}
     missing = [i for i, line in enumerate(setup.ingame, 1) if line.skills and not fired & set(line.skills)]
     minutes = report.fight_s / 60 if report.fight_s else 0
-    attack = sum(row.fired for row in report.rows if row.where == "Ataque normal")
-    macro = sum(row.fired for row in report.rows if row.where.startswith("Paso"))
+    attack = sum(row.fired for row in report.rows if row.where == tr("Ataque normal"))
+    macro = sum(row.fired for row in report.rows if row.where.startswith(tr("Paso {0}", "")))
     return CalibrationRun(value, report.fight_s, report.dps, report.casts_per_s,
                           report.rejected / presses if presses else 0.0, report.click_share, missing,
                           attack / minutes if minutes else 0.0, macro / minutes if minutes else 0.0)
@@ -632,11 +628,11 @@ def setup_label(setup):
     if setup.ingame:
         parts.append("macro " + "/".join(str(line.delay_ms) for line in setup.ingame))
     if len(setup.keys()) >= 2:
-        parts.append(f"espera {setup.main_gap()}")
+        parts.append(tr("espera {0}", setup.main_gap()))
     key, hold = setup.key_for("macro"), setup.hold_of("macro")
     if key and hold is not None:
         parts.append(f"{key} {hold}")
-    return " · ".join(parts) or "sin macro"
+    return " · ".join(parts) or tr("sin macro")
 
 
 def test_summary(report, setup):
@@ -652,15 +648,15 @@ def test_summary(report, setup):
 def run_problem(run):
     """Why a run cannot be recommended ("" if it can)."""
     if run.fight_s < CALIBRATION_SECONDS * 0.6:
-        return "prueba corta"
+        return tr("prueba corta")
     if run.missing:
-        return "sin paso " + ", ".join(map(str, run.missing))
+        return tr("sin paso ") + ", ".join(map(str, run.missing))
     if run.rejected > REJECT_LIMIT:
         return f"{100 * run.rejected:.0f}% rechazos"
     if run.click_share is not None and run.click_share < CLICK_SHARE_MIN:
-        return "ataque casi no sale"
+        return tr("ataque casi no sale")
     if run.click_share is not None and run.click_share > 1 - CLICK_SHARE_MIN:
-        return "macro casi no sale"
+        return tr("macro casi no sale")
     return ""
 
 
@@ -687,19 +683,18 @@ def recommend(runs, noise=CAST_TIE):
     if bad:
         excluded = " Descartados: " + "; ".join(f"{r.value} ms ({run_problem(r)})" for r in bad) + "."
     if not valid:
-        return None, ("Con ninguno de los valores salió todo bien." + excluded +
-                      " Repite la calibración: probará valores más altos.")
+        return None, (tr("Con ninguno de los valores salió todo bien.") + excluded +
+                      tr(" Repite la calibración: probará valores más altos."))
     top = max(r.casts_per_s for r in valid)
     best = min((r for r in valid if r.casts_per_s >= top * (1 - noise)), key=lambda r: r.value)
-    reason = (f"con {best.value} ms salieron {best.casts_per_s:.2f} habilidades por segundo sin perder "
-              f"pulsaciones")
+    reason = (tr("con {0} ms salieron {1:.2f} habilidades por segundo sin perder pulsaciones", best.value, best.casts_per_s))
     slowest = min(valid, key=lambda r: r.casts_per_s)
     gain = best.casts_per_s / slowest.casts_per_s - 1 if slowest.casts_per_s else 0
     if slowest is not best and gain >= noise:
-        reason += f" ({100 * gain:.0f}% más que con {slowest.value} ms)"
+        reason += tr(" ({0:.0f}% más que con {1} ms)", 100 * gain, slowest.value)
     elif len(valid) > 1:
-        reason += (f"; los demás valores válidos rinden igual dentro del margen de azar (±{100 * noise:.0f}%), así "
-                   f"que conviene el más bajo")
+        reason += (tr("; los demás valores válidos rinden igual dentro del margen de azar (±{0:.0f}%), así que "
+                      "conviene el más bajo", 100 * noise))
     return best, reason + "." + excluded
 
 
@@ -728,14 +723,15 @@ def _rejections_finding(presses, n_rej, rejected, name, setup):
         elif r == REJECT_TOO_SOON and last_ok is not None:
             soon.append(ts - last_ok)
     worst = ", ".join(name(s) for s, _ in rejected.most_common(3))
-    text = f"El juego rechazó {n_rej} de tus {len(presses)} pulsaciones ({100 * n_rej / len(presses):.0f} %), sobre todo {worst}."
+    text = tr("El juego rechazó {0} de tus {1} pulsaciones ({2:.0f} %), sobre todo {3}.", n_rej, len(presses), 100 * n_rej / len(presses), worst)
     if len(soon) >= 0.5 * n_rej:
-        advice = (f"Llegaron mientras aún se ejecutaba la habilidad anterior (a unos "
-                  f"{1000 * statistics.median(soon):.0f} ms de ella). Sube 10–20 ms el retraso de esos pasos")
-        advice += "." if setup.skill_queue else " y activa la cola de habilidades, que las guarda en vez de descartarlas."
+        advice = (tr("Llegaron mientras aún se ejecutaba la habilidad anterior (a unos {0:.0f} ms de ella). Sube "
+                     "10–20 ms el retraso de esos pasos", 1000 * statistics.median(soon)))
+        advice += "." if setup.skill_queue else tr(" y activa la cola de habilidades, que las guarda en vez de "
+                                                   "descartarlas.")
     else:
-        advice = ("Suelen ser habilidades que no cumplen su condición (objetivo, distancia, recurso). Si las pulsa el "
-                  "macro, bájalas de prioridad para que no ocupen el turno de otra.")
+        advice = (tr("Suelen ser habilidades que no cumplen su condición (objetivo, distancia, recurso). Si las "
+                     "pulsa el macro, bájalas de prioridad para que no ocupen el turno de otra."))
     return Finding("warn", text, advice)
 
 
@@ -745,10 +741,10 @@ def _never_fired_advice(sid, setup, fired, name):
         above = line.skills[:line.skills.index(sid)]
         busy = [s for s in above if fired[s]]
         who = ", ".join(name(s) for s in busy or above)
-        return (f"En su paso tiene por encima a {who}, que estaba disponible cada vez y se lleva el turno. Ponla "
-                f"antes en la prioridad o muévela a su propio paso.")
-    return ("Comprueba que no esté en recarga larga ni pida recursos o una condición (posición, objetivo, buff). Si "
-            "debería salir, súbele 20 ms el retraso a ese paso.")
+        return (tr("En su paso tiene por encima a {0}, que estaba disponible cada vez y se lleva el turno. Ponla "
+                   "antes en la prioridad o muévela a su propio paso.", who))
+    return (tr("Comprueba que no esté en recarga larga ni pida recursos o una condición (posición, objetivo, buff). "
+               "Si debería salir, súbele 20 ms el retraso a ese paso."))
 
 
 def _fired_while_ready(sid, cooldown_s, accepted, windows, ready_from):
@@ -769,32 +765,32 @@ def _ready_advice(sid, setup, busy, step_of, cooldowns, name, click=frozenset())
     idx = line.skills.index(sid)
     top = busy.most_common(1)[0][0] if busy else None
     if top is None:
-        return (f"Es la primera del paso {step}: si estuvo lista tanto tiempo, el macro no se estaba ejecutando. "
-                f"¿Mantienes la tecla del macro todo el rato?")
+        return (tr("Es la primera del paso {0}: si estuvo lista tanto tiempo, el macro no se estaba ejecutando. "
+                   "¿Mantienes la tecla del macro todo el rato?", step))
     if top in line.skills and line.skills.index(top) < idx:
         filler = not cooldowns.get(top) or statistics.median(cooldowns[top]) < MIN_COOLDOWN * 1000
         if filler:
-            return (f"{name(top)} está por encima en el mismo paso y casi no tiene recarga, así que le quita el "
-                    f"turno. Pon {name(sid)} primero: el juego la salta sola mientras está en recarga.")
-        return (f"En su paso tiene por encima a {name(top)}: cuando coinciden listas, gana la de más arriba. Si "
-                f"{name(sid)} es más importante, súbela de prioridad.")
+            return (tr("{0} está por encima en el mismo paso y casi no tiene recarga, así que le quita el turno. "
+                       "Pon {1} primero: el juego la salta sola mientras está en recarga.", name(top), name(sid)))
+        return (tr("En su paso tiene por encima a {0}: cuando coinciden listas, gana la de más arriba. Si {1} es "
+                   "más importante, súbela de prioridad.", name(top), name(sid)))
     if top in line.skills:
-        return (f"El juego eligió {name(top)}, que está por debajo en el mismo paso, así que {name(sid)} no se podía "
-                f"usar en ese momento: suele ser una condición (distancia, objetivo, un combo o buff previo) o que el "
-                f"paso se pulsa antes de que el juego actualice su recarga. Prueba a subir 10–20 ms el retraso.")
+        return (tr("El juego eligió {0}, que está por debajo en el mismo paso, así que {1} no se podía usar en ese "
+                   "momento: suele ser una condición (distancia, objetivo, un combo o buff previo) o que el paso se "
+                   "pulsa antes de que el juego actualice su recarga. Prueba a subir 10–20 ms el retraso.", name(top), name(sid)))
     if is_basic_attack(top) or top in click:
         if any(step.key == "click_izq" for step in setup.external):
-            return (f"Tu ataque normal ({name(top)}) se llevaba el turno. Si tu macro externo pulsa el ataque y la "
-                    f"tecla del macro casi a la vez, el juego se queda solo con una: deja 20–40 ms entre las dos y "
-                    f"mantén la tecla del macro pulsada en vez de repetirla.")
-        return (f"Tu clic ({name(top)}) se llevaba el turno: mientras haces clic, el macro no lanza {name(sid)}. Mantén la "
-                f"tecla del macro a la vez que el clic, o deja de hacer clic cuando {name(sid)} esté lista.")
+            return (tr("Tu ataque normal ({0}) se llevaba el turno. Si tu macro externo pulsa el ataque y la tecla "
+                       "del macro casi a la vez, el juego se queda solo con una: deja 20–40 ms entre las dos y "
+                       "mantén la tecla del macro pulsada en vez de repetirla.", name(top)))
+        return (tr("Tu clic ({0}) se llevaba el turno: mientras haces clic, el macro no lanza {1}. Mantén la tecla "
+                   "del macro a la vez que el clic, o deja de hacer clic cuando {2} esté lista.", name(top), name(sid), name(sid)))
     if top in step_of:
-        return (f"El macro estaba lanzando {name(top)} (paso {step_of[top]}). Pon {name(sid)} en ese mismo paso, por "
-                f"encima de {name(top)}: así sale en cuanto está lista y el resto del tiempo sigue {name(top)}.")
-    return (f"{name(top)} no está en tu macro del juego: mientras la lanzabas (a mano o con el macro externo) el macro "
-            f"no usaba {name(sid)}. Si quieres que salga sola, mete {name(top)} al final de un paso del macro en vez "
-            f"de pulsarla aparte.")
+        return (tr("El macro estaba lanzando {0} (paso {1}). Pon {2} en ese mismo paso, por encima de {3}: así sale "
+                   "en cuanto está lista y el resto del tiempo sigue {4}.", name(top), step_of[top], name(sid), name(top), name(top)))
+    return (tr("{0} no está en tu macro del juego: mientras la lanzabas (a mano o con el macro externo) el macro no "
+               "usaba {1}. Si quieres que salga sola, mete {2} al final de un paso del macro en vez de pulsarla "
+               "aparte.", name(top), name(sid), name(top)))
 
 
 def _restart_advice(setup, starved=()):
@@ -802,24 +798,25 @@ def _restart_advice(setup, starved=()):
     hold = setup.hold_of("macro")
     if key and hold is not None and setup.external_repeat:
         need = hold_needed(setup, max(starved) if starved else None)
-        return (f"Tu macro externo pulsa {key} y la suelta a los {hold} ms; cada vez que la vuelve a pulsar, el macro "
-                f"del juego empieza otra vez desde el paso 1, y en {hold} ms no le da tiempo a llegar al siguiente "
-                f"(con tus retrasos necesita unos {need} ms). Usa «Calibrar retrasos → Cuánto mantener {key}» para "
-                f"medir el valor exacto, o haz que {key} se quede pulsada mientras mantienes el botón y repite solo "
-                f"el clic.")
-    return ("Mantén la tecla del macro pulsada sin soltarla: al soltarla, el macro del juego se detiene y al volver "
-            "a pulsar empieza desde el paso 1. Si el paso 1 tiene una habilidad sin recarga, ponla al final.")
+        return (tr("Tu macro externo pulsa {0} y la suelta a los {1} ms; cada vez que la vuelve a pulsar, el macro "
+                   "del juego empieza otra vez desde el paso 1, y en {2} ms no le da tiempo a llegar al siguiente "
+                   "(con tus retrasos necesita unos {3} ms). Usa «Calibrar retrasos → Cuánto mantener {4}» para "
+                   "medir el valor exacto, o haz que {5} se quede pulsada mientras mantienes el botón y repite solo "
+                   "el clic.", key, hold, hold, need, key, key))
+    return (tr("Mantén la tecla del macro pulsada sin soltarla: al soltarla, el macro del juego se detiene y al "
+               "volver a pulsar empieza desde el paso 1. Si el paso 1 tiene una habilidad sin recarga, ponla al "
+               "final."))
 
 
 def _external_conflict_advice(setup, presses):
     tips = []
     soon = sum(1 for _, s, r in presses if r == REJECT_TOO_SOON)
     if soon:
-        tips.append(f"El juego rechazó {soon} pulsaciones por llegar mientras aún se ejecutaba la anterior.")
+        tips.append(tr("El juego rechazó {0} pulsaciones por llegar mientras aún se ejecutaba la anterior.", soon))
     attack_key, macro_key = setup.key_name("click"), setup.key_name("macro")
-    tips += [f"Cuánto mantienes {macro_key} y {attack_key} y la espera entre ellas deciden cuál sale: usa «¿Cuántos ms "
-             f"poner? Calibrar retrasos» y AionDex medirá los valores exactos para tu ping y tus habilidades.",
-             "Mantén cada pulsación al menos 20–35 ms (pulsar y soltar en 1 ms a veces no se registra)."]
+    tips += [tr("Cuánto mantienes {0} y {1} y la espera entre ellas deciden cuál sale: usa «¿Cuántos ms poner? "
+                "Calibrar retrasos» y AionDex medirá los valores exactos para tu ping y tus habilidades.", macro_key, attack_key),
+             tr("Mantén cada pulsación al menos 20–35 ms (pulsar y soltar en 1 ms a veces no se registra).")]
     if not setup.skill_queue:
-        tips.append(f"Activa la cola de habilidades: sin ella, {attack_key} y {macro_key} compiten por el mismo hueco.")
+        tips.append(tr("Activa la cola de habilidades: sin ella, {0} y {1} compiten por el mismo hueco.", attack_key, macro_key))
     return " ".join(tips)

@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (QCheckBox, QGraphicsEllipseItem, QGraphicsItem, Q
 from ..mapdata import MAP_NAMES
 from . import theme
 from .tiles import MAX_ZOOM
+from ..i18n import tr
 
 WORLD = 256.0 * 2 ** MAX_ZOOM   # scene units: normalized map coords * WORLD
 BASE_ZOOM = 2                   # always-loaded low-res layer so the map never shows holes
@@ -106,7 +107,7 @@ class YouMarker(QGraphicsItem):
         p.setBrush(YOU if self.fresh else QColor(YOU.red(), YOU.green(), YOU.blue(), 120))
         p.drawEllipse(QPointF(0, 0), self.R, self.R)
         path = QPainterPath()
-        path.addText(QPointF(self.R + 6, 4), self.font, "Tú")
+        path.addText(QPointF(self.R + 6, 4), self.font, tr("Tú"))
         p.setPen(QPen(QColor(5, 10, 20, 230), 3.2))
         p.setBrush(Qt.NoBrush)
         p.drawPath(path)
@@ -143,7 +144,7 @@ class MapView(QGraphicsView):
         self.follow = False              # "Dónde estoy" keeps the map on you until you drag it
         self._away = None                # (map name, callback): you are on another map the window can show
         self._pulse = QTimer(self, interval=50, timeout=self._pulse_tick)
-        self.locate = QPushButton("◎  Dónde estoy", self)
+        self.locate = QPushButton(tr("◎  Dónde estoy"), self)
         self.locate.setCursor(Qt.PointingHandCursor)
         self.locate.setStyleSheet(
             f"QPushButton {{ background: rgba(11,18,34,225); color: {theme.TEXT.name()}; border: 1px solid "
@@ -151,12 +152,12 @@ class MapView(QGraphicsView):
             f"QPushButton:hover {{ background: rgba(40,20,48,235); }}")
         self.locate.clicked.connect(self._locate_clicked)
         self.locate.hide()
-        self.me_box = QCheckBox("Mostrar mi ubicación", self)
+        self.me_box = QCheckBox(tr("Mostrar mi ubicación"), self)
         self.me_box.setChecked(True)
         self.me_box.setCursor(Qt.PointingHandCursor)
-        self.me_box.setToolTip("Lee del juego dónde estás (sus mensajes y el minimapa) mientras el mapa está abierto y "
-                               "te pone en el mapa. Desmárcalo y no se lee (la ruta sobre el minimapa y el Modo Focus "
-                               "lo siguen leyendo si están puestos).")
+        self.me_box.setToolTip(tr("Lee del juego dónde estás (sus mensajes y el minimapa) mientras el mapa está "
+                                  "abierto y te pone en el mapa. Desmárcalo y no se lee (la ruta sobre el minimapa "
+                                  "y el Modo Focus lo siguen leyendo si están puestos)."))
         self.me_box.setStyleSheet(
             f"QCheckBox {{ background: rgba(11,18,34,225); color: {theme.TEXT.name()}; border: 1px solid "
             f"{YOU.name()}; border-radius: 8px; padding: 5px 10px; font-weight: 600; }} "
@@ -265,7 +266,7 @@ class MapView(QGraphicsView):
         if self.follow and event.button() == Qt.LeftButton:     # dragging the map: stop following
             self.follow = False
             if self.you_point is not None:
-                self.locate.setText("◎  Dónde estoy")
+                self.locate.setText(tr("◎  Dónde estoy"))
                 self.locate.adjustSize()
                 self._place_locate()
         super().mousePressEvent(event)
@@ -320,11 +321,11 @@ class MapView(QGraphicsView):
                 self._pulse.start()
             elif not fresh:
                 self._pulse.stop()
-        self.locate.setText(("◉  Siguiéndote" if self.follow else "◎  Dónde estoy") if point else
-                            f"◎  Estás en {away[0]}" if away else "")
-        self.locate.setToolTip((tip + ("\nArrastra el mapa para dejar de seguirte." if self.follow else
-                                       "\nClic: centrar el mapa en ti y seguirte.")) if point else
-                               "Ver ese mapa" if away else "")
+        self.locate.setText((tr("◉  Siguiéndote") if self.follow else tr("◎  Dónde estoy")) if point else
+                            tr("◎  Estás en {0}", away[0]) if away else "")
+        self.locate.setToolTip((tip + (tr("\nArrastra el mapa para dejar de seguirte.") if self.follow else
+                                       tr("\nClic: centrar el mapa en ti y seguirte."))) if point else
+                               tr("Ver ese mapa") if away else "")
         self.locate.setVisible(bool(point or away))
         self.locate.adjustSize()
         self._place_locate()
@@ -340,7 +341,7 @@ class MapView(QGraphicsView):
             return
         x, y = self.you_point
         self.follow = True
-        self.locate.setText("◉  Siguiéndote")
+        self.locate.setText(tr("◉  Siguiéndote"))
         self.locate.adjustSize()
         self._place_locate()
         shown = self.mapToScene(self.viewport().rect()).boundingRect()
@@ -373,9 +374,9 @@ def show_you(view, ctl, map_id, tab_maps, go_to_tab):
         view.set_you(None)
         return
     spot, u, v, age, exact, source = here
-    when = "ahora" if age < FRESH else f"hace {age:.0f} s" if age < 90 else f"hace {age / 60:.0f} min"
-    how = "del minimapa" if source == "minimapa" else "exacta" if exact else "aprox."
-    tip = f"Tú estás aquí ({when}, {how})"
+    when = tr("ahora") if age < FRESH else tr("hace {0:.0f} s", age) if age < 90 else tr("hace {0:.0f} min", age / 60)
+    how = tr("del minimapa") if source == "minimapa" else "exacta" if exact else "aprox."
+    tip = tr("Tú estás aquí ({0}, {1})", when, how)
     status = getattr(ctl, "minimap_status", lambda: "")()
     if status:
         tip += "\n" + status

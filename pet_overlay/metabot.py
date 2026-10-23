@@ -13,6 +13,7 @@ import re
 import time
 import urllib.error
 import urllib.request
+from .i18n import tr
 
 BASE = "https://metabot.gg"
 UA = "Mozilla/5.0 (aion2-pet-overlay; personal use)"
@@ -39,7 +40,7 @@ def fetch(path, retries=3):
             time.sleep(2 * (attempt + 1))
         except urllib.error.URLError:
             time.sleep(2 * (attempt + 1))
-    raise RuntimeError(f"no se pudo descargar {url}")
+    raise RuntimeError(tr("no se pudo descargar {0}", url))
 
 
 def faction_of_map(map_id):

@@ -11,6 +11,7 @@ from pathlib import Path
 from PIL import Image
 
 from . import metabot
+from .i18n import tr
 
 ICON_PX = 64
 SKILL_ICON_PX = 96
@@ -35,10 +36,10 @@ def run(data_dir, refresh=False, report=None):
         path.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
         return value
 
-    report("Lista de pets", 0, 1)
+    report(tr("Lista de pets"), 0, 1)
     pets = metabot.parse_pet_list(metabot.fetch("/en/aion-2/mounts").decode("utf-8"))
     if len(pets) < 100:
-        raise RuntimeError(f"Solo se encontraron {len(pets)} pets: el formato de la página cambió")
+        raise RuntimeError(tr("Solo se encontraron {0} pets: el formato de la página cambió", len(pets)))
     (data / "pets_db.json").write_text(json.dumps(pets, ensure_ascii=False, indent=1), encoding="utf-8")
 
     download_icons(data, pets, report)
@@ -47,7 +48,7 @@ def run(data_dir, refresh=False, report=None):
     for i, (pid, pet) in enumerate(pets.items(), 1):
         sources[pid] = cached("pets", pet["slug"], lambda: metabot.parse_pet_sources(
             metabot.fetch(f"/en/aion-2/mounts/{pet['slug']}").decode("utf-8")))
-        report("Fuentes de cada pet", i, len(pets))
+        report(tr("Fuentes de cada pet"), i, len(pets))
 
     slugs = sorted({s["monster"] for srcs in sources.values() for s in srcs})
     monsters, failed = {}, []
@@ -57,11 +58,11 @@ def run(data_dir, refresh=False, report=None):
                 metabot.fetch(f"/en/aion-2/monsters/{slug}").decode("utf-8")), required="npc_ids")
         except Exception:
             failed.append(slug)
-        report("Monstruos y mapas", i, len(slugs))
+        report(tr("Monstruos y mapas"), i, len(slugs))
 
     summary = build_map_db(data, pets, sources, monsters)
     if failed:
-        summary += f"; {len(failed)} monstruos fallaron"
+        summary += tr("; {0} monstruos fallaron", len(failed))
     summary += "; " + update_skills(data, cached, report)
     return summary
 
@@ -78,9 +79,9 @@ def update_skills(data, cached, report):
             info = None
         if info:
             skills[info["id"]] = {k: v for k, v in info.items() if k != "id"} | {"slug": slug}
-        report("Habilidades", i, len(slugs))
+        report(tr("Habilidades"), i, len(slugs))
     (Path(data) / "skills_db.json").write_text(json.dumps(skills, ensure_ascii=False, indent=1), encoding="utf-8")
-    return f"{len(skills)} habilidades"
+    return tr("{0} habilidades", len(skills))
 
 
 def download_icons(data_dir, pet_ids, report=None):
@@ -96,7 +97,7 @@ def download_icons(data_dir, pet_ids, report=None):
             img.save(icons / f"{pid}.png")
         except Exception:  # one missing icon should not abort the rest
             pass
-        report("Iconos", i, len(missing))
+        report(tr("Iconos"), i, len(missing))
     return len(missing)
 
 
@@ -187,5 +188,4 @@ def build_map_db(data, pets, sources, monsters):
     }
     (Path(data) / "map_db.json").write_text(json.dumps(db, ensure_ascii=False), encoding="utf-8")
     only = {f: sum(1 for p in pet_entries.values() if p["factions"] == [f]) for f in ("elyos", "asmodian")}
-    return (f"{len(pet_entries)} pets, {len(monsters)} monstruos, {len(zones)} zonas; "
-            f"exclusivos Elyos {only['elyos']}, Asmodian {only['asmodian']}")
+    return (tr("{0} pets, {1} monstruos, {2} zonas; exclusivos Elyos {3}, Asmodian {4}", len(pet_entries), len(monsters), len(zones), only['elyos'], only['asmodian']))

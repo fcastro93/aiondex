@@ -21,6 +21,7 @@ from .mapwindow import STYLE, badge_label
 from .theme import Fonts
 from .tunerwindow import EXTRA_STYLE
 from .widgets import label
+from ..i18n import tr
 
 SPEEDS = ((0.5, "×0.5"), (1.0, "×1"), (2.0, "×2"), (4.0, "×4"), (8.0, "×8"))
 PERSON_R = 17           # px: a player's circle
@@ -372,7 +373,7 @@ class ArenaView(QWidget):
             p.setBrush(QColor(10, 10, 14, 170))
             p.drawEllipse(center, PERSON_R, PERSON_R)
             draw_skull(p, center, PERSON_R * 1.35, SKULL_RED)
-        name = person["name"] + (" (tú)" if me else "")
+        name = person["name"] + (tr(" (tú)") if me else "")
         self._text(p, QPointF(center.x(), center.y() + PERSON_R + 6), name, self.fonts.small,
                    SKULL_RED if dead else (theme.GOLD if me else theme.TEXT))
         p.setOpacity(1.0)
@@ -424,14 +425,14 @@ class ArenaView(QWidget):
             p.setBrush(QColor("#6cb4ff"))
             p.drawRoundedRect(QRectF(bar.left(), bar.top(), w * (0 if broken else gauge or 0), 5), 2, 2)
             if broken:
-                self._text(p, QPointF(center.x(), bar.bottom() + 2), "¡ATURDIDO!", self.fonts.small,
+                self._text(p, QPointF(center.x(), bar.bottom() + 2), tr("¡ATURDIDO!"), self.fonts.small,
                            QColor("#6cb4ff"))
         if raging:
-            self._text(p, QPointF(center.x(), center.y() - BOSS_R - 30), "FURIA", self.fonts.name,
+            self._text(p, QPointF(center.x(), center.y() - BOSS_R - 30), tr("FURIA"), self.fonts.name,
                        QColor("#ff4d4d"), above=True)
         cast = None if r.mechs else r.casting(eid, t)
         if cast and not dead:
-            name = cast[4] or f"Habilidad ({cast[3]:g} s)"
+            name = cast[4] or tr("Habilidad ({0:g} s)", cast[3])
             self._text(p, QPointF(center.x(), center.y() - BOSS_R - 8), name, self.fonts.name,
                        QColor("#ffd27a"), above=True)
 
@@ -724,7 +725,7 @@ class ArenaView(QWidget):
                 p.drawEllipse(c, BOSS_R + 13, BOSS_R + 13)
             if info.get("adds") and end <= t <= end + 2.5 and boss:
                 c = self.to_screen(boss[0], boss[1])
-                self._text(p, QPointF(c.x(), c.y() - BOSS_R - 54), f"Invoca adds ×{info['adds']}", f.name,
+                self._text(p, QPointF(c.x(), c.y() - BOSS_R - 54), tr("Invoca adds ×{0}", info['adds']), f.name,
                            QColor(MECH_COLORS["adds"]), above=True)
 
     def _cast_bar(self, p, t):
@@ -860,7 +861,7 @@ class Timeline(QWidget):
         if hit:
             names = [self.replay.name_of(d[1]) for d in self.replay.deaths if abs(self._x(d[0]) - self._x(hit[0])) < 6]
             QToolTip.showText(event.globalPosition().toPoint(),
-                              f"{mmss(hit[0])} · murió " + ", ".join(dict.fromkeys(names)), self)
+                              tr("{0} · murió ", mmss(hit[0])) + ", ".join(dict.fromkeys(names)), self)
             return
         tip = self._lane_tip(event.position())
         if tip:
@@ -882,9 +883,9 @@ class Timeline(QWidget):
                 return "\n".join(f"{mmss(m[0])} · {m[3]} ({m[1] - m[0]:.1f} s){' · interrumpido' if m[5] else ''}"
                                  for m in here[:4])
         if any(abs(b - t) <= slack * 2 for b in r.breaks):
-            return "El jefe quedó aturdido (barra de aturdimiento rota)"
+            return tr("El jefe quedó aturdido (barra de aturdimiento rota)")
         if r.rage is not None and abs(r.rage - t) <= slack * 2:
-            return f"{mmss(r.rage)} · el jefe entra en furia (se acabó su tiempo)"
+            return tr("{0} · el jefe entra en furia (se acabó su tiempo)", mmss(r.rage))
         return None
 
     def mouseReleaseEvent(self, event):
@@ -908,7 +909,7 @@ class SimulationWindow(QWidget):
         self._map_pix = None
         self._pictures, self._faces, self._asked = {}, {}, {}
         self.setObjectName("MapWindow")
-        self.setWindowTitle(f"{APP_NAME} — Simulación: {enc.main_target or 'Jefe'}")
+        self.setWindowTitle(tr("{0} — Simulación: {1}", APP_NAME, enc.main_target or tr("Jefe")))
         self.setWindowIcon(ctl.app_icon)
         self.setStyleSheet(STYLE + EXTRA_STYLE + SIDE_STYLE)
         self.resize(1280, 860)
@@ -921,14 +922,14 @@ class SimulationWindow(QWidget):
         head.addWidget(badge_label(34, self.devicePixelRatioF()))
         titles = QVBoxLayout()
         titles.setSpacing(0)
-        titles.addWidget(label(f"Simulación · {enc.main_target or 'Jefe'}", f.name_big, theme.TEXT))
+        titles.addWidget(label(tr("Simulación · {0}", enc.main_target or tr("Jefe")), f.name_big, theme.TEXT))
         deaths = sum(1 for d in r.deaths if any(p["eid"] == d[1] for p in r.people))
         when = time.strftime("%d/%m %H:%M", time.localtime(enc.start))
-        bits = [enc.place or "Mazmorra", when, mmss(enc.fight_time(enc.group_names(set()))),
-                "derrotado" if enc.killed else "sin derrotar", f"{deaths} muertes del grupo" if deaths else "sin muertes"]
+        bits = [tr(enc.place or "Mazmorra"), when, mmss(enc.fight_time(enc.group_names(set()))),
+                tr("derrotado") if enc.killed else tr("sin derrotar"), tr("{0} muertes del grupo", deaths) if deaths else tr("sin muertes")]
         titles.addWidget(label(" · ".join(bits), f.small, theme.MUTED))
         head.addLayout(titles, 1)
-        details = QPushButton("Detalles del combate")
+        details = QPushButton(tr("Detalles del combate"))
         details.setProperty("flat", True)
         details.clicked.connect(lambda: ctl.open_dps_details(enc.id))
         head.addWidget(details)
@@ -949,13 +950,13 @@ class SimulationWindow(QWidget):
 
         controls = QHBoxLayout()
         controls.setSpacing(8)
-        self.play_button = QPushButton("▶  Reproducir")
+        self.play_button = QPushButton(tr("▶  Reproducir"))
         self.play_button.setProperty("primary", True)
         self.play_button.setMinimumWidth(140)
         self.play_button.clicked.connect(self.toggle)
         controls.addWidget(self.play_button)
-        stop = QPushButton("■  Detener")
-        stop.setToolTip("Parar y volver al inicio")
+        stop = QPushButton(tr("■  Detener"))
+        stop.setToolTip(tr("Parar y volver al inicio"))
         stop.clicked.connect(self.stop)
         controls.addWidget(stop)
         self.clock = label("0:00 / " + mmss(r.length), f.name, theme.TEXT)
@@ -965,21 +966,22 @@ class SimulationWindow(QWidget):
         for value, text in SPEEDS:
             self.speed.addItem(text, value)
         self.speed.setCurrentIndex(1)
-        self.speed.setToolTip("Velocidad")
-        controls.addWidget(label("Velocidad", f.small, theme.MUTED))
+        self.speed.setToolTip(tr("Velocidad"))
+        controls.addWidget(label(tr("Velocidad"), f.small, theme.MUTED))
         controls.addWidget(self.speed)
-        trails = QCheckBox("Rastro")
+        trails = QCheckBox(tr("Rastro"))
         trails.setChecked(True)
-        trails.setToolTip("Una estela con los últimos 3 segundos de cada jugador")
+        trails.setToolTip(tr("Una estela con los últimos 3 segundos de cada jugador"))
         trails.toggled.connect(self._trails)
         controls.addWidget(trails)
         root.addLayout(controls)
         self.timeline = Timeline(self)
         self.timeline.moved.connect(self.seek)
         root.addWidget(self.timeline)
-        note = ("Vista desde arriba (cuadrícula de 5 m; rueda para acercar, arrastra para mover, doble clic para "
-                "encuadrar). Las posiciones vienen del tráfico del juego: la tuya es aproximada (el juego no te envía "
-                "tu propio movimiento). Áreas: dónde cayeron y a quién alcanzaron; su tamaño sale de esos golpes.")
+        note = (tr("Vista desde arriba (cuadrícula de 5 m; rueda para acercar, arrastra para mover, doble clic para "
+                   "encuadrar). Las posiciones vienen del tráfico del juego: la tuya es aproximada (el juego no te "
+                   "envía tu propio movimiento). Áreas: dónde cayeron y a quién alcanzaron; su tamaño sale de esos "
+                   "golpes."))
         for source in (getattr(ctl.boss_db, "credit", None), getattr(getattr(ctl, "boss_skills", None), "credit", None)):
             if source:
                 note += " " + source["text"] + "."
@@ -1004,13 +1006,13 @@ class SimulationWindow(QWidget):
         col = QVBoxLayout(inner)
         col.setContentsMargins(0, 0, 6, 0)
         col.setSpacing(6)
-        col.addWidget(label("GRUPO", f.section, theme.MUTED))
+        col.addWidget(label(tr("GRUPO"), f.section, theme.MUTED))
         for person in r.people:
             died = sum(1 for d in r.deaths if d[1] == person["eid"])
             row = QHBoxLayout()
             dot = label("●", f.body, _class_color(person.get("class"), person.get("me")))
             row.addWidget(dot)
-            row.addWidget(label(person["name"] + (" (tú)" if person.get("me") else ""), f.body, theme.TEXT,
+            row.addWidget(label(person["name"] + (tr(" (tú)") if person.get("me") else ""), f.body, theme.TEXT,
                                 elide=True), 1)
             if died:
                 icon = QLabel()
@@ -1029,11 +1031,11 @@ class SimulationWindow(QWidget):
                 named.setdefault(key, []).append(m[0])
         else:
             for c in r.casts:
-                key = (c[4] or f"Habilidad ({c[3]:g} s de recarga)", "cast")
+                key = (c[4] or tr("Habilidad ({0:g} s de recarga)", c[3]), "cast")
                 named.setdefault(key, []).append(c[0])
         if kinds:
             col.addSpacing(6)
-            col.addWidget(label("ÁREAS DEL JEFE", f.section, theme.MUTED))
+            col.addWidget(label(tr("ÁREAS DEL JEFE"), f.section, theme.MUTED))
             for (name, color, kind), n in sorted(kinds.items(), key=lambda kv: -kv[1]):
                 row = QHBoxLayout()
                 row.addWidget(label("◯" if kind == "ring" else "⬤", f.body, QColor(color)))
@@ -1042,7 +1044,7 @@ class SimulationWindow(QWidget):
                 col.addLayout(row)
         if named:
             col.addSpacing(6)
-            col.addWidget(label("LO QUE LANZÓ (clic: la siguiente)", f.section, theme.MUTED))
+            col.addWidget(label(tr("LO QUE LANZÓ (clic: la siguiente)"), f.section, theme.MUTED))
             for (name, kind), times in sorted(named.items(), key=lambda kv: -len(kv[1]))[:16]:
                 button = QPushButton(f"■ {name}  ×{len(times)}")
                 button.setProperty("flat", True)
@@ -1052,16 +1054,16 @@ class SimulationWindow(QWidget):
                 col.addWidget(button)
         if r.fails:
             col.addSpacing(6)
-            col.addWidget(label("ERRORES AL SEPARARSE", f.section, theme.MUTED))
+            col.addWidget(label(tr("ERRORES AL SEPARARSE"), f.section, theme.MUTED))
             for at, owner, victim in r.fails[:20]:
-                button = QPushButton(f"{mmss(at)}  la marca de {owner} le pegó a {victim}")
+                button = QPushButton(tr("{0}  la marca de {1} le pegó a {2}", mmss(at), owner, victim))
                 button.setProperty("flat", True)
                 button.setStyleSheet("text-align: left; color: #ffb347;")
                 button.clicked.connect(lambda _=False, at=at: self.seek(max(0.0, at - 3.0)))
                 col.addWidget(button)
         if r.deaths:
             col.addSpacing(6)
-            col.addWidget(label("MUERTES (clic para verla)", f.section, theme.MUTED))
+            col.addWidget(label(tr("MUERTES (clic para verla)"), f.section, theme.MUTED))
             for d in r.deaths:
                 boss = any(b["eid"] == d[1] for b in r.bosses)
                 button = QPushButton(f" {mmss(d[0])}  {r.name_of(d[1])}")
@@ -1159,17 +1161,17 @@ class SimulationWindow(QWidget):
     def toggle(self):
         if self._timer.isActive():
             self._timer.stop()
-            self.play_button.setText("▶  Reproducir")
+            self.play_button.setText(tr("▶  Reproducir"))
         else:
             if self.view.t >= self.replay.length - 0.05:
                 self.seek(0.0)
             self._last = time.monotonic()
             self._timer.start()
-            self.play_button.setText("⏸  Pausa")
+            self.play_button.setText(tr("⏸  Pausa"))
 
     def stop(self):
         self._timer.stop()
-        self.play_button.setText("▶  Reproducir")
+        self.play_button.setText(tr("▶  Reproducir"))
         self.seek(0.0)
 
     def seek(self, t):

@@ -2,13 +2,14 @@ from . import Module, ModuleView
 from ..ui import theme
 from ..ui.appmenu import glyph_icon
 from ..ui.settings_panel import SettingsPanel
+from ..i18n import tr
 
 GLYPH_GEAR = ""
 
 
 class SettingsModule(Module):
     key = "settings"
-    title = "Ajustes"
+    title = tr("Ajustes")
 
     def icon(self):
         return glyph_icon(GLYPH_GEAR, theme.ACCENT, self.ctl.fonts.icons_family)

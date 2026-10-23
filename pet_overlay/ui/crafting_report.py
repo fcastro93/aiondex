@@ -8,14 +8,15 @@ from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPixmap
 from ..paths import ASSETS_DIR
 from ..professions import level_text
 from . import theme
+from ..i18n import tr
 
 WIDTH = 1280
 MARGIN = 40
 ROW_H = 34
 MAX_ROWS = 18
-COLS = (("Receta", 0.0, Qt.AlignLeft), ("Nivel", 0.40, Qt.AlignRight), ("Precio", 0.49, Qt.AlignRight),
-        ("Fallo", 0.58, Qt.AlignRight), ("Recolectando", 0.71, Qt.AlignRight), ("Comprando", 0.83, Qt.AlignRight),
-        ("¿Se vende?", 1.0, Qt.AlignRight))
+COLS = ((tr("Receta"), 0.0, Qt.AlignLeft), (tr("Nivel"), 0.40, Qt.AlignRight), (tr("Precio"), 0.49, Qt.AlignRight),
+        (tr("Fallo"), 0.58, Qt.AlignRight), (tr("Recolectando"), 0.71, Qt.AlignRight), (tr("Comprando"), 0.83, Qt.AlignRight),
+        (tr("¿Se vende?"), 1.0, Qt.AlignRight))
 
 
 def _font(px, bold=False):
@@ -53,7 +54,7 @@ def render(rows, picks, title, subtitle, grade_color, level_pick=None):
     p.setFont(_font(15))
     p.drawText(QRectF(MARGIN, y + 42, inner, 24), Qt.AlignLeft | Qt.AlignVCenter, subtitle)
     p.drawText(QRectF(MARGIN, y, inner, 40), Qt.AlignRight | Qt.AlignVCenter,
-               time.strftime("Informe del %d/%m/%Y %H:%M"))
+               time.strftime(tr("Informe del %d/%m/%Y %H:%M")))
     y += 92
 
     # recommendation
@@ -64,13 +65,13 @@ def render(rows, picks, title, subtitle, grade_color, level_pick=None):
         p.drawRoundedRect(box, 8, 8)
         p.setPen(theme.GOLD)
         p.setFont(_font(16, True))
-        p.drawText(QRectF(MARGIN + 16, y + 6, inner - 32, 24), Qt.AlignLeft | Qt.AlignVCenter, "Lo que más deja")
+        p.drawText(QRectF(MARGIN + 16, y + 6, inner - 32, 24), Qt.AlignLeft | Qt.AlignVCenter, tr("Lo que más deja"))
         p.setFont(_font(15))
         for i, r in enumerate(picks, start=1):
             sold, kind = r.sales.verdict()
-            parts = [f"{_kinah(r.profit, sign=True)} por intento",
-                     f"{1 - r.success:.0%} de fallo" if r.success is not None else "",
-                     sold if kind == "good" else "aún sin ventas vistas"]
+            parts = [tr("{0} por intento", _kinah(r.profit, sign=True)),
+                     tr("{0:.0%} de fallo", 1 - r.success) if r.success is not None else "",
+                     sold if kind == "good" else tr("aún sin ventas vistas")]
             p.setPen(theme.TEXT)
             p.drawText(QRectF(MARGIN + 16, y + 6 + 30 * i, inner - 32, 26), Qt.AlignLeft | Qt.AlignVCenter,
                        f"{i}.  {r.product}   —   " + " · ".join(x for x in parts if x))
@@ -78,8 +79,7 @@ def render(rows, picks, title, subtitle, grade_color, level_pick=None):
             cost = level_pick.profit if level_pick.profit is not None else -level_pick.cost
             p.setPen(theme.GAIN)
             p.drawText(QRectF(MARGIN + 16, y + 6 + 30 * lines, inner - 32, 26), Qt.AlignLeft | Qt.AlignVCenter,
-                       f"Para subir de nivel (EXP):  {level_pick.product} ({level_text(level_pick.needs)})   —   "
-                       f"{_kinah(cost, sign=True)} por intento")
+                       tr("Para subir de nivel (EXP):  {0} ({1})   —   {2} por intento", level_pick.product, level_text(level_pick.needs), _kinah(cost, sign=True)))
         y += box.height() + 10
 
     # table
@@ -99,7 +99,7 @@ def render(rows, picks, title, subtitle, grade_color, level_pick=None):
     p.setFont(_font(15))
     if not rows:
         p.setPen(theme.MUTED)
-        p.drawText(QRectF(MARGIN + 12, y, inner, ROW_H), Qt.AlignLeft | Qt.AlignVCenter, "Sin recetas con precio.")
+        p.drawText(QRectF(MARGIN + 12, y, inner, ROW_H), Qt.AlignLeft | Qt.AlignVCenter, tr("Sin recetas con precio."))
         y += ROW_H
     for n, r in enumerate(rows):
         if n % 2 == 0:
@@ -140,8 +140,9 @@ def render(rows, picks, title, subtitle, grade_color, level_pick=None):
     p.setPen(theme.MUTED)
     p.setFont(_font(13))
     p.drawText(QRectF(MARGIN, y, inner - 180, 40), Qt.AlignLeft | Qt.TextWordWrap,
-               "Ganancia media por intento: lo que paga el mercado (−10%) × la probabilidad de éxito − los materiales "
-               "(recolectando: lo recolectado gratis; comprando: todo al precio del mercado). Recetas: aion2data.com.")
+               tr("Ganancia media por intento: lo que paga el mercado (−10%) × la probabilidad de éxito − los "
+                  "materiales (recolectando: lo recolectado gratis; comprando: todo al precio del mercado). "
+                  "Recetas: aion2data.com."))
     logo = QPixmap(str(ASSETS_DIR / "badge.png"))
     if not logo.isNull():
         size = 92

@@ -21,15 +21,16 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from .simulation import OBJECTS, skill_name
+from .i18n import tr, tr_data
 
 AFTER = 2.0              # seconds after a cast's end that its hits still count
 JUMP_M = 6.0             # metres the boss moves during a cast to call it a jump or a charge
 ADDS_RADIUS = 40.0       # metres around the boss where new monsters count as its adds
 CONE_DEG = 75.0          # every hit within this of the boss's facing: a frontal cone
-LABELS = {"point": "Área en el suelo", "around": "Área alrededor del jefe", "cone": "Ataque frontal (cono)",
-          "target": "Golpe al objetivo", "group": "Daño a todo el grupo", "jump": "Salto / embestida",
-          "adds": "Invoca adds", "buff": "Se potencia", "debuff": "Debuff al grupo", "cast": "Habilidad",
-          "ring": "Anillo (el centro es seguro)", "line": "Línea", "cross": "Cruz", "marker": "Marca sobre un jugador"}
+LABELS = {"point": tr("Área en el suelo"), "around": tr("Área alrededor del jefe"), "cone": tr("Ataque frontal (cono)"),
+          "target": tr("Golpe al objetivo"), "group": tr("Daño a todo el grupo"), "jump": tr("Salto / embestida"),
+          "adds": tr("Invoca adds"), "buff": tr("Se potencia"), "debuff": tr("Debuff al grupo"), "cast": tr("Habilidad"),
+          "ring": tr("Anillo (el centro es seguro)"), "line": tr("Línea"), "cross": tr("Cruz"), "marker": tr("Marca sobre un jugador")}
 COLORS = {"point": "#ff8a3d", "around": "#ff5a4f", "cone": "#ffb347", "target": "#ff6f91", "group": "#ff3b3b",
           "jump": "#c77dff", "adds": "#7bd88f", "buff": "#ffe08a", "debuff": "#b28dff", "cast": "#8a93a8",
           "ring": "#ff7b54", "line": "#ffd166", "cross": "#ef476f", "marker": "#f15bb5"}
@@ -52,7 +53,7 @@ class BossSkills:
         self.status = {int(k): v for k, v in (db.get("status") or {}).items()}
         self.maps = db.get("maps") or []
         self.map_url = db.get("map_url", "")
-        self.credit = db.get("credit")
+        self.credit = tr_data("boss_skills.json", db).get("credit")
         kinds = {}
         self._mixed = set()
         for code, zones in self.shapes.items():
@@ -107,23 +108,23 @@ def zone_label(rows):
     kind, n = kinds.most_common(1)[0]
     same = [r for r in rows if r[0] == kind]
     sizes = "/".join(f"{r[4]:g}" for r in same[:4])
-    on = {"target": " sobre un jugador", "targetLoc": " donde estaba un jugador"}.get(same[0][10], "")
+    on = {"target": tr(" sobre un jugador"), "targetLoc": tr(" donde estaba un jugador")}.get(same[0][10], "")
     if kind in ("Circle", "Sphere"):
         if same[0][4] >= ROOM_WIDE and same[0][10] == "caster":
-            return "Daño a toda la sala"
-        return (f"{n} círculos ({sizes} m)" if n > 1 else f"Círculo de {sizes} m") + on
+            return tr("Daño a toda la sala")
+        return (tr("{0} círculos ({1} m)", n, sizes) if n > 1 else tr("Círculo de {0} m", sizes)) + on
     if kind in ("Ring", "RingArc"):
         r = same[0]
-        return f"Anillo {r[5]:g}–{r[4]:g} m" + on
+        return tr("Anillo {0:g}–{1:g} m", r[5], r[4]) + on
     if kind in ("Arc", "Triangle"):
         r = same[0]
-        return f"Cono de {r[5]:g}° y {r[4]:g} m" + (f" ×{n}" if n > 1 else "") + on
+        return tr("Cono de {0:g}° y {1:g} m", r[5], r[4]) + (f" ×{n}" if n > 1 else "") + on
     if kind == "Rectangle":
         r = same[0]
-        return f"Línea de {r[4]:g} × {r[5]:g} m" + (f" ×{n}" if n > 1 else "") + on
+        return tr("Línea de {0:g} × {1:g} m", r[4], r[5]) + (f" ×{n}" if n > 1 else "") + on
     if kind == "Cross":
         r = same[0]
-        return f"Cruz de {r[4]:g} m" + on
+        return tr("Cruz de {0:g} m", r[4]) + on
     return None
 
 
@@ -254,7 +255,7 @@ def analyze(events, boss_eids, people, tracks, rel, t0, t1, boss_npc, boss_db, s
                 kinds.append("debuff")
             main = kinds[0] if kinds else "cast"
             name = skill_name(named_skills, r["cd"]) or zone_label(r["zones"]) or \
-                (LABELS[main] if main != "cast" else "Habilidad del jefe")
+                (LABELS[main] if main != "cast" else tr("Habilidad del jefe"))
             if r["knock"] and "derrib" not in name:
                 name += " + derribo"
             if r["end"] - r["t"] < 0.3 and main == "cast" and not r["knock"] and not r["zones"]:

@@ -10,6 +10,7 @@ from scapy.all import AsyncSniffer, IP, TCP, Raw, conf
 
 from .protocol import expand
 from .stream import ServerStream
+from .i18n import tr
 
 log = logging.getLogger(__name__)
 GAME_PROCESS = "aion2.exe"
@@ -139,7 +140,7 @@ class GameSniffer:
                 if self.sniffers:
                     self._stop_sniffers()
                 self.endpoints, self.plan = set(), {}
-                self.on_status("Esperando a AION2…")
+                self.on_status(tr("Esperando a AION2…"))
             else:
                 plan = _plan(endpoints)
                 self.endpoints = endpoints
@@ -177,7 +178,7 @@ class GameSniffer:
                 self.health.capture_error = ""
         if self.health:
             self.health.sniffing = bool(self.sniffers)
-        self.on_status("Capturando tráfico del juego" if self.sniffers else "No se pudo capturar el tráfico")
+        self.on_status(tr("Capturando tráfico del juego") if self.sniffers else tr("No se pudo capturar el tráfico"))
 
     def _stop_sniffers(self):
         for s in self.sniffers:

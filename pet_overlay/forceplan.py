@@ -14,12 +14,13 @@ Guides (not tooltips) also say Chanter Wave Blow (level 12) and Cleric Debilitat
 """
 import math
 from dataclasses import dataclass, field
+from .i18n import N_, tr
 
 PARTY_SIZE = 5
 MAX_PARTIES = 4
 HEALER, SUPPORT, TANK = "Clérigo", "Cantor", "Templario"
-ROLE = {"Templario": "tanque", "Clérigo": "sanador", "Cantor": "apoyo", "Gladiador": "daño", "Asesino": "daño",
-        "Cazador": "daño", "Hechicero": "daño", "Invocador": "daño"}
+ROLE = {"Templario": N_("tanque"), "Clérigo": N_("sanador"), "Cantor": N_("apoyo"), "Gladiador": N_("daño"),
+        "Asesino": N_("daño"), "Cazador": N_("daño"), "Hechicero": N_("daño"), "Invocador": N_("daño")}
 
 
 @dataclass
@@ -80,35 +81,34 @@ def notes(parties, members, fill):
     healers = sum(1 for m in members if m.cls == HEALER)
     supports = sum(1 for m in members if m.cls == SUPPORT)
     if healers < n:
-        out.append(f"Hay {healers} {'Clérigo' if healers == 1 else 'Clérigos'} para {n} parties: las curas de party "
-                   f"solo llegan a la suya, así que alguna party va sin sanador (busca más o que un Cantor cubra).")
+        out.append(tr("Hay {0} {1} para {2} parties: las curas de party solo llegan a la suya, así que alguna party "
+                      "va sin sanador (busca más o que un Cantor cubra).", healers, 'Clérigo' if healers == 1 else tr("Clérigos"), n))
     tanks = sum(1 for m in members if m.cls == TANK)
     if not tanks:
-        out.append("No hay Templarios: nadie tanquea ni pone escudos de grupo (en jefes de campo suele bastar; en "
-                   "raids hace falta).")
+        out.append(tr("No hay Templarios: nadie tanquea ni pone escudos de grupo (en jefes de campo suele bastar; "
+                      "en raids hace falta)."))
     if supports < n:
-        out.append(f"Hay {supports} {'Cantor' if supports == 1 else 'Cantores'} para {n} parties: los mantras solo "
-                   f"llegan a su party.")
+        out.append(tr("Hay {0} {1} para {2} parties: los mantras solo llegan a su party.", supports, 'Cantor' if supports == 1 else 'Cantores', n))
     for i, p in enumerate(parties, 1):
         if p.count(SUPPORT) > 1:
-            out.append(f"Party {i}: {p.count(SUPPORT)} Cantores. Sus mantras no se acumulan (solo cuenta el de más "
-                       f"nivel): mejor uno por party.")
+            out.append(tr("Party {0}: {1} Cantores. Sus mantras no se acumulan (solo cuenta el de más nivel): mejor "
+                          "uno por party.", i, p.count(SUPPORT)))
     both = [str(i) for i, p in enumerate(parties, 1) if p.has(HEALER) and p.has(SUPPORT)]
     if both:
-        out.append(f"{'Party' if len(both) == 1 else 'Parties'} {', '.join(both)}: Clérigo y Cantor juntos. Light of "
-                   f"Protection (Clérigo) y Undefeated Mantra (Cantor) dan el mismo aumento de daño y solo vale uno: "
-                   f"que el Clérigo cambie Light of Protection por otra. Earth's Blessing (especialidad Earth "
-                   f"Punishment del Clérigo) impide recibir Power of the Storm del Cantor, y Chain of Torment "
-                   f"(Clérigo) con Earth's Promise (Cantor) no bajan la defensa dos veces: elegid uno de cada par.")
+        out.append(tr("{0} {1}: Clérigo y Cantor juntos. Light of Protection (Clérigo) y Undefeated Mantra (Cantor) "
+                      "dan el mismo aumento de daño y solo vale uno: que el Clérigo cambie Light of Protection por "
+                      "otra. Earth's Blessing (especialidad Earth Punishment del Clérigo) impide recibir Power of "
+                      "the Storm del Cantor, y Chain of Torment (Clérigo) con Earth's Promise (Cantor) no bajan la "
+                      "defensa dos veces: elegid uno de cada par.", 'Party' if len(both) == 1 else 'Parties', ', '.join(both)))
     glad = [str(i) for i, p in enumerate(parties, 1) if p.has("Gladiador") and p.has(TANK)]
     if glad:
-        out.append(f"{'Party' if len(glad) == 1 else 'Parties'} {', '.join(glad)}: Gladiador y Templario. "
-                   f"Experienced Counterstrike y Fury dan el mismo aumento de daño y no se acumulan.")
+        out.append(tr("{0} {1}: Gladiador y Templario. Experienced Counterstrike y Fury dan el mismo aumento de "
+                      "daño y no se acumulan.", 'Party' if len(glad) == 1 else 'Parties', ', '.join(glad)))
     avgs = [p.avg(fill) for p in parties if p.members]
     if len(avgs) > 1 and min(avgs):
         spread = max(avgs) / min(avgs) - 1
-        out.append(f"CP medio por party: {', '.join(f'{a:,.0f}' for a in avgs)} (diferencia {spread:.0%}).")
+        out.append(tr("CP medio por party: {0} (diferencia {1:.0%}).", ', '.join(f'{a:,.0f}' for a in avgs), spread))
     unknown = [m.name for m in members if m.cp is None]
     if unknown:
-        out.append(f"Sin CP todavía: {', '.join(unknown)} (cuentan con el CP medio hasta que se lean).")
+        out.append(tr("Sin CP todavía: {0} (cuentan con el CP medio hasta que se lean).", ', '.join(unknown)))
     return out

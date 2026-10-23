@@ -17,6 +17,7 @@ from .mapwindow import STYLE, badge_label
 from .skilltiles import BarGrid, SkillTile, tile_for
 from .theme import Fonts
 from .widgets import SectionTitle, label
+from ..i18n import N_, tr
 
 EXTRA_STYLE = f"""
 QPushButton {{ background: {theme.ACCENT.name()}; color: #06101f; border: none; border-radius: 6px;
@@ -33,8 +34,16 @@ QSpinBox {{ background: #0d1628; color: {theme.TEXT.name()}; border: 1px solid #
     padding: 3px 6px; }}
 QCheckBox {{ color: {theme.TEXT.name()}; }}
 """
-KEY_CHOICES = (["Clic izquierdo", "Clic derecho", "Botón central", "Botón lateral 4", "Botón lateral 5"]
-               + [f"F{i}" for i in range(1, 13)] + list("1234567890") + ["Q", "E", "R", "T", "F", "Espacio"])
+KEY_CHOICES = ([N_("Clic izquierdo"), N_("Clic derecho"), N_("Botón central"), N_("Botón lateral 4"),
+                N_("Botón lateral 5")]
+               + [f"F{i}" for i in range(1, 13)] + list("1234567890") + ["Q", "E", "R", "T", "F", N_("Espacio")])
+
+
+def _stored(text):
+    """The key a combo's text names: its mouse buttons and Espacio are shown in the app's language, kept in Spanish."""
+    return next((k for k in KEY_CHOICES if tr(k) == text), text)
+
+
 GLYPH_KEYBOARD, GLYPH_MOUSE, GLYPH_WAIT = "\uE765", "\uE962", "\uE916"
 LEVEL_COLOR = {"bad": theme.COMBAT, "warn": theme.WARN, "ok": theme.GAIN, "info": theme.ACCENT}
 BAR_TILE = 48
@@ -51,7 +60,7 @@ class TunerWindow(QWidget):
         self.tuner = ctl.tuner
         self.fonts = Fonts(1.0)
         self.setObjectName("MapWindow")
-        self.setWindowTitle(f"{APP_NAME} — Afinador de macros")
+        self.setWindowTitle(tr("{0} — Afinador de macros", APP_NAME))
         self.setWindowIcon(ctl.app_icon)
         self.setStyleSheet(STYLE + EXTRA_STYLE)
         self.resize(1300, 880)
@@ -80,19 +89,19 @@ class TunerWindow(QWidget):
         head.addWidget(badge_label(30, self.devicePixelRatioF()))
         title = QVBoxLayout()
         title.setSpacing(0)
-        title.addWidget(label("Afinador de macros", self.fonts.name_big, theme.TEXT))
+        title.addWidget(label(tr("Afinador de macros"), self.fonts.name_big, theme.TEXT))
         self.subtitle = label("", self.fonts.small, theme.MUTED)
         title.addWidget(self.subtitle)
         head.addLayout(title, 1)
         right.addLayout(head)
-        self.test_button = QPushButton("Iniciar prueba")
+        self.test_button = QPushButton(tr("Iniciar prueba"))
         self.test_button.clicked.connect(self._toggle_test)
         right.addWidget(self.test_button)
-        self.test_status = label("Pelea 30-60 s usando tus macros como siempre y pulsa «Detener».", self.fonts.small,
+        self.test_status = label(tr("Pelea 30-60 s usando tus macros como siempre y pulsa «Detener»."), self.fonts.small,
                                  theme.MUTED)
         self.test_status.setWordWrap(True)
         right.addWidget(self.test_status)
-        self.calib_button = QPushButton("¿Cuántos ms poner? Calibrar retrasos")
+        self.calib_button = QPushButton(tr("¿Cuántos ms poner? Calibrar retrasos"))
         self.calib_button.setProperty("flat", True)
         self.calib_button.clicked.connect(self._open_calibration)
         right.addWidget(self.calib_button, 0, Qt.AlignLeft)
@@ -122,57 +131,58 @@ class TunerWindow(QWidget):
         tuner = self.tuner
         setup = tuner.setup
         char = self.ctl.character_name()
-        self.subtitle.setText(f"Personaje: {char}" if char else "Entra con un personaje para ver tus habilidades")
+        self.subtitle.setText(tr("Personaje: {0}", char) if char else tr("Entra con un personaje para ver tus habilidades"))
 
         # presets + where the data comes from
         tabs = QHBoxLayout()
         tabs.setSpacing(6)
         for n in (1, 2, 3):
-            tab = QPushButton(f"Preset {n}" + (" · en uso" if n == tuner.active_preset else ""))
+            tab = QPushButton(f"Preset {n}" + (tr(" · en uso") if n == tuner.active_preset else ""))
             tab.setProperty("tab", True)
             tab.setCheckable(True)
             tab.setChecked(n == tuner.preset)
             tab.setEnabled(bool(tuner.presets.get(n)) or not tuner.presets)
             if tuner.presets and not tuner.presets.get(n):
-                tab.setToolTip("Preset vacío en el juego")
+                tab.setToolTip(tr("Preset vacío en el juego"))
             tab.clicked.connect(lambda _=False, n=n: self._select_preset(n))
             tabs.addWidget(tab)
         tabs.addStretch(1)
         self.left.addLayout(tabs)
         if tuner.loadout_at:
-            source = (f"Leído del juego {ago(time.time() - tuner.loadout_at)}. El juego lo reenvía al entrar con el "
-                      f"personaje y en algunos teletransportes; si cambias la barra o subes habilidades y aquí no se "
-                      f"actualiza, ve a «Cambiar de personaje» y vuelve a entrar.")
+            source = (tr("Leído del juego {0}. El juego lo reenvía al entrar con el personaje y en algunos "
+                         "teletransportes; si cambias la barra o subes habilidades y aquí no se actualiza, ve a "
+                         "«Cambiar de personaje» y vuelve a entrar.", ago(time.time() - tuner.loadout_at)))
         else:
-            source = ("Tus habilidades y tu barra se leen del juego al entrar con el personaje. Si AionDex se abrió "
-                      "con el juego ya en marcha, ve a «Cambiar de personaje» y vuelve a entrar una vez.")
+            source = (tr("Tus habilidades y tu barra se leen del juego al entrar con el personaje. Si AionDex se "
+                         "abrió con el juego ya en marcha, ve a «Cambiar de personaje» y vuelve a entrar una vez."))
         hint = label(source, f.small, theme.MUTED)
         hint.setWordWrap(True)
         self.left.addWidget(hint)
 
         steps = {line.slot: i for i, line in enumerate(setup.ingame, 1) if line.slot is not None}
         if tuner.bar:
-            self.left.addWidget(SectionTitle(f"Tu barra rápida — preset {tuner.preset}", f))
+            self.left.addWidget(SectionTitle(tr("Tu barra rápida — preset {0}", tuner.preset), f))
             bar_row = QHBoxLayout()
             bar_row.addWidget(BarGrid(tuner, tuner.bar, steps, self._toggle_slot, f, BAR_TILE))
             bar_row.addStretch(1)
             self.left.addLayout(bar_row)
-            help_text = label("Cada tecla lanza la primera habilidad de su columna que no esté en recarga, empezando "
-                              "por la fila 0. Clic en una tecla para añadirla a tu macro o quitarla.", f.small,
+            help_text = label(tr("Cada tecla lanza la primera habilidad de su columna que no esté en recarga, "
+                                 "empezando por la fila 0. Clic en una tecla para añadirla a tu macro o quitarla."), f.small,
                               theme.MUTED)
             help_text.setWordWrap(True)
             self.left.addWidget(help_text)
 
-        self.left.addWidget(SectionTitle(f"Tu macro del juego (K → Macro) — preset {tuner.preset}", f))
+        self.left.addWidget(SectionTitle(tr("Tu macro del juego (K → Macro) — preset {0}", tuner.preset), f))
         if not setup.ingame:
-            empty = label("El juego guarda tu macro en tu PC y no lo envía, así que AionDex no puede leerlo: haz clic "
-                          "en las teclas de la barra en el mismo orden que tus pasos de K → Macro y pon sus retrasos.",
+            empty = label(tr("El juego guarda tu macro en tu PC y no lo envía, así que AionDex no puede leerlo: haz "
+                             "clic en las teclas de la barra en el mismo orden que tus pasos de K → Macro y pon sus "
+                             "retrasos."),
                           f.small, theme.MUTED)
             empty.setWordWrap(True)
             self.left.addWidget(empty)
         else:
-            note = label("Déjalo como tu macro del juego (mismas teclas y orden) y escribe el retraso de cada paso: "
-                         "ese número no viaja por la red.", f.small, theme.MUTED)
+            note = label(tr("Déjalo como tu macro del juego (mismas teclas y orden) y escribe el retraso de cada "
+                            "paso: ese número no viaja por la red."), f.small, theme.MUTED)
             note.setWordWrap(True)
             self.left.addWidget(note)
         options = None
@@ -182,29 +192,29 @@ class TunerWindow(QWidget):
             else:
                 options = options or tuner.skill_options()
                 self.left.addWidget(self._manual_row(i, line, options))
-        add = QPushButton("+ Añadir paso")
+        add = QPushButton(tr("+ Añadir paso"))
         add.setProperty("flat", True)
         add.clicked.connect(lambda: self._add_step_menu(add))
         self.left.addWidget(add, 0, Qt.AlignLeft)
 
-        self.left.addWidget(SectionTitle("Tus teclas del juego (Esc → Ajustes → Teclas)", f))
+        self.left.addWidget(SectionTitle(tr("Tus teclas del juego (Esc → Ajustes → Teclas)"), f))
         self.left.addWidget(self._bindings_editor(setup))
-        self.left.addWidget(SectionTitle("Tu macro externo (Synapse, iCUE, G HUB…)", f))
+        self.left.addWidget(SectionTitle(tr("Tu macro externo (Synapse, iCUE, G HUB…)"), f))
         self.left.addWidget(self._external_question(setup))
         if setup.uses_external:
             self.left.addWidget(self._external_editor(setup))
-        repeat = QCheckBox("Se repite mientras mantengo el botón")
+        repeat = QCheckBox(tr("Se repite mientras mantengo el botón"))
         repeat.setChecked(setup.external_repeat)
         repeat.toggled.connect(lambda on: self._edit(lambda s: setattr(s, "external_repeat", on), rebuild=False))
         self.left.addWidget(repeat)
-        queue = QCheckBox("Tengo activada la cola de habilidades (Skill Queue) en el juego")
+        queue = QCheckBox(tr("Tengo activada la cola de habilidades (Skill Queue) en el juego"))
         queue.setChecked(setup.skill_queue)
         queue.toggled.connect(lambda on: self._edit(lambda s: setattr(s, "skill_queue", on), rebuild=False))
         self.left.addWidget(queue)
 
         groups = tuner.loadout_groups()
         if groups:
-            self.left.addWidget(SectionTitle("Tus habilidades", f))
+            self.left.addWidget(SectionTitle(tr("Tus habilidades"), f))
             for title, skills in groups:
                 self.left.addWidget(label(title, f.name, theme.TEXT))
                 grid = QGridLayout()
@@ -243,21 +253,21 @@ class TunerWindow(QWidget):
         row.setContentsMargins(12, 8, 10, 8)
         row.setSpacing(12)
         row.addWidget(label(str(i + 1), f.name_big, theme.GOLD))
-        key = tuner.slot_label(line.slot).replace("Tecla ", "")
+        key = tuner.slot_key(line.slot)
         if line.skills:
             row.addWidget(tile_for(tuner, line.skills[0], STEP_TILE, key=key))
         else:
             row.addWidget(SkillTile(STEP_TILE, empty=True, key=key))
         info = QVBoxLayout()
         info.setSpacing(2)
-        info.addWidget(label(tuner.skill_name(line.skills[0]) if line.skills else "Tecla vacía", f.name, theme.TEXT))
+        info.addWidget(label(tuner.skill_name(line.skills[0]) if line.skills else tr("Tecla vacía"), f.name, theme.TEXT))
         if len(line.skills) > 1:
-            alt = label("Si está en recarga: " + " › ".join(tuner.skill_name(s) for s in line.skills[1:]),
+            alt = label(tr("Si está en recarga: ") + " › ".join(tuner.skill_name(s) for s in line.skills[1:]),
                         f.small, theme.MUTED)
             alt.setWordWrap(True)
             info.addWidget(alt)
         delay_row = QHBoxLayout()
-        delay_row.addWidget(label("Retraso", f.small, theme.MUTED))
+        delay_row.addWidget(label(tr("Retraso"), f.small, theme.MUTED))
         delay = QSpinBox()
         delay.setRange(0, 2000)
         delay.setSuffix(" ms")
@@ -273,7 +283,7 @@ class TunerWindow(QWidget):
             button.setEnabled(enabled)
             button.clicked.connect(lambda _=False, m=move: self._move(i, m))
             row.addWidget(button)
-        remove = QPushButton("Quitar")
+        remove = QPushButton(tr("Quitar"))
         remove.setProperty("flat", True)
         remove.clicked.connect(lambda: self._edit(lambda s: s.ingame.pop(i)))
         row.addWidget(remove)
@@ -292,7 +302,7 @@ class TunerWindow(QWidget):
         box.setStyleSheet("QFrame#Step { background: #0f1830; border-radius: 8px; }")
         grid = QGridLayout(box)
         grid.setContentsMargins(10, 8, 10, 8)
-        grid.addWidget(label(f"Paso {i + 1}", self.fonts.name, theme.TEXT), 0, 0)
+        grid.addWidget(label(tr("Paso {0}", i + 1), self.fonts.name, theme.TEXT), 0, 0)
         for slot in range(4):
             combo = QComboBox()
             combo.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
@@ -314,9 +324,9 @@ class TunerWindow(QWidget):
         delay.setSuffix(" ms")
         delay.setValue(line.delay_ms)
         delay.valueChanged.connect(lambda v: self._edit(lambda s: setattr(s.ingame[i], "delay_ms", v), rebuild=False))
-        grid.addWidget(label("Retraso", self.fonts.small, theme.MUTED), 1, 0)
+        grid.addWidget(label(tr("Retraso"), self.fonts.small, theme.MUTED), 1, 0)
         grid.addWidget(delay, 1, 3)
-        remove = QPushButton("Quitar")
+        remove = QPushButton(tr("Quitar"))
         remove.setProperty("flat", True)
         remove.clicked.connect(lambda: self._edit(lambda s: s.ingame.pop(i)))
         grid.addWidget(remove, 0, 3, Qt.AlignRight)
@@ -333,7 +343,7 @@ class TunerWindow(QWidget):
             action.triggered.connect(lambda _=False, q=q: self._toggle_slot(q.slot))
         if self.tuner.bar:
             menu.addSeparator()
-        manual = menu.addAction("Escribirlo a mano")
+        manual = menu.addAction(tr("Escribirlo a mano"))
         manual.triggered.connect(lambda: self._edit(lambda s: s.ingame.append(MacroLine([], 10))))
         menu.popup(button.mapToGlobal(QPoint(0, button.height())))
 
@@ -354,17 +364,17 @@ class TunerWindow(QWidget):
         col.setContentsMargins(12, 8, 12, 10)
         col.setSpacing(4)
         if not setup.events:
-            hint = label("Cópialo tal cual lo tienes en tu programa del ratón: cada «pulsar», «soltar» y espera, en "
-                         "el mismo orden.", f.small, theme.MUTED)
+            hint = label(tr("Cópialo tal cual lo tienes en tu programa del ratón: cada «pulsar», «soltar» y espera, "
+                            "en el mismo orden."), f.small, theme.MUTED)
             hint.setWordWrap(True)
             col.addWidget(hint)
         for i, ev in enumerate(setup.events):
             col.addWidget(self._event_row(i, ev, len(setup.events)))
         buttons = QHBoxLayout()
-        add_key = QPushButton("+ Tecla (pulsar y soltar)")
+        add_key = QPushButton(tr("+ Tecla (pulsar y soltar)"))
         add_key.setProperty("flat", True)
         add_key.clicked.connect(self._add_key)
-        add_wait = QPushButton("+ Espera")
+        add_wait = QPushButton(tr("+ Espera"))
         add_wait.setProperty("flat", True)
         add_wait.clicked.connect(lambda: self._edit(lambda s: s.events.append(MacroEvent("wait", ms=10))))
         buttons.addWidget(add_key)
@@ -373,7 +383,7 @@ class TunerWindow(QWidget):
         col.addLayout(buttons)
         keys = setup.keys()
         if keys:
-            col.addWidget(label("Qué hace cada tecla en el juego", f.name, theme.TEXT))
+            col.addWidget(label(tr("Qué hace cada tecla en el juego"), f.name, theme.TEXT))
             for key in keys:
                 row = QHBoxLayout()
                 row.addWidget(self._glyph(GLYPH_MOUSE if is_mouse(key) else GLYPH_KEYBOARD))
@@ -387,16 +397,16 @@ class TunerWindow(QWidget):
                 bound = setup.bound_role(key)
                 if bound:
                     role.setEnabled(False)
-                    role.setToolTip("Según tus teclas del juego (arriba)")
+                    role.setToolTip(tr("Según tus teclas del juego (arriba)"))
                 row.addWidget(role)
                 if bound:
-                    row.addWidget(label("según tus teclas del juego", f.small, theme.MUTED))
+                    row.addWidget(label(tr("según tus teclas del juego"), f.small, theme.MUTED))
                 row.addStretch(1)
                 col.addLayout(row)
             cycle = setup.cycle_ms()
-            text = f"Un ciclo dura {cycle} ms" + (f" (≈{1000 / cycle:.0f} por segundo)" if cycle else "")
+            text = tr("Un ciclo dura {0} ms", cycle) + (tr(" (≈{0:.0f} por segundo)", 1000 / cycle) if cycle else "")
             if len(keys) >= 2:
-                text += f"; entre {keys[0]} y {keys[1]} esperas {setup.main_gap()} ms"
+                text += tr("; entre {0} y {1} esperas {2} ms", keys[0], keys[1], setup.main_gap())
             col.addWidget(label(text + ".", f.small, theme.MUTED))
         return box
 
@@ -405,13 +415,13 @@ class TunerWindow(QWidget):
         box = QWidget()
         row = QHBoxLayout(box)
         row.setContentsMargins(0, 0, 0, 0)
-        char = self.ctl.character_name() or "este personaje"
+        char = self.ctl.character_name() or tr("este personaje")
         if setup.uses_external is None:
-            row.addWidget(label(f"¿Usas un macro externo con {char}?", f.name, theme.GOLD))
+            row.addWidget(label(tr("¿Usas un macro externo con {0}?", char), f.name, theme.GOLD))
         else:
-            row.addWidget(label(f"Con {char}: " + ("uso macro externo + el del juego" if setup.uses_external else
-                                                  "solo uso el macro del juego"), f.body, theme.TEXT))
-        for value, text in ((True, "Sí, uso macro externo"), (False, "No, solo el del juego")):
+            row.addWidget(label(tr("Con {0}: ", char) + (tr("uso macro externo + el del juego") if setup.uses_external else
+                                                  tr("solo uso el macro del juego")), f.body, theme.TEXT))
+        for value, text in ((True, tr("Sí, uso macro externo")), (False, tr("No, solo el del juego"))):
             button = QPushButton(text)
             button.setProperty("tab", True)
             button.setCheckable(True)
@@ -436,16 +446,16 @@ class TunerWindow(QWidget):
             for c in range(2):
                 combo = QComboBox()
                 combo.setEditable(True)
-                combo.addItems([""] + KEY_CHOICES)
-                combo.setCurrentText(keys[c])
+                combo.addItems([""] + [tr(k) for k in KEY_CHOICES])
+                combo.setCurrentText(tr(keys[c]) if keys[c] else "")
                 combo.setMinimumContentsLength(12)
-                combo.lineEdit().setPlaceholderText("sin asignar")
-                combo.activated.connect(lambda _, rl=role, i=c, cb=combo: self._set_binding(rl, i, cb.currentText()))
+                combo.lineEdit().setPlaceholderText(tr("sin asignar"))
+                combo.activated.connect(lambda _, rl=role, i=c, cb=combo: self._set_binding(rl, i, _stored(cb.currentText())))
                 combo.lineEdit().editingFinished.connect(
-                    lambda rl=role, i=c, cb=combo: self._set_binding(rl, i, cb.currentText()))
+                    lambda rl=role, i=c, cb=combo: self._set_binding(rl, i, _stored(cb.currentText())))
                 grid.addWidget(combo, r, 1 + c)
-        hint = label("AionDex no puede leer tus teclas del juego: ponlas igual que en el juego y sabrá qué hace cada "
-                     "tecla de tu macro externo (por ejemplo, F10 = macro y F9 = tu clic).", f.small, theme.MUTED)
+        hint = label(tr("AionDex no puede leer tus teclas del juego: ponlas igual que en el juego y sabrá qué hace "
+                        "cada tecla de tu macro externo (por ejemplo, F10 = macro y F9 = tu clic)."), f.small, theme.MUTED)
         hint.setWordWrap(True)
         grid.addWidget(hint, len(BINDINGS), 0, 1, 3)
         grid.setColumnStretch(0, 1)
@@ -491,13 +501,13 @@ class TunerWindow(QWidget):
             lay.addWidget(self._glyph(GLYPH_MOUSE if is_mouse(ev.key) else GLYPH_KEYBOARD))
             key = QComboBox()
             key.setEditable(True)
-            key.addItems(KEY_CHOICES)
-            key.setCurrentText(ev.key)
+            key.addItems([tr(k) for k in KEY_CHOICES])
+            key.setCurrentText(tr(ev.key))
             key.setMinimumContentsLength(12)
-            key.activated.connect(lambda _: self._rename_key(i, key.currentText()))
-            key.lineEdit().editingFinished.connect(lambda: self._rename_key(i, key.currentText()))
+            key.activated.connect(lambda _: self._rename_key(i, _stored(key.currentText())))
+            key.lineEdit().editingFinished.connect(lambda: self._rename_key(i, _stored(key.currentText())))
             lay.addWidget(key)
-            direction = QPushButton("↓ pulsar" if ev.kind == "down" else "↑ soltar")
+            direction = QPushButton(tr("↓ pulsar") if ev.kind == "down" else tr("↑ soltar"))
             direction.setProperty("tab", True)
             direction.clicked.connect(lambda: self._edit(
                 lambda s: setattr(s.events[i], "kind", "up" if s.events[i].kind == "down" else "down")))
@@ -557,12 +567,12 @@ class TunerWindow(QWidget):
         else:
             self.tuner.start()
             self._timer.start()
-            self.test_button.setText("Detener y analizar")
+            self.test_button.setText(tr("Detener y analizar"))
             _clear(self.results)
 
     def _update_test_button(self):
         n = len(self.tuner.tests())
-        self.test_button.setText("Iniciar prueba («Antes»)" if not n else f"Probar luego del ajuste (Prueba {n})")
+        self.test_button.setText(tr("Iniciar prueba («Antes»)") if not n else tr("Probar luego del ajuste (Prueba {0})", n))
 
     def _tick(self):
         s = self.tuner.session
@@ -572,15 +582,14 @@ class TunerWindow(QWidget):
         c = self.tuner.calibration
         if c and c.get("running"):
             fought = self.tuner.fight_seconds()
-            pause = " · SIN MANÁ: pausada, recupéralo y sigue" if self.tuner.out_of_mana() else ""
-            self.test_status.setText(f"Prueba con {self.tuner.calibration_value()} ms: {fought:.0f} de "
-                                     f"{CALIBRATION_SECONDS} s peleando · {s.fired} lanzamientos"
-                                     + (f" · {rejected} rechazados" if rejected else "") + pause)
+            pause = tr(" · SIN MANÁ: pausada, recupéralo y sigue") if self.tuner.out_of_mana() else ""
+            self.test_status.setText(tr("Prueba con {0} ms: {1:.0f} de {2} s peleando · {3} lanzamientos", self.tuner.calibration_value(), fought, CALIBRATION_SECONDS, s.fired)
+                                     + (tr(" · {0} rechazados", rejected) if rejected else "") + pause)
             if fought >= CALIBRATION_SECONDS:
                 self._stop_run()
             return
-        self.test_status.setText(f"Grabando… {int(s.duration)} s · {s.fired} lanzamientos"
-                                 + (f" · {rejected} rechazados" if rejected else ""))
+        self.test_status.setText(tr("Grabando… {0} s · {1} lanzamientos", int(s.duration), s.fired)
+                                 + (tr(" · {0} rechazados", rejected) if rejected else ""))
 
     # --- before / after -------------------------------------------------------------------------------
     def _comparison(self, tests):
@@ -589,7 +598,7 @@ class TunerWindow(QWidget):
         cols = list(enumerate(tests))
         if len(cols) > COMPARE_COLUMNS:
             cols = cols[:1] + cols[-(COMPARE_COLUMNS - 1):]
-        self.results.addWidget(SectionTitle("Antes y después", f))
+        self.results.addWidget(SectionTitle(tr("Antes y después"), f))
         table = QWidget()
         grid = QGridLayout(table)
         grid.setContentsMargins(0, 0, 0, 0)
@@ -620,18 +629,18 @@ class TunerWindow(QWidget):
                 grid.addWidget(label("—" if v is None else fmt(v), f.body, color), r, c, Qt.AlignRight)
 
         configs = [t["config"] for _, t in cols]
-        grid.addWidget(label("Ajustes (ms)", f.small, theme.MUTED), 1, 0)
+        grid.addWidget(label(tr("Ajustes (ms)"), f.small, theme.MUTED), 1, 0)
         for c, text in enumerate(configs, 1):
             cell = label(text.replace(" · ", "\n"), f.small, theme.TEXT)
             cell.setAlignment(Qt.AlignRight)
             grid.addWidget(cell, 1, c, Qt.AlignRight)
-        row(2, "Habilidades/s", [t["casts_per_s"] for _, t in cols], "more", lambda v: f"{v:.2f}")
-        row(3, "Daño/s", [t["dps"] for _, t in cols], "more", lambda v: f"{v / 1000:.1f}K",
+        row(2, tr("Habilidades/s"), [t["casts_per_s"] for _, t in cols], "more", lambda v: f"{v:.2f}")
+        row(3, tr("Daño/s"), [t["dps"] for _, t in cols], "more", lambda v: f"{v / 1000:.1f}K",
             threshold=max(0.4, noise))       # damage swings much more than casts (crits, long cooldowns)
         row(4, "Rechazos", [t["rejected"] for _, t in cols], "less", lambda v: f"{100 * v:.0f}%")
-        row(5, "Clic", [t["click_share"] for _, t in cols], None, lambda v: f"{100 * v:.0f}%")
+        row(5, tr("Clic"), [t["click_share"] for _, t in cols], None, lambda v: f"{100 * v:.0f}%")
         row(6, "Ping", [t["ping"] for _, t in cols], None, lambda v: f"{v:.0f} ms")
-        row(7, "Peleando", [t["fight_s"] for _, t in cols], None, lambda v: f"{v:.0f} s")
+        row(7, tr("Peleando"), [t["fight_s"] for _, t in cols], None, lambda v: f"{v:.0f} s")
         skills = []
         for _, t in cols:
             for sid, where in t.get("where", {}).items():
@@ -639,7 +648,7 @@ class TunerWindow(QWidget):
                     skills.append(sid)
         r = 8
         if skills:
-            grid.addWidget(label("Por minuto", f.small, theme.MUTED), r, 0)
+            grid.addWidget(label(tr("Por minuto"), f.small, theme.MUTED), r, 0)
             r += 1
         def rate(test, sid):
             return 60 * test["skills"].get(sid, 0) / test["fight_s"] if test["fight_s"] else None
@@ -655,29 +664,28 @@ class TunerWindow(QWidget):
             r += 1
         grid.setColumnStretch(0, 1)
         self.results.addWidget(table)
-        source = ("con los mismos ajustes, tus pruebas variaron" if measured else "dos pruebas iguales suelen variar")
-        hint = label(f"Cada prueba se compara con «Antes»: verde = mejor, naranja = peor, blanco = igual dentro del "
-                     f"azar ({source} un {100 * noise:.0f}%). Para afinar más el margen, repite una prueba sin cambiar "
-                     f"nada. Compara peleas parecidas (mismo objetivo, 30–60 s).", f.small, theme.MUTED)
+        source = (tr("con los mismos ajustes, tus pruebas variaron") if measured else tr("dos pruebas iguales suelen "
+                                                                                     "variar"))
+        hint = label(tr("Cada prueba se compara con «Antes»: verde = mejor, naranja = peor, blanco = igual dentro "
+                        "del azar ({0} un {1:.0f}%). Para afinar más el margen, repite una prueba sin cambiar nada. "
+                        "Compara peleas parecidas (mismo objetivo, 30–60 s).", source, 100 * noise), f.small, theme.MUTED)
         hint.setWordWrap(True)
         self.results.addWidget(hint)
-        reset = QPushButton("Empezar una comparación nueva")
+        reset = QPushButton(tr("Empezar una comparación nueva"))
         reset.setProperty("flat", True)
         reset.clicked.connect(self._reset_tests)
         self.results.addWidget(reset, 0, Qt.AlignLeft)
 
     def _mana_section(self, report):
         f, m = self.fonts, report.mana
-        self.results.addWidget(SectionTitle("Maná", f))
+        self.results.addWidget(SectionTitle(tr("Maná"), f))
         if m.seconds_to_empty is None:
-            verdict, color = "Tu maná aguanta: recuperas al menos lo que gastas.", theme.GAIN
+            verdict, color = tr("Tu maná aguanta: recuperas al menos lo que gastas."), theme.GAIN
         elif m.seconds_to_empty < 90 or m.low_share > 0.1:
-            verdict, color = f"Te quedas sin maná en unos {m.seconds_to_empty:.0f} s de pelea seguida.", theme.COMBAT
+            verdict, color = tr("Te quedas sin maná en unos {0:.0f} s de pelea seguida.", m.seconds_to_empty), theme.COMBAT
         else:
-            verdict, color = (f"Pierdes maná poco a poco: aguantas unos {m.seconds_to_empty / 60:.0f} min de pelea "
-                              f"seguida.", theme.TEXT)
-        summary = label(f"{verdict} Gastas {m.spent_per_min:.0f} MP/min y recuperas {m.gained_per_min:.0f} "
-                        f"(máximo {m.max_mp})." + (f" Sin maná: {report.low_mp_s:.0f} s (no cuentan en la prueba)."
+            verdict, color = (tr("Pierdes maná poco a poco: aguantas unos {0:.0f} min de pelea seguida.", m.seconds_to_empty / 60), theme.TEXT)
+        summary = label(tr("{0} Gastas {1:.0f} MP/min y recuperas {2:.0f} (máximo {3}).", verdict, m.spent_per_min, m.gained_per_min, m.max_mp) + (tr(" Sin maná: {0:.0f} s (no cuentan en la prueba).", report.low_mp_s)
                                                    if report.low_mp_s >= 1 else ""), f.small, color)
         summary.setWordWrap(True)
         self.results.addWidget(summary)
@@ -686,7 +694,7 @@ class TunerWindow(QWidget):
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setHorizontalSpacing(8)
         grid.setVerticalSpacing(2)
-        for col, head in enumerate(("", "Habilidad", "MP", "Veces/min", "MP/min", "Daño/MP")):
+        for col, head in enumerate(("", tr("Habilidad"), "MP", tr("Veces/min"), "MP/min", tr("Daño/MP"))):
             grid.addWidget(label(head, f.small, theme.MUTED), 0, col, Qt.AlignLeft if col < 2 else Qt.AlignRight)
         for r, (sid, cost, per_min, mp_min, dmg_mp) in enumerate(m.skills[:8], 1):
             grid.addWidget(tile_for(self.tuner, sid, 22, border=False), r, 0)
@@ -714,7 +722,7 @@ class TunerWindow(QWidget):
         if self.tuner.recording:
             self.tuner.cancel()
             self._timer.stop()
-            self.test_status.setText("Prueba cancelada.")
+            self.test_status.setText(tr("Prueba cancelada."))
         self.tuner.calibration = None
         self.test_button.setEnabled(True)
         self.calib_button.setVisible(True)
@@ -724,24 +732,23 @@ class TunerWindow(QWidget):
         setup = self.tuner.setup
         keys = setup.keys()
         if kind == "hold":
-            return f"Cuánto mantener {setup.key_name('macro')} (macro externo)"
+            return tr("Cuánto mantener {0} (macro externo)", setup.key_name('macro'))
         if kind == "hold_attack":
-            return f"Cuánto mantener {setup.key_name('click')} (macro externo)"
+            return tr("Cuánto mantener {0} (macro externo)", setup.key_name('click'))
         if kind == "gap":
-            return f"Espera entre {keys[0]} y {keys[1]} (macro externo)" if len(keys) >= 2 else "Espera entre teclas"
-        return "Retraso de los pasos del macro del juego"
+            return tr("Espera entre {0} y {1} (macro externo)", keys[0], keys[1]) if len(keys) >= 2 else tr("Espera entre teclas")
+        return tr("Retraso de los pasos del macro del juego")
 
     def _kind_where(self, kind):
         setup = self.tuner.setup
         keys = setup.keys()
         if kind in ("hold", "hold_attack"):
             key = setup.key_name("macro" if kind == "hold" else "click")
-            return f"en la espera entre «{key} ↓ pulsar» y «{key} ↑ soltar» de tu macro externo"
+            return tr("en la espera entre «{0} ↓ pulsar» y «{1} ↑ soltar» de tu macro externo", key, key)
         if kind == "gap":
-            pair = f"{keys[0]} y {keys[1]}" if len(keys) >= 2 else "tus dos teclas"
-            return (f"en la espera entre {pair} de tu macro externo (la que va justo después de soltar "
-                    f"{keys[0] if keys else 'la primera'})")
-        return "en el retraso de TODOS los pasos de K → Macro"
+            pair = f"{keys[0]} y {keys[1]}" if len(keys) >= 2 else tr("tus dos teclas")
+            return (tr("en la espera entre {0} de tu macro externo (la que va justo después de soltar {1})", pair, keys[0] if keys else tr("la primera")))
+        return tr("en el retraso de TODOS los pasos de K → Macro")
 
     def _show_calibration(self):
         f, tuner = self.fonts, self.tuner
@@ -763,18 +770,18 @@ class TunerWindow(QWidget):
             return lbl
 
         if c is None:
-            col.addWidget(label("Calibrar retrasos", f.name, theme.TEXT))
+            col.addWidget(label(tr("Calibrar retrasos"), f.name, theme.TEXT))
             ping = tuner.ping_ms
-            text("Pruebas cortas con distintos valores contra el mismo objetivo; AionDex mide lo que se lanza, lo "
-                 "que se pierde y tu daño en cada una, y te dice el mejor valor."
-                 + (f" Tu ping medido: {ping:.0f} ms." if ping else ""), color=theme.MUTED)
+            text(tr("Pruebas cortas con distintos valores contra el mismo objetivo; AionDex mide lo que se lanza, "
+                    "lo que se pierde y tu daño en cada una, y te dice el mejor valor.")
+                 + (tr(" Tu ping medido: {0:.0f} ms.", ping) if ping else ""), color=theme.MUTED)
             kinds = tuner.calibration_kinds()
             first = tuner.calibration_first()
             if first == "hold" and tuner.last_report and tuner.last_report.starved:
-                text(f"Tu última prueba: el macro del juego no pasa del paso 1. Empieza por «{self._kind_label('hold')}»: "
-                     f"hasta que llegue a todos los pasos, el resto de valores no cambia nada.", color=theme.WARN)
+                text(tr("Tu última prueba: el macro del juego no pasa del paso 1. Empieza por «{0}»: hasta que "
+                        "llegue a todos los pasos, el resto de valores no cambia nada.", self._kind_label('hold')), color=theme.WARN)
             if len(kinds) > 1:
-                every = QPushButton("Calibrar todo, en orden (recomendado)")
+                every = QPushButton(tr("Calibrar todo, en orden (recomendado)"))
                 every.clicked.connect(lambda: self._choose_kind("all"))
                 col.addWidget(every)
             for kind in kinds:
@@ -783,8 +790,8 @@ class TunerWindow(QWidget):
                 button.clicked.connect(lambda _=False, k=kind: self._choose_kind(k))
                 col.addWidget(button)
             if not kinds:
-                text("Añade antes los pasos de tu macro del juego o tu macro externo.", color=theme.MUTED)
-            cancel = QPushButton("Cancelar")
+                text(tr("Añade antes los pasos de tu macro del juego o tu macro externo."), color=theme.MUTED)
+            cancel = QPushButton(tr("Cancelar"))
             cancel.setProperty("flat", True)
             cancel.clicked.connect(self._close_calibration)
             col.addWidget(cancel, 0, Qt.AlignLeft)
@@ -794,7 +801,7 @@ class TunerWindow(QWidget):
         stage = len(c["done"]) + 1
         stages = stage + len(c["queue"])
         title = self._kind_label(c["kind"])
-        col.addWidget(label(f"Calibrar ({stage} de {stages}): {title}" if stages > 1 else f"Calibrar: {title}",
+        col.addWidget(label(tr("Calibrar ({0} de {1}): {2}", stage, stages, title) if stages > 1 else tr("Calibrar: {0}", title),
                             f.name, theme.TEXT))
         for kind, value in c["done"]:
             text(f"✓ {self._kind_label(kind)}: {value} ms", color=theme.GAIN)
@@ -805,34 +812,34 @@ class TunerWindow(QWidget):
         if value is not None:
             setup = tuner.setup
             macro_key, attack_key = setup.key_name("macro"), setup.key_name("click")
-            how = (f"usa tu macro externo como siempre (pulsa {macro_key} y {attack_key})" if setup.uses_external else
-                   f"mantén {macro_key} y usa {attack_key} como en tus peleas")
-            text(f"Prueba {len(runs) + 1} de {len(c['values'])}: pon {value} ms {self._kind_where(c['kind'])}. Luego "
-                 f"pulsa «Empezar», {how} y pelea {CALIBRATION_SECONDS} s contra el mismo objetivo (un muñeco de "
-                 f"entrenamiento es lo ideal). AionDex mide aparte lo que sale de cada tecla y para solo.")
-            text("Si te quedas sin maná, la prueba se pausa sola: espera a recuperarlo y sigue pegando; ese rato no "
-                 "cuenta.", color=theme.MUTED)
-            start = QPushButton(f"Empezar prueba con {value} ms")
+            how = (tr("usa tu macro externo como siempre (pulsa {0} y {1})", macro_key, attack_key) if setup.uses_external else
+                   tr("mantén {0} y usa {1} como en tus peleas", macro_key, attack_key))
+            text(tr("Prueba {0} de {1}: pon {2} ms {3}. Luego pulsa «Empezar», {4} y pelea {5} s contra el mismo "
+                    "objetivo (un muñeco de entrenamiento es lo ideal). AionDex mide aparte lo que sale de cada "
+                    "tecla y para solo.", len(runs) + 1, len(c['values']), value, self._kind_where(c['kind']), how, CALIBRATION_SECONDS))
+            text(tr("Si te quedas sin maná, la prueba se pausa sola: espera a recuperarlo y sigue pegando; ese rato "
+                    "no cuenta."), color=theme.MUTED)
+            start = QPushButton(tr("Empezar prueba con {0} ms", value))
             start.setEnabled(not c.get("running"))
             start.clicked.connect(self._start_run)
             col.addWidget(start)
         else:
             best, reason = tuner.calibration_result()
             if best:
-                col.addWidget(label(f"Pon {best.value} ms", f.name_big, theme.GAIN))
+                col.addWidget(label(tr("Pon {0} ms", best.value), f.name_big, theme.GAIN))
                 text(reason[0].upper() + reason[1:])
-                follow = f" y seguir con «{self._kind_label(c['queue'][0])}»" if c["queue"] else ""
-                apply = QPushButton(f"Guardar {best.value} ms{follow}")
+                follow = tr(" y seguir con «{0}»", self._kind_label(c['queue'][0])) if c["queue"] else ""
+                apply = QPushButton(tr("Guardar {0} ms{1}", best.value, follow))
                 apply.clicked.connect(lambda: self._apply(best.value))
                 col.addWidget(apply)
-                text("Ponlo también en el juego o en tu programa del ratón: AionDex no puede cambiarlo por ti.",
+                text(tr("Ponlo también en el juego o en tu programa del ratón: AionDex no puede cambiarlo por ti."),
                      color=theme.MUTED)
             else:
                 text(reason, color=theme.WARN)
-                retry = QPushButton("Repetir con valores más altos")
+                retry = QPushButton(tr("Repetir con valores más altos"))
                 retry.clicked.connect(self._retry_higher)
                 col.addWidget(retry)
-        close = QPushButton("Cerrar calibración")
+        close = QPushButton(tr("Cerrar calibración"))
         close.setProperty("flat", True)
         close.clicked.connect(self._close_calibration)
         col.addWidget(close, 0, Qt.AlignLeft)
@@ -846,7 +853,7 @@ class TunerWindow(QWidget):
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setHorizontalSpacing(8)
         grid.setVerticalSpacing(2)
-        for col, head in enumerate(("Valor", "Ataque/min", "Macro/min", "Hab./s", "Rech.", "")):
+        for col, head in enumerate((tr("Valor"), tr("Ataque/min"), "Macro/min", tr("Hab./s"), tr("Rech."), "")):
             grid.addWidget(label(head, f.small, theme.MUTED), 0, col, Qt.AlignRight if 0 < col < 5 else Qt.AlignLeft)
         for r, run in enumerate(runs, 1):
             problem = run_problem(run)
@@ -887,8 +894,8 @@ class TunerWindow(QWidget):
         self.rebuild()
         if self.tuner.calibration and not self.tuner.calibration["queue"] and self.tuner.calibration_value() is None:
             self._close_calibration()
-            self.test_status.setText("Calibración guardada. Ahora haz una prueba normal con los valores nuevos: "
-                                     "se compara con «Antes» y verás la revisión del maná.")
+            self.test_status.setText(tr("Calibración guardada. Ahora haz una prueba normal con los valores nuevos: "
+                                        "se compara con «Antes» y verás la revisión del maná."))
             return
         self._show_calibration()
 
@@ -897,15 +904,14 @@ class TunerWindow(QWidget):
         if report is None:
             return
         f = self.fonts
-        gap = f" · uno cada {report.median_gap_ms:.0f} ms" if report.median_gap_ms else ""
-        rejected = f" · {report.rejected} rechazados" if report.rejected else ""
-        ping = f" · tu ping {report.ping_ms:.0f} ms" if report.ping_ms else ""
-        self.test_status.setText(f"Prueba de {int(report.duration)} s ({int(report.fight_s)} s peleando) · "
-                                 f"{report.total} lanzamientos{rejected}{gap}{ping}")
+        gap = tr(" · uno cada {0:.0f} ms", report.median_gap_ms) if report.median_gap_ms else ""
+        rejected = tr(" · {0} rechazados", report.rejected) if report.rejected else ""
+        ping = tr(" · tu ping {0:.0f} ms", report.ping_ms) if report.ping_ms else ""
+        self.test_status.setText(tr("Prueba de {0} s ({1} s peleando) · {2} lanzamientos{3}{4}{5}", int(report.duration), int(report.fight_s), report.total, rejected, gap, ping))
         tests = self.tuner.tests()
         if len(tests) >= 2:
             self._comparison(tests)
-        self.results.addWidget(SectionTitle("Qué cambiar", f))
+        self.results.addWidget(SectionTitle(tr("Qué cambiar"), f))
         for finding in report.findings:
             box = QFrame()
             box.setObjectName("Finding")
@@ -924,27 +930,27 @@ class TunerWindow(QWidget):
             self.results.addWidget(box)
         if report.mana:
             self._mana_section(report)
-        self.results.addWidget(SectionTitle("Lanzado frente a posible", f))
+        self.results.addWidget(SectionTitle(tr("Lanzado frente a posible"), f))
         table = QWidget()
         grid = QGridLayout(table)
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setHorizontalSpacing(8)
         grid.setVerticalSpacing(3)
-        for col, head in enumerate(("", "Habilidad", "Dónde", "Lanzada", "Posible", "Rech.")):
+        for col, head in enumerate(("", tr("Habilidad"), tr("Dónde"), tr("Lanzada"), tr("Posible"), tr("Rech."))):
             grid.addWidget(label(head, f.small, theme.MUTED), 0, col, Qt.AlignLeft if col < 3 else Qt.AlignRight)
         for r, row in enumerate(report.rows, 1):
             short = row.possible and row.fired / row.possible < 0.6
             color = theme.COMBAT if row.where and not row.fired else theme.WARN if short else theme.TEXT
             grid.addWidget(tile_for(self.tuner, row.skill, 24, border=False), r, 0)
             grid.addWidget(label(self.tuner.skill_name(row.skill), f.body, color, elide=True), r, 1)
-            grid.addWidget(label(row.where or "fuera", f.small, theme.MUTED), r, 2)
+            grid.addWidget(label(row.where or tr("fuera"), f.small, theme.MUTED), r, 2)
             grid.addWidget(label(str(row.fired), f.name, color), r, 3, Qt.AlignRight)
             grid.addWidget(label(f"~{row.possible}" if row.possible else "—", f.small, theme.MUTED), r, 4,
                            Qt.AlignRight)
             grid.addWidget(label(str(row.rejected) if row.rejected else "", f.small, theme.WARN), r, 5, Qt.AlignRight)
         grid.setColumnStretch(1, 1)
         self.results.addWidget(table)
-        note = label("«Posible»: veces que su recarga permitía lanzarla mientras peleabas. «—»: sin recarga.",
+        note = label(tr("«Posible»: veces que su recarga permitía lanzarla mientras peleabas. «—»: sin recarga."),
                      f.small, theme.MUTED)
         note.setWordWrap(True)
         self.results.addWidget(note)
@@ -956,7 +962,7 @@ def _swap(items, i, j):
 
 
 def _test_label(i):
-    return "Antes" if i == 0 else f"Prueba {i}"
+    return tr("Antes") if i == 0 else tr("Prueba {0}", i)
 
 
 def _clear(layout):

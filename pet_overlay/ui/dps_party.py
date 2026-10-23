@@ -7,6 +7,7 @@ from PySide6.QtGui import QColor, QFontMetrics, QLinearGradient, QPainter, QPain
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
 from . import theme
+from ..i18n import tr
 
 CLASS_COLOR = {"Gladiador": "#a8693c", "Templario": "#4b62b0", "Cazador": "#3d8a5c", "Asesino": "#84509f",
                "Hechicero": "#a84868", "Invocador": "#3b8299", "Clérigo": "#a8924a", "Cantor": "#8c733d"}
@@ -105,7 +106,7 @@ class BossCard(QWidget):
     """The fight's card. `boss` = None while waiting for the fight, else a dict with name, hp, max_hp, dead,
     rage (seconds left, negative once raged, None if it never rages) and ttk (seconds to kill at this pace)."""
 
-    def __init__(self, fonts, elapsed, energy, rewards, boss, idle_title="Mazmorra"):
+    def __init__(self, fonts, elapsed, energy, rewards, boss, idle_title=tr("Mazmorra")):
         super().__init__()
         self.fonts, self.elapsed, self.energy, self.rewards, self.boss = fonts, elapsed, energy, rewards, boss
         self.idle_title = idle_title
@@ -116,17 +117,18 @@ class BossCard(QWidget):
     def _tip(self):
         lines = []
         if self.boss and self.boss.get("count"):
-            lines.append("Pelea contra varios enemigos: cuántos hay, cuántos murieron y el daño total que les hicisteis.")
+            lines.append(tr("Pelea contra varios enemigos: cuántos hay, cuántos murieron y el daño total que les "
+                            "hicisteis."))
         if self.energy:
-            lines.append("Rayo: tu Energía de Odyle (en azul, la extra). Paga el cubo de recompensa al final de "
-                         "Exploración y Trascendencia.")
+            lines.append(tr("Rayo: tu Energía de Odyle (en azul, la extra). Paga el cubo de recompensa al final de "
+                            "Exploración y Trascendencia."))
         if self.rewards:
-            lines.append("Cofre: recompensas que te quedan de esta mazmorra.")
+            lines.append(tr("Cofre: recompensas que te quedan de esta mazmorra."))
         elif self.energy:
-            lines.append("Las recompensas que te quedan de esta mazmorra aparecen después de la primera vez que "
-                         "cobres una aquí (el juego no dice cuál es hasta entonces).")
+            lines.append(tr("Las recompensas que te quedan de esta mazmorra aparecen después de la primera vez que "
+                            "cobres una aquí (el juego no dice cuál es hasta entonces)."))
         if self.boss and self.boss.get("rage") is not None:
-            lines.append("Furia: cuánto falta para que el jefe se enfurezca (cuenta desde el primer golpe).")
+            lines.append(tr("Furia: cuánto falta para que el jefe se enfurezca (cuenta desde el primer golpe)."))
         return "\n".join(lines)
 
     def paintEvent(self, _):
@@ -150,7 +152,7 @@ class BossCard(QWidget):
         if boss is None:
             p.setFont(f.body)
             p.setPen(theme.MUTED)
-            p.drawText(line2, Qt.AlignVCenter | Qt.AlignLeft, "Golpea a un enemigo para empezar")
+            p.drawText(line2, Qt.AlignVCenter | Qt.AlignLeft, tr("Golpea a un enemigo para empezar"))
             return
         if boss.get("count"):
             self._several(p, line2, boss)
@@ -196,12 +198,12 @@ class BossCard(QWidget):
         shadow_text(p, line, Qt.AlignVCenter | Qt.AlignRight, total, theme.TEXT)
         right = line.right() - fm.horizontalAdvance(total) - f.px(8)
         p.setFont(f.small)
-        dead = f"{info['dead']} derrotados · daño" if info["dead"] else "daño"
+        dead = tr("{0} derrotados · daño", info['dead']) if info["dead"] else tr("daño")
         p.setPen(theme.MUTED)
         p.drawText(QRectF(line.left(), line.top(), right - line.left(), line.height()),
                    Qt.AlignVCenter | Qt.AlignRight, dead)
         p.setFont(f.name)
-        shadow_text(p, line, Qt.AlignVCenter | Qt.AlignLeft, f"Enemigos ({info['count']})", theme.TEXT)
+        shadow_text(p, line, Qt.AlignVCenter | Qt.AlignLeft, tr("Enemigos ({0})", info['count']), theme.TEXT)
         bar = QRectF(line.left(), self.rect().bottom() - f.px(9.5), line.width(), f.px(4))
         p.setPen(Qt.NoPen)
         p.setBrush(QColor(255, 255, 255, 26))
@@ -217,7 +219,7 @@ class BossCard(QWidget):
         mid = rect.center().y()
         p.setFont(f.badge)
         p.setPen(TEAL)
-        text = f"Combate {clock(self.elapsed)}" if boss is not None else self.idle_title
+        text = tr("Combate {0}", clock(self.elapsed)) if boss is not None else self.idle_title
         p.drawText(QRectF(x, rect.top(), rect.width(), rect.height()), Qt.AlignVCenter | Qt.AlignLeft, text)
         x += p.fontMetrics().horizontalAdvance(text) + f.px(7)
         s = f.px(11)
@@ -249,10 +251,10 @@ class BossCard(QWidget):
             return
         ttk = boss.get("ttk")
         if rage <= 0:
-            text, color = "¡Furioso!", QColor("#ff4d4d")
+            text, color = tr("¡Furioso!"), QColor("#ff4d4d")
         else:
             late = ttk is not None and ttk > rage           # at this pace it rages before it dies
-            text = f"Furia {clock(rage)}"
+            text = tr("Furia {0}", clock(rage))
             color = QColor("#ff4d4d") if rage <= RAGE_SOON or late else QColor("#ffb259")
         p.setFont(f.badge)
         p.setPen(color)

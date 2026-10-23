@@ -9,6 +9,7 @@ from .skills import SLOT_KEYS, OwnSkill, QuickSlot, base_skill, chain_parents, i
 from .tuner import (CALIBRATION_KINDS, CALIBRATION_SECONDS, DEFAULT_BINDINGS, LOW_MP_SHARE, Finding, MacroSetup,
                     TunerSession, analyze, calibration_run, calibration_values, fight_windows, mp_low_intervals,
                     recommend, test_noise, test_summary)
+from .i18n import tr
 
 CAST_MATCH_SECONDS = 0.2     # the cast (0238) and the reply to its press (0138) arrive in the same packet
 FRESH_LOADOUT = 15.0         # a skill list this recent belongs to the character that logs in right after it
@@ -228,14 +229,14 @@ class Afinador:
     def skill_name(self, sid):
         sid = int(sid)
         if is_basic_attack(sid):
-            return "Ataque básico"
+            return tr("Ataque básico")
         info = self.skills.get(str(base_skill(sid)))
         if info:
             return info["name"]
         if base_skill(sid) in self.chains:
             opener, step = self.chains[base_skill(sid)]
-            return f"{self.skill_name(opener)} (golpe {step})"
-        return f"Habilidad #{sid}"
+            return tr("{0} (golpe {1})", self.skill_name(opener), step)
+        return tr("Habilidad #{0}", sid)
 
     def skill_kind(self, sid):
         return self.skills.get(str(self.fold(sid)), {}).get("type")
@@ -272,9 +273,12 @@ class Afinador:
     def ping_ms(self):
         return sorted(self.rtts)[len(self.rtts) // 2] if len(self.rtts) >= 3 else None
 
+    def slot_key(self, slot):
+        return SLOT_KEYS.get(slot, str(slot))
+
     def slot_label(self, slot):
-        key = SLOT_KEYS.get(slot, str(slot))
-        return "Ratón" if key == "Ratón" else f"Tecla {key}"
+        key = self.slot_key(slot)
+        return tr("Ratón") if key == "Ratón" else tr("Tecla {0}", key)
 
     def class_prefix(self):
         own = list(self.own) or [q.skill for q in self.bar] or [s for s, _ in self.seen.most_common(20)]
@@ -283,7 +287,7 @@ class Afinador:
 
     def skill_options(self):
         prefix = self.class_prefix()
-        items = [(int(sid), f"{info['name']}{' (estigma)' if info.get('type') == 'stigma' else ''}")
+        items = [(int(sid), info['name'] + (tr(" (estigma)") if info.get('type') == 'stigma' else ''))
                  for sid, info in self.skills.items()
                  if info.get("type") != "passive" and (prefix is None or sid.startswith(prefix))]
         return sorted(items, key=lambda x: x[1])
@@ -295,7 +299,7 @@ class Afinador:
             kind = self.skills.get(str(base), {}).get("type")
             if kind in groups:
                 groups[kind].append(own)
-        titles = {"active": "Activas", "stigma": "Estigmas", "passive": "Pasivas"}
+        titles = {"active": tr("Activas"), "stigma": tr("Estigmas"), "passive": tr("Pasivas")}
         return [(titles[k], v) for k, v in groups.items() if v]
 
     # --- recording --------------------------------------------------------------------------------
@@ -391,8 +395,8 @@ class Afinador:
             self._record_test(self.last_report)
         if switched:
             self.last_report.findings.append(Finding(
-                "info", f"Analizado con el preset {used}: es el que coincide con las habilidades que lanzaste.",
-                "Si no es el que usabas, elige otro preset arriba y repite la prueba."))
+                "info", tr("Analizado con el preset {0}: es el que coincide con las habilidades que lanzaste.", used),
+                tr("Si no es el que usabas, elige otro preset arriba y repite la prueba.")))
         return self.last_report
 
     # --- before / after ------------------------------------------------------------------------------

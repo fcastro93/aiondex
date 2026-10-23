@@ -20,6 +20,7 @@ from .mobs import parse_spawn_at
 from .protocol import read_varint
 from .simulation import MOVE_AT, parse_move
 from .world import spawn_hp_at
+from .i18n import tr
 
 SPAWN = bytes.fromhex("4136")
 GONE = bytes.fromhex("4236")
@@ -112,7 +113,7 @@ class BigFoes:
             if foe is None:
                 if hp >= BIG_HP:                     # its coming into sight was missed: from its HP
                     with self.lock:
-                        self.foes[eid] = Foe(eid, None, self.name_of(eid) or "Jefe", False, hp, hp, 0.0, 0.0, now)
+                        self.foes[eid] = Foe(eid, None, self.name_of(eid) or tr("Jefe"), False, hp, hp, 0.0, 0.0, now)
                         self.foes[eid].x = self.foes[eid].y = None
                 return
             if hp > foe.max_hp * 1.05 and foe.npc is not None:

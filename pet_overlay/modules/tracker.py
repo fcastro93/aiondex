@@ -9,6 +9,7 @@ from ..tracker import countdown
 from ..ui import theme
 from ..ui.appmenu import glyph_icon
 from ..ui.widgets import SectionTitle, label
+from ..i18n import tr
 
 GLYPH_ALARM = ""        # calendar / timer
 ROWS = {True: 3, False: 8}
@@ -16,14 +17,14 @@ ROWS = {True: 3, False: 8}
 
 def when_text(st, now):
     if st.state in ("vivo", "en curso"):
-        return "ahora", theme.GAIN
+        return tr("ahora"), theme.GAIN
     if st.state == "quizá":
-        return "¿ahora?", theme.WARN
+        return tr("¿ahora?"), theme.WARN
     if st.state == "debería estar":
-        return "¿ya?", theme.WARN
+        return tr("¿ya?"), theme.WARN
     if st.start is None:
         return "—", theme.MUTED
-    return f"en {countdown(st.start - now)}", theme.TEXT
+    return tr("en {0}", countdown(st.start - now)), theme.TEXT
 
 
 class TrackerPanel(QWidget):
@@ -44,13 +45,13 @@ class TrackerPanel(QWidget):
         f = self.fonts
         now = time.time()
         if not rows:
-            note = label("Marca con la campana los jefes y eventos que te interesan: aquí verás cuánto falta y te "
-                         "avisará antes de que salgan.", f.small, theme.MUTED)
+            note = label(tr("Marca con la campana los jefes y eventos que te interesan: aquí verás cuánto falta y "
+                            "te avisará antes de que salgan."), f.small, theme.MUTED)
             note.setWordWrap(True)
             note.setContentsMargins(f.px(4), 0, 0, 0)
             self.content.addWidget(note)
         else:
-            self.content.addWidget(SectionTitle("Próximos", f))
+            self.content.addWidget(SectionTitle(tr("Próximos"), f))
             for entry, st in rows[:ROWS[compact]]:
                 line = QWidget()
                 lay = QHBoxLayout(line)
@@ -60,7 +61,7 @@ class TrackerPanel(QWidget):
                 text, color = when_text(st, now)
                 lay.addWidget(label(text, f.name, color))
                 self.content.addWidget(line)
-        link = label("Abrir el tracker", f.name, theme.ACCENT)
+        link = label(tr("Abrir el tracker"), f.name, theme.ACCENT)
         link.setAttribute(Qt.WA_TransparentForMouseEvents, False)
         link.setCursor(Qt.PointingHandCursor)
         link.on_click = self.ctl.open_tracker

@@ -26,6 +26,7 @@ from pathlib import Path
 
 from .protocol import read_varint
 from .status import CLAIM_SECONDS, next_weekly, WEEK
+from .i18n import tr, tr_data
 
 log = logging.getLogger(__name__)
 LIST_OPCODE = bytes.fromhex("8356")
@@ -113,7 +114,7 @@ class Missions:
     def __init__(self, data_dir, db_path, persist=True, save_name="missions.json"):
         self.path = Path(data_dir) / save_name
         self.persist = persist
-        db = _load(Path(db_path), {})
+        db = tr_data(Path(db_path).name, _load(Path(db_path), {}))
         self.credit = db.get("credit")
         self.tabs = db.get("tabs", {})
         self.subs = {tab: [tuple(s) for s in subs] for tab, subs in db.get("subs", {}).items()}
@@ -131,13 +132,13 @@ class Missions:
     def available(self):
         return bool(self.db)
 
-    def add_event(self, missions, tab="event", tab_name="Evento"):
+    def add_event(self, missions, tab="event", tab_name=tr("Evento")):
         """The missions a running event adds to Season Mission (its Event tab), from data/events.json: they are read,
         saved and shown like the others."""
         if not missions:
             return
         self.tabs[tab] = tab_name
-        self.subs[tab] = [("weekly", "Semanales")]
+        self.subs[tab] = [("weekly", tr("Semanales"))]
         for m in missions:
             self.db[m["id"]] = Mission(**{k: m.get(k) for k in Mission.__dataclass_fields__ if k in m})
 
@@ -236,10 +237,10 @@ class Missions:
     def context(self, map_id, abyss, region):
         """(title, where tags) of the place: the Abyss, an instance (what was played there before), a region."""
         if abyss:
-            return "En el Abismo", {"abyss", "pvp"}
+            return tr("En el Abismo"), {"abyss", "pvp"}
         if map_id is not None and not 1000 <= map_id < 1200:
-            return "En esta instancia", set(self.maps.get(str(map_id), []))
-        return (f"En {region}" if region else "En el mundo"), ({f"region:{region}"} if region else set())
+            return tr("En esta instancia"), set(self.maps.get(str(map_id), []))
+        return (tr("En {0}", region) if region else tr("En el mundo")), ({f"region:{region}"} if region else set())
 
     def for_place(self, name, faction, tags, now=None):
         """Missions that move where you are, not finished: rewards waiting first, then this week's, the closest first."""

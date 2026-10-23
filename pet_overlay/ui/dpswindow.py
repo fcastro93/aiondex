@@ -21,6 +21,7 @@ from .mapwindow import STYLE, badge_label
 from .theme import Fonts
 from .tunerwindow import EXTRA_STYLE
 from .widgets import label
+from ..i18n import tr
 
 BAR_ROLE = Qt.UserRole + 1          # 0-1: length of the bar behind the first column
 COLOR_ROLE = Qt.UserRole + 2        # QColor of that bar (the player's class)
@@ -42,9 +43,10 @@ QLineEdit {{ padding: 6px 10px; }}
 QFrame#Card {{ background: #0f1830; border: 1px solid #1c2944; border-radius: 10px; }}
 QSplitter::handle {{ background: transparent; width: 10px; }}
 """
-GROUPS = [("all", "Todos"), ("group", "Tú y tu grupo"), ("others", "Fuera de tu grupo")]
-ENEMY_NOTE = ("«Enemigo» a secas: un monstruo que ya estaba a la vista cuando AionDex empezó a escuchar (el juego solo "
-              "dice qué es cuando aparece). «Enemigo (40K HP)»: una variante que la base de datos no tiene con nombre.")
+GROUPS = [("all", tr("Todos")), ("group", tr("Tú y tu grupo")), ("others", tr("Fuera de tu grupo"))]
+ENEMY_NOTE = (tr("«Enemigo» a secas: un monstruo que ya estaba a la vista cuando AionDex empezó a escuchar (el "
+                 "juego solo dice qué es cuando aparece). «Enemigo (40K HP)»: una variante que la base de datos no "
+                 "tiene con nombre."))
 
 
 def _empty(layout):
@@ -112,75 +114,76 @@ def _amount(attr):
 
 
 METRICS = [
-    Metric("damage", "Daño", "Daño", "damage", [
-        ("Daño", lambda a, v, enc, t: (short_number(v), v)),
+    Metric("damage", tr("Daño"), tr("Daño"), "damage", [
+        (tr("Daño"), lambda a, v, enc, t: (short_number(v), v)),
         ("DPS", _rate),
         ("%", _share),
-        ("Golpes", _hits("hits")),
-        ("Críticos", _ratio("crits", "hits")),
-        ("Espalda", _ratio("backs", "hits")),
-        ("Mayor golpe", _amount("max_hit")),
-    ], [("Habilidades", "skills", "skill_hits", "skill"), ("Objetivos", "by_target", None, "npc")],
+        (tr("Golpes"), _hits("hits")),
+        (tr("Críticos"), _ratio("crits", "hits")),
+        (tr("Espalda"), _ratio("backs", "hits")),
+        (tr("Mayor golpe"), _amount("max_hit")),
+    ], [(tr("Habilidades"), "skills", "skill_hits", "skill"), (tr("Objetivos"), "by_target", None, "npc")],
         rate="DPS", boss_filter=True),
-    Metric("healing", "Curación", "Curación", "healing", [
-        ("Curación", lambda a, v, enc, t: (short_number(v), v)),
+    Metric("healing", tr("Curación"), tr("Curación"), "healing", [
+        (tr("Curación"), lambda a, v, enc, t: (short_number(v), v)),
         ("HPS", _rate),
         ("%", _share),
-        ("Curas", _hits("heal_hits")),
-        ("Sobrecuración", _amount("overheal")),
-        ("Revividos", _hits("revives")),
-    ], [("Habilidades", "heal_skills", "heal_skill_hits", "skill"), ("A quién", "heal_to", None, "player")],
+        (tr("Curas"), _hits("heal_hits")),
+        (tr("Sobrecuración"), _amount("overheal")),
+        (tr("Revividos"), _hits("revives")),
+    ], [(tr("Habilidades"), "heal_skills", "heal_skill_hits", "skill"), (tr("A quién"), "heal_to", None, "player")],
         rate="HPS"),
-    Metric("shields", "Escudos", "Escudos", "shielding", [
-        ("Absorbido", lambda a, v, enc, t: (short_number(v), v)),
-        ("Por segundo", _rate),
+    Metric("shields", tr("Escudos"), tr("Escudos"), "shielding", [
+        (tr("Absorbido"), lambda a, v, enc, t: (short_number(v), v)),
+        (tr("Por segundo"), _rate),
         ("%", _share),
-    ], [("Habilidades", "shield_skills", None, "skill"), ("A quién", "shield_to", None, "player")],
-        note="Daño que absorbieron los escudos que lanzó cada jugador."),
-    Metric("taken", "Daño recibido", "Recibido", "taken", [
-        ("Recibido", lambda a, v, enc, t: (short_number(v), v)),
-        ("Por segundo", _rate),
+    ], [(tr("Habilidades"), "shield_skills", None, "skill"), (tr("A quién"), "shield_to", None, "player")],
+        note=tr("Daño que absorbieron los escudos que lanzó cada jugador.")),
+    Metric("taken", tr("Daño recibido"), tr("Recibido"), "taken", [
+        (tr("Recibido"), lambda a, v, enc, t: (short_number(v), v)),
+        (tr("Por segundo"), _rate),
         ("%", _share),
-        ("Golpes", _hits("taken_hits")),
-        ("Mayor golpe", _amount("taken_max")),
-        ("Muertes", _hits("deaths")),
+        (tr("Golpes"), _hits("taken_hits")),
+        (tr("Mayor golpe"), _amount("taken_max")),
+        (tr("Muertes"), _hits("deaths")),
         ("Aggro", lambda a, v, enc, t: (str(aggro_counts(enc).get(a.eid, 0)), aggro_counts(enc).get(a.eid, 0))),
-        ("Absorbido", _amount("absorbed")),
-    ], [("De quién", "taken_from", None, "npc"), ("Habilidades enemigas", "taken_skills", None, "enemy_skill")],
-        note="«Absorbido»: daño que los escudos le quitaron antes de llegar a su vida. «Aggro»: enemigos que le "
-             "pegaron a este jugador más que a nadie (los que aguantó)."),
-    Metric("avoided", "Evitado", "Evitado", "avoided_hits", [
-        ("Evitados", lambda a, v, enc, t: (str(v), v)),
+        (tr("Absorbido"), _amount("absorbed")),
+    ], [(tr("De quién"), "taken_from", None, "npc"), (tr("Habilidades enemigas"), "taken_skills", None, "enemy_skill")],
+        note=tr("«Absorbido»: daño que los escudos le quitaron antes de llegar a su vida. «Aggro»: enemigos que le "
+                "pegaron a este jugador más que a nadie (los que aguantó).")),
+    Metric("avoided", tr("Evitado"), tr("Evitado"), "avoided_hits", [
+        (tr("Evitados"), lambda a, v, enc, t: (str(v), v)),
         ("Parry", _hits("parries")),
-        ("Bloqueo", _hits("blocks")),
-        ("Esquiva", _hits("evades")),
-        ("Aguante", _hits("endures")),
-        ("Daño evitado", _amount("avoided")),
-    ], [("Ataques evitados", "avoided_skills", None, "enemy_skill")], count=True,
-        note="Golpes enemigos que el jugador desvió (parry), bloqueó o amortiguó (la mitad del daño), esquivó o "
-             "resistió (nada de daño) o aguantó (le quitó parte). El juego solo dice cuánto quitó el aguante."),
-    Metric("stagger", "Aturdimiento", "Aturdimiento", "stagger", [
-        ("Aturdimiento", lambda a, v, enc, t: (short_number(v), v)),
-        ("Por segundo", _rate),
+        (tr("Bloqueo"), _hits("blocks")),
+        (tr("Esquiva"), _hits("evades")),
+        (tr("Aguante"), _hits("endures")),
+        (tr("Daño evitado"), _amount("avoided")),
+    ], [(tr("Ataques evitados"), "avoided_skills", None, "enemy_skill")], count=True,
+        note=tr("Golpes enemigos que el jugador desvió (parry), bloqueó o amortiguó (la mitad del daño), esquivó o "
+                "resistió (nada de daño) o aguantó (le quitó parte). El juego solo dice cuánto quitó el aguante.")),
+    Metric("stagger", tr("Aturdimiento"), tr("Aturdimiento"), "stagger", [
+        (tr("Aturdimiento"), lambda a, v, enc, t: (short_number(v), v)),
+        (tr("Por segundo"), _rate),
         ("%", _share),
-    ], [("Habilidades", "stagger_skills", None, "skill")], boss_filter=False,
-        note="Puntos que cada jugador quitó de la barra de aturdimiento (stagger) del jefe. El juego solo envía la "
-             "barra, no quién la bajó: AionDex reparte cada bajada entre los golpes que llegaron en ese instante."),
-    Metric("upkeep", "Buffs y consumibles", "", "upkeep_time", [
-        ("Comida/bebida", lambda a, v, enc, t: (_pct(a.food_uptime), a.food_uptime)),
-        ("Pociones", lambda a, v, enc, t: (str(a.potions), a.potions)),
+    ], [(tr("Habilidades"), "stagger_skills", None, "skill")], boss_filter=False,
+        note=tr("Puntos que cada jugador quitó de la barra de aturdimiento (stagger) del jefe. El juego solo envía "
+                "la barra, no quién la bajó: AionDex reparte cada bajada entre los golpes que llegaron en ese "
+                "instante.")),
+    Metric("upkeep", tr("Buffs y consumibles"), "", "upkeep_time", [
+        (tr("Comida/bebida"), lambda a, v, enc, t: (_pct(a.food_uptime), a.food_uptime)),
+        (tr("Pociones"), lambda a, v, enc, t: (str(a.potions), a.potions)),
         ("Buffs", lambda a, v, enc, t: (str(sum(1 for b in a.buff_list if b[5] == "class")),
                                         sum(1 for b in a.buff_list if b[5] == "class"))),
-        ("Distancia", lambda a, v, enc, t: (f"{a.distance:,.0f} m" if a.distance >= 0 else "—", a.distance)),
-        ("Muertes", _hits("deaths")),
-        ("Tiempo muerto", lambda a, v, enc, t: (mmss(a.dead_time) if a.dead_time > 0 else
+        (tr("Distancia"), lambda a, v, enc, t: (f"{a.distance:,.0f} m" if a.distance >= 0 else "—", a.distance)),
+        (tr("Muertes"), _hits("deaths")),
+        (tr("Tiempo muerto"), lambda a, v, enc, t: (mmss(a.dead_time) if a.dead_time > 0 else
                                                 ("0:00" if a.dead_time == 0 else "—"), a.dead_time)),
-    ], [("Buffs", "buff_list", None, "buff"), ("Consumibles", "item_uses", None, "use")],
-        note="Lo que cada uno de tu grupo tuvo puesto y usó: «Comida/bebida», la parte de la pelea con comida, bebida "
-             "o pergamino activos; «Buffs», los de clase que tuvo (suyos y de otros), y a la derecha cuánto de la "
-             "pelea estuvo activo cada uno y quién lo puso. Distancia y tiempo muerto, en las peleas de jefe en "
-             "mazmorra (las que tienen Simulación). El nombre de una comida o bebida lo aprende AionDex la primera "
-             "vez que tú la usas; hasta entonces sale con su número."),
+    ], [("Buffs", "buff_list", None, "buff"), (tr("Consumibles"), "item_uses", None, "use")],
+        note=tr("Lo que cada uno de tu grupo tuvo puesto y usó: «Comida/bebida», la parte de la pelea con comida, "
+                "bebida o pergamino activos; «Buffs», los de clase que tuvo (suyos y de otros), y a la derecha "
+                "cuánto de la pelea estuvo activo cada uno y quién lo puso. Distancia y tiempo muerto, en las "
+                "peleas de jefe en mazmorra (las que tienen Simulación). El nombre de una comida o bebida lo "
+                "aprende AionDex la primera vez que tú la usas; hasta entonces sale con su número.")),
 ]
 METRIC_BY_KEY = {m.key: m for m in METRICS}
 
@@ -321,7 +324,7 @@ class DpsDetailsWindow(QWidget):
         self._target_set_for = None      # encounter whose "solo al jefe" default was applied
         self._icons = {}
         self.setObjectName("MapWindow")
-        self.setWindowTitle(f"{APP_NAME} — Detalles del combate")
+        self.setWindowTitle(tr("{0} — Detalles del combate", APP_NAME))
         self.setWindowIcon(ctl.app_icon)
         self.setStyleSheet(STYLE + EXTRA_STYLE + TABLE_STYLE)
         self.resize(1360, 860)
@@ -334,7 +337,7 @@ class DpsDetailsWindow(QWidget):
         head.addWidget(badge_label(34, self.devicePixelRatioF()))
         titles = QVBoxLayout()
         titles.setSpacing(0)
-        titles.addWidget(label("Detalles del combate", f.name_big, theme.TEXT))
+        titles.addWidget(label(tr("Detalles del combate"), f.name_big, theme.TEXT))
         self.summary = label("", f.small, theme.MUTED)
         self.summary.setWordWrap(True)
         titles.addWidget(self.summary)
@@ -344,21 +347,22 @@ class DpsDetailsWindow(QWidget):
         self.encounter_box.setMaxVisibleItems(20)
         self.encounter_box.currentIndexChanged.connect(lambda _: self._fill())
         head.addWidget(self.encounter_box)
-        self.pin_button = QPushButton("☆ Conservar")
+        self.pin_button = QPushButton(tr("☆ Conservar"))
         self.pin_button.setCheckable(True)
-        self.pin_button.setToolTip("Las peleas se guardan 48 horas; las marcadas con ★ se quedan hasta que las quites")
+        self.pin_button.setToolTip(tr("Las peleas se guardan 48 horas; las marcadas con ★ se quedan hasta que las "
+                                      "quites"))
         self.pin_button.clicked.connect(self._toggle_pin)
         head.addWidget(self.pin_button)
-        sessions = QPushButton("Sesiones")
-        sessions.setToolTip("Comenzar o terminar una sesión (varios runs con la misma party) y ver sus informes")
+        sessions = QPushButton(tr("Sesiones"))
+        sessions.setToolTip(tr("Comenzar o terminar una sesión (varios runs con la misma party) y ver sus informes"))
         sessions.clicked.connect(self._sessions)
         head.addWidget(sessions)
-        report = QPushButton("Informe")
+        report = QPushButton(tr("Informe"))
         report.setProperty("primary", True)
-        report.setToolTip("Una imagen con la pelea, los números de tu grupo y su MVP, para guardar o pegar")
+        report.setToolTip(tr("Una imagen con la pelea, los números de tu grupo y su MVP, para guardar o pegar"))
         report.clicked.connect(self._report)
         head.addWidget(report)
-        self.sim_button = QPushButton("Simulación")
+        self.sim_button = QPushButton(tr("Simulación"))
         self.sim_button.clicked.connect(self._simulation)
         head.addWidget(self.sim_button)
         root.addLayout(head)
@@ -379,11 +383,11 @@ class DpsDetailsWindow(QWidget):
             self.metric_buttons[m.key] = button
         self.enemy_view = False          # the Enemigos tab: the enemies one by one
         self.selected_enemy = None
-        self.enemy_button = QPushButton("Enemigos")
+        self.enemy_button = QPushButton(tr("Enemigos"))
         self.enemy_button.setProperty("tab", True)
         self.enemy_button.setCheckable(True)
-        self.enemy_button.setToolTip("Cada enemigo por separado: su vida, si murió, el daño que recibió y quién se lo "
-                                     "hizo, y el daño que hizo")
+        self.enemy_button.setToolTip(tr("Cada enemigo por separado: su vida, si murió, el daño que recibió y quién "
+                                        "se lo hizo, y el daño que hizo"))
         self.enemy_button.clicked.connect(self._show_enemies)
         tabs.addWidget(self.enemy_button)
         tabs.addStretch(1)
@@ -392,8 +396,8 @@ class DpsDetailsWindow(QWidget):
         filters = QHBoxLayout()
         filters.setSpacing(8)
         self.target_box = QComboBox()
-        self.target_box.addItem("Todos los objetivos", "all")
-        self.target_box.addItem("Solo al jefe", "boss")
+        self.target_box.addItem(tr("Todos los objetivos"), "all")
+        self.target_box.addItem(tr("Solo al jefe"), "boss")
         self.target_box.currentIndexChanged.connect(lambda _: self._fill())
         filters.addWidget(self.target_box)
         self.group_buttons = {}
@@ -409,7 +413,7 @@ class DpsDetailsWindow(QWidget):
         self.class_box.currentIndexChanged.connect(lambda _: self._fill())
         filters.addWidget(self.class_box)
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Buscar jugador o clase…")
+        self.search.setPlaceholderText(tr("Buscar jugador o clase…"))
         self.search.setClearButtonEnabled(True)
         self.search.textChanged.connect(lambda _: self._fill())
         filters.addWidget(self.search, 1)
@@ -417,7 +421,7 @@ class DpsDetailsWindow(QWidget):
 
         split = QSplitter(Qt.Horizontal)
         split.setChildrenCollapsible(False)
-        self.table = MeterTable(["Jugador"], f)
+        self.table = MeterTable([tr("Jugador")], f)
         self.table.itemSelectionChanged.connect(self._on_select)
         self.table.horizontalHeader().sectionClicked.connect(lambda _: setattr(self, "user_sorted", True))
         split.addWidget(self.table)
@@ -445,15 +449,15 @@ class DpsDetailsWindow(QWidget):
         self.note = label("", f.small, theme.MUTED)
         self.note.setWordWrap(True)
         foot.addWidget(self.note, 1)
-        foot.addWidget(label("En el overlay:", f.small, theme.MUTED))
-        for key, text, tip in (("dps_boss_only", "En jefes, solo el daño al jefe",
-                                "Como LOXIN: en peleas contra jefes no cuenta el daño a los adds"),):
+        foot.addWidget(label(tr("En el overlay:"), f.small, theme.MUTED))
+        for key, text, tip in (("dps_boss_only", tr("En jefes, solo el daño al jefe"),
+                                tr("Como LOXIN: en peleas contra jefes no cuenta el daño a los adds")),):
             box = QCheckBox(text)
             box.setToolTip(tip)
             box.setChecked(bool(self.ctl.settings.get(key, True)))
             box.toggled.connect(lambda on, k=key: self._overlay_option(k, on))
             foot.addWidget(box)
-        credit = self.ctl.npc_db.credit or {"text": "Nombres de monstruos y furia de los jefes: aion2data.com",
+        credit = self.ctl.npc_db.credit or {"text": tr("Nombres de monstruos y furia de los jefes: aion2data.com"),
                                             "url": "https://aion2data.com/monsters"}
         link = QPushButton(credit["text"].split(" (")[0])
         link.setProperty("flat", True)
@@ -493,7 +497,7 @@ class DpsDetailsWindow(QWidget):
 
         def when(item):
             day = time.strftime("%d/%m", time.localtime(item["last"]))
-            return "en curso" if item["live"] else time.strftime("%H:%M" if day == today else "%d/%m %H:%M",
+            return tr("en curso") if item["live"] else time.strftime("%H:%M" if day == today else "%d/%m %H:%M",
                                                                  time.localtime(item["last"]))
 
         def add(item, indent=""):
@@ -508,8 +512,8 @@ class DpsDetailsWindow(QWidget):
                 add(entry)
                 continue
             n = len(entry.bosses)
-            self.encounter_box.addItem(f"{entry.place} · {n} {'jefe' if n == 1 else 'jefes'} · "
-                                       f"{when(entry.bosses[-1])}")
+            self.encounter_box.addItem(f"{tr(entry.place)} · " + (tr("1 jefe") if n == 1 else tr("{0} jefes", n))
+                                       + f" · {when(entry.bosses[-1])}")
             header = self.encounter_box.model().item(self.encounter_box.count() - 1)
             header.setFlags(Qt.NoItemFlags)
             header.setData(bold, Qt.FontRole)
@@ -585,8 +589,8 @@ class DpsDetailsWindow(QWidget):
         group = self._group(enc)
         inside = lambda a: a.is_self or a.name in group  # noqa: E731
         outsiders = sorted((a for a in enc.actors.values() if not inside(a)), key=lambda a: -a.damage)
-        alias = {a.eid: f"Jugador {i}" for i, a in enumerate(outsiders, 1)}
-        return {a.eid: ((a.name if inside(a) else alias[a.eid]) + (" (tú)" if a.is_self else ""), inside(a))
+        alias = {a.eid: tr("Jugador {0}", i) for i, a in enumerate(outsiders, 1)}
+        return {a.eid: ((a.name if inside(a) else alias[a.eid]) + (tr(" (tú)") if a.is_self else ""), inside(a))
                 for a in enc.actors.values()}
 
     def _rows(self, enc, metric):
@@ -610,27 +614,27 @@ class DpsDetailsWindow(QWidget):
             button = self.metric_buttons[m.key]
             button.setEnabled(has or m is METRICS[0])
             button.setToolTip("" if has else
-                              "Se calcula al terminar la pelea (desde la versión 1.45)" if m.key == "upkeep" else
-                              "No hay datos de esto en esta pelea")
+                              tr("Se calcula al terminar la pelea (desde la versión 1.45)") if m.key == "upkeep" else
+                              tr("No hay datos de esto en esta pelea"))
             button.setChecked(m is self.shown_metric and not self.enemy_view)
         self.enemy_button.setChecked(self.enemy_view)
         self.enemy_button.setEnabled(enc is not None and bool(enc.targets or enc.enemy_damage))
         self.pin_button.setEnabled(enc is not None)
         self.pin_button.setChecked(bool(enc is not None and enc.pinned))
-        self.pin_button.setText("★ Conservada" if enc is not None and enc.pinned else "☆ Conservar")
+        self.pin_button.setText(tr("★ Conservada") if enc is not None and enc.pinned else tr("☆ Conservar"))
         has_sim = bool(enc is not None and enc.replay)
         self.sim_button.setEnabled(has_sim)
-        self.sim_button.setText("Simulación" if has_sim or enc is None else "Sin simulación")
+        self.sim_button.setText(tr("Simulación") if has_sim or enc is None else tr("Sin simulación"))
         if has_sim:
-            why = ("La pelea desde arriba: dónde estaba cada uno, las muertes (calaveras en la línea de tiempo) y lo "
-                   "que lanzó el jefe")
+            why = (tr("La pelea desde arriba: dónde estaba cada uno, las muertes (calaveras en la línea de tiempo) "
+                      "y lo que lanzó el jefe"))
         elif enc is not None and not enc.ended:
-            why = "La simulación se arma cuando termina la pelea"
+            why = tr("La simulación se arma cuando termina la pelea")
         elif enc is not None and in_instance(enc.map_id) and enc.activity(self._group(enc)).boss:
-            why = ("Esta pelea no se grabó: es de antes de la versión 1.44 (o AionDex se abrió ya dentro de la "
-                   "mazmorra, sin ver la entrada)")
+            why = (tr("Esta pelea no se grabó: es de antes de la versión 1.44 (o AionDex se abrió ya dentro de la "
+                      "mazmorra, sin ver la entrada)"))
         else:
-            why = "Solo hay simulación de las peleas de jefe dentro de mazmorras"
+            why = tr("Solo hay simulación de las peleas de jefe dentro de mazmorras")
         self.sim_button.setToolTip(why)
         if enc is not None and not self.metric_buttons[self.shown_metric.key].isEnabled():
             self.shown_metric = METRICS[0]
@@ -646,10 +650,10 @@ class DpsDetailsWindow(QWidget):
         self.target_box.setVisible(metric.boss_filter and not self.enemy_view)
         self.class_box.setVisible(not self.enemy_view)
         self.note.setText(" ".join(x for x in (ENEMY_NOTE if self.enemy_view else metric.note,
-                                   "Los jugadores de fuera de tu party/force aparecen sin nombre (Jugador 1, 2…), "
-                                   "numerados por daño. Las peleas se guardan 48 horas en tu PC (las marcadas con ★, "
-                                   "hasta que las quites), y los de fuera de tu grupo, ya sin nombre. En jefes de mundo "
-                                   "solo ves lo que pasa cerca de ti.") if x))
+                                   tr("Los jugadores de fuera de tu party/force aparecen sin nombre (Jugador 1, "
+                                      "2…), numerados por daño. Las peleas se guardan 48 horas en tu PC (las "
+                                      "marcadas con ★, hasta que las quites), y los de fuera de tu grupo, ya sin "
+                                      "nombre. En jefes de mundo solo ves lo que pasa cerca de ti.")) if x))
         self._fill_cards(enc)
         if self.enemy_view and enc is not None:
             self._fill_enemies(enc)
@@ -657,14 +661,14 @@ class DpsDetailsWindow(QWidget):
         table = self.table
         table.setSortingEnabled(False)
         table.setRowCount(0)
-        columns = ["Jugador", "Clase"] + [c[0] for c in metric.columns]
+        columns = [tr("Jugador"), tr("Clase")] + [c[0] for c in metric.columns]
         if table.columnCount() != len(columns) or \
                 [table.horizontalHeaderItem(i).text() for i in range(len(columns))] != columns:
             table.set_columns(columns)
             table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
             table.horizontalHeaderItem(1).setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         if enc is None:
-            self.summary.setText("Aún no hay peleas en esta sesión.")
+            self.summary.setText(tr("Aún no hay peleas en esta sesión."))
             self._fill_breakdown(None, None)
             return
         rows = self._rows(enc, metric)
@@ -676,15 +680,15 @@ class DpsDetailsWindow(QWidget):
         total = sum(r.value for r in rows) or 1
         boss_only = metric.boss_filter and self.target_box.currentData() == "boss"
         enc.rate_time = enc.target_time(enc.main_target_eid) if boss_only else None
-        summary = (f"{enc.activity(self._group(enc)).label} · {enc.main_target or 'Pelea'} · "
-                   f"{mmss(enc.duration)}" + (f" (jefe {mmss(enc.rate_time)}: el DPS es sobre ese tiempo)"
-                                             if boss_only else "") + f" · {len(enc.actors)} jugadores")
+        summary = (f"{enc.activity(self._group(enc)).label} · {enc.main_target or tr('Pelea')} · "
+                   f"{mmss(enc.duration)}" + (tr(" (jefe {0}: el DPS es sobre ese tiempo)", mmss(enc.rate_time))
+                                             if boss_only else "") + tr(" · {0} jugadores", len(enc.actors)))
         contribution = enc.contribution(self._group(enc))
         if metric.key == "damage" and self.target_box.currentData() == "boss" and contribution:
             total = contribution.total          # % of what the boss lost, not of the few hits we see
             if contribution.hp_lost and contribution.seen < 0.9:
-                summary += (f" · el jefe perdió {short_number(contribution.hp_lost)} de vida y solo ves el "
-                            f"{100 * contribution.seen:.1f}% de los golpes: el % es sobre su vida perdida")
+                summary += (tr(" · el jefe perdió {0} de vida y solo ves el {1:.1f}% de los golpes: el % es sobre "
+                               "su vida perdida", short_number(contribution.hp_lost), 100 * contribution.seen))
         self.summary.setText(summary)
         top = max((r.value for r in shown), default=1) or 1
         table.setRowCount(len(shown))
@@ -722,7 +726,7 @@ class DpsDetailsWindow(QWidget):
         chosen = self.class_box.currentData()
         self.class_box.blockSignals(True)
         self.class_box.clear()
-        self.class_box.addItem("Todas las clases", None)
+        self.class_box.addItem(tr("Todas las clases"), None)
         for name in classes:
             self.class_box.addItem(name, name)
         self.class_box.setCurrentIndex(max(0, self.class_box.findData(chosen)))
@@ -741,26 +745,25 @@ class DpsDetailsWindow(QWidget):
                 continue
             mine = m.value(me) if me else 0
             if m.count:
-                sub = f"tú: {mine}" if me else ""
+                sub = tr("tú: {0}", mine) if me else ""
                 self.cards.addWidget(StatCard(m.card, str(total), sub, f))
                 continue
-            sub = f"tú: {short_number(mine)} ({_pct(mine / total)})" if me else ""
+            sub = tr("tú: {0} ({1})", short_number(mine), _pct(mine / total)) if me else ""
             if m.rate:
                 sub = f"{short_number(total / enc.duration)} {m.rate}" + (f" · {sub}" if sub else "")
             self.cards.addWidget(StatCard(m.card, short_number(total), sub, f))
         contribution = enc.contribution(self._group(enc))
         if contribution and enc.activity(self._group(enc)).boss:
-            sub = (f"tu {'party' if contribution.group_kind == 'party' else 'force'}: "
-                   f"{_pct(contribution.share(contribution.group))}" if contribution.group_kind else "")
-            self.cards.addWidget(StatCard("Tu contribución al jefe", _pct(contribution.share(contribution.me)), sub,
+            sub = (tr("tu {0}: {1}", 'party' if contribution.group_kind == 'party' else 'force', _pct(contribution.share(contribution.group))) if contribution.group_kind else "")
+            self.cards.addWidget(StatCard(tr("Tu contribución al jefe"), _pct(contribution.share(contribution.me)), sub,
                                           f, theme.GOLD))
-        state = "derrotado ✓" if enc.killed else ("en curso" if not enc.ended else "terminó")
-        self.cards.addWidget(StatCard("Duración", mmss(enc.duration), state, f))
+        state = tr("derrotado ✓") if enc.killed else (tr("en curso") if not enc.ended else tr("terminó"))
+        self.cards.addWidget(StatCard(tr("Duración"), mmss(enc.duration), state, f))
         from ..mvp import FORMULA, scores
         ranked = scores(enc, self._group(enc), self.ctl.settings.get("dps_boss_only", True))
         if len(ranked) > 1:
             best = ranked[0]
-            card = StatCard("MVP", best.actor.name, f"{best.points:.1f} pts · el porqué, en Informe", f, theme.GOLD)
+            card = StatCard("MVP", best.actor.name, tr("{0:.1f} pts · el porqué, en Informe", best.points), f, theme.GOLD)
             card.setToolTip(FORMULA)
             self.cards.addWidget(card)
 
@@ -771,7 +774,7 @@ class DpsDetailsWindow(QWidget):
         table = self.table
         table.setSortingEnabled(False)
         table.setRowCount(0)
-        table.set_columns(["Enemigo", "Vida", "Estado", "Daño recibido", "%", "De tu grupo", "Daño que hizo"])
+        table.set_columns([tr("Enemigo"), tr("Vida"), tr("Estado"), tr("Daño recibido"), "%", tr("De tu grupo"), tr("Daño que hizo")])
         group = self._group(enc)
         query = self.search.text().strip().lower()
         rows, merged = [], {}
@@ -789,8 +792,7 @@ class DpsDetailsWindow(QWidget):
         counts = {r[0]: r[6] for r in merged.values()}
         total = sum(enc.targets.values()) or 1
         dead = sum(1 for e in rows if e[3])
-        self.summary.setText(f"{len(rows)} enemigos · {dead} derrotados · daño total {short_number(total)} · "
-                             f"{mmss(enc.duration)}")
+        self.summary.setText(tr("{0} enemigos · {1} derrotados · daño total {2} · {3}", len(rows), dead, short_number(total), mmss(enc.duration)))
         top = max((r[5] for r in rows), default=1) or 1
         table.setRowCount(len(rows))
         for i, (eid, name, ratio, is_dead, dealt, took) in enumerate(rows):
@@ -803,9 +805,9 @@ class DpsDetailsWindow(QWidget):
             first.setData(COLOR_ROLE, theme.COMBAT)
             first.setFont(self.fonts.name)
             if enc.target_npc.get(eid):
-                first.setToolTip(f"Tipo de monstruo (id del juego): {enc.target_npc[eid]}")
+                first.setToolTip(tr("Tipo de monstruo (id del juego): {0}", enc.target_npc[eid]))
             life = SortItem("—" if max_hp is None else short_number(max_hp), max_hp or 0)
-            state = SortItem("derrotado" if is_dead else ("—" if ratio is None else f"{100 * ratio:.0f}% de vida"),
+            state = SortItem("derrotado" if is_dead else ("—" if ratio is None else tr("{0:.0f}% de vida", 100 * ratio)),
                              -1 if is_dead else (ratio if ratio is not None else 2), Qt.AlignLeft | Qt.AlignVCenter)
             state.setForeground(theme.GAIN if is_dead else theme.TEXT)
             items = [first, life, state, SortItem(short_number(took) if took else "—", took),
@@ -833,14 +835,14 @@ class DpsDetailsWindow(QWidget):
         table.setRowCount(0)
         _empty(self.side_buttons)
         if enc is None or eid is None:
-            self.side_title.setText("Elige un enemigo en la tabla")
+            self.side_title.setText(tr("Elige un enemigo en la tabla"))
             return
         names = self._names(enc)
-        self.side_title.setText(f"Quién le pegó a {enc.target_names.get(eid) or 'Enemigo'}")
+        self.side_title.setText(tr("Quién le pegó a {0}", enc.target_names.get(eid) or 'Enemigo'))
         rows = [(names[a.eid][0], a.by_target[eid], a) for a in enc.actors.values() if a.by_target[eid]]
         total = sum(r[1] for r in rows) or 1
         top = max((r[1] for r in rows), default=1) or 1
-        table.set_columns(["Jugador", "Daño", "%", "DPS"])
+        table.set_columns([tr("Jugador"), tr("Daño"), "%", "DPS"])
         table.setRowCount(len(rows))
         for i, (name, amount, a) in enumerate(rows):
             first = SortItem(name, name.lower(), Qt.AlignLeft | Qt.AlignVCenter)
@@ -883,12 +885,12 @@ class DpsDetailsWindow(QWidget):
         _empty(self.side_buttons)
         metric = self.shown_metric
         if enc is None or actor is None:
-            self.side_title.setText("Elige un jugador en la tabla")
+            self.side_title.setText(tr("Elige un jugador en la tabla"))
             return
         names = self._names(enc)
         views = [v for v in metric.breakdown if getattr(actor, v[1], None)]
         if not views:
-            self.side_title.setText(f"{names[actor.eid][0]} — sin desglose")
+            self.side_title.setText(tr("{0} — sin desglose", names[actor.eid][0]))
             return
         self.side_view = min(self.side_view, len(views) - 1)
         title, attr, hits_attr, kind = views[self.side_view]
@@ -908,8 +910,8 @@ class DpsDetailsWindow(QWidget):
         rows = self._breakdown_rows(enc, actor, attr, hits_attr, kind, names)
         total = sum(r[1] for r in rows) or 1
         top = max((r[1] for r in rows), default=1) or 1
-        hits_header = "Golpes" if hits_attr else ""
-        columns = [title, "Cantidad" if metric.count else "Total", "%"] + (["Golpes", "Media"] if hits_attr else [])
+        hits_header = tr("Golpes") if hits_attr else ""
+        columns = [title, "Cantidad" if metric.count else "Total", "%"] + ([tr("Golpes"), tr("Media")] if hits_attr else [])
         table.set_columns(columns)
         table.setRowCount(len(rows))
         color = QColor(CLASS_COLOR.get(actor.class_name, theme.ACCENT.name()))
@@ -923,8 +925,8 @@ class DpsDetailsWindow(QWidget):
             if muted:
                 first.setForeground(theme.MUTED)
                 if kind_is_skill(text):
-                    first.setToolTip("Efecto de un objeto, una poción, el equipo o un buff, no una habilidad de "
-                                     "clase.")
+                    first.setToolTip(tr("Efecto de un objeto, una poción, el equipo o un buff, no una habilidad de "
+                                        "clase."))
             items = [first, SortItem(str(amount) if metric.count else short_number(amount), amount),
                      SortItem(_pct(amount / total), amount / total)]
             if hits_header:
@@ -954,7 +956,7 @@ class DpsDetailsWindow(QWidget):
         color = QColor(CLASS_COLOR.get(actor.class_name, theme.ACCENT.name()))
         me = next((a.name for a in enc.actors.values() if a.is_self), None)
         if kind == "buff":
-            table.set_columns(["Buff", "Activo", "Veces", "De"])
+            table.set_columns(["Buff", tr("Activo"), tr("Veces"), tr("De")])
             rows = actor.buff_list
             table.setRowCount(len(rows))
             for i, (key, name, caster, uptime, times, what) in enumerate(rows):
@@ -970,9 +972,9 @@ class DpsDetailsWindow(QWidget):
                         first.setData(ICON_ROLE, pix)
                 else:
                     first.setForeground(theme.GOLD)
-                    first.setToolTip("Comida, bebida o pergamino (5 min)" + (
-                        "" if "#" not in name else ": AionDex aprende su nombre la primera vez que tú lo usas"))
-                who = "tú" if caster == me else caster
+                    first.setToolTip(tr("Comida, bebida o pergamino (5 min)") + (
+                        "" if "#" not in name else tr(": AionDex aprende su nombre la primera vez que tú lo usas")))
+                who = tr("tú") if caster == me else caster
                 cells = [first, SortItem(_pct(uptime), uptime), SortItem(str(times), times),
                          SortItem(who, who.lower(), Qt.AlignLeft | Qt.AlignVCenter)]
                 for col, item in enumerate(cells):
@@ -981,7 +983,7 @@ class DpsDetailsWindow(QWidget):
             table.sortItems(1, Qt.DescendingOrder)
             self._request_icons([(r[1], 0, 0, r[0], None, False) for r in rows if r[5] == "class"])
             return
-        table.set_columns(["Consumible", "Usos", "Tipo"])
+        table.set_columns([tr("Consumible"), tr("Usos"), tr("Tipo")])
         rows = actor.item_uses
         table.setRowCount(len(rows))
         top = max((r[2] for r in rows), default=1) or 1
@@ -992,7 +994,7 @@ class DpsDetailsWindow(QWidget):
             first.setData(BAR_ROLE, times / top)
             first.setData(COLOR_ROLE, color)
             if "#" in name:
-                first.setToolTip("AionDex aprende el nombre la primera vez que tú lo usas")
+                first.setToolTip(tr("AionDex aprende el nombre la primera vez que tú lo usas"))
             for col, item in enumerate([first, SortItem(str(times), times),
                                         SortItem(category, category, Qt.AlignLeft | Qt.AlignVCenter)]):
                 table.setItem(i, col, item)
@@ -1025,17 +1027,17 @@ class DpsDetailsWindow(QWidget):
                 if len(str(base)) == 8:
                     rows.append((tuner.skill_name(base), amount, n, base, self._icon(base), False))
                 else:
-                    what = "Poción" if str(base).startswith("2010") else "Efecto"
+                    what = tr("Poción") if str(base).startswith("2010") else tr("Efecto")
                     rows.append((f"{what} #{base}", amount, n, base, None, True))
             return rows
         if kind == "player":
-            return [(names.get(eid, (self.ctl.combat.players.get(eid, "Jugador"), False))[0]
-                     if eid in names else "Otro jugador", amount, 0, eid, None, eid not in names)
+            return [(names.get(eid, (self.ctl.combat.players.get(eid, tr("Jugador")), False))[0]
+                     if eid in names else tr("Otro jugador"), amount, 0, eid, None, eid not in names)
                     for eid, amount in counter.items()]
         if kind == "npc":
-            return [(enc.target_names.get(eid) or self.ctl.combat.npc_names.get(eid) or "Enemigo", amount,
+            return [(enc.target_names.get(eid) or self.ctl.combat.npc_names.get(eid) or tr("Enemigo"), amount,
                      0, eid, None, False) for eid, amount in counter.items()]
-        return [(f"Ataque enemigo #{sid}", amount, 0, sid, None, True) for sid, amount in counter.items()]
+        return [(tr("Ataque enemigo #{0}", sid), amount, 0, sid, None, True) for sid, amount in counter.items()]
 
     # --- skill icons -----------------------------------------------------------------------------------
     def _icon(self, sid):
@@ -1069,7 +1071,7 @@ class SessionsDialog(QDialog):
     def __init__(self, ctl, parent=None):
         super().__init__(parent)
         self.ctl = ctl
-        self.setWindowTitle(f"{APP_NAME} — Sesiones")
+        self.setWindowTitle(tr("{0} — Sesiones", APP_NAME))
         self.setObjectName("MapWindow")                    # the app's dark window style
         self.setStyleSheet(STYLE + EXTRA_STYLE + TABLE_STYLE)
         self.resize(720, 520)
@@ -1091,42 +1093,41 @@ class SessionsDialog(QDialog):
         self._clear(self.col)
         f = Fonts(1.0)
         active = self.ctl.sessions.active()
-        intro = label("Una sesión junta varios runs (de una mazmorra o de varias) con la misma party: cada pelea se "
-                      "guarda en ella y su informe trae cada run, el resumen y el MVP de toda la sesión.", f.small,
+        intro = label(tr("Una sesión junta varios runs (de una mazmorra o de varias) con la misma party: cada pelea "
+                         "se guarda en ella y su informe trae cada run, el resumen y el MVP de toda la sesión."), f.small,
                       theme.MUTED)
         intro.setWordWrap(True)
         self.col.addWidget(intro)
         row = QHBoxLayout()
         if active is None:
-            self.name = QLineEdit(time.strftime("Sesión %d/%m %H:%M"))
+            self.name = QLineEdit(time.strftime(tr("Sesión %d/%m %H:%M")))
             row.addWidget(self.name, 1)
-            start = QPushButton("Comenzar sesión")
+            start = QPushButton(tr("Comenzar sesión"))
             start.setProperty("primary", True)
             start.clicked.connect(self._start)
             row.addWidget(start)
         else:
-            row.addWidget(label(f"En marcha: {active['name']} · {len(active['fights'])} peleas · desde "
-                                f"{time.strftime('%H:%M', time.localtime(active['start']))}", f.name, theme.GOLD), 1)
-            end = QPushButton("Terminar sesión")
+            row.addWidget(label(tr("En marcha: {0} · {1} peleas · desde {2}", active['name'], len(active['fights']), time.strftime('%H:%M', time.localtime(active['start']))), f.name, theme.GOLD), 1)
+            end = QPushButton(tr("Terminar sesión"))
             end.setProperty("primary", True)
             end.clicked.connect(self._end)
             row.addWidget(end)
         self.col.addLayout(row)
-        self.col.addWidget(label("SESIONES", f.section, theme.MUTED))
+        self.col.addWidget(label(tr("SESIONES"), f.section, theme.MUTED))
         sessions = self.ctl.sessions.newest_first()
         if not sessions:
-            self.col.addWidget(label("Aún no hay sesiones.", f.body, theme.MUTED))
+            self.col.addWidget(label(tr("Aún no hay sesiones."), f.body, theme.MUTED))
         for s in sessions[:30]:
             line = QHBoxLayout()
             end = s.get("end")
             when = time.strftime("%d/%m %H:%M", time.localtime(s["start"])) + (
-                time.strftime("–%H:%M", time.localtime(end)) if end else " · en marcha")
+                time.strftime("–%H:%M", time.localtime(end)) if end else tr(" · en marcha"))
             line.addWidget(label(s["name"], f.name, theme.TEXT, elide=True), 1)
-            line.addWidget(label(f"{when} · {len(s['fights'])} peleas", f.small, theme.MUTED))
-            report = QPushButton("Informe")
+            line.addWidget(label(tr("{0} · {1} peleas", when, len(s['fights'])), f.small, theme.MUTED))
+            report = QPushButton(tr("Informe"))
             report.clicked.connect(lambda _=False, sid=s["id"]: self.ctl.open_session_report(sid))
             line.addWidget(report)
-            remove = QPushButton("Borrar")
+            remove = QPushButton(tr("Borrar"))
             remove.setProperty("flat", True)
             remove.clicked.connect(lambda _=False, sid=s["id"]: self._delete(sid))
             line.addWidget(remove)
@@ -1143,7 +1144,7 @@ class SessionsDialog(QDialog):
 
     def _delete(self, sid):
         from PySide6.QtWidgets import QMessageBox
-        if QMessageBox.question(self, "Borrar sesión", "¿Borrar esta sesión? Sus peleas siguen en el historial "
-                                "48 horas.") == QMessageBox.Yes:
+        if QMessageBox.question(self, tr("Borrar sesión"), tr("¿Borrar esta sesión? Sus peleas siguen en el historial "
+                                                          "48 horas.")) == QMessageBox.Yes:
             self.ctl.sessions.delete(sid)
             self._fill()

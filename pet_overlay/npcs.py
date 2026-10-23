@@ -2,8 +2,9 @@
 see tools/build_npc_db.py)."""
 import json
 from pathlib import Path
+from .i18n import tr, tr_data
 
-RANK_NAMES = {"N": "Normal", "E": "Élite", "H": "Héroe", "L": "Leyenda"}
+RANK_NAMES = {"N": "Normal", "E": tr("Élite"), "H": tr("Héroe"), "L": tr("Leyenda")}
 
 
 def base_variant(npc_id):
@@ -24,7 +25,7 @@ class NpcDb:
         except (OSError, ValueError):
             db = {}
         self.npcs = db.get("npcs", {})
-        self.credit = db.get("credit")
+        self.credit = tr_data("npc_db.json", db).get("credit")
 
     def _row(self, npc_id):
         row = self.npcs.get(str(npc_id))

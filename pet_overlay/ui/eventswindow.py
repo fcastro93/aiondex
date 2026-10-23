@@ -18,6 +18,7 @@ from .theme import Fonts
 from .trackerwindow import CARD_STYLE
 from .tunerwindow import EXTRA_STYLE
 from .widgets import SectionTitle, label
+from ..i18n import thousands, tr
 
 BANNER_W = 300
 
@@ -27,7 +28,7 @@ def _when(iso):
 
 
 def _n(value):
-    return f"{value:,}".replace(",", ".") if isinstance(value, int) else str(value)
+    return thousands(f"{value:,}") if isinstance(value, int) else str(value)
 
 
 class EventsWindow(QWidget):
@@ -37,7 +38,7 @@ class EventsWindow(QWidget):
         self.fonts = Fonts(1.0)
         self.chosen = None
         self.setObjectName("MapWindow")
-        self.setWindowTitle(f"{APP_NAME} — Eventos")
+        self.setWindowTitle(tr("{0} — Eventos", APP_NAME))
         self.setWindowIcon(ctl.app_icon)
         self.setStyleSheet(STYLE + EXTRA_STYLE + CARD_STYLE)
         self.resize(1240, 880)
@@ -49,9 +50,9 @@ class EventsWindow(QWidget):
         head.addWidget(badge_label(30, self.devicePixelRatioF()))
         titles = QVBoxLayout()
         titles.setSpacing(0)
-        titles.addWidget(label("Eventos", f.name_big, theme.TEXT))
-        titles.addWidget(label("Los eventos en marcha, de los avisos oficiales de AION 2 Global. Las horas, en la de "
-                               "tu PC.", f.small, theme.MUTED))
+        titles.addWidget(label(tr("Eventos"), f.name_big, theme.TEXT))
+        titles.addWidget(label(tr("Los eventos en marcha, de los avisos oficiales de AION 2 Global. Las horas, en "
+                                  "la de tu PC."), f.small, theme.MUTED))
         head.addLayout(titles, 1)
         root.addLayout(head)
         body = QHBoxLayout()
@@ -143,13 +144,13 @@ class EventsWindow(QWidget):
             if e.get("title_es") and e.get("title_es") != e["title"]:
                 col.addWidget(label(e["title"], f.small, theme.MUTED))
             end = at(e["end"])
-            col.addWidget(label(f"Termina en {countdown(end - now)} · {_when(e['end'])}", f.small,
+            col.addWidget(label(tr("Termina en {0} · {1}", countdown(end - now), _when(e['end'])), f.small,
                                 theme.WARN if end - now < 2 * DAY else theme.MUTED))
             card.setCursor(Qt.PointingHandCursor)
             card.mousePressEvent = lambda _e, k=key: self._choose(k)
             self.list_col.addWidget(card)
         if not events:
-            self.list_col.addWidget(label("No hay eventos en marcha.", f.body, theme.MUTED))
+            self.list_col.addWidget(label(tr("No hay eventos en marcha."), f.body, theme.MUTED))
         self.list_col.addStretch(1)
         if self._missing and not self._images.isActive():
             self._images.start()
@@ -163,11 +164,11 @@ class EventsWindow(QWidget):
             return
         title = label(e.get("title_es") or e["title"], f.name_big, theme.TEXT)
         self.detail.addWidget(title)
-        dates = f"Del {_when(e['start'])} al {_when(e['end'])}" if e.get("start") else f"Hasta el {_when(e['end'])}"
+        dates = tr("Del {0} al {1}", _when(e['start']), _when(e['end'])) if e.get("start") else tr("Hasta el {0}", _when(e['end']))
         row = QHBoxLayout()
-        row.addWidget(label(f"{dates} · termina en {countdown(at(e['end']) - now)}", f.body, theme.MUTED), 1)
+        row.addWidget(label(tr("{0} · termina en {1}", dates, countdown(at(e['end']) - now)), f.body, theme.MUTED), 1)
         if e.get("url"):
-            link = QPushButton("Aviso oficial")
+            link = QPushButton(tr("Aviso oficial"))
             link.setProperty("flat", True)
             link.clicked.connect(lambda _=False, u=e["url"]: webbrowser.open(u))
             row.addWidget(link)
@@ -177,8 +178,8 @@ class EventsWindow(QWidget):
             text.setWordWrap(True)
             self.detail.addWidget(text)
         if not e.get("curated"):
-            note = label("AionDex aún no tiene los detalles de este evento: ábrelo en el aviso oficial. La próxima "
-                         "versión los incluirá.", f.body, theme.WARN)
+            note = label(tr("AionDex aún no tiene los detalles de este evento: ábrelo en el aviso oficial. La "
+                            "próxima versión los incluirá."), f.body, theme.WARN)
             note.setWordWrap(True)
             self.detail.addWidget(note)
         for block in e.get("blocks") or []:
@@ -235,16 +236,14 @@ class EventsWindow(QWidget):
         for name, amount, how in block.get("sources", []):
             n = amount * weeks if how == "weekly" else amount
             total += n
-            rows.append([(name, theme.TEXT), (f"{_n(amount)} × {weeks} semanas" if how == "weekly" else "una vez",
+            rows.append([(name, theme.TEXT), (tr("{0} × {1} semanas", _n(amount), weeks) if how == "weekly" else tr("una vez"),
                                               theme.MUTED), (_n(n), theme.GOLD)])
-        rows.append([("Total del evento", theme.TEXT), ("", theme.MUTED), (_n(total), theme.GOLD)])
-        self._grid(["De dónde", "", "Monedas"], rows, align_right=(2,))
+        rows.append([(tr("Total del evento"), theme.TEXT), ("", theme.MUTED), (_n(total), theme.GOLD)])
+        self._grid([tr("De dónde"), "", tr("Monedas")], rows, align_right=(2,))
         shop = block.get("once_shop", 0) + block.get("weekly_shop", 0) * weeks + block.get("per_character_shop", 0)
-        text = (f"Comprar todo lo que tiene límite cuesta {_n(shop)} (con un personaje): te sobrarían "
-                f"{_n(total - shop)}." if total >= shop else
-                f"Comprar todo lo que tiene límite cuesta {_n(shop)}: no alcanza para todo, elige.")
-        text += (f" Quedan {left} {'semana' if left == 1 else 'semanas'} de misiones (las semanales se renuevan "
-                 f"en {countdown(next_weekly(now) - now)}).")
+        text = (tr("Comprar todo lo que tiene límite cuesta {0} (con un personaje): te sobrarían {1}.", _n(shop), _n(total - shop)) if total >= shop else
+                tr("Comprar todo lo que tiene límite cuesta {0}: no alcanza para todo, elige.", _n(shop)))
+        text += (tr(" Quedan {0} {1} de misiones (las semanales se renuevan en {2}).", left, tr("semana") if left == 1 else tr("semanas"), countdown(next_weekly(now) - now)))
         line = label(text, self.fonts.body, theme.TEXT)
         line.setWordWrap(True)
         self.detail.addWidget(line)
@@ -265,7 +264,7 @@ class EventsWindow(QWidget):
             col = QVBoxLayout(cell)
             col.setContentsMargins(8, 6, 8, 6)
             col.setSpacing(0)
-            col.addWidget(label(f"Día {day}", f.small, theme.MUTED))
+            col.addWidget(label(tr("Día {0}", day), f.small, theme.MUTED))
             col.addWidget(label(f"×{_n(amount)}", f.name, theme.GOLD if big else theme.TEXT))
             if not same:
                 name = label(item, f.small, theme.TEXT)
@@ -274,9 +273,9 @@ class EventsWindow(QWidget):
             grid.addWidget(cell, i // per_row, i % per_row)
         self.detail.addWidget(frame)
         if same and block.get("days"):
-            self.detail.addWidget(label(f"Cada día: {block['days'][0][1]}", f.small, theme.TEXT))
+            self.detail.addWidget(label(tr("Cada día: {0}", block['days'][0][1]), f.small, theme.TEXT))
         reset = next_at(now, DAY, DAILY_PHASE)
-        self.detail.addWidget(label(f"Siguiente día de asistencia en {countdown(reset - now)}", f.small,
+        self.detail.addWidget(label(tr("Siguiente día de asistencia en {0}", countdown(reset - now)), f.small,
                                     theme.MUTED))
 
     def _block_missions(self, block, e, now):
@@ -292,18 +291,18 @@ class EventsWindow(QWidget):
                 p = ms.progress(who, mid, now)
                 done += p.done
                 ready += p.ready
-                cells.append(("cobrada ✓" if p.done else f"{p.count}/{p.target} · ¡cobrar!" if p.ready else
+                cells.append(("cobrada ✓" if p.done else tr("{0}/{1} · ¡cobrar!", p.count, p.target) if p.ready else
                               f"{p.count}/{p.target}" if p.known else "—",
                               theme.MUTED if p.done else theme.GAIN if p.ready else theme.TEXT))
             else:
                 cells.append(("—", theme.MUTED))
             rows.append(cells)
         total = sum(r[3] for r in block.get("rows", []))
-        self._grid(["Misión", "Qué hacer", "Recompensa", f"{who}" if who else "Tu progreso"], rows, stretch=1,
+        self._grid([tr("Misión"), tr("Qué hacer"), tr("Recompensa"), f"{who}" if who else tr("Tu progreso")], rows, stretch=1,
                    wrap=False)
-        bits = [f"{len(rows)} misiones · {_n(total)} por semana · se renuevan en {countdown(next_weekly(now) - now)}"]
+        bits = [tr("{0} misiones · {1} por semana · se renuevan en {2}", len(rows), _n(total), countdown(next_weekly(now) - now))]
         if who:
-            bits.append(f"{who}: {done}/{len(rows)} cobradas" + (f", {ready} por cobrar en el juego" if ready else ""))
+            bits.append(f"{who}: {done}/{len(rows)} cobradas" + (tr(", {0} por cobrar en el juego", ready) if ready else ""))
         self.detail.addWidget(label(" · ".join(bits), self.fonts.small, theme.MUTED))
 
     def _block_shop(self, block, e, now):

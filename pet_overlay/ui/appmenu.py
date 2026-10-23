@@ -4,6 +4,7 @@ from PySide6.QtGui import QAction, QActionGroup, QFont, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import QMenu
 
 from . import theme
+from ..i18n import tr
 
 GLYPH_EXIT = ""
 GLYPH_WORLD = "\ue909"       # World
@@ -22,9 +23,9 @@ QMenu::separator {{ height: 1px; background: #24345a; margin: 4px 8px; }}
 QMenu::right-arrow {{ width: 8px; height: 8px; padding-right: 8px; }}
 """
 # modules shown together in a submenu (a "›" row that opens to the side), at the place of the first one
-GROUPS = (("Personaje", "character", ("upgrades", "builds")),
-          ("Progreso", "progress", ("missions", "achievements", "passes", "events")),
-          ("Profesiones y Market", "professions", ("crafting", "market", "leveling", "gathering")))
+GROUPS = ((tr("Personaje"), "character", ("upgrades", "builds")),
+          (tr("Progreso"), "progress", ("missions", "achievements", "passes", "events")),
+          (tr("Profesiones y Market"), "professions", ("crafting", "market", "leveling", "gathering")))
 
 
 def styled_menu(parent=None):
@@ -100,11 +101,11 @@ def build_app_menu(ctl, fonts, parent=None):
             font.setBold(True)
             entry.setFont(font)
     menu.addSeparator()
-    menu.addAction(glyph_icon(GLYPH_WORLD, theme.ACCENT, fonts.icons_family), "Mapa del mundo", ctl.open_world_map)
-    menu.addAction(glyph_icon(GLYPH_PEOPLE, theme.ACCENT, fonts.icons_family), "Jugadores de tu party / force",
+    menu.addAction(glyph_icon(GLYPH_WORLD, theme.ACCENT, fonts.icons_family), tr("Mapa del mundo"), ctl.open_world_map)
+    menu.addAction(glyph_icon(GLYPH_PEOPLE, theme.ACCENT, fonts.icons_family), tr("Jugadores de tu party / force"),
                    ctl.open_players)
-    restart = menu.addAction(glyph_icon(GLYPH_RESTART, theme.MUTED, fonts.icons_family), "Reiniciar",
+    restart = menu.addAction(glyph_icon(GLYPH_RESTART, theme.MUTED, fonts.icons_family), tr("Reiniciar"),
                              ctl.restart_app)
-    restart.setToolTip("Cierra AionDex y lo vuelve a abrir (por si algo se quedó trabado)")
-    menu.addAction(glyph_icon(GLYPH_EXIT, theme.MUTED, fonts.icons_family), "Salir", ctl.quit)
+    restart.setToolTip(tr("Cierra AionDex y lo vuelve a abrir (por si algo se quedó trabado)"))
+    menu.addAction(glyph_icon(GLYPH_EXIT, theme.MUTED, fonts.icons_family), tr("Salir"), ctl.quit)
     return menu

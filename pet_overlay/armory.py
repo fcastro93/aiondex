@@ -36,6 +36,7 @@ import urllib.request
 from pathlib import Path
 
 from . import __version__
+from .i18n import tr
 
 log = logging.getLogger(__name__)
 SEARCH = "https://api-search.plaync.com/aion2global/search/v2/character"
@@ -305,13 +306,13 @@ class Armory:
                     return json.loads(resp.read())
             except urllib.error.HTTPError as exc:
                 if exc.code not in (429, 500, 502, 503, 504) or attempt == RETRIES - 1:
-                    raise RuntimeError(f"el servidor respondió {exc.code}") from None
+                    raise RuntimeError(tr("el servidor respondió {0}", exc.code)) from None
                 after = exc.headers.get("Retry-After")
                 time.sleep(min(60, float(after)) if after and after.isdigit() else delay)
                 delay *= 2
             except (urllib.error.URLError, TimeoutError, OSError) as exc:
                 if attempt == RETRIES - 1:
-                    raise RuntimeError(f"sin conexión ({exc})") from None
+                    raise RuntimeError(tr("sin conexión ({0})", exc)) from None
                 time.sleep(delay)
                 delay *= 2
         return None
@@ -329,7 +330,7 @@ class Armory:
                 self._ids[key] = urllib.parse.unquote(c["characterId"])
                 self._save("ids.json", self._ids)
                 return self._ids[key]
-        raise RuntimeError("no aparece en la búsqueda oficial")
+        raise RuntimeError(tr("no aparece en la búsqueda oficial"))
 
     def _query(self, name, server):
         cid = self._character_id(name, server)

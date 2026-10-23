@@ -20,6 +20,7 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Signal
 
 from .updater import UA
+from .i18n import tr
 
 log = logging.getLogger(__name__)
 ENDPOINT = "https://aiondex-market.fcastro-mendez.workers.dev/v1/samples"
@@ -195,9 +196,9 @@ def _quiet(fn, *args):
 
 def _why(e):
     if isinstance(e, urllib.error.HTTPError):
-        return "demasiados envíos, más tarde" if e.code == 429 else f"el servidor respondió {e.code}"
+        return tr("demasiados envíos, más tarde") if e.code == 429 else tr("el servidor respondió {0}", e.code)
     if isinstance(e, (urllib.error.URLError, TimeoutError, OSError)):
-        return "sin conexión con el servidor"
+        return tr("sin conexión con el servidor")
     return str(e) or type(e).__name__
 
 

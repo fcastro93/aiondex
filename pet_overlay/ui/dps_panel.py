@@ -18,10 +18,11 @@ from . import theme
 from .dps_party import BossCard, PartyRow, compact_number, thousands
 from .notifications_panel import ago
 from .widgets import label
+from ..i18n import tr
 
 CLASS_ICON = {"Gladiador": "gladiator", "Templario": "templar", "Cazador": "ranger", "Asesino": "assassin",
               "Hechicero": "sorcerer", "Invocador": "spiritmaster", "Clérigo": "cleric", "Cantor": "chanter"}
-VIEWS = (("me", "Yo"), ("party", "Party"), ("force", "Force"), ("all", "Todos"))
+VIEWS = (("me", tr("Yo")), ("party", "Party"), ("force", "Force"), ("all", tr("Todos")))
 ROWS = {True: 5, False: 8}
 HISTORY_ROWS = {True: 5, False: 10}
 
@@ -103,7 +104,7 @@ class DpsPanel(QWidget):
         elif self.mode == "run":
             self._run_view(compact)
         elif not ready:
-            self._note("Preparando el medidor…")
+            self._note(tr("Preparando el medidor…"))
         elif encounter is None:
             self._idle(compact)
         else:
@@ -118,7 +119,7 @@ class DpsPanel(QWidget):
         me = ctl.character_name()
         instance = in_instance(ctl.combat.map_id)
         energy, rewards = self._counters(me) if instance else (None, None)
-        self.content.addWidget(BossCard(f, 0, energy, rewards, None, "Mazmorra" if instance else "Sin pelea"))
+        self.content.addWidget(BossCard(f, 0, energy, rewards, None, tr("Mazmorra") if instance else tr("Sin pelea")))
         for name, _, job, _, is_me in self._members(me)[:ROWS[compact]]:
             cls = CLASS_OF_JOB.get(job, "")
             self.content.addWidget(PartyRow(f, name, cls, self._class_icon(cls), ctl.cp_of(name), "", "", 0,
@@ -144,7 +145,7 @@ class DpsPanel(QWidget):
             card = {"count": len(targets), "dead": sum(1 for e in targets if e in encounter.dead),
                     "damage": sum(encounter.targets.values()), "label": act.label}
         else:
-            card = {"name": encounter.target_names.get(boss) or "Enemigo", "max_hp": max_hp, "dead": dead,
+            card = {"name": encounter.target_names.get(boss) or tr("Enemigo"), "max_hp": max_hp, "dead": dead,
                     "hp": 0 if dead else (hp[0] if hp else max_hp or 0), "label": act.label,
                     "rage": None if encounter.ended else combat.rage_left(boss), "ttk": encounter.time_to_kill()}
         seconds = encounter.target_time(boss) if boss_view else encounter.duration    # boss DPS over the boss's time
@@ -170,7 +171,7 @@ class DpsPanel(QWidget):
             shown = [a for a in dealers if a.is_self or a.name in group]
         else:
             shown = dealers
-        alias = {a.eid: f"Jugador {i}" for i, a in enumerate(outsiders, 1)}   # nobody outside your group is named
+        alias = {a.eid: tr("Jugador {0}", i) for i, a in enumerate(outsiders, 1)}   # nobody outside your group is named
         total = max(1, sum(value(a) for a in dealers))
         if contribution:
             basis = contribution.total            # what the boss lost, not the few hits we see
@@ -188,20 +189,20 @@ class DpsPanel(QWidget):
                                             share_text(value(a) / basis), value(a) / top, a.is_self, compact))
         if len(shown) > limit:
             rest = shown[limit:]
-            self._note(f"y {len(rest)} más · {share_text(sum(value(a) for a in rest) / basis)}")
+            self._note(tr("y {0} más · {1}", len(rest), share_text(sum(value(a) for a in rest) / basis)))
         if not shown:
             if view == "me" and not any(a.is_self for a in encounter.actors.values()):
-                self._note("AionDex aún no sabe cuál eres tú (pasa justo tras abrirlo): lo sabrá con tus próximas "
-                           "habilidades o al cambiar de mapa. Mientras, mira Todos.")
+                self._note(tr("AionDex aún no sabe cuál eres tú (pasa justo tras abrirlo): lo sabrá con tus "
+                              "próximas habilidades o al cambiar de mapa. Mientras, mira Todos."))
             else:
-                self._note("Aún sin daño en esta vista.")
+                self._note(tr("Aún sin daño en esta vista."))
         if not group and 1 <= len(outsiders) <= 4 and act.kind != "crowd":
-            self._note("¿Vas en party? El juego envía tu party al entrar a un mapa o teletransportarte: hasta entonces "
-                       "tus compañeros salen como «Jugador N».")
+            self._note(tr("¿Vas en party? El juego envía tu party al entrar a un mapa o teletransportarte: hasta "
+                          "entonces tus compañeros salen como «Jugador N»."))
         if contribution:
             c = contribution
-            self._note(f"Tu aporte al jefe: {pct(c.share(c.me))}"
-                       + (f" · tu {c.group_kind}: {pct(c.share(c.group))}" if c.group_kind else ""))
+            self._note(tr("Tu aporte al jefe: {0}", pct(c.share(c.me)))
+                       + (tr(" · tu {0}: {1}", c.group_kind, pct(c.share(c.group))) if c.group_kind else ""))
         self._footer()
 
     def _blind(self, encounter, c, dealers, value, seconds, compact):
@@ -210,8 +211,7 @@ class DpsPanel(QWidget):
         what the boss lost (everyone's damage) and your part of it. No selector and no other rows."""
         f, ctl = self.fonts, self.ctl
         lost = c.hp_lost
-        self._note(f"El jefe perdió {compact_number(lost)} ({compact_number(lost / max(1, seconds))}/s) mientras "
-                   f"peleabas", theme.TEXT)
+        self._note(tr("El jefe perdió {0} ({1}/s) mientras peleabas", compact_number(lost), compact_number(lost / max(1, seconds))), theme.TEXT)
         me = next((a for a in dealers if a.is_self), None)
         if me is not None:
             cls = me.class_name or CLASS_OF_JOB.get(self._job(me.name), "")
@@ -219,10 +219,10 @@ class DpsPanel(QWidget):
                                             encounter.cp.get(me.name) or ctl.cp_of(me.name),
                                             f"{thousands(value(me) / seconds)}/s", share_text(value(me) / c.total), 1.0,
                                             True, compact))
-            self._note(f"Tu aporte: {compact_number(value(me))} = {pct(c.share(c.me))} de lo que perdió. Con tanta "
-                       f"gente el juego solo envía tu daño, no el de tu force ni el del resto.")
+            self._note(tr("Tu aporte: {0} = {1} de lo que perdió. Con tanta gente el juego solo envía tu daño, no "
+                          "el de tu force ni el del resto.", compact_number(value(me)), pct(c.share(c.me))))
         else:
-            self._note("Aún sin daño tuyo a este jefe.")
+            self._note(tr("Aún sin daño tuyo a este jefe."))
         self._footer()
 
     def _selector(self, view):
@@ -251,15 +251,15 @@ class DpsPanel(QWidget):
     def _view_tip(self, view):
         combat = self.ctl.combat
         if view == "me":
-            return "Solo tú"
+            return tr("Solo tú")
         if view == "party":
             if combat.in_force and not combat.party:
-                return ("Estás en una force y AionDex aún no sabe cuál de las 4 parties es la tuya: mira Force o Todos "
-                        "mientras tanto")
-            return "Tu party (5 personas)" if combat.party else "No estás en una party"
+                return (tr("Estás en una force y AionDex aún no sabe cuál de las 4 parties es la tuya: mira Force o "
+                           "Todos mientras tanto"))
+            return tr("Tu party (5 personas)") if combat.party else tr("No estás en una party")
         if view == "force":
-            return "Las 4 parties de tu force"
-        return "Todos los jugadores que pelean cerca de ti (los de fuera de tu grupo, sin nombre)"
+            return tr("Las 4 parties de tu force")
+        return tr("Todos los jugadores que pelean cerca de ti (los de fuera de tu grupo, sin nombre)")
 
     def _members(self, me):
         """[(name, server, job, in your party, is you)]: your party / force, or only you."""
@@ -292,14 +292,14 @@ class DpsPanel(QWidget):
         me = ctl._me()
         mine = match.me(me)
         rivals, allies = match.rivals(me), match.allies(me)
-        head = label(f"Arena {match.size} · {'rival' if len(rivals) == 1 else f'{len(rivals)} rivales'}"
-                     + (f" · tu rating {mine.rating:,}" if mine and mine.rating else "") + "  ›", f.small, theme.ACCENT)
+        head = label(f"Arena {match.size} · " + (tr("rival") if len(rivals) == 1 else tr("{0} rivales", len(rivals)))
+                     + (tr(" · tu rating {0:,}", mine.rating) if mine and mine.rating else "") + "  ›", f.small, theme.ACCENT)
         head.setAttribute(Qt.WA_TransparentForMouseEvents, False)
         head.setCursor(Qt.PointingHandCursor)
-        head.setToolTip("Ver el perfil completo de cada uno (equipo, habilidades, Daevanion) y abrirlo en shugo.gg."
-                        "\nDEF: el Defiance de cada rival: ✓ listo · INMUNE los 5 s de Tenacity tras usarlo · luego "
-                        "los segundos que le faltan (su enfriamiento, el que manda el juego en su cast). Si lo usó en "
-                        "la ronda anterior sigue contando.")
+        head.setToolTip(tr("Ver el perfil completo de cada uno (equipo, habilidades, Daevanion) y abrirlo en "
+                           "shugo.gg.\nDEF: el Defiance de cada rival: ✓ listo · INMUNE los 5 s de Tenacity tras "
+                           "usarlo · luego los segundos que le faltan (su enfriamiento, el que manda el juego en su "
+                           "cast). Si lo usó en la ronda anterior sigue contando."))
         head.on_click = ctl.open_arena
         head.setContentsMargins(f.px(4), 0, 0, 0)
         self.content.addWidget(head)
@@ -310,13 +310,13 @@ class DpsPanel(QWidget):
             cls = CLASS_OF_JOB.get(p.job, "")
             name = p.name + (f" [{p.server}]" if own_server and p.server != own_server else "")
             il = profile.item_level if profile else None
-            middle = (f"IL {il:,}" if il else "cargando…" if ctl.armory.loading(p.name) else "")
+            middle = (f"IL {il:,}" if il else tr("cargando…") if ctl.armory.loading(p.name) else "")
             tag = None
             state = ctl.defiance_of(p.name) if p in rivals else None
             if state:
                 kind, left = state
                 tag = (("DEF ✓", QColor("#7bd88f")) if kind == "ready" else
-                       (f"INMUNE {left:.0f}s", QColor("#f0c24e")) if kind == "immune" else
+                       (tr("INMUNE {0:.0f}s", left), QColor("#f0c24e")) if kind == "immune" else
                        (f"DEF {left:.0f}s", QColor("#ff7a7a")))
             self.content.addWidget(PartyRow(f, name, cls, self._class_icon(cls), profile.cp if profile else None,
                                             middle, f"{p.rating:,}" if p.rating else "", 0, p in allies, compact,
@@ -329,33 +329,33 @@ class DpsPanel(QWidget):
         lay.addStretch(1)
         if self.ctl.arena() is not None:
             lay.addWidget(Pill("Arena", self.fonts, self.ctl.open_arena, color=theme.GOLD,
-                               tip="Los jugadores de tu partida de Arena con su perfil oficial y su shugo.gg"))
+                               tip=tr("Los jugadores de tu partida de Arena con su perfil oficial y su shugo.gg")))
         combat = self.ctl.combat
         if combat.group:
-            lay.addWidget(Pill("Jugadores", self.fonts, self.ctl.open_players,
-                               tip="Perfil de cada jugador de tu party / force: CP, item level, equipo, habilidades"))
+            lay.addWidget(Pill(tr("Jugadores"), self.fonts, self.ctl.open_players,
+                               tip=tr("Perfil de cada jugador de tu party / force: CP, item level, equipo, "
+                                      "habilidades")))
         if combat.in_force:
             lay.addWidget(Pill("Parties", self.fonts, lambda: self.ctl.open_players("plan"),
-                               tip="Cómo repartir la force: sanadores y cantores por party, CP parejo, buffs que "
-                                   "no se acumulan"))
+                               tip=tr("Cómo repartir la force: sanadores y cantores por party, CP parejo, buffs que "
+                                      "no se acumulan")))
         session = self.ctl.sessions.active()
         if session is None:
-            lay.addWidget(Pill("Sesión", self.fonts, self.ctl.ask_session,
-                               tip="Comenzar una sesión: varios runs con la misma party en un solo informe, con el MVP "
-                                   "de toda la sesión"))
+            lay.addWidget(Pill(tr("Sesión"), self.fonts, self.ctl.ask_session,
+                               tip=tr("Comenzar una sesión: varios runs con la misma party en un solo informe, con "
+                                      "el MVP de toda la sesión")))
         else:
             name = session["name"] if len(session["name"]) <= 16 else session["name"][:15] + "…"
             lay.addWidget(Pill(f"● {name} ({len(session['fights'])})", self.fonts, self.ctl.ask_session,
-                               color=theme.GOLD, tip="Sesión en marcha: clic para terminarla y ver su informe"))
+                               color=theme.GOLD, tip=tr("Sesión en marcha: clic para terminarla y ver su informe")))
         bosses = bool(self.ctl.settings.get("abyss_bosses"))
-        lay.addWidget(Pill("◉ Jefes" if bosses else "Jefes", self.fonts,
+        lay.addWidget(Pill(tr("◉ Jefes") if bosses else tr("Jefes"), self.fonts,
                            lambda: self.ctl.toggle_setting("abyss_bosses"), color=theme.GOLD if bosses else None,
-                           tip="Jefes bajo misiones: la vida de los jefes que tienes cerca (mazmorras, world "
-                               "bosses, el Abismo y sus cores de asedio), "
-                               "siempre a la vista debajo de tus misiones (bajo el minimapa), como el Modo Focus de "
-                               "los pets. Clic para " + ("quitarlo" if bosses else "ponerlo") + "."))
-        lay.addWidget(Pill("Historial", self.fonts, self._open_history,
-                           tip="Tus peleas de las últimas 48 horas (y las que marcaste con ★)"))
+                           tip=tr("Jefes bajo misiones: la vida de los jefes que tienes cerca (mazmorras, world "
+                                  "bosses, el Abismo y sus cores de asedio), siempre a la vista debajo de tus "
+                                  "misiones (bajo el minimapa), como el Modo Focus de los pets. Clic para ") + (tr("quitarlo") if bosses else tr("ponerlo")) + "."))
+        lay.addWidget(Pill(tr("Historial"), self.fonts, self._open_history,
+                           tip=tr("Tus peleas de las últimas 48 horas (y las que marcaste con ★)")))
         self.content.addWidget(row)
 
     def _open_history(self):
@@ -372,10 +372,10 @@ class DpsPanel(QWidget):
         """The fights of the last 48 hours (the pinned ones first): each dungeon visit as one entry (its bosses
         inside), the rest one by one with their pin and a button to their details."""
         f = self.fonts
-        self._head("HISTORIAL · 48 H", self._close_history)
+        self._head(tr("HISTORIAL · 48 H"), self._close_history)
         fights = self.ctl.fight_list()
         if not fights:
-            self._note("Aún no hay peleas guardadas.")
+            self._note(tr("Aún no hay peleas guardadas."))
         entries = sorted(history_entries(fights),
                          key=lambda e: (not (e[1].pinned if e[0] == "run" else e[1]["pinned"]),
                                         -(e[1].last if e[0] == "run" else e[1]["last"])))[:HISTORY_ROWS[compact]]
@@ -384,8 +384,8 @@ class DpsPanel(QWidget):
                 self._run_row(entry)
             else:
                 self._fight_row(entry)
-        self._note("Las peleas se guardan 48 horas en tu PC; las marcadas con ★ se quedan hasta que las quites. "
-                   "Cada mazmorra muestra solo sus jefes.")
+        self._note(tr("Las peleas se guardan 48 horas en tu PC; las marcadas con ★ se quedan hasta que las quites. "
+                      "Cada mazmorra muestra solo sus jefes."))
 
     def _head(self, title, back):
         f = self.fonts
@@ -393,7 +393,7 @@ class DpsPanel(QWidget):
         lay = QHBoxLayout(head)
         lay.setContentsMargins(f.px(2), f.px(2), 0, f.px(2))
         lay.addWidget(label(title, f.section, theme.MUTED, elide=True), 1)
-        lay.addWidget(Pill("Volver", f, back))
+        lay.addWidget(Pill(tr("Volver"), f, back))
         self.content.addWidget(head)
 
     @staticmethod
@@ -414,11 +414,11 @@ class DpsPanel(QWidget):
         col.addWidget(label(run.place, f.body, theme.GOLD if run.pinned else theme.ACCENT, elide=True))
         killed = sum(1 for i in bosses if i["killed"])
         names = ", ".join(i["target"] + (" ✓" if i["killed"] else "") for i in bosses)
-        col.addWidget(label(f"{len(bosses)} {'jefe' if len(bosses) == 1 else 'jefes'} ({killed} ✓) · "
+        col.addWidget(label((tr("1 jefe") if len(bosses) == 1 else tr("{0} jefes", len(bosses))) + f" ({killed} ✓) · "
                             f"{self._when(run.last)} · {names}", f.small, theme.MUTED, elide=True))
         rl.addLayout(col, 1)
-        rl.addWidget(Pill("Abrir", f, lambda r=run.id: self._open_run(r),
-                          tip="Las peleas de cada jefe de esta mazmorra, con su Simulación"))
+        rl.addWidget(Pill(tr("Abrir"), f, lambda r=run.id: self._open_run(r),
+                          tip=tr("Las peleas de cada jefe de esta mazmorra, con su Simulación")))
         self.content.addWidget(row)
 
     def _fight_row(self, item, simulation=False):
@@ -430,25 +430,25 @@ class DpsPanel(QWidget):
         pinned = item["pinned"]
         rl.addWidget(Pill("★" if pinned else "☆", f, lambda i=item["id"], p=pinned: self.ctl.pin_fight(i, not p),
                           color=theme.GOLD if pinned else theme.MUTED,
-                          tip="Quitar: se borrará cuando pasen 48 horas" if pinned else
-                          "Conservar esta pelea (no se borra a las 48 horas)"))
+                          tip=tr("Quitar: se borrará cuando pasen 48 horas") if pinned else
+                          tr("Conservar esta pelea (no se borra a las 48 horas)")))
         col = QVBoxLayout()
         col.setSpacing(0)
         mark = " ✓" if item["killed"] else ""
         col.addWidget(label(f"{item['target']}{mark}", f.body, theme.GOLD if pinned else theme.TEXT, elide=True))
-        when = "en curso" if item.get("live") else self._when(item["last"])
+        when = tr("en curso") if item.get("live") else self._when(item["last"])
         yours = f" · {short_number(item['dps'])}/s ({100 * item['share']:.0f}%)" if item["damage"] else ""
-        deaths = f" · {item['deaths']} muertes" if simulation and item.get("deaths") else ""
+        deaths = tr(" · {0} muertes", item['deaths']) if simulation and item.get("deaths") else ""
         col.addWidget(label(f"{mmss(item['duration'])}{yours}{deaths} · {when}", f.small, theme.MUTED, elide=True))
         rl.addLayout(col, 1)
         if simulation:
-            rl.addWidget(Pill("Simulación", f, lambda i=item["id"]: self.ctl.open_simulation(i),
+            rl.addWidget(Pill(tr("Simulación"), f, lambda i=item["id"]: self.ctl.open_simulation(i),
                               enabled=bool(item.get("replay")),
-                              tip="Ver la pelea desde arriba: dónde estaba cada uno, las muertes y lo que lanzó "
-                                  "el jefe" if item.get("replay") else
-                                  "Sin simulación: AionDex no grabó esta pelea (solo las de jefes de mazmorra "
-                                  "desde la versión 1.44)"))
-        rl.addWidget(Pill("Ver", f, lambda i=item["id"]: self.ctl.open_dps_details(i)))
+                              tip=tr("Ver la pelea desde arriba: dónde estaba cada uno, las muertes y lo que lanzó "
+                                     "el jefe") if item.get("replay") else
+                                  tr("Sin simulación: AionDex no grabó esta pelea (solo las de jefes de mazmorra "
+                                     "desde la versión 1.44)")))
+        rl.addWidget(Pill(tr("Ver"), f, lambda i=item["id"]: self.ctl.open_dps_details(i)))
         self.content.addWidget(row)
 
     def _open_run(self, run_id):
@@ -471,8 +471,8 @@ class DpsPanel(QWidget):
         for item in run.bosses:
             self._fight_row(item, simulation=True)
         deaths = sum(i.get("deaths", 0) for i in run.bosses)
-        self._note(f"Solo los jefes (los mobs de en medio no se muestran)"
-                   + (f" · {deaths} muertes de tu grupo en ellos" if deaths else "") + ".")
+        self._note(tr("Solo los jefes (los mobs de en medio no se muestran)")
+                   + (tr(" · {0} muertes de tu grupo en ellos", deaths) if deaths else "") + ".")
 
     # --- helpers -------------------------------------------------------------------------------------------------
     def _class_icon(self, class_name):

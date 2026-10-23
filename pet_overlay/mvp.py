@@ -12,18 +12,20 @@
 A player's points are their share of the group's total, so they add up to 100 and a fight with no healing simply
 counts the rest. Only your party / force is ranked (the others are not named anywhere)."""
 from dataclasses import dataclass
+from .i18n import tr
 
 STAGGER_WORTH = 0.10        # the whole stagger of a fight, as a share of the group's damage
 REVIVE_WORTH = 0.03         # one revive given, as a share of the group's damage (and one death taken off)
 TAKEN_WORTH = 0.5
 AVOID_WORTH = 0.5
-PARTS = (("damage", "Daño"), ("support", "Apoyo"), ("avoided", "Evitado"), ("tank", "Aguante"),
-         ("control", "Aturdimiento"), ("revives", "Revivir"), ("deaths", "Muertes"))
-FORMULA = ("MVP: todo se cuenta en vida aportada. Daño (al jefe en peleas de jefe) + curación que llegó a la vida + daño "
-           "que absorbieron sus escudos + daño evitado (el que quitó el aguante, y cada parry, bloqueo o esquiva como "
-           "media de los golpes que recibe) + la mitad del daño recibido (aguantar al enemigo) + aturdimiento (el del "
-           "grupo vale el 10% de su daño, repartido según cuánto bajó cada uno) + cada revivir que da un healer (3% del daño "
-           "del grupo) − cada muerte (3%). Puntos = su parte del total del grupo.")
+PARTS = (("damage", tr("Daño")), ("support", tr("Apoyo")), ("avoided", tr("Evitado")), ("tank", tr("Aguante")),
+         ("control", tr("Aturdimiento")), ("revives", tr("Revivir")), ("deaths", tr("Muertes")))
+FORMULA = (tr("MVP: todo se cuenta en vida aportada. Daño (al jefe en peleas de jefe) + curación que llegó a la "
+              "vida + daño que absorbieron sus escudos + daño evitado (el que quitó el aguante, y cada parry, "
+              "bloqueo o esquiva como media de los golpes que recibe) + la mitad del daño recibido (aguantar al "
+              "enemigo) + aturdimiento (el del grupo vale el 10% de su daño, repartido según cuánto bajó cada uno) "
+              "+ cada revivir que da un healer (3% del daño del grupo) − cada muerte (3%). Puntos = su parte del "
+              "total del grupo."))
 
 
 @dataclass

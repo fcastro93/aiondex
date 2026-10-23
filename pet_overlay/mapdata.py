@@ -1,14 +1,15 @@
 """Queries over data/map_db.json: where a pet is farmed, faction availability, pets sharing a zone."""
 import json
 from pathlib import Path
+from .i18n import tr
 
 FACTIONS = ("elyos", "asmodian")
 # metabot world map ids -> region shown in game (main region of each map, by zone counts)
 MAP_NAMES = {
     "world_l_starter": "Poeta (Elyos)", "world_l_a": "Verteron (Elyos)", "world_l_b": "Eltnen (Elyos)",
     "world_d_starter": "Ishalgen (Asmodian)", "world_d_a": "Altgard (Asmodian)", "world_d_b": "Morheim (Asmodian)",
-    "abyss_reshanta_a": "Chaotic Lower Reshanta (Abismo)", "abyss_reshanta_c": "Chaotic Middle Reshanta (Abismo)",
-    "abyss_reshanta_d": "Chaotic Upper Reshanta (Abismo)",
+    "abyss_reshanta_a": tr("Chaotic Lower Reshanta (Abismo)"), "abyss_reshanta_c": tr("Chaotic Middle Reshanta (Abismo)"),
+    "abyss_reshanta_d": tr("Chaotic Upper Reshanta (Abismo)"),
 }
 
 
