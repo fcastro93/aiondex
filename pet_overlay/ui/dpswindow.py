@@ -24,7 +24,7 @@ from .mapwindow import STYLE
 from .theme import GLYPH_COLLAPSE, GLYPH_EXPAND, Fonts
 from .tunerwindow import EXTRA_STYLE
 from .widgets import label
-from ..i18n import tr
+from ..i18n import source, tr
 
 BAR_ROLE = Qt.UserRole + 1          # 0-1: length of the bar behind the first column
 COLOR_ROLE = Qt.UserRole + 2        # QColor of that bar (the player's class)
@@ -725,7 +725,7 @@ class DpsDetailsWindow(QWidget):
                              tr("{0} muertes en tu grupo", item["deaths"]))
         table.setItem(r, 0, first)
         left, right = Qt.AlignLeft | Qt.AlignVCenter, Qt.AlignRight | Qt.AlignVCenter
-        cells = [(tr(item.get("label") or ""), left, theme.MUTED),
+        cells = [(tr(source(item.get("label") or "")), left, theme.MUTED),
                  (_place(item), left, theme.MUTED),
                  (mmss(item.get("duration", 0)), right, theme.TEXT),
                  (_when(item), right, theme.COMBAT if item.get("live") else theme.MUTED),

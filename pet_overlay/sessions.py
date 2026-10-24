@@ -11,8 +11,10 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .combat import ABYSS_MAPS, aggro_counts, in_instance
-from .i18n import tr
+from .combat import ABYSS_MAPS, aggro_counts, content_of, in_instance
+from .i18n import N_, tr
+
+GENERIC_PLACES = ("Mazmorra", "Mundo abierto", "Abismo", "Instancia", "Mazmorra sellada")
 
 
 class SessionLog:
@@ -95,7 +97,15 @@ class Run:
 
 
 def place_of(enc, npc_db):
-    """The dungeon of a fight from its bosses (the map their npc stands on), else the kind of place."""
+    """The dungeon of a fight from its bosses (the map their npc stands on), else what the map is for (learnt from the
+    game's missions there: the Arena, Nightmare, Ascension Trial, a dungeon), else the kind of place."""
+    content = getattr(enc, "content", "") or content_of(enc.map_id)
+    if content == "arena":
+        return "Arena"
+    if content == "nightmare":
+        return "Nightmare"
+    if content == "ascension":
+        return "Ascension Trial"
     for eid, boss in enc.target_boss.items():
         if boss and enc.target_npc.get(eid):
             place = npc_db.place(enc.target_npc[eid])
@@ -106,9 +116,17 @@ def place_of(enc, npc_db):
         place = npc_db.place(npc) if npc else ""
         if place:
             return place
+    if content.startswith("dungeon:"):                 # «dungeon:fire-temple» -> "Fire Temple"
+        return content[8:].replace("-", " ").title()
+    if content == "transcendence":
+        return "Transcendence"
     if enc.map_id in ABYSS_MAPS:
-        return "Abismo"
-    return "Mazmorra" if in_instance(enc.map_id) else "Mundo abierto"
+        return N_("Abismo")
+    if not in_instance(enc.map_id):
+        return N_("Mundo abierto")
+    if enc.map_id // 1000 in (310, 320):                # Seal_Verteron 3100NN, Seal_Altgard 3200NN
+        return N_("Mazmorra sellada")
+    return N_("Instancia")                             # an instance AionDex does not know yet (not always a dungeon)
 
 
 RUN_GAP = 1800       # seconds between two fights of the same dungeon that still make one run
@@ -184,7 +202,7 @@ def runs_of(fights, npc_db):
         runs = [r for r in runs if in_instance(r.fights[0][0].map_id) or r.bosses()]
     for run in runs:                                   # the name the run's bosses give it
         names = [place_of(e, npc_db) for e, _ in run.fights]
-        known = [n for n in names if n not in ("Mazmorra", "Mundo abierto", "Abismo")]
+        known = [n for n in names if n not in GENERIC_PLACES]
         if known:
             run.place = max(set(known), key=known.count)
     return runs

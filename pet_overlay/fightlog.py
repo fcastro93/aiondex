@@ -47,7 +47,7 @@ def summary(enc, group):
     mine = (me.by_target[boss] if boss is not None else me.damage) if me else 0
     total = (enc.targets[boss] if boss is not None else enc.total) or 1
     return {"id": enc.id, "start": enc.start, "last": enc.last, "target": enc.main_target or tr("Pelea"),
-            "label": enc.activity(group).label, "duration": enc.fight_time(group), "killed": enc.killed,
+            "label": enc.activity(group).key, "duration": enc.fight_time(group), "killed": enc.killed,
             "damage": mine, "dps": mine / enc.fight_time(group), "share": mine / total, "players": len(enc.dealers()),
             "pinned": enc.pinned, "place": enc.place, "map_id": enc.map_id, "instance": in_instance(enc.map_id),
             "boss": enc.activity(group).boss, "final": enc.final, "replay": bool(enc.replay),
@@ -102,7 +102,8 @@ def dump(enc, group):
             "side_targets": _ints(enc.side_targets),
             "group": sorted(group), "cp": {n: cp for n, cp in enc.cp.items() if n in group or n in
                                            {a.name for a in enc.actors.values() if a.is_self}},
-            "place": enc.place, "final": enc.final, "replay": enc.replay}
+            "place": enc.place, "final": enc.final, "replay": enc.replay, "content": enc.content,
+            "arena": enc.arena}
 
 
 def load(data):
@@ -129,6 +130,8 @@ def load(data):
     enc.place = data.get("place") or ""
     enc.final = bool(data.get("final"))
     enc.replay = data.get("replay")
+    enc.content = data.get("content") or ""
+    enc.arena = data.get("arena") or ""
     return enc
 
 
@@ -256,6 +259,54 @@ class FightLog:
             self._cache[fid].pinned = bool(on)
         self._write_index()
         return True
+
+    def migrate_v25(self, npc_db, place_of):
+        """Once (2.5): drop the saved fights nobody of your side was in (before 2.5 the meter recorded strangers
+        fighting near you: a third of the history), and give the rest the place and label the meter gives now (the
+        Arena, Nightmare, Ascension Trial, the dungeon a map is; labels kept in the code's words, so the history no
+        longer mixes the two languages)."""
+        flag = self.dir / "v25.done"
+        if not self.enabled or flag.exists():
+            return 0, 0
+        keep = self.keep()
+        dropped = relabeled = 0
+        for entry in list(self.index):
+            path = self.dir / f"{entry['id']}.json.gz"
+            try:
+                with gzip.open(path, "rt", encoding="utf-8") as fh:
+                    data = json.load(fh)
+            except (OSError, ValueError):
+                continue
+            group = set(data.get("group") or [])
+            ours = any(a.get("is_self") or a.get("name") in group for a in data.get("actors") or [])
+            if not ours and not entry.get("pinned") and entry["id"] not in keep:
+                path.unlink(missing_ok=True)
+                self._cache.pop(entry["id"], None)
+                self.index.remove(entry)
+                dropped += 1
+                continue
+            try:
+                enc = load(data)
+                place, key = place_of(enc, npc_db), enc.activity(group).key
+            except Exception:                    # noqa: BLE001 - an old fight that does not load: left as it is
+                continue
+            if entry.get("place") != place or entry.get("label") != key:
+                entry["place"], entry["label"] = place, key
+                if data.get("place") != place:
+                    data["place"] = place
+                    try:
+                        with gzip.open(path, "wt", encoding="utf-8") as fh:
+                            json.dump(data, fh, ensure_ascii=False)
+                    except OSError:
+                        pass
+                relabeled += 1
+        self._write_index()
+        try:
+            self.dir.mkdir(parents=True, exist_ok=True)
+            flag.write_text("1", encoding="utf-8")
+        except OSError:
+            pass
+        return dropped, relabeled
 
     def prune(self, now=None):
         """Forget the fights older than KEEP_HOURS that are not pinned."""

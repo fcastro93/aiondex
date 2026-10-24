@@ -117,6 +117,25 @@ def tr(text, *args):
         return text.format(*args)
 
 
+_REVERSE = None
+
+
+def source(text):
+    """The text as the code writes it (Spanish) of a text an older version saved already translated (the DPS history
+    before 2.5 kept its labels in the language of the moment): tr(source(x)) shows it in today's language."""
+    global _REVERSE
+    if _REVERSE is None:
+        try:
+            spanish = set(json.loads((LOCALE_DIR / "es.json").read_text(encoding="utf-8")).values())
+        except (OSError, ValueError):
+            spanish = set()
+        _REVERSE = ({v: k for k, v in _load("en").items()}, spanish)
+    reverse, spanish = _REVERSE
+    if text in spanish:              # already the code's text («Nightmare» is one, and also Pesadilla's English)
+        return text
+    return reverse.get(text, text)
+
+
 def N_(text):
     """Marks a Spanish text that the code keeps as a key (a role, a mouse button's name) and shows later through
     tr(value): it stays as it is here, and tools/i18n_catalog.py puts it in the catalog."""

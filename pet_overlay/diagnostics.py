@@ -383,9 +383,24 @@ def diagnose_dps(ctl):
                                                        "ver a los demás.")))
     if ctl.active_module.key != "dps":
         d.actions.append(Action(tr("Ir a DPS"), lambda: ctl.switch_module("dps")))
+    rec = getattr(ctl, "combat_rec", None)
+    if rec is not None:
+        if rec.active:
+            d.checks.append(Check(tr("Grabando el combate"), "info",
+                                  tr("Faltan {0} min. Haz la actividad que sale mal (una mazmorra, la Arena, el "
+                                     "Abismo, un jefe de campo...); puedes cerrar esta ventana.",
+                                     max(1, rec.remaining() // 60))))
+            d.actions.append(Action(tr("Terminar ya"), rec.stop))
+        else:
+            d.actions.append(Action(tr("Grabar 10 min para revisar"), ctl.record_combat))
+            if rec.last_path is not None:
+                folder = str(rec.last_path.parent)
+                d.checks.append(Check(tr("Última grabación"), "info",
+                                      tr("{0} ({1:,} mensajes), en tu PC.", rec.last_path.name, rec.count)))
+                d.actions.append(Action(tr("Abrir la carpeta"), lambda: __import__("os").startfile(folder)))
     if not d.todo:
-        d.todo.append(tr("Los números salen del mismo tráfico que usa LOXIN. Si no cuadran, envía el informe con la "
-                         "hora de la pelea."))
+        d.todo.append(tr("Los números salen del mismo tráfico que usa LOXIN. Si no cuadran, graba la actividad "
+                         "(«Grabar 10 min para revisar») y envía el archivo con la hora de la pelea."))
     return d
 
 

@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 ROSTER_OPCODE = bytes.fromhex("19e3")
 DEFIANCE = {1126, 1226, 1326, 1426, 1524, 1620, 1724, 1820}   # skill id // 10000 of each class's Defiance
 TENACITY = 5.0               # seconds of status effect immunity after it
-ARENA_MAPS = {60}                # game map ids (2136) of the Arena
+ARENA_MAPS = {60, 61}            # game map ids (2136) of the Arena (61: the 1v1 queue of mode 22)
 TEAM_BACK = 22                   # the team byte, this many bytes before the character id
 RATING_BACK = 21                 # the rating (u64), this many bytes before it
 KEEP_MINUTES = 40                # a roster is "the current match" this long (or until you are back in the world)

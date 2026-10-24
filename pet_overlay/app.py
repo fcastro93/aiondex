@@ -209,6 +209,7 @@ class Bridge(QObject):
         self.nodes = nodes.NodeTracker()         # the gathering nodes around you
         self.mobs = MobTracker()                 # the monsters around you: spawn points, deaths, respawns
         self.bigfoes = BigFoes()                 # the bosses and siege cores around you (their HP)
+        self.recorder = None                     # combatrec.CombatRecorder (Diagnóstico › DPS › Grabar)
 
     def take_hits(self):
         with self._hits_lock:
@@ -216,6 +217,9 @@ class Bridge(QObject):
         return hits
 
     def on_message(self, op, body):
+        rec = self.recorder
+        if rec is not None and rec.fh is not None:
+            rec.write(op, body)
         if self.health:
             self.health.saw(OP_KIND.get(op))
         if self.tracker:
@@ -568,6 +572,9 @@ class Controller(QObject):
         self.bridge.zone_detected.connect(self.on_zone_detected)
         self.bridge.status.connect(self.on_status)
         self.combat = CombatTracker()
+        from .combatrec import CombatRecorder
+        self.combat_rec = CombatRecorder(self.data_dir / "diagnostics")      # Diagnóstico › DPS › Grabar
+        self.bridge.recorder = self.combat_rec
         self.boss_names = _loxin_boss_names()
         self.npc_db = NpcDb(self.data_dir)
         self.boss_db = simulation.BossDb(self.data_dir)      # boss faces and named skills for the Simulación
@@ -706,6 +713,10 @@ class Controller(QObject):
                                      save_name="achievements.json")
         self.missions_window = self.achievements_window = None
         self.passes = Passes(self.data_dir, self.data_dir / "passes_db.json", persist=self.persist)
+        self._learn_content()                     # what each instance map is, for the DPS meter (combat.CONTENT)
+        moved = self.fights.migrate_v25(self.npc_db, place_of)
+        if any(moved):
+            log.info("saved fights 2.5: %s strangers' fights dropped, %s relabeled", *moved)
         self.bridge.passes.connect(self.on_passes)
         self.bridge.missions.connect(self.on_missions)
 
@@ -1253,7 +1264,36 @@ class Controller(QObject):
             self.passes.on_claim(self.character.name, *payload)
         self.missions_changed()
 
+    def record_combat(self):
+        """Diagnóstico › DPS › Grabar: the game's messages for 10 minutes, with what AionDex knows now (you, your
+        group, the map), to play a fight again exactly (tools/replay_combat.py)."""
+        from . import combat as combat_mod
+        c, feed = self.combat, self.bridge.feed
+        side = c.group | {self.character_name() or ""}
+        self.combat_rec.start({
+            "self_eid": c.self_eid, "self_name": self.character_name() or self.settings.get("last_character"),
+            "map_id": c.map_id, "roster": sorted(c.roster), "party": sorted(c.party), "allies": sorted(c.allies),
+            "arena_size": c.arena_size,
+            "players": {str(e): n for e, n in feed.players.items() if n in side or e == c.self_eid},
+            "content": {str(k): sorted(v) for k, v in combat_mod.CONTENT.items()}})
+        self.notify("info", tr("Grabando el combate 10 min"),
+                    tr("Haz la actividad que sale mal en el DPS. Queda en tu PC, en la carpeta de diagnóstico de "
+                       "AionDex; envíala solo si quieres que la revisen (lleva los nombres de los jugadores de "
+                       "alrededor)."))
+
+    def _learn_content(self):
+        """combat.CONTENT: what each instance map is for (the Arena, Nightmare, Ascension Trial, a dungeon), from
+        what the game's missions and achievements counted there (missions.py keeps it per map)."""
+        from . import combat as combat_mod
+        for model in (self.missions, self.achievements):
+            for map_id, tags in (getattr(model, "maps", None) or {}).items():
+                try:
+                    combat_mod.CONTENT.setdefault(int(map_id), set()).update(tags)
+                except (TypeError, ValueError):
+                    continue
+
     def missions_changed(self):
+        self._learn_content()
         for window in (self.missions_window, self.achievements_window):
             if window and window.isVisible():
                 window.refresh()
@@ -1777,6 +1817,7 @@ class Controller(QObject):
         log.info("arena %s (mode %s): %s", match.size, match.mode,
                  ", ".join(f"{p.name}@{p.server} team {p.team} rating {p.rating}" for p in match.players))
         rivals, allies = match.rivals(me), match.allies(me)
+        self.combat.set_arena([p.name for p in allies], match.size)     # your team is your side in this match
         for p in rivals + allies + [p for p in match.players if p.name == me]:
             self.armory.want(p.name, p.server, priority=GROUP)
         if rivals:
@@ -1887,6 +1928,9 @@ class Controller(QObject):
             self._zone_by_position = 0.0
         if self.arena_match is not None and map_id not in ARENA_MAPS and not in_instance(map_id):
             self.arena_match.at = min(self.arena_match.at, time.time() - 30 * 60)   # back in the world: kept 10 min
+        from .combat import content_of
+        if content_of(map_id) != "arena":
+            self.combat.set_arena([], "")       # out of the Arena: your side is your party / force again
         log.info("map entry %s (seq %s, side %s)", map_id, seq, game_map_faction(map_id))
         self.refresh()
 

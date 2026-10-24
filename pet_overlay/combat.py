@@ -14,7 +14,7 @@ from collections import Counter, deque
 from dataclasses import dataclass, field
 
 from .protocol import read_varint
-from .i18n import tr
+from .i18n import N_, tr
 
 PLAYER_SPAWN_OPCODE = bytes.fromhex("4536")
 IDLE_END = 8.0          # seconds without damage that end an encounter
@@ -23,6 +23,10 @@ HISTORY_MAX = 20
 RECENT_MAX = 20         # full encounters kept in memory for the history and the details window
 PARTY_SIZE = 5          # a group roster larger than this is a force (up to 4 parties)
 ABYSS_MAPS = {20}       # game map ids (2136) of the Abyss
+ARENA_MAPS = {60, 61}   # the Arena: 60 ranked 1v1 (mode 11), 61 the other 1v1 queue (mode 22); 5v5 / 10v10 are learnt
+# map id -> what is played there, learnt from the game's own mission / achievement updates in that map (missions.py
+# keeps them: "arena", "nightmare", "ascension", "transcendence", "dungeon:fire-temple"...); the Controller fills it
+CONTENT = {}
 BOSS_HP = 150_000       # a target with this much HP is a boss (seal bosses have ~200K, field mobs ~40K)
 WORLD_BOSS_HP = 50_000_000
 CROWD = 8               # players outside your group hitting the same fight = a mass fight
@@ -34,6 +38,17 @@ def _hp_text(hp):
 def in_instance(map_id):
     """Dungeons and the other instances (Fire Temple 600022, Draupnir 600032...): not the open world or the Abyss."""
     return map_id is not None and not 1000 <= map_id < 1200 and map_id not in ABYSS_MAPS
+
+
+def content_of(map_id):
+    """What is played on a map: "arena" | "nightmare" | "ascension" | "transcendence" | "dungeon:<slug>" | ""."""
+    if map_id in ARENA_MAPS:
+        return "arena"
+    tags = CONTENT.get(map_id) or ()
+    for kind in ("arena", "nightmare", "ascension", "transcendence"):
+        if kind in tags:
+            return kind
+    return next((t for t in tags if t.startswith("dungeon:")), "")
 
 
 # Revives (2026-10-12 captures): a dead player who gets up by themselves casts 8047 about 3 s after dying (dungeons);
@@ -181,10 +196,15 @@ class Contribution:
 @dataclass
 class Activity:
     """What kind of fight this is, so the meter can show what matters for it."""
-    kind: str                   # "farm" | "solo_boss" | "group" | "group_boss" | "crowd"
-    label: str                  # shown in the header: "Farmeo", "Jefe del Abismo"...
+    kind: str                   # "farm" | "solo_boss" | "group" | "group_boss" | "crowd" | "arena"
+    label: str                  # shown in the header, in the app's language: "Farmeo", "Jefe del Abismo"...
     place: str                  # "mundo" | "abismo" | "instancia"
     boss: bool
+    key: str = ""               # the label as written in the code (Spanish): what the history keeps
+
+
+def _act(kind, key, place, boss):
+    return Activity(kind, tr(key), place, boss, key)
 
 
 @dataclass
@@ -215,6 +235,8 @@ class Encounter:
     place: str = ""              # the dungeon it was in ("Fire Temple"), "Mundo abierto", "Abismo" (sessions.place_of)
     final: bool = False          # it killed the dungeon's last boss (the next fights are another run)
     replay: dict | None = None   # the Simulación of a dungeon boss fight (simulation.build)
+    content: str = ""            # what the map is for (content_of): "arena", "nightmare", "dungeon:fire-temple"...
+    arena: str = ""              # the Arena's size ("1v1", "5v5", "10v10") when it was an Arena match
 
     @property
     def id(self):
@@ -254,22 +276,34 @@ class Encounter:
         known = self.target_boss.get(boss_eid)
         boss = known if known is not None else boss_hp >= BOSS_HP
         others = [a for a in self.dealers() if not a.is_self]
+        # your party / force (and your Arena team): a stranger hitting the same monster does not make it a group fight
+        mates = [a for a in others if a.name in group_names]
         outsiders = [a for a in others if a.name not in group_names]
+        content = self.content or content_of(self.map_id)
+        if content == "arena":
+            size = self.arena
+            return Activity("arena", "Arena " + size if size else "Arena", "instancia", False,
+                            "Arena " + size if size else "Arena")
+        if content == "nightmare":
+            return _act("solo_boss" if boss else "farm", N_("Nightmare"), place, boss)
+        if content == "ascension":
+            return _act("solo_boss" if boss else "farm", N_("Ascension Trial"), place, boss)
         if len(outsiders) >= CROWD or boss_hp >= WORLD_BOSS_HP:
             if boss:
-                label = {"abismo": tr("Jefe del Abismo"), "mundo": tr("Jefe de campo"), "instancia": tr("Jefe de raid")}[place]
+                key = {"abismo": N_("Jefe del Abismo"), "mundo": N_("Jefe de campo"), "instancia": N_("Jefe de raid")}[place]
             else:
-                label = tr("Pelea en el Abismo") if place == "abismo" else tr("Pelea multitudinaria")
-            return Activity("crowd", label, place, boss)
-        if others:
+                key = N_("Pelea en el Abismo") if place == "abismo" else N_("Pelea multitudinaria")
+            return _act("crowd", key, place, boss)
+        if mates:
             if place == "instancia":
-                label = tr("Jefe de mazmorra") if boss else tr("Mazmorra en grupo")
+                key = N_("Jefe de mazmorra") if boss else N_("Mazmorra en grupo")
             else:
-                label = tr("Jefe en grupo") if boss else (tr("Abismo en grupo") if place == "abismo" else tr("En grupo"))
-            return Activity("group_boss" if boss else "group", label, place, boss)
+                key = N_("Jefe en grupo") if boss else (N_("Abismo en grupo") if place == "abismo" else N_("En grupo"))
+            return _act("group_boss" if boss else "group", key, place, boss)
         if boss:
-            return Activity("solo_boss", tr("Jefe en solitario"), place, boss)
-        return Activity("farm", tr("Abismo") if place == "abismo" else tr("Farmeo"), place, boss)
+            return _act("solo_boss", N_("Jefe de mazmorra") if place == "instancia" and content else
+                        N_("Jefe en solitario"), place, boss)
+        return _act("farm", N_("Abismo") if place == "abismo" else N_("Farmeo"), place, boss)
 
     def enemies(self, limit=None):
         """[(eid, name, hp ratio or None, dead, damage it dealt, damage it took)]: the main target first, then the
@@ -393,7 +427,10 @@ class CombatTracker:
         self.engaged = {}        # eid -> first hit between that monster and your side (kept across encounters)
         self.down = {}           # player eid -> when they died (until they act again)
         self.res_casts = deque(maxlen=50)    # (time, caster, skill base) of revive skills cast
-        self.group = set()       # names of your party / force members (from the group roster)
+        self.group = set()       # names of your side: your party / force (the group roster) and your Arena team
+        self.roster = set()      # the group roster alone
+        self.allies = set()      # your team in the Arena match you are in (not always your party)
+        self.arena_size = ""     # "1v1" / "5v5" / "10v10" of that match
         self.party = set()       # names of your own party (inside a force: only once the game says which it is)
         self.in_force = False
         self.self_eid = None
@@ -456,9 +493,30 @@ class CombatTracker:
     def set_group(self, names, party=None):
         """Your group roster. A roster of up to 5 is your party; a bigger one is a force (4 parties of 5), and then
         `party` is your own party's names when the roster tells which one is yours (else unknown)."""
-        self.group = set(names)
-        self.in_force = len(self.group) > PARTY_SIZE
-        self.party = set(party or ()) if self.in_force else set(self.group)
+        self.roster = set(names)
+        self.group = self.roster | self.allies
+        self.in_force = len(self.roster) > PARTY_SIZE
+        self.party = set(party or ()) if self.in_force else set(self.roster)
+
+    def set_arena(self, allies, size=""):
+        """Your team in an Arena match (it counts as your side there), or no match (allies empty)."""
+        self.allies = set(allies)
+        self.arena_size = size if allies or size else ""
+        self.group = self.roster | self.allies
+
+    def ours(self, eid):
+        """Is this entity (or the summon's owner) you, a member of your party / force or your Arena team?"""
+        o = self.owners.get(eid, eid)
+        if o is not None and o == self.self_eid:
+            return True
+        name = self.players.get(o)
+        return bool(name) and name in self.group
+
+    @property
+    def gated(self):
+        """Fights are only yours once AionDex knows who you are; before that (it just started, before the game sent
+        your character) every fight around counts, as before 2.5."""
+        return self.self_eid is not None
 
     def on_hp(self, eid, hp):
         enc = self.current
@@ -480,9 +538,16 @@ class CombatTracker:
         enc = self.current
         if enc is None or enc.ended or ts - enc.last > IDLE_END:
             finished = self._finish() if enc and not enc.ended else None
-            enc = self.current = Encounter(start=ts, last=ts, map_id=self.map_id)
+            content = content_of(self.map_id)
+            enc = self.current = Encounter(start=ts, last=ts, map_id=self.map_id, content=content,
+                                           arena=self.arena_size if content == "arena" else "")
         enc.last = ts
         return enc, finished
+
+    def _live(self, ts):
+        """The fight going on at ts, or None."""
+        enc = self.current
+        return enc if enc is not None and not enc.ended and ts - enc.last <= IDLE_END else None
 
     def on_hit(self, hit):
         """Returns a finished Encounter if this event started a new one after the previous ended."""
@@ -495,7 +560,18 @@ class CombatTracker:
             return None          # (hits on players only come from enemies of the other faction: PvP)
         if attacker in self.down:
             self._back(attacker, hit.ts)
-        enc, finished = self._encounter(hit.ts)
+        target = self.owners.get(hit.target, hit.target)
+        if self.gated and target in self.players and (self.ours(target) or not self.ours(attacker)):
+            return None          # a player of your side hit by an enemy (that is damage taken), or two others in PvP
+        if not self.gated or self.ours(attacker):
+            enc, finished = self._encounter(hit.ts)
+        else:
+            # someone outside your group: their hits count only on a monster your side is fighting now (a shared
+            # boss), and never keep the fight going nor start one - other people's fights are not yours (2.5: a
+            # third of the saved fights were strangers fighting near you)
+            enc, finished = self._live(hit.ts), None
+            if enc is None or hit.target not in enc.side_targets:
+                return None
         actor = self._actor(enc, attacker)
         actor.damage += hit.amount
         actor.hits += 1
@@ -511,7 +587,7 @@ class CombatTracker:
         enc.targets[hit.target] += hit.amount
         enc.first_hit.setdefault(hit.target, hit.ts)
         enc.last_hit[hit.target] = hit.ts
-        if actor.is_self or actor.name in self.group:
+        if actor.is_self or actor.name in self.group or self.ours(attacker):
             enc.side_targets[hit.target] += hit.amount
         self.engaged.setdefault(hit.target, hit.ts)
         if hit.target in self.npc_names:
@@ -535,6 +611,8 @@ class CombatTracker:
             target = self.owners.get(hit.target, hit.target)
             if target not in self.players:
                 return None
+            if self.gated and not self.ours(target):
+                return None          # a stranger hit by a monster: their fight, not yours
             enc, finished = self._encounter(hit.ts)
             actor = self._actor(enc, target)
             if hit.kind == "avoid":
@@ -569,6 +647,8 @@ class CombatTracker:
         if not live:
             return None
         source = self.owners.get(hit.attacker, hit.attacker) if hit.attacker is not None else None
+        if self.gated and not (self.ours(source) or self.ours(hit.target)):
+            return None              # strangers healing / shielding each other near you
         if source in self.down and hit.kind in ("heal", "absorb"):
             self._back(source, hit.ts)
         if hit.kind == "heal":
@@ -654,6 +734,10 @@ class CombatTracker:
         enc.ended = True
         enc.killed = enc.main_target_eid in enc.dead
         enc.group = set(self.group)
+        if self.gated and not any(a.is_self or a.name in enc.group for a in enc.actors.values()):
+            enc.actors.clear()           # nobody of your side in it (it started before AionDex knew you): not yours,
+            enc.targets.clear()          # so it is neither shown nor saved
+            return enc
         if not enc.total:
             return enc                   # nobody dealt damage (a monster hit you while passing by): not a fight
         self.recent.appendleft(enc)
