@@ -24,6 +24,7 @@ from ..crafting import DEFAULT_PROFESSION, MATERIALS, SORT_KEYS, RecipeRow, span
 from ..gathering import kills_for, map_open
 from ..professions import NOVICE_MAX, RANKS, level_text, parse_level
 from ..mapdata import MAP_NAMES
+from .charpicker import CharacterPicker
 from . import theme
 from .appmenu import styled_menu
 from .design import HUB_STYLE, LINE_SOFT, ChipGroup, GameCard, GameTabs, Meter, PageHeader, RewardTile, SearchBox
@@ -199,6 +200,7 @@ class CraftingWindow(QWidget):
         root.setContentsMargins(16, 12, 16, 10)
         root.setSpacing(8)
         self.header = PageHeader(f, "Crafting", "")
+        self.header.add_picker(CharacterPicker(self.ctl, f))
         head = self.header.right
         self.who_label = label("", f.small, theme.MUTED)     # whose numbers: the character picked in the window
         self.who_label.setAttribute(Qt.WA_TransparentForMouseEvents, False)

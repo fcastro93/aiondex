@@ -18,6 +18,7 @@ from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QScrollA
 from .. import APP_NAME
 from ..passes import level_estimate, level_of, weekly_limit
 from ..status import WEEK, countdown, next_weekly
+from .charpicker import CharacterPicker
 from . import theme
 from .design import Card, Chip, Meter, PageHeader, ProgressRing, Stat, serif_font
 from .theme import Fonts
@@ -260,6 +261,7 @@ class PassesWindow(QWidget):
         root.setContentsMargins(f.px(22), f.px(16), f.px(22), f.px(16))
         root.setSpacing(f.px(10))
         self.header = PageHeader(f, tr("Pase"), tr("El Daeva Pass de tu personaje, leído del juego."))
+        self.header.add_picker(CharacterPicker(self.ctl, f))
         root.addWidget(self.header)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)

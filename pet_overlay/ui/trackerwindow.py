@@ -14,6 +14,7 @@ from ..gear import verdict
 from ..modules.tracker import when_text
 from ..tracker import (LEADS, REGIONS, countdown, image_file, local_day, occurrence_status, occurrences,
                        server_clock)
+from .charpicker import CharacterPicker
 from . import theme
 from .design import Chip, ChipGroup, Divider, GameTabs, PageHeader, SearchBox, serif_font
 from .theme import Fonts
@@ -196,6 +197,7 @@ class TrackerWindow(QWidget):
         root.setContentsMargins(f.px(22), f.px(16), f.px(22), f.px(10))
         root.setSpacing(f.px(8))
         self.header = PageHeader(f, tr("Tracker de jefes y eventos"))
+        self.header.add_picker(CharacterPicker(self.ctl, f))
         self.header.add_right(label(tr("Servidor:"), f.small, theme.MUTED))
         self.region = QComboBox()
         for rid, (text, _, _) in REGIONS.items():

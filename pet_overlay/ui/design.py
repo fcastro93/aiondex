@@ -845,6 +845,10 @@ class PageHeader(QWidget):
     def add_right(self, widget):
         self.right.addWidget(widget)
 
+    def add_picker(self, widget):
+        """The character picker (charpicker.CharacterPicker): first on the right, before the page's own buttons."""
+        self.right.insertWidget(0, widget)
+
 
 class KeyValue(QWidget):
     """A row of the game's tooltips: the name at the left, the value at the right, in their colors."""

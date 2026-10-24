@@ -2728,7 +2728,32 @@ class Controller(QObject):
         cfg.pop("seen", None)                # before 1.63.3: every character's dungeons together
         mine = [f for f in self.fights.index if f.get("instance") and f.get("final") and f.get("killed")
                 and self._fight_who(f) == name]
-        return dungeons_you_run(mine, seen=cfg.setdefault("seen_by", {}).setdefault(name, {}))
+        found = dungeons_you_run(mine, seen=cfg.setdefault("seen_by", {}).setdefault(name, {}))
+        # and the ones the game's own clear counters moved for in the same days («Vakron Sky Island Conquest
+        # Clear»): a run the meter did not see as a final boss kill still counts (2.5.3: Charfire, 12 Vakron
+        # Conquest clears, was told it ran nothing)
+        from .upgrades import DUNGEON_DAYS
+        recent = time.time() - DUNGEON_DAYS * 86400
+        for (dungeon, _mode), (_n, at) in sorted(self.dungeon_clears(name).items(), key=lambda kv: -kv[1][1]):
+            if at >= recent and dungeon not in found:
+                found.append(dungeon)
+        return found
+
+    def dungeon_clears(self, name):
+        """{(dungeon, "Exploration" | "Conquest"): (clears, when that count last moved)} of a character, from the
+        game's clear achievements («Vakron Sky Island Conquest Clear: 12»)."""
+        import re
+        ms = self.achievements
+        out = {}
+        if not name or not ms.available:
+            return out
+        records = (ms.characters.get(name) or {}).get("records") or {}
+        for m in ms.db.values():
+            found = re.match(r"(.+) (Exploration|Conquest) Clear$", getattr(m, "name", "") or "")
+            rec = records.get(str(m.id)) if found else None
+            if rec and rec[0]:
+                out[(found.group(1), found.group(2))] = (int(rec[0]), float(rec[1] or 0))
+        return out
 
     def upgrades_dungeons(self, name):
         """(the dungeons Mejoras farms for a character, picked by hand?)"""
@@ -2829,7 +2854,9 @@ class Controller(QObject):
                           dungeons, levels, crafting.recipes, skipped=set(self.upgrades_skipped(name)),
                           me=self.upgrades_me(name), bosses=self.upgrade_bosses(), alts_kina=alts_kina,
                           off=self.upgrades_off(name), arcana=self.arcana_plan(name),
-                          targets=self.skill_targets(name), skill_info=self.tuner.skills)
+                          targets=self.skill_targets(name), skill_info=self.tuner.skills,
+                          explored={d: n for (d, mode), (n, _) in self.dungeon_clears(name).items()
+                                    if mode == "Exploration"})
         self._plan_cache = (time.time(), name, plan)
         return plan
 

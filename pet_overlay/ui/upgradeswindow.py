@@ -18,6 +18,7 @@ from .. import APP_NAME
 from ..arcana import farm_options, short_kind
 from ..gear import SLOTS
 from ..upgrades import CATEGORIES, GUIDE, SUBSTATS, SUBSTATS_GUIDE, can_do, kinah_text, stat_value
+from .charpicker import CharacterPicker
 from . import theme
 from .design import Chip, ChipGroup, GameTabs, PageHeader, RewardTile, SearchBox, Stat
 from .itemcard import STAT_GRADE, ItemCard, ItemData, Socket, SoulLine, item_from_official
@@ -277,6 +278,7 @@ class UpgradesWindow(QWidget):
         root.setContentsMargins(f.px(22), f.px(16), f.px(22), f.px(12))
         root.setSpacing(f.px(10))
         self.header = PageHeader(f, tr("Mejoras"), "")
+        self.header.add_picker(CharacterPicker(self.ctl, f))
         self.header.subtitle.setWordWrap(True)
         self.role = QComboBox()
         self.role.addItem(tr("Main: usa todo"), "main")

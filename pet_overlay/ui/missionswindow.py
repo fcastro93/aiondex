@@ -20,6 +20,7 @@ from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QPushBut
 from .. import APP_NAME
 from ..modules.status import ago
 from ..status import countdown, next_weekly
+from .charpicker import CharacterPicker
 from . import theme
 from .itemicons import icon_pixmap, item_icons
 from .design import Card, ChipGroup, GameCard, GameTabs, Meter, PageHeader, ProgressRing, RewardTile, SearchBox, \
@@ -64,6 +65,7 @@ class MissionsWindow(QWidget):
         root.setContentsMargins(f.px(22), f.px(16), f.px(22), f.px(16))
         root.setSpacing(f.px(8))
         self.header = PageHeader(f, title, self.subtitle)
+        self.header.add_picker(CharacterPicker(self.ctl, f))
         root.addWidget(self.header)
         last = [(SUMMARY, tr("Resumen"))] + ([(EXPIRING, tr("Expiran pronto"))] if self._expires else [])
         self.tabs = GameTabs(f, list(self.missions.tabs.items()) + last, self.tab)

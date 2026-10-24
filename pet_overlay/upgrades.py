@@ -233,6 +233,8 @@ class Option:
     source: str = ""            # voucher / drop: the dungeon; boss: its name
     need: int = 0               # voucher: how many it takes
     mode: str = ""              # drop: the dungeon's mode it drops in
+    cubes: int = 0              # drop from a cube's guaranteed reward: you pick it every this many cubes
+    once: bool = False          # that guarantee is given once (Exploration's), not every N cubes (Conquest's)
 
 
 @dataclass
@@ -659,9 +661,27 @@ def option_key(o):
     return f"{o.kind}:{o.item.name}"
 
 
+def pity_of(db, dungeon, item_name, explored):
+    """[(mode, cubes, energy per cube, once)] of the guaranteed rewards that let you pick this piece in a dungeon.
+    Exploration's is given once (the user, 2026-10-23: «el pity es solo una vez, el de Conquest sí se puede
+    repetir»): left out once the character has cleared that Exploration as many times as it takes (explored:
+    {dungeon: Exploration clears}, from the game's clear achievements)."""
+    out = []
+    for mode, ceiling, energy in db.cube_for(dungeon, item_name):
+        once = mode == "Exploration"
+        if once and (explored or {}).get(dungeon, 0) >= ceiling:
+            continue
+        out.append((mode, ceiling, energy, once))
+    return out
+
+
+def pity_text(mode, ceiling, once):
+    return tr("{0}: una vez, a los {1} cubos", mode, ceiling) if once else tr("{0} cada {1} cubos", mode, ceiling)
+
+
 def build_plan(name, gear, gear_db, db, inventory, prices=None, dungeons=None, levels=None, recipes=None,
                skipped=None, me=None, bosses=None, alts_kina=0, now=None, off=None, arcana=None, targets=None,
-               skill_info=None):
+               skill_info=None, explored=None):
     """The Plan for a character. gear: settings["gear"][name]; inventory: the app's Inventory (bag and storage);
     prices: {item name: (lowest, when)} of the market; dungeons: the ones you run; levels: {profession: level};
     recipes: crafting_db's (the Dragon Lord pieces' Splendent step); skipped: the keys of the steps you do not want;
@@ -675,6 +695,7 @@ def build_plan(name, gear, gear_db, db, inventory, prices=None, dungeons=None, l
     plan.skipped = set(skipped or ())
     plan.off = set(off or ())
     plan.dungeons = list(dungeons or [])
+    plan.explored = dict(explored or {})          # dungeon -> Exploration clears (its guarantee is given once)
     plan.read_at = inventory.read_at(name) if inventory else None
     plan.me = me = me or Me(level=gear.get("level") or 0)
     plan.alts_kina = 0 if me.alt else alts_kina
@@ -799,17 +820,47 @@ def build_plan(name, gear, gear_db, db, inventory, prices=None, dungeons=None, l
         piece, gain = gain_over(item)
         if not piece or gain <= 0:
             continue
-        pity = db.cube_for(source, item.name)
+        pity = pity_of(db, source, item.name, plan.explored)
         text = tr("{0} ({1}): {2:.1f}% por {3}", source, detail, chance * 100, 'clear' if per == 'clear' else per)
         if pity:
-            text += tr(" · garantizado: ") + ", ".join(tr("{0} cada {1} cubos", m, n) for m, n, _ in
+            text += tr(" · garantizado: ") + ", ".join(pity_text(m, n, once) for m, n, _, once in
                                                    sorted(pity, key=lambda x: x[1]))
         o = Option("drop", piece.pos, item, gain, None, text, chance=chance, source=source, mode=detail)
         plan.gains.setdefault((source, detail), []).append(o)
         if can_do(db.mode(source, detail), me):
             plan.locked.setdefault((source, detail), []).append(o)
-        elif source in plan.dungeons:
+        elif not plan.dungeons or source in plan.dungeons:
+            # the dungeons the character runs; with none known yet (never killed a final boss, none picked in
+            # Preferencias) every dungeon it can enter (2.5.3: Charfire was never told about Vakron)
             plan.options.setdefault(piece.pos, []).append(o)
+    # the cubes' guaranteed rewards: a piece you pick every N cubes of a dungeon mode (Vakron Exploration: a Vakron
+    # piece every 3 cubes). The drop table keeps only each piece's best source (Abyssal Forge: Ludra drops the Vakron
+    # set at 2%), so a dungeon you can enter that guarantees it was missing
+    for c in db.cubes:
+        if not c.get("open"):
+            continue
+        source, detail = c["dungeon"], c["mode"]
+        once = detail == "Exploration"
+        if once and plan.explored.get(source, 0) >= c["ceiling"]:
+            continue                              # its one guaranteed piece was already given
+        for item_name in c["choices"]:
+            item = gear_db.named(item_name, gear.get("faction"))
+            if item is None or not _wearable(item, gear) or item.slot not in POSITIONS:
+                continue
+            piece, gain = gain_over(item)
+            if not piece or gain <= 0 or any(x.item.name == item.name for x in plan.gains.get((source, detail), [])):
+                continue
+            text = (tr("{0} ({1}): garantizado una sola vez, a los {2} cubos ({3} de energía cada uno)", source, detail,
+                       c["ceiling"], c["energy"]) if once else
+                    tr("{0} ({1}): garantizado cada {2} cubos ({3} de energía cada uno)", source, detail, c["ceiling"],
+                       c["energy"]))
+            o = Option("drop", piece.pos, item, gain, None, text, source=source, mode=detail, cubes=c["ceiling"],
+                       once=once)
+            plan.gains.setdefault((source, detail), []).append(o)
+            if can_do(db.mode(source, detail), me):
+                plan.locked.setdefault((source, detail), []).append(o)
+            elif not plan.dungeons or source in plan.dungeons:
+                plan.options.setdefault(piece.pos, []).append(o)
     # the Tracker's field and Abyss bosses you can reach (an Abyss one: the Lower Abyss's entrance; a field one: your
     # faction's map)
     for b in bosses or []:
@@ -1230,21 +1281,29 @@ def _steps(plan, by_pos, kina, bound, stones, db, levels, prices, recipes, gear_
                 if kina < cost and plan.alts_kina:
                     steps[-1].detail += (tr(" Tus alts tienen {0} de Kinah comerciable que pueden pasarte.", kinah_text(plan.alts_kina)))
     # 8. farm: what your dungeons give for your weakest pieces, one card per dungeon
-    drops = sorted((o for opts in plan.options.values() for o in opts if o.kind == "drop"), key=lambda o: -o.gain)
+    # one piece per slot, the biggest gain, and among the same gain the surest (a guaranteed cube first)
+    drops = sorted((o for opts in plan.options.values() for o in opts if o.kind == "drop"),
+                   key=lambda o: (-o.gain, -(1 / o.cubes if o.cubes else 0), -(o.chance or 0)))
     by_dungeon, seen = {}, set()
     for o in drops:
         if o.pos not in seen:
             seen.add(o.pos)
             by_dungeon.setdefault(o.source, []).append(o)
     for dungeon, opts in by_dungeon.items():
-        pity = sorted({(m, n) for o in opts for m, n, _ in db.cube_for(dungeon, o.item.name)}, key=lambda x: x[1])
+        pity = sorted({(m, n, once) for o in opts for m, n, _, once in pity_of(db, dungeon, o.item.name, plan.explored)},
+                      key=lambda x: x[1])
         steps.append(Step("farm", tr("Farmea en {0}", dungeon),
-                          ", ".join(tr("{0} (+{1}, {2:.1f}% por clear)", o.item.name, o.gain, o.chance * 100) for o in opts)
-                          + (tr(". Garantizado (eliges una): ") + ", ".join(tr("{0} cada {1} cubos", m, n) for m, n in pity)
+                          ", ".join((tr("{0} (+{1}, garantizada una vez a los {2} cubos)", o.item.name, o.gain, o.cubes)
+                                     if o.once else
+                                     tr("{0} (+{1}, garantizado cada {2} cubos)", o.item.name, o.gain, o.cubes))
+                                    if o.chance is None else
+                                    tr("{0} (+{1}, {2:.1f}% por clear)", o.item.name, o.gain, o.chance * 100)
+                                    for o in opts)
+                          + (tr(". Garantizado (eliges una): ") + ", ".join(pity_text(m, n, once) for m, n, once in pity)
                              if pity else "") + ".", opts[0].gain, ready=True, pos=opts[0].pos,
                           key=f"farm-dungeon:{dungeon}",
                           summary=tr("{0} piezas que te sirven", len(opts))
-                                  + (tr(" · garantizado cada {0} cubos ({1})", pity[0][1], pity[0][0]) if pity else ""),
+                                  + (" · " + pity_text(pity[0][0], pity[0][1], pity[0][2]) if pity else ""),
                           parts=[(option_key(o), f"{o.item.name} (+{o.gain})") for o in opts]))
     # field and Abyss bosses you can reach whose loot improves you, the best first
     by_boss = {}
@@ -1546,8 +1605,13 @@ def _content(plan, db, me, arcana, faction, now):
             boosts = BOTH
         pity = [x for x in db.cubes if x["dungeon"] == c["name"] and x["mode"] == c["mode"]]
         if pity and pity[0]["choices"]:
-            gives.append(tr("garantizado cada {0} cubos: ", pity[0]['ceiling']) + ", ".join(pity[0]["choices"][:3])
-                         + ("…" if len(pity[0]["choices"]) > 3 else ""))
+            once = c["mode"] == "Exploration"
+            if once and getattr(plan, "explored", {}).get(c["name"], 0) >= pity[0]["ceiling"]:
+                gives.append(tr("su garantizado (una vez) ya lo cobraste"))
+            else:
+                gives.append((tr("garantizado una vez, a los {0} cubos: ", pity[0]['ceiling']) if once else
+                              tr("garantizado cada {0} cubos: ", pity[0]['ceiling']))
+                             + ", ".join(pity[0]["choices"][:3]) + ("…" if len(pity[0]["choices"]) > 3 else ""))
         if c["category"] == "Transcendence":
             cards = sorted({f"{card} {grade}" for card, grade, d, stage, *_ in db.arcana
                             if d == c["name"] and stage == c["mode"]})

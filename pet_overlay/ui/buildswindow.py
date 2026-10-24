@@ -15,6 +15,7 @@ from .. import APP_NAME
 from ..armory import shugo_url
 from ..builds import Builds, bonus_now, character_of, class_of_build, class_of_job, entry_levels, game_level
 from ..skills import SLOT_KEYS
+from .charpicker import CharacterPicker
 from . import theme
 from .design import GameTabs, PageHeader
 from .mapwindow import STYLE
@@ -96,6 +97,7 @@ class BuildsWindow(QWidget):
         root.setContentsMargins(16, 6, 16, 12)
         root.setSpacing(10)
         self.header = PageHeader(f, "Builds", " ")
+        self.header.add_picker(CharacterPicker(self.ctl, f))
         self.subtitle = self.header.subtitle              # the status line (what was saved, imported, read)
         self.cls = QComboBox()
         self.cls.setToolTip(tr("Clase de las builds de la lista (por defecto, la de tu personaje)"))

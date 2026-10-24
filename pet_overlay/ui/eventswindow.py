@@ -18,6 +18,7 @@ from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QPushBut
 from .. import APP_NAME
 from ..events import at, weeks_left, weeks_total
 from ..status import countdown, next_at, next_weekly, DAY, DAILY_PHASE
+from .charpicker import CharacterPicker
 from . import theme
 from .design import Card, Chip, GameCard, Meter, PageHeader, RewardTile, Stat, serif_font
 from .itemicons import icon_pixmap, item_icons
@@ -115,8 +116,10 @@ class EventsWindow(QWidget):
         root = QVBoxLayout(self)
         root.setContentsMargins(f.px(22), f.px(16), f.px(22), f.px(16))
         root.setSpacing(f.px(10))
-        root.addWidget(PageHeader(f, tr("Eventos"), tr("Los eventos en marcha, de los avisos oficiales de AION 2 "
-                                                         "Global. Las horas, en la de tu PC.")))
+        self.header = PageHeader(f, tr("Eventos"), tr("Los eventos en marcha, de los avisos oficiales de AION 2 "
+                                                         "Global. Las horas, en la de tu PC."))
+        self.header.add_picker(CharacterPicker(self.ctl, f))
+        root.addWidget(self.header)
         body = QHBoxLayout()
         body.setSpacing(f.px(14))
         left = QScrollArea()

@@ -17,6 +17,7 @@ from .. import APP_NAME
 from ..arcanagrid import grid_order
 from ..arcana import (DEFAULT_ACTIVE_TARGET, TYPES, Card, effect_notes, farm_options, feeding_pays, level_food, pantheon,
                       raise_luck, short_kind, worth)
+from .charpicker import CharacterPicker
 from . import theme
 from .design import Chip, ChipGroup, GameCard, GameTabs, Meter, PageHeader, SearchBox
 from .skillicon import SkillName
@@ -96,6 +97,7 @@ class ArcanaWindow(QWidget):
         root.setContentsMargins(f.px(22), f.px(16), f.px(22), f.px(12))
         root.setSpacing(f.px(10))
         self.header = PageHeader(f, tr("Arcanas"))
+        self.header.add_picker(CharacterPicker(self.ctl, f))
         self.header.subtitle.setWordWrap(True)
         root.addWidget(self.header)
         self.tabs = GameTabs(f, TABS, "todo")

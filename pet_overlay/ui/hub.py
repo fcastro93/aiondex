@@ -546,6 +546,8 @@ class HubWindow(QWidget):
             self.who.addItem(n + (tr(" (en juego)") if n == playing else ""), n)
         self.who.setCurrentIndex(max(0, self.who.findData(chosen)) if chosen in names else 0)
         self.who.blockSignals(False)
+        from .charpicker import refresh_all
+        refresh_all()                             # the same choice in every page's head
 
     def _who_changed(self, _index):
         self.ctl.set_character_choice(self.who.currentData())
