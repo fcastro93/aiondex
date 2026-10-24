@@ -2,8 +2,10 @@
 enhance a card - read from the game's own pixels, so an overlay can frame the cards to feed (Arcanas › Subir).
 
 The grid has 4 columns and holds the cards of your Arcana bag (the five you wear are not in it), sorted by grade
-(Unique, Epic, Rare, Common), then kind (Chalice, Parchment, Compass, Bell, Mirror), then version (Vigor, Magic):
-checked cell by cell against the user's screenshot on 2026-10-23. In the game's 3840x2160 client the first card's
+(Unique, Epic, Rare, Common), then +N (highest first), then kind (Chalice, Parchment, Compass, Bell, Mirror), then
+version (Vigor, Magic): checked cell by cell against the user's screenshots on 2026-10-23 (2.4.3: the +N goes before
+the kind - a Compass +3 sits right after a Chalice +3, before every +0; with the +N last, «Marcarlas en el juego»
+framed the wrong card once a bag had enhanced cards). In the game's 3840x2160 client the first card's
 frame starts near (211, 313) - GridReader finds the exact x on your screen and keeps it -, columns are 201.3 px apart
 and rows 291, a frame is 177 x 274 px, and the list scrolls between y 296 and 2018; all of it scales with the client
 height. A card's frame color is its grade (Unique gold, Epic blue...), and its
@@ -24,8 +26,8 @@ REF_H = 2158
 def grid_order(cards):
     """Your bag's cards (not the ones you wear) in the order the game's grid shows them."""
     bag = [c for c in cards if not c.worn]
-    return sorted(bag, key=lambda c: (GRADES.index(c.grade) if c.grade in GRADES else 9,
-                                      TYPES.index(c.kind) if c.kind in TYPES else 9, c.set != "Vigor", -c.enchant))
+    return sorted(bag, key=lambda c: (GRADES.index(c.grade) if c.grade in GRADES else 9, -c.enchant,
+                                      TYPES.index(c.kind) if c.kind in TYPES else 9, c.set != "Vigor"))
 
 
 def geometry(height):
