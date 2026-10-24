@@ -104,6 +104,11 @@ class NotificationCenter(QObject):
             self._save()
             self.changed.emit()
 
+    def touch(self):
+        """The history was changed from outside (merged notices): save it and tell the views."""
+        self._save()
+        self.changed.emit()
+
     def remove(self, nid):
         """Drop one notice from the history."""
         for n in list(self.history):

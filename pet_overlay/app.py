@@ -724,6 +724,7 @@ class Controller(QObject):
         if self.ui_scale_active > 1.01:
             self._screen_fit = _ScreenFit(QApplication.instance())    # big sizes: no window larger than the screen
         self.notifications = NotificationCenter(self.data_dir / "notifications.json" if self.persist else None)
+        QTimer.singleShot(0, self._collapse_notices)
         self._refreshing = False
         self._last_zone_notice = {}     # zone slug -> time of the last "you are here" notice
         self._zone_locator = None       # whereami.ZoneLocator: the zone from your position (built on first use)
@@ -1242,13 +1243,39 @@ class Controller(QObject):
         map_id = self.combat.map_id if in_instance(self.combat.map_id) else None
         faction = self.crafting_faction()
         for model, title, window in models:
+            done = []
             for mission, before, now in model.on_update(at, records, name, map_id):
                 if now.ready > before.ready:
-                    mission_name, text, _ = mission.view(faction)
-                    self.notify("info", f"{title}: {mission_name}",
-                                tr("Paso {0}/{1} hecho ({2}). Recoge la recompensa en la ventana {3} del juego.", now.reached, now.total, text, window), keep=True,
-                                same=f"mission:{mission.id}", page="missions" if model is self.missions else "achievements")
+                    done.append(mission.view(faction)[0])
+            if done:                              # one notice for all of them, updated (2.5.2: one per step was spam)
+                self._ready_notice(model, done)
         self.missions_changed()
+
+    def _ready_notice(self, model, new=(), read=False):
+        """One notice per model for every reward waiting in the game's window («8 logros con recompensa por
+        cobrar»), replaced each time another one is reached; new: the names just reached (the latest first)."""
+        achievements = model is self.achievements
+        name = self.missions_character(model)
+        try:
+            n = len(model.ready(name, time.time())) if name else 0
+        except Exception:                         # noqa: BLE001
+            n = 0
+        n = max(n, len(new))
+        if not n:
+            return
+        if achievements:
+            title = tr("1 logro con recompensa por cobrar") if n == 1 else tr("{0} logros con recompensa por cobrar", n)
+        else:
+            title = tr("1 misión con recompensa por cobrar") if n == 1 else \
+                tr("{0} misiones con recompensa por cobrar", n)
+        window = "Achievements" if achievements else "Season Mission"
+        body = (tr("Lo último: {0}.", ", ".join(list(new)[-3:])) + " " if new else "") + \
+            tr("Se cobran en la ventana {0} del juego.", window)
+        notice = self.notify("info", title, body, keep=True, same="ready:achievements" if achievements else
+                             "ready:missions", page="achievements" if achievements else "missions")
+        if read and notice is not None and not notice.read:
+            notice.read = True
+            self.notifications.touch()
 
     def _passes_settle(self):
         if self.passes.settle(self.character.name if self.character else None, time.time()):
@@ -1383,13 +1410,68 @@ class Controller(QObject):
         """The alerts whose bell is on: a notice (and sound) when one starts holding, then every hour."""
         self._missions_expiring()
         due = self.status.due()
-        for key, chars in due:
-            self.notify("status", f"Status: {STATUS_ALERTS[key][0].lower()}", alert_text(self.status, key, chars),
-                        same=f"status:{key}", page="status")
         if due:
+            self._status_notice()
             self.sounds.play("status_alert")
         if refresh and self.active_module.key == "status":
             self.refresh()
+
+    def _status_notice(self, read=False):
+        """One notice with every Status alert that holds now (bell on): «Status: 2 avisos», each one on its line.
+        It replaces the one before, so the history has one, not one per alert and hour (2.5.2)."""
+        now = time.time()
+        lit = [(key, self.status.targets(key, now)) for key in STATUS_ALERTS if self.status.alert_on(key)]
+        lit = [(key, chars) for key, chars in lit if chars]
+        if not lit:
+            return
+        if len(lit) == 1:
+            key, chars = lit[0]
+            title, body = f"Status: {STATUS_ALERTS[key][0].lower()}", alert_text(self.status, key, chars)
+        else:
+            title = tr("Status: {0} avisos", len(lit))
+            body = " · ".join(f"{STATUS_ALERTS[key][0]}: {alert_text(self.status, key, chars)}" for key, chars in lit)
+        notice = self.notify("status", title, body, same="status:alerts", page="status")
+        if read and notice is not None and not notice.read:
+            notice.read = True
+            self.notifications.touch()
+
+    def _collapse_notices(self):
+        """Once at start: the notices from before 2.5.2 that said the same kind of thing one by one (a reward
+        reached per mission or achievement, a Status alert per counter) become the one notice of today; they stay
+        read if they all were."""
+        from .i18n import _load
+        center = self.notifications
+        en = _load("en")                  # the titles saved while the app was in English
+        prefixes = {"missions": tuple({tr("Misión lista"), "Misión lista", en.get("Misión lista") or "Misión lista"}),
+                    "achievements": tuple({tr("Logro listo"), "Logro listo", en.get("Logro listo") or "Logro listo"})}
+
+        def kind_of(n):
+            same = n.same or ""
+            if same.startswith("mission:"):
+                return "achievements" if n.page == "achievements" else "missions"
+            for kind, pre in prefixes.items():
+                if n.title.startswith(pre) and same not in ("ready:missions", "ready:achievements"):
+                    return kind
+            if n.kind == "status" and same != "status:alerts" and n.title.startswith("Status:") and \
+                    not same.startswith("missions-expiry"):
+                return "status"
+            return None
+        groups = {}
+        for n in list(center.history):
+            kind = kind_of(n)
+            if kind:
+                groups.setdefault(kind, []).append(n)
+        if not groups:
+            return
+        for kind, old in groups.items():
+            read = all(n.read for n in old)
+            for n in old:
+                center.history.remove(n)
+            if kind == "status":
+                self._status_notice(read=read)
+            else:
+                self._ready_notice(self.missions if kind == "missions" else self.achievements, read=read)
+        center.touch()
 
     def open_status(self):
         from .ui.statuswindow import StatusWindow
