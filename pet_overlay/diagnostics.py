@@ -404,6 +404,37 @@ def diagnose_dps(ctl):
     return d
 
 
+def diagnose_missions(ctl):
+    """Season missions / achievements that look wrong: when each character's list was last read (the game sends it at
+    login and on each server change), and a recording to find the message the game sends when a reward is
+    collected (not known yet: a collected reward stays «por cobrar» until that character logs in again)."""
+    d = Diagnosis(tr("Las Season Missions o los logros no se actualizan"))
+    if not _capture_gate(ctl, d):
+        return d
+    now = time.time()
+    for name, entry in sorted(ctl.missions.characters.items(), key=lambda kv: -kv[1].get("at", 0)):
+        ready = len(ctl.missions.ready(name, now))
+        d.checks.append(Check(name, "ok" if name == ctl.character_name() else "info",
+                              tr("Leídas del juego {0}; {1} con recompensa por cobrar.", ago(entry.get("at", 0)), ready)))
+    d.todo.append(tr("Lo que avanzas se ve al momento. Lo que cobras en la ventana del juego aún no: el juego lo manda "
+                     "en un mensaje que AionDex no conoce todavía. Se corrige solo la próxima vez que entras con ese "
+                     "personaje o cambias de canal."))
+    d.todo.append(tr("Para arreglarlo del todo: pulsa «Grabar 10 min para revisar», cobra una o dos misiones en el "
+                     "juego y envía el archivo (queda en tu PC, en la carpeta de diagnóstico)."))
+    rec = getattr(ctl, "combat_rec", None)
+    if rec is not None:
+        if rec.active:
+            d.checks.append(Check(tr("Grabando"), "info", tr("Faltan {0} min. Cobra una misión en el juego.",
+                                                          max(1, rec.remaining() // 60))))
+            d.actions.append(Action(tr("Terminar ya"), rec.stop))
+        else:
+            d.actions.append(Action(tr("Grabar 10 min para revisar"), ctl.record_combat))
+            if rec.last_path is not None:
+                folder = str(rec.last_path.parent)
+                d.actions.append(Action(tr("Abrir la carpeta"), lambda: __import__("os").startfile(folder)))
+    return d
+
+
 def diagnose_tuner(ctl):
     d = Diagnosis(tr("El Afinador no lee mis habilidades"))
     if not _capture_gate(ctl, d):
@@ -533,6 +564,7 @@ PROBLEMS = [
     ("collection", tr("No aparece mi colección de pets"), diagnose_collection),
     ("progress", tr("No cuenta las almas de los pets"), diagnose_progress),
     ("dps", tr("El DPS no aparece o no cuadra"), diagnose_dps),
+    ("missions", tr("Las Season Missions o los logros no se actualizan"), diagnose_missions),
     ("tuner", tr("El Afinador no lee mis habilidades"), diagnose_tuner),
     ("overlay", tr("No veo el overlay encima del juego"), diagnose_overlay),
     ("blink", tr("El overlay parpadea"), diagnose_blink),

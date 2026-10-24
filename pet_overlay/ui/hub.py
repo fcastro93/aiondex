@@ -38,6 +38,7 @@ GLYPH_SETTINGS = "\ue713"
 GLYPH_BELL = "\ue7e7"
 RAIL_WIDTH = 214
 HUD_MARGIN = 12
+DASH_WIDTH = 340             # the Dashboard in the right column: as wide as the overlay's
 
 # the sidebar: (group, [(nav key, label, glyph or None for the module's own icon, Controller method, kwargs)])
 NAV = (
@@ -180,6 +181,7 @@ class NowPanel(QWidget):
         self.tracker_link.clicked.connect(ctl.open_tracker)
         nb.addWidget(self.tracker_link, 0, Qt.AlignLeft)
         lay.addWidget(self.next_box)
+        self.next_box.hide()             # the Dashboard right under it has the Tracker's next activity
         lay.addWidget(Divider())
         self.unread = QPushButton("")
         self.unread.setProperty("flat", True)
@@ -235,6 +237,78 @@ class NowPanel(QWidget):
         n = ctl.notifications.unread
         self.unread.setText(tr("{0} avisos sin leer", n) if n != 1 else tr("1 aviso sin leer"))
         self.unread.setVisible(bool(n))
+
+
+class DashboardRail(QWidget):
+    """The Dashboard built into the AionDex window's right column: its own copy of the Dashboard's panel (the one the
+    overlay draws), drawn by the Dashboard module (its render feeds whichever panel it is given), in a scroll area,
+    with the overlay's click protocol (a plain click runs the first ancestor's on_click). The rotating cards turn
+    every few seconds while it is on screen."""
+
+    def __init__(self, ctl, fonts, parent=None):
+        super().__init__(parent)
+        from ..modules.dashboard import ROTATE
+        self.ctl = ctl
+        self.module = next(m for m in ctl.modules if m.key == "dashboard")
+        self.panel = type(self.module.panel)(ctl, fonts)
+        self.panel.redraw = self.refresh             # «Editar» and the card checkboxes redraw this copy at once
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setFrameShape(QFrame.NoFrame)
+        holder = QWidget()
+        inner = QVBoxLayout(holder)
+        inner.setContentsMargins(0, 0, fonts.px(4), 0)
+        inner.addWidget(self.panel, 0, Qt.AlignTop)
+        inner.addStretch(1)
+        scroll.setWidget(holder)
+        lay.addWidget(scroll)
+        self._press = None
+        self._timer = QTimer(self, interval=ROTATE * 1000, timeout=self._tick)
+
+    def refresh(self):
+        module, hud_panel = self.module, self.module.panel
+        module.panel = self.panel
+        try:
+            module.render(False)
+        except Exception:                      # noqa: BLE001 - one card failing must not empty the column
+            import logging
+            logging.getLogger(__name__).exception("dashboard in the window")
+        finally:
+            module.panel = hud_panel
+
+    def _tick(self):
+        if self.isVisible() and not self.panel.editing:
+            self.refresh()
+
+    def showEvent(self, event):
+        self.refresh()
+        self._timer.start()
+        super().showEvent(event)
+
+    def hideEvent(self, event):
+        self._timer.stop()
+        super().hideEvent(event)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self._press = event.globalPosition().toPoint()
+
+    def mouseReleaseEvent(self, event):
+        if self._press is None:
+            return
+        moved = (event.globalPosition().toPoint() - self._press).manhattanLength()
+        self._press = None
+        if moved > 4:
+            return
+        widget = self.childAt(event.position().toPoint())
+        while widget is not None and not hasattr(widget, "on_click"):
+            widget = widget.parentWidget()
+        if widget is not None:
+            widget.on_click()
+            QTimer.singleShot(0, self.refresh)
 
 
 class HomePage(QWidget):
@@ -471,30 +545,19 @@ class HubWindow(QWidget):
         self.stack.setObjectName("Pages")
         self.stack.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         root.addWidget(self.stack, 1)
-        # --- the right rail: the HUD's place (the overlay sits exactly on the slot) and the Now panel ---
+        # --- the right rail: who you are, and the Dashboard itself, built into this window (2.5.4: before, the
+        # overlay window was moved over an empty slot here; while this window is open the overlay steps aside) ---
         right = QFrame()
         right.setObjectName("RightRail")
-        right.setFixedWidth(ctl.window.width() + f.px(HUD_MARGIN) * 2)
+        right.setFixedWidth(f.px(DASH_WIDTH) + f.px(HUD_MARGIN) * 2)
         self.right = right
         rr = QVBoxLayout(right)
         rr.setContentsMargins(f.px(HUD_MARGIN), f.px(HUD_MARGIN), f.px(HUD_MARGIN), f.px(HUD_MARGIN))
-        rr.setSpacing(f.px(12))
-        self.hud_slot = QFrame()
-        self.hud_slot.setObjectName("HudSlot")
-        self.hud_slot.setFixedSize(ctl.window.width(), ctl.window.height())
-        slot = QVBoxLayout(self.hud_slot)
-        slot.setContentsMargins(f.px(12), f.px(10), f.px(12), f.px(10))
-        self.hud_hidden = label(tr("HUD oculto"), f.small, theme.MUTED)
-        slot.addWidget(self.hud_hidden, 0, Qt.AlignTop)
-        self.hud_show = QPushButton(tr("Mostrar el HUD"))
-        self.hud_show.setProperty("flat", True)
-        self.hud_show.clicked.connect(lambda: ctl.toggle_visible("menú"))
-        slot.addWidget(self.hud_show, 0, Qt.AlignLeft | Qt.AlignTop)
-        slot.addStretch(1)
-        rr.addWidget(self.hud_slot, 0, Qt.AlignTop)
+        rr.setSpacing(f.px(10))
         self.now = NowPanel(ctl, f)
         rr.addWidget(self.now)
-        rr.addStretch(1)
+        self.dash = DashboardRail(ctl, f)
+        rr.addWidget(self.dash, 1)
         root.addWidget(right)
         self._timer = QTimer(self, interval=10_000, timeout=self.refresh)
         geo = ctl.settings.get("hub_geometry")
@@ -578,28 +641,12 @@ class HubWindow(QWidget):
             pass
         self.fill_who()
         self.now.refresh()
-        self._fit_now()
-        hidden = not self.ctl.window.isVisible()
-        self.hud_hidden.setVisible(hidden)
-        self.hud_show.setVisible(hidden)
+        self.dash.refresh()
         page = self.stack.currentWidget()
         if isinstance(page, (PanelPage, HomePage)) or getattr(page, "live", False):
             page.refresh()
 
-    # --- the HUD's place ---
-    def hud_anchor(self):
-        """Where the HUD goes while this window is open: the slot's top-left, in screen pixels."""
-        return self.hud_slot.mapToGlobal(QPoint(0, 0))
-
-    def hud_resized(self, size):
-        self.hud_slot.setFixedSize(size)
-        self._fit_now()
-
-    def _fit_now(self):
-        """The Now card takes the room the docked HUD leaves in the right column."""
-        m = self.fonts.px(HUD_MARGIN)
-        room = self.right.height() - 2 * m - self.hud_slot.height() - self.fonts.px(12)
-        self.now.fit(room)
+    # (the overlay no longer docks here: the Dashboard is built in, DashboardRail)
 
     # --- window events ---
     def showEvent(self, event):
@@ -633,7 +680,6 @@ class HubWindow(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self._fit_now()
         self.moved.emit()
 
     def keyPressEvent(self, event):

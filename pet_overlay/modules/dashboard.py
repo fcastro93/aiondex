@@ -54,6 +54,7 @@ class DashboardPanel(QWidget):
         self.content.setContentsMargins(0, 0, 0, 0)
         self.content.setSpacing(fonts.px(4))
         self._clock_labels = None           # (local label, server label) updated every second
+        self.redraw = None                  # the copy in the AionDex window redraws itself at once (hub.DashboardRail)
         self._clock_timer = QTimer(self, interval=1000, timeout=self._tick)
         self._clock_timer.start()
 
@@ -68,10 +69,15 @@ class DashboardPanel(QWidget):
         hidden ^= {key}
         conf["hidden"] = sorted(hidden)
         self.ctl.settings.save()
-        self.ctl.refresh()
+        self._redraw()
 
     def _edit(self, on):
         self.editing = on
+        self._redraw()
+
+    def _redraw(self):
+        if self.redraw is not None:
+            self.redraw()
         self.ctl.refresh()
 
     # --- drawing ---

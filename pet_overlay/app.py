@@ -210,6 +210,7 @@ class Bridge(QObject):
         self.mobs = MobTracker()                 # the monsters around you: spawn points, deaths, respawns
         self.bigfoes = BigFoes()                 # the bosses and siege cores around you (their HP)
         self.recorder = None                     # combatrec.CombatRecorder (Diagnóstico › DPS › Grabar)
+        self._probed = set()                     # unknown opcodes of the missions' family already logged
 
     def take_hits(self):
         with self._hits_lock:
@@ -311,6 +312,13 @@ class Bridge(QObject):
             match = parse_roster(body)
             if match:
                 self.arena.emit(match)
+        elif op[1:] == b"\x56" and 0x80 <= op[0] <= 0x88 and op not in (MISSIONS_OPCODE, MISSION_OPCODE):
+            # the missions' family (8356 list, 8456 update): collecting a reward in the game's window is sent in a
+            # message AionDex does not know yet, so a collected reward stays "por cobrar" until the next login
+            # (2.5.4). Each new one is written to the log once, to be identified from a recording.
+            if op not in self._probed:
+                self._probed.add(op)
+                log.info("missions family message %s (%s B): %s", op.hex(), len(body), body[:48].hex(" "))
         elif op in (MISSIONS_OPCODE, MISSION_OPCODE):
             records = parse_missions(body)
             if records:
@@ -736,8 +744,7 @@ class Controller(QObject):
         self.window.setWindowIcon(self.app_icon)
         self.hub = None                 # the AionDex window (ui/hub.py), made on first use
         self._next_cache = (0.0, None, None)      # (when, character, NextStep) - next_step() keeps it 30 s
-        self._hud_home = None           # (anchor, visible) of the HUD before it docked in the hub
-        self._hud_module_home = None    # the HUD's module before it docked (docked, it shows the Dashboard)
+        self._hud_home = None           # (where it was, visible) of the HUD while the AionDex window is open
         self._hub_refreshed = 0.0
         from .blinkwatch import BlinkWatch
         self.blink_watch = BlinkWatch(self)          # Diagnóstico → "El overlay parpadea"
@@ -3530,8 +3537,7 @@ class Controller(QObject):
         from .ui.hub import HubWindow
         if self.hub is None:
             self.hub = HubWindow(self)
-            self.hub.moved.connect(self._hud_follow)
-            self.window.moved.connect(lambda: self.hub.hud_resized(self.window.size()) if self.hub else None)
+            self.hub.moved.connect(lambda: self.toasts.relayout(animate=False) if self._hud_home else None)
         if key:
             entry = next(((m, kw) for _, es in __import__("pet_overlay.ui.hub", fromlist=["NAV"]).NAV
                           for k, _, _, m, kw in es if k == key), None)
@@ -3570,56 +3576,39 @@ class Controller(QObject):
         self.hub.show_page(page, widget, nav)
 
     def hub_shown(self):
-        """The AionDex window came up: the HUD docks in its top-right corner (the same window, moved)."""
+        """The AionDex window came up: its right column has the Dashboard built in, so the HUD (the overlay) steps
+        aside until the window closes or is minimized (2.5.4: before, the overlay was moved over the column). Its
+        hotkeys keep working (they belong to its window, hidden or not); the notice bubbles go beside this window."""
         if self.hub is None or not self.hub.isVisible() or self.hub.isMinimized():
             return
-        w = self.window
         if self._hud_home is None:
-            self._hud_home = (w._anchor or w.pos(), w.isVisible())
-        w.set_docked(True)
-        if self._hud_module_home is None:            # docked, the HUD is the Dashboard (the right column)
-            self._hud_module_home = self.active_module.key
-            self.switch_module("dashboard", remember=False)
-        if not w.isVisible():
-            w.show()
-            w.apply_lock(self.settings["locked"])
-        self.hub.hud_resized(w.size())
-        self._hud_follow()
-
-    def _hud_follow(self):
-        if self._hud_home is None or self.hub is None or not self.hub.isVisible():
-            return
-        pos = self.hub.hud_anchor()
-        self.window._anchor = pos
-        if self.window.pos() != pos:
-            self.window.move(pos)
-        self.window.raise_()
+            self._hud_home = (self.window.pos(), self.window.isVisible())
+            self.window.hide()
+            self.toasts.anchor = self.hub
+            self.toasts.relayout(animate=False)
 
     def hub_hidden(self):
-        """The AionDex window went away: the HUD goes back where you had it."""
+        """The AionDex window went away: the HUD comes back where it was (if you had it on)."""
         if self._hud_home is None:
             return
-        anchor, _ = self._hud_home
         self._hud_home = None
+        self.toasts.anchor = self.window
         w = self.window
-        w.set_docked(False)
-        if self._hud_module_home is not None:        # back to the module you had in the HUD
-            key, self._hud_module_home = self._hud_module_home, None
-            self.switch_module(key, remember=False)
-        w._anchor = anchor
-        w.move(anchor)
-        w.setVisible(bool(self.settings["visible"]))
+        if self.settings["visible"]:
+            w.show()
+            w.apply_lock(self.settings["locked"])
+        self.toasts.relayout(animate=False)
 
     def open_tuner(self):
         """The Afinador of the macro: the Builds window's second tab."""
         self.open_builds(tab="afinador")
 
     def switch_module(self, key, remember=True):
-        """The HUD shows module `key`. While the HUD is docked in the AionDex window it always shows the Dashboard:
-        another module opens as a page of the window instead. remember=False: a switch of AionDex's own (docking),
-        not the player's choice."""
-        if self._hud_module_home is not None and key != "dashboard" and remember:
-            self.open_hub(key)
+        """The HUD shows module `key`. While the AionDex window is open (the HUD steps aside then) a module opens as
+        a page of the window instead: a click on a Dashboard card in the window opens its page there."""
+        if self._hud_home is not None and remember:
+            if key != "dashboard":
+                self.open_hub(key)
             return
         module = next((m for m in self.modules if m.key == key), None)
         if module is None or module is self.active_module:

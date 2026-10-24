@@ -624,8 +624,12 @@ class UpgradesWindow(QWidget):
         except Exception:                        # noqa: BLE001 - missions are their own module
             ready = []
         if ready:
-            tiles.append((tr("Season Missions"), tr("{0} recompensas por cobrar", len(ready)),
-                          ready[0][0].view(ctl.crafting_faction())[0],
+            sub = ready[0][0].view(ctl.crafting_faction())[0]
+            if plan.character != ctl.character_name():     # what you collect in the game arrives with the next login
+                read = (ctl.missions.characters.get(plan.character) or {}).get("at")
+                if read:
+                    sub += " · " + tr("según lo leído {0}", _ago(read))
+            tiles.append((tr("Season Missions"), tr("{0} recompensas por cobrar", len(ready)), sub,
                           theme.GAIN, tr("Abrir"), ctl.open_missions))
         if not tiles:
             return
