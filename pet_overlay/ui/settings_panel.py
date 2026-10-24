@@ -36,12 +36,12 @@ class PillButton(QLabel):
         if not self.enabled:
             bg, fg = "rgba(255,255,255,0.06)", theme.MUTED.name()
         elif self.outline:                       # a choice that is not the chosen one
-            border = "#3fd3ff" if hover else theme.ACCENT.name()
+            border = "#6fdcff" if hover else theme.ACCENT.name()
             self.setStyleSheet(f"background: transparent; color: {theme.TEXT.name()}; border: 1px solid {border}; "
                                f"border-radius: {self.radius}px;")
             return
         else:
-            bg, fg = ("#3fd3ff" if hover else theme.ACCENT.name()), "#06101f"
+            bg, fg = ("#6fdcff" if hover else theme.ACCENT.name()), "#06101f"
         self.setStyleSheet(f"background: {bg}; color: {fg}; border-radius: {self.radius}px;")
 
     def enterEvent(self, _):

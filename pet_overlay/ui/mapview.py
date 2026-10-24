@@ -1,11 +1,15 @@
-"""Pan/zoom world map with tiled background, spawn markers and where you are (QGraphicsView)."""
+"""Pan/zoom world map with tiled background, spawn markers and where you are (QGraphicsView). The wheel zooms where
+the mouse points, a double click zooms in there, dragging moves the map, + / − / 0 on the keyboard, and the zoom bar
+in the bottom-right corner (−, the zoom, +, «Ajustar»); the tiles of the zoom shown load as you look (ui/tiles.py).
+Used by the Mapa de pets (ui/mapwindow.py), the gathering map (ui/gathermap.py) and the Mapa del mundo
+(ui/worldmap.py)."""
 import math
 import time
 
-from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
+from PySide6.QtCore import QEasingCurve, QPointF, QRectF, Qt, QTimer, QVariantAnimation, Signal
 from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QPen, QRadialGradient
 from PySide6.QtWidgets import (QCheckBox, QGraphicsEllipseItem, QGraphicsItem, QGraphicsScene, QGraphicsView,
-                               QPushButton)
+                               QHBoxLayout, QLabel, QPushButton, QWidget)
 
 from ..mapdata import MAP_NAMES
 from . import theme
@@ -19,6 +23,70 @@ FRESH = 20                      # seconds a position counts as "now"
 CONE_R = 58                     # pixels of the view cone around you
 CONE_FRESH = 6                  # seconds the cone read from the minimap is shown
 LOCATE_SPAN = 0.03              # how much of the map (normalized) "Dónde estoy" shows around you
+ZOOM_STEP = 1.6                 # one press of + / − (or a double click) zooms this much
+WHEEL_STEP = 1.25               # one notch of the wheel
+MAX_SCALE = 4.0 * 256 * 2 ** MAX_ZOOM / WORLD      # up to 4x the sharpest tiles
+KEEP_TILES = 260                # sharper tiles kept in the scene; past that, the ones far from the view go
+
+
+def rgba(color, alpha):
+    """A theme colour as a stylesheet rgba() (alpha 0-255)."""
+    return f"rgba({color.red()},{color.green()},{color.blue()},{alpha})"
+
+
+OVERLAY_BG = rgba(theme.SURFACE, 232)      # the panels floating over the map
+
+
+class ZoomBar(QWidget):
+    """The map's zoom controls, over its bottom-right corner: −, the zoom (100% = the whole map in the view), +, and
+    «Ajustar» (the whole map, or what the window calls home)."""
+
+    def __init__(self, view):
+        super().__init__(view)
+        self.view = view
+        self.setAttribute(Qt.WA_StyledBackground)
+        self.setStyleSheet(
+            f"ZoomBar {{ background: {OVERLAY_BG}; border: 1px solid {theme.LINE.name()}; border-radius: 8px; }}"
+            f"QPushButton {{ background: transparent; color: {theme.TEXT.name()}; border: none; border-radius: 6px;"
+            f" padding: 3px 10px; font-weight: 700; font-size: 12pt; min-width: 14px; }}"
+            f"QPushButton:hover {{ background: {rgba(theme.ACCENT, 40)}; color: {theme.ACCENT.name()}; }}"
+            f"QPushButton:disabled {{ color: {theme.LINE.name()}; }}"
+            f"QPushButton#Fit {{ font-size: 8.5pt; font-weight: 600; color: {theme.MUTED.name()}; padding: 3px 9px; }}"
+            f"QPushButton#Fit:hover {{ color: {theme.TEXT.name()}; }}"
+            f"QLabel {{ color: {theme.MUTED.name()}; background: transparent; min-width: 46px; font-size: 8.5pt; }}")
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(4, 2, 4, 2)
+        lay.setSpacing(2)
+        self.minus = QPushButton("−")
+        self.minus.setToolTip(tr("Alejar (rueda del ratón hacia abajo, tecla −)"))
+        self.minus.clicked.connect(lambda: view.zoom_by(1 / ZOOM_STEP, animate=True))
+        lay.addWidget(self.minus)
+        self.text = QLabel("")
+        self.text.setAlignment(Qt.AlignCenter)
+        self.text.setToolTip(tr("Zoom respecto al mapa entero. Rueda del ratón: acercar o alejar donde apuntas; "
+                                "doble clic: acercar ahí; arrastrar: mover el mapa."))
+        lay.addWidget(self.text)
+        self.plus = QPushButton("+")
+        self.plus.setToolTip(tr("Acercar (rueda del ratón hacia arriba, tecla +, o doble clic en el mapa)"))
+        self.plus.clicked.connect(lambda: view.zoom_by(ZOOM_STEP, animate=True))
+        lay.addWidget(self.plus)
+        fit = QPushButton(tr("Ajustar"))
+        fit.setObjectName("Fit")
+        fit.setToolTip(tr("Ver el mapa entero (tecla 0)"))
+        fit.clicked.connect(view.fit_home)
+        lay.addWidget(fit)
+        for b in (self.minus, self.plus, fit):
+            b.setCursor(Qt.PointingHandCursor)
+            b.setFocusPolicy(Qt.NoFocus)
+        view.zoom_changed.connect(self._zoomed)
+
+    def _zoomed(self, scale):
+        fit = max(1e-9, self.view.fit_scale())
+        self.text.setText(f"{round(100 * scale / fit):,}%".replace(",", "."))
+        self.plus.setEnabled(scale < MAX_SCALE * 0.999)
+        self.minus.setEnabled(scale > fit * 0.81)
+        self.adjustSize()
+        self.view._place_locate()
 
 
 class Marker(QGraphicsEllipseItem):
@@ -128,6 +196,7 @@ class MapView(QGraphicsView):
         self.setDragMode(QGraphicsView.ScrollHandDrag)
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.AnchorViewCenter)
+        self.setViewportUpdateMode(QGraphicsView.SmartViewportUpdate)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setBackgroundBrush(theme.WINDOW_BG)
@@ -146,27 +215,120 @@ class MapView(QGraphicsView):
         self._pulse = QTimer(self, interval=50, timeout=self._pulse_tick)
         self.locate = QPushButton(tr("◎  Dónde estoy"), self)
         self.locate.setCursor(Qt.PointingHandCursor)
+        self.locate.setFocusPolicy(Qt.NoFocus)
         self.locate.setStyleSheet(
-            f"QPushButton {{ background: rgba(11,18,34,225); color: {theme.TEXT.name()}; border: 1px solid "
+            f"QPushButton {{ background: {OVERLAY_BG}; color: {theme.TEXT.name()}; border: 1px solid "
             f"{YOU.name()}; border-radius: 8px; padding: 5px 12px; font-weight: 600; }} "
-            f"QPushButton:hover {{ background: rgba(40,20,48,235); }}")
+            f"QPushButton:hover {{ background: {rgba(YOU, 46)}; }} "
+            f"QPushButton:disabled {{ color: {theme.MUTED.name()}; border-color: {theme.LINE.name()}; }}")
         self.locate.clicked.connect(self._locate_clicked)
-        self.locate.hide()
+        self.locate.setEnabled(False)
+        self.locate.setToolTip(tr("Aún no sé dónde estás: lo leo del juego (sus mensajes y el minimapa) mientras "
+                                  "juegas, con «Mostrar mi ubicación» marcado."))
+        self.locate.adjustSize()
         self.me_box = QCheckBox(tr("Mostrar mi ubicación"), self)
         self.me_box.setChecked(True)
         self.me_box.setCursor(Qt.PointingHandCursor)
+        self.me_box.setFocusPolicy(Qt.NoFocus)
         self.me_box.setToolTip(tr("Lee del juego dónde estás (sus mensajes y el minimapa) mientras el mapa está "
                                   "abierto y te pone en el mapa. Desmárcalo y no se lee (la ruta sobre el minimapa "
                                   "y el Modo Focus lo siguen leyendo si están puestos)."))
         self.me_box.setStyleSheet(
-            f"QCheckBox {{ background: rgba(11,18,34,225); color: {theme.TEXT.name()}; border: 1px solid "
-            f"{YOU.name()}; border-radius: 8px; padding: 5px 10px; font-weight: 600; }} "
+            f"QCheckBox {{ background: {OVERLAY_BG}; color: {theme.TEXT.name()}; border: 1px solid "
+            f"{theme.LINE.name()}; border-radius: 8px; padding: 5px 10px; font-weight: 600; }} "
+            f"QCheckBox:hover {{ border-color: {YOU.name()}; }} "
             f"QCheckBox::indicator {{ width: 12px; height: 12px; border: 1.5px solid {YOU.name()}; border-radius: 3px;"
             f" background: transparent; }} QCheckBox::indicator:checked {{ background: {YOU.name()}; }}")
         self.me_box.toggled.connect(self.show_me_changed.emit)
         self.me_box.adjustSize()
         self.me_box.move(12, 12)
         self._me_bound = False
+        self.home = None                 # what «Ajustar» shows: a callable set by the window, else the whole map
+        self._zoom_anim = QVariantAnimation(self)
+        self._zoom_anim.setDuration(170)
+        self._zoom_anim.setEasingCurve(QEasingCurve.OutCubic)
+        self._zoom_anim.valueChanged.connect(self._zoom_step)
+        self._zoom_from = (1.0, 1.0, None)          # (start scale, factor, anchor point) of the running animation
+        self.zoom_bar = ZoomBar(self)
+        self.zoom_bar.adjustSize()
+        self.setFocusPolicy(Qt.StrongFocus)
+
+    # --- zoom ------------------------------------------------------------------------------
+    def fit_scale(self):
+        """The scale at which the whole map fits the view."""
+        return min(self.viewport().width(), self.viewport().height()) / WORLD
+
+    def _scale_to(self, target, at=None):
+        """Set the zoom to `target` keeping the scene point under `at` (a viewport point; its centre by default)
+        where it is."""
+        scale = self.transform().m11()
+        factor = target / scale
+        if abs(factor - 1.0) < 1e-4:
+            return False
+        at = self.viewport().rect().center() if at is None else at
+        before = self.mapToScene(at)
+        anchor = self.transformationAnchor()
+        self.setTransformationAnchor(QGraphicsView.NoAnchor)
+        self.scale(factor, factor)
+        self.setTransformationAnchor(anchor)
+        after = self.mapToScene(at)
+        centre = self.mapToScene(self.viewport().rect().center())
+        self.centerOn(centre + (before - after))
+        self._refresh.start()
+        self.zoom_changed.emit(self.transform().m11())
+        return True
+
+    def zoom_by(self, factor, at=None, animate=False):
+        """Zoom in (factor > 1) or out, around the view's centre (or `at`, a viewport point), within the map's
+        limits: never smaller than the map fitting the view, never past 4x the sharpest tiles. `animate`: a short
+        glide (buttons, keys, double click) instead of a jump (the wheel)."""
+        if self._zoom_anim.state() == QVariantAnimation.Running:
+            self._zoom_anim.stop()
+            start, f, _ = self._zoom_from
+            self._scale_to(start * f, self._zoom_from[2])                # finish the one under way first
+        scale = self.transform().m11()
+        target = max(self.fit_scale() * 0.8, min(MAX_SCALE, scale * factor))
+        if abs(target / scale - 1.0) < 1e-4:
+            return
+        if not animate or not self.isVisible():
+            self._scale_to(target, at)
+            return
+        self._zoom_from = (scale, target / scale, at)
+        self._zoom_anim.setStartValue(0.0)
+        self._zoom_anim.setEndValue(1.0)
+        self._zoom_anim.start()
+
+    def _zoom_step(self, value):
+        start, factor, at = self._zoom_from
+        self._scale_to(start * factor ** float(value), at)
+
+    def fit_home(self):
+        """«Ajustar»: what the window calls home (its own fit), else the whole map."""
+        if callable(self.home):
+            self.home()
+        else:
+            self.focus_points([])
+
+    def keyPressEvent(self, event):
+        key = event.key()
+        if key in (Qt.Key_Plus, Qt.Key_Equal):
+            self.zoom_by(ZOOM_STEP, animate=True)
+        elif key in (Qt.Key_Minus, Qt.Key_Underscore):
+            self.zoom_by(1 / ZOOM_STEP, animate=True)
+        elif key == Qt.Key_0:
+            self.fit_home()
+        else:
+            super().keyPressEvent(event)
+
+    def mouseDoubleClickEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.zoom_by(ZOOM_STEP, at=event.position().toPoint(), animate=True)
+            event.accept()
+        elif event.button() == Qt.RightButton:
+            self.zoom_by(1 / ZOOM_STEP, at=event.position().toPoint(), animate=True)
+            event.accept()
+        else:
+            super().mouseDoubleClickEvent(event)
 
     # --- map & tiles ---------------------------------------------------------------------
     def set_map(self, map_id):
@@ -204,6 +366,7 @@ class MapView(QGraphicsView):
             self._place(z, x, y)
 
     def _current_zoom(self):
+        """The tile level whose pixels are closest to the screen's at this zoom."""
         scale = self.transform().m11()
         return max(BASE_ZOOM, min(MAX_ZOOM, round(math.log2(max(scale * WORLD / 256 * 1.0, 1e-6)) + 0.3)))
 
@@ -222,6 +385,20 @@ class MapView(QGraphicsView):
                        key=lambda c: -((c[0] - cx) ** 2 + (c[1] - cy) ** 2))
         for x, y in cells:
             self._place(z, x, y)
+        self._prune_tiles(z, rect)
+
+    def _prune_tiles(self, z, rect):
+        """Drop the sharper tiles far from the view (or much sharper than the zoom needs) once there are many: a long
+        pan at full zoom would otherwise keep hundreds of them in memory. The base layer always stays."""
+        extra = [k for k in self.tile_items if k[0] > BASE_ZOOM]
+        if len(extra) <= KEEP_TILES:
+            return
+        keep = rect.adjusted(-rect.width(), -rect.height(), rect.width(), rect.height())
+        for key in extra:
+            kz, x, y = key
+            size = WORLD / 2 ** kz
+            if kz > z + 1 or not QRectF(x * size, y * size, size, size).intersects(keep):
+                self.scene().removeItem(self.tile_items.pop(key))
 
     # --- markers ---------------------------------------------------------------------------
     def clear_markers(self):
@@ -244,6 +421,8 @@ class MapView(QGraphicsView):
 
     def focus_points(self, points, max_zoom_scale=1.6):
         """Fit the view around normalized points (or the whole map when empty)."""
+        if self._zoom_anim.state() == QVariantAnimation.Running:
+            self._zoom_anim.stop()
         if points:
             xs = [p[0] * WORLD for p in points]
             ys = [p[1] * WORLD for p in points]
@@ -272,14 +451,11 @@ class MapView(QGraphicsView):
         super().mousePressEvent(event)
 
     def wheelEvent(self, event):
-        factor = 1.25 ** (event.angleDelta().y() / 120)
-        scale = self.transform().m11() * factor
-        fit = min(self.viewport().width(), self.viewport().height()) / WORLD
-        if scale < fit * 0.8 or scale > 4.0 * 256 * 2 ** MAX_ZOOM / WORLD:
+        delta = event.angleDelta().y() or event.pixelDelta().y() * 4
+        if not delta:
             return
-        self.scale(factor, factor)
-        self._refresh.start()
-        self.zoom_changed.emit(self.transform().m11())
+        self.zoom_by(WHEEL_STEP ** (delta / 120), at=event.position().toPoint())
+        event.accept()
 
     def scrollContentsBy(self, dx, dy):
         super().scrollContentsBy(dx, dy)
@@ -288,6 +464,7 @@ class MapView(QGraphicsView):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._refresh.start()
+        self.zoom_changed.emit(self.transform().m11())
         self._place_locate()
 
     def center_on_norm(self, x, y):
@@ -295,9 +472,10 @@ class MapView(QGraphicsView):
         self._refresh.start()
 
     # --- you -------------------------------------------------------------------------------
-    def set_you(self, point, tip="", fresh=True, away=None, cone=None):
+    def set_you(self, point, tip="", fresh=True, away=None, cone=None, why=""):
         """Your position (normalized) on the map shown, or None. away: (map name, callback) when you are on another
-        map the window has a tab for: the button then takes you there. cone: (direction, width) of the camera."""
+        map the window has a tab for: the button then takes you there. cone: (direction, width) of the camera.
+        why: when there is no position, the button's tooltip (why it is greyed)."""
         if cone != self.you.cone:
             self.you.cone = cone
             self.you.update()
@@ -322,11 +500,14 @@ class MapView(QGraphicsView):
             elif not fresh:
                 self._pulse.stop()
         self.locate.setText((tr("◉  Siguiéndote") if self.follow else tr("◎  Dónde estoy")) if point else
-                            tr("◎  Estás en {0}", away[0]) if away else "")
+                            tr("◎  Estás en {0}", away[0]) if away else tr("◎  Dónde estoy"))
         self.locate.setToolTip((tip + (tr("\nArrastra el mapa para dejar de seguirte.") if self.follow else
                                        tr("\nClic: centrar el mapa en ti y seguirte."))) if point else
-                               tr("Ver ese mapa") if away else "")
-        self.locate.setVisible(bool(point or away))
+                               tr("Ver ese mapa") if away else
+                               why or tr("Aún no sé dónde estás: lo leo del juego (sus mensajes y el minimapa) "
+                                         "mientras juegas, con «Mostrar mi ubicación» marcado."))
+        self.locate.setEnabled(bool(point or away))
+        self.locate.setVisible(True)
         self.locate.adjustSize()
         self._place_locate()
 
@@ -352,6 +533,10 @@ class MapView(QGraphicsView):
 
     def _place_locate(self):
         self.locate.move(self.viewport().width() - self.locate.width() - 12, 12)
+        bar = getattr(self, "zoom_bar", None)
+        if bar is not None:
+            bar.move(self.viewport().width() - bar.width() - 12, self.viewport().height() - bar.height() - 12)
+            bar.raise_()
 
 
 def show_you(view, ctl, map_id, tab_maps, go_to_tab):
@@ -367,7 +552,7 @@ def show_you(view, ctl, map_id, tab_maps, go_to_tab):
         view.show_me_changed.connect(ctl.set_show_me)
         view._me_bound = True
     if not on:
-        view.set_you(None)
+        view.set_you(None, why=tr("Marca «Mostrar mi ubicación» y el mapa te encuentra."))
         return
     here = ctl.where_am_i() if hasattr(ctl, "where_am_i") else None
     if not here:
@@ -387,4 +572,5 @@ def show_you(view, ctl, map_id, tab_maps, go_to_tab):
         index = tab_maps.index(spot)
         view.set_you(None, tip, away=(MAP_NAMES.get(spot, spot).split(" (")[0], lambda: go_to_tab(index)))
     else:
-        view.set_you(None)
+        view.set_you(None, why=tr("Estás en {0}, un mapa que esta ventana no muestra.",
+                                  MAP_NAMES.get(spot, spot).split(" (")[0]))

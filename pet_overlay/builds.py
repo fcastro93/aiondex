@@ -8,8 +8,11 @@ Where a build comes from:
   levels and which ones are equipped (actives and stigmas). The profile has no specializations and no quickbar.
 - A code someone shared (Copiar código / Importar código).
 
-Skills are kept as [points, specializations, total level]: the points are what you put in (Lv 10 in the game), the
-total adds your gear's bonus (+6 -> 16, what the official profile shows). A player's build has only the total.
+Skills are kept as [points, specializations, total level]: the points are what you put in (an active or a passive
+takes 10 at most), the total adds the bonus of Daevanion, gear and Arcana (+6 -> 16: the level the game and the
+official profile show). A player's build has only the total. The bonus is the character's, the same in its 3 presets,
+and it grows with gear and Arcana, so the total kept goes stale: game_level() is a build's points plus the bonus the
+character has now (2.5.0: the Builds window drew the bare points, «Lv 10» on every maxed skill).
 
 What it takes to go from your preset to a build (plan()): [Step], the points to move, the specializations and the
 bar's cells, in the order the game's Skill window goes; compare() splits them by tab (Mastery / Stigma) to check
@@ -28,6 +31,7 @@ from .i18n import tr
 CODE_PREFIX = "AIONDEX-BUILD:"
 CLASS_OF_PREFIX = {11: "Gladiador", 12: "Templario", 13: "Asesino", 14: "Cazador", 15: "Hechicero",
                    16: "Espiritualista", 17: "Clérigo", 18: "Cantor"}
+CLASS_ALIASES = {"Invocador": "Espiritualista"}          # gear.CLASS_OF_JOB's name for the class of prefix 16
 
 
 def class_of_skill(skill_id):
@@ -39,6 +43,54 @@ def entry_levels(entry):
     if len(entry) >= 3:
         return entry[0], list(entry[1] or []), entry[2]
     return None, list(entry[1] or []) if len(entry) > 1 else [], entry[0]
+
+
+def game_level(entry, bonus=None):
+    """The level the game shows for a build's skill (its Skill window, the official profile): its points plus the
+    bonus of Daevanion, gear and Arcana. bonus: the one the character has on that skill now (bonus_now); without it,
+    the total kept when the build was saved, or the points when that is all the entry has; 0 when neither."""
+    points, _, total = entry_levels(entry)
+    if bonus is not None and points:
+        return int(points) + int(bonus)
+    return int(total or points or 0)
+
+
+def character_of(build):
+    """The character one of your builds was saved from («Agame · preset 1» -> "Agame"); None for another player's
+    build or a code's."""
+    if build.get("source") != "own":
+        return None
+    return (build.get("origin") or "").rsplit(" · preset", 1)[0].strip() or None
+
+
+def bonus_now(build, settings, playing=None, own=None):
+    """{base: the bonus the build's character has on each skill now}: from the skills of the character in play
+    (playing: its name, own: {base: OwnSkill}) or the last ones read of it (settings › tuner › name › loadout);
+    {} for another player's build or a code's (their level is the one kept)."""
+    who = character_of(build)
+    if not who:
+        return {}
+    if who == playing and own:
+        return {int(b): _bonus_of(s.level, s.learned, s.bonus) for b, s in own.items()}
+    skills = (((settings.get("tuner") or {}).get(who) or {}).get("loadout") or {}).get("skills") or {}
+    return {int(b): _bonus_of(*v[:3]) for b, v in skills.items() if len(v) > 2 and v[2] is not None}
+
+
+MAX_BONUS = 15          # Daevanion + gear + Arcana on one skill: more means the level and points do not go together
+
+
+def _bonus_of(level, learned, bonus):
+    """A skill's bonus now: its level less its points - the game sends both again with each specialization change
+    (0f38), the breakdown only at login (0051) -, else the bonus kept."""
+    extra = (level or 0) - (learned or 0)
+    return extra if 0 <= extra <= MAX_BONUS else int(bonus or 0)
+
+
+def class_of_job(job):
+    """A character's job (settings › characters › job, as the game sends it) -> the class name builds use."""
+    from .gear import CLASS_OF_JOB
+    cls = CLASS_OF_JOB.get(job)
+    return CLASS_ALIASES.get(cls, cls)
 
 
 def class_of_build(build):

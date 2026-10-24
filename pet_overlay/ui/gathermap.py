@@ -25,16 +25,16 @@ from .tunerwindow import EXTRA_STYLE
 from .widgets import SectionTitle, label
 from ..i18n import tr
 
-BEST = QColor("#7bd88f")
-OTHER = QColor("#f0c24e")
+BEST = QColor("#5fdc7c")
+OTHER = QColor("#e9c45c")
 BOTS = QColor("#ff6b6b")
-LOOSE = QColor("#8a93a8")
+LOOSE = QColor("#8b94a6")
 LIVE = QColor("#3ee6b0")             # a node the game shows now
 SPENT = QColor("#ffb347")            # the clock of a used-up one
 NEW_FOR = 120                        # seconds a node that just appeared is marked "nuevo"
 AREAS_SHOWN = 8
 SIDE_STYLE = """
-QFrame#AreaRow { background: #12161f; border: 1px solid #262c3a; border-radius: 6px; }
+QFrame#AreaRow { background: #12161f; border: 1px solid #1e2532; border-radius: 6px; }
 QFrame#AreaRow[best="true"] { border-color: #2f7a46; }
 QFrame#AreaRow[bots="true"] { border-color: #7a2f2f; }
 """
@@ -483,7 +483,7 @@ class GatherMapWindow(QWidget):
         for x, y in route[1:] + route[:1]:
             path.lineTo(QPointF(x * WORLD, y * WORLD))
         item = QGraphicsPathItem(path)
-        pen = QPen(QColor("#2ec0f2"), 2.2, Qt.DashLine)
+        pen = QPen(QColor("#3ad1f5"), 2.2, Qt.DashLine)
         pen.setCosmetic(True)
         item.setPen(pen)
         item.setZValue(150)
@@ -491,7 +491,7 @@ class GatherMapWindow(QWidget):
         self.view.scene().addItem(item)
         self._items.append(item)
         start = QGraphicsSimpleTextItem(tr("▶ inicio"))
-        start.setBrush(QBrush(QColor("#2ec0f2")))
+        start.setBrush(QBrush(QColor("#3ad1f5")))
         start.setFont(self.fonts.name)
         start.setFlag(QGraphicsItem.ItemIgnoresTransformations)
         start.setPos(route[0][0] * WORLD, route[0][1] * WORLD)

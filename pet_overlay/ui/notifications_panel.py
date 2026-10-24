@@ -12,7 +12,7 @@ from ..i18n import tr
 
 KIND_LABEL = {"progress": tr("Progreso de pet"), "levelup": tr("Subida de nivel"), "unlock": tr("Pet nuevo"),
               "zone": tr("Zona"), "sync": tr("Colección"), "info": tr("Aviso"), "warn": tr("Atención"),
-              "combat": tr("Combate"), "tracker": "Tracker"}
+              "combat": tr("Combate"), "tracker": "Tracker", "status": "Status"}
 
 
 def ago(ts, now=None):

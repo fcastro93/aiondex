@@ -93,6 +93,45 @@ def next_occurrence(slots, clock, now):
     return next(((s, e) for s, e in occurrences(slots, clock, now) if e > now or s >= now), None)
 
 
+# --- calendar (the Tracker page's Día / Semana) ------------------------------------------------------------
+def local_day(ts, days=0):
+    """(start, end) of the PC's local day `days` after the one of ts: midnight to midnight, daylight saving included
+    (a day can have 23 or 25 hours)."""
+    t = time.localtime(ts)
+    start = time.mktime((t.tm_year, t.tm_mon, t.tm_mday + days, 0, 0, 0, 0, 0, -1))
+    end = time.mktime((t.tm_year, t.tm_mon, t.tm_mday + days + 1, 0, 0, 0, 0, 0, -1))
+    return start, end
+
+
+def occurrences_between(slots, clock, start, end):
+    """[(start, end)] of a schedule's occurrences that run in [start, end): starting in it, or started before it and
+    still on at its start."""
+    days = int((end - start) // 86400) + 2
+    return [(s, e) for s, e in occurrences(slots, clock, start, days) if start <= s < end or s < start < e]
+
+
+def server_clock(region, ts):
+    """The region's wall clock at ts, as a naive datetime (its daylight saving included)."""
+    return datetime.fromtimestamp(ts, timezone.utc).replace(tzinfo=None) + timedelta(hours=utc_offset(region, ts))
+
+
+def local_offset(ts):
+    """Hours from UTC of the PC's clock at ts."""
+    return time.localtime(ts).tm_gmtoff / 3600
+
+
+def occurrence_status(start, end, now, maybe=False):
+    """One occurrence of a schedule as a Status of its own: on now ("en curso", or "quizá" for a schedule that does
+    not happen every time), still to come ("pronto") or over ("pasado")."""
+    if start <= now < end:
+        if maybe:
+            return Status(start, end, "quizá", tr("quizá ahora, hasta las {0} (no sale todas las horas)", _clock(end)))
+        return Status(start, end, "en curso", tr("en curso hasta las {0}", _clock(end)))
+    if start > now:
+        return Status(start, end, "pronto", tr("a las {0}", _clock(start)))
+    return Status(start, end, "pasado", tr("a las {0}", _clock(start)))
+
+
 # --- the game's field boss list ------------------------------------------------------------------------
 @dataclass
 class SlotState:
@@ -348,6 +387,35 @@ class Tracker:
             return Status(start, end, "en curso", tr("en curso hasta las {0}", _clock(end)))
         return Status(start, end, "pronto", tr("a las {0}", _clock(start)))
 
+    def schedule(self, start, end, now=None):
+        """Everything between start and end, marked or not: ([(entry, start, end, Status)] sorted by start, [(entry,
+        Status)] of the field bosses with no known time). A fixed schedule gives each of its occurrences (each with
+        its own Status); a field boss sits at its known time (alive since / back at, from the game's list or a kill
+        AionDex saw); one alive since an unknown time sits at now. An alive one from before `start` counts while
+        `start` <= now < `end` (it is still up)."""
+        now = now or time.time()
+        timed, unknown = [], []
+        for e in self.entries:
+            if e.slots:
+                clock = "kst" if e.clock == "kst" else self.region
+                for s, f in occurrences_between(e.slots, clock, start, end):
+                    timed.append((e, s, f, occurrence_status(s, f, now, e.maybe)))
+                continue
+            st = self.status(e, now)
+            at = st.start if st.start is not None else (now if st.state == "vivo" else None)
+            if at is None:
+                unknown.append((e, st))
+            elif start <= at < end or (at < start <= now < end and st.state in ("vivo", "debería estar")):
+                timed.append((e, at, st.end or at, st))
+        timed.sort(key=lambda r: (r[1], r[0].name))
+        return timed, unknown
+
+    def maybe_alive(self, entry, now=None):
+        """The game's list (or AionDex) last saw this boss alive, too long ago to trust it is still up: «¿vivo?»."""
+        now = now or time.time()
+        s = self._game_state(entry, now)
+        return bool(s and s.alive and not self._fresh(s, now))
+
     def upcoming(self, only_marked=True, now=None):
         """[(entry, Status)] sorted by when they start (running ones first)."""
         now = now or time.time()
@@ -376,7 +444,8 @@ class Tracker:
             self._asked[map_id] = now
             names = ", ".join(e.name for e in stale[:3]) + ("…" if len(stale) > 3 else "")
             self.notify(tr("Abre la lista de monstruos de campo"),
-                        tr("Abre el mapa (M) → monstruos de campo para saber si siguen vivos: {0}.", names), "reminder")
+                        tr("Abre el mapa (M) → monstruos de campo para saber si siguen vivos: {0}.", names), "reminder",
+                        same="tracker:reminder")
         for e in self.entries:
             if not self.marked(e.id):
                 continue
@@ -389,16 +458,18 @@ class Tracker:
                 minutes = max(1, round((st.start - now) / 60))
                 if e.maybe:              # 2026-10-12: an invasion alert at 16:30 NY and no invasion in the game
                     self.notify(tr("{0}: puede salir en {1} min", e.name, minutes),
-                                tr("{0}a las {1}, si sale.", e.sub + ' · ' if e.sub else '', _clock(st.start)), e.kind)
+                                tr("{0}a las {1}, si sale.", e.sub + ' · ' if e.sub else '', _clock(st.start)), e.kind,
+                                same=f"tracker:{e.id}")
                 else:
                     self.notify(tr("{0}: sale en {1} min", e.name, minutes),
-                                tr("{0}a las {1}.", e.sub + ' · ' if e.sub else '', _clock(st.start)), e.kind)
+                                tr("{0}a las {1}.", e.sub + ' · ' if e.sub else '', _clock(st.start)), e.kind,
+                                same=f"tracker:{e.id}")
             now_key = (e.id, round(st.start), "now")
             if st.state in ("en curso", "vivo", "debería estar") and 0 <= now - st.start < 120 and \
                     now_key not in self._notified:
                 self._notified.add(now_key)
                 self.notify(tr("{0}: ¡ya está!", e.name), tr("{0}desde las {1}.", e.sub + ' · ' if e.sub else '', _clock(st.start)),
-                            e.kind)
+                            e.kind, same=f"tracker:{e.id}")
 
     # --- persistence of the game's field boss list (per server) ---
     def _state_path(self):

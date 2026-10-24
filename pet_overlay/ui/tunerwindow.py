@@ -4,8 +4,8 @@ import time
 
 from PySide6.QtCore import QPoint, Qt, QTimer
 from PySide6.QtGui import QFont
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxLayout, QPushButton, QScrollArea,
-                               QSpinBox, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QBoxLayout, QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxLayout, QPushButton,
+                               QScrollArea, QSpinBox, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
 from ..diagnostics import ago
@@ -53,6 +53,8 @@ STEP_TILE = 56
 SKILL_TILE = 46
 SKILLS_PER_ROW = 10
 COMPARE_COLUMNS = 4          # "Antes" + the latest tests
+SIDE_WIDTH = 500             # the test and its results, right of the bar and the macro
+NARROW = 1180                # narrower (the AionDex window): the test goes below them, the bar does not fit beside
 
 
 class TunerWindow(QWidget):
@@ -67,7 +69,8 @@ class TunerWindow(QWidget):
         self.setStyleSheet(STYLE + EXTRA_STYLE)
         self.resize(1300, 880)
 
-        root = QHBoxLayout(self)
+        root = self.root = QBoxLayout(QBoxLayout.LeftToRight, self)
+        self._narrow = False
         root.setContentsMargins(14, 12, 14, 12)
         root.setSpacing(16)
 
@@ -84,7 +87,8 @@ class TunerWindow(QWidget):
         # right: test & results -----------------------------------------------------------------------
         right_frame = QFrame()
         right_frame.setObjectName("Side")
-        right_frame.setFixedWidth(500)
+        right_frame.setFixedWidth(SIDE_WIDTH)
+        self.right_frame = right_frame
         right = QVBoxLayout(right_frame)
         right.setContentsMargins(14, 12, 10, 12)
         head = QHBoxLayout()
@@ -125,6 +129,24 @@ class TunerWindow(QWidget):
         self._timer = QTimer(self, interval=500, timeout=self._tick)
         self.rebuild()
         self._update_test_button()
+
+    def resizeEvent(self, event):
+        """Side by side when the bar, the macro and the test fit; else the test and its results below (in the AionDex
+        window the left column was cut off: the bar alone takes ~680 px)."""
+        super().resizeEvent(event)
+        narrow = self.width() < NARROW
+        if narrow:
+            self.right_frame.setMaximumHeight(max(260, int(self.height() * 0.42)))
+        if narrow == self._narrow:
+            return
+        self._narrow = narrow
+        self.root.setDirection(QBoxLayout.TopToBottom if narrow else QBoxLayout.LeftToRight)
+        if narrow:
+            self.right_frame.setMinimumWidth(0)
+            self.right_frame.setMaximumWidth(16777215)
+        else:
+            self.right_frame.setMaximumHeight(16777215)
+            self.right_frame.setFixedWidth(SIDE_WIDTH)
 
     # --- left side ----------------------------------------------------------------------------------
     def rebuild(self):

@@ -481,6 +481,12 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
     return plan
 
 
+def feeding_pays(plan):
+    """Does feeding your spare cards raise a skill you want? The one rule Arcanas, Mejoras and the next step share
+    (2.5: Mejoras said «dales de comer las 12 que no usas · +0 en tus cartas» while Arcanas said to farm)."""
+    return plan is not None and any(f.useful > 0 for f in plan.feeds)
+
+
 def effects_text(card, plan):
     """«Condemnation +2, Bolt +1...» of a card, with the plan's skill names."""
     names = {n.skill: n.name for n in plan.skills}

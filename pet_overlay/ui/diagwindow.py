@@ -15,7 +15,7 @@ from .widgets import SectionTitle, label
 from ..i18n import tr
 
 PROBLEM_STYLE = f"""
-QPushButton[problem="true"] {{ background: #141822; color: {theme.TEXT.name()}; border: 1px solid #363e52;
+QPushButton[problem="true"] {{ background: #0f131b; color: {theme.TEXT.name()}; border: 1px solid #2a3444;
     border-radius: 8px; padding: 9px 12px; text-align: left; font-weight: 500; }}
 QPushButton[problem="true"]:hover {{ border-color: {theme.ACCENT.name()}; }}
 QPushButton[problem="true"]:checked {{ border-color: {theme.ACCENT.name()}; background: #2a2615; }}

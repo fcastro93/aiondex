@@ -315,8 +315,8 @@ class DpsPanel(QWidget):
             state = ctl.defiance_of(p.name) if p in rivals else None
             if state:
                 kind, left = state
-                tag = (("DEF ✓", QColor("#7bd88f")) if kind == "ready" else
-                       (tr("INMUNE {0:.0f}s", left), QColor("#f0c24e")) if kind == "immune" else
+                tag = (("DEF ✓", QColor("#5fdc7c")) if kind == "ready" else
+                       (tr("INMUNE {0:.0f}s", left), QColor("#e9c45c")) if kind == "immune" else
                        (f"DEF {left:.0f}s", QColor("#ff7a7a")))
             self.content.addWidget(PartyRow(f, name, cls, self._class_icon(cls), profile.cp if profile else None,
                                             middle, f"{p.rating:,}" if p.rating else "", 0, p in allies, compact,

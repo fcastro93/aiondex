@@ -60,7 +60,7 @@ def render(rows, picks, title, subtitle, grade_color, level_pick=None):
     # recommendation
     if lines:
         box = QRectF(MARGIN, y, inner, 40 + 30 * lines)
-        p.setPen(QColor("#2b3242"))
+        p.setPen(theme.LINE)
         p.setBrush(theme.SURFACE)
         p.drawRoundedRect(box, 8, 8)
         p.setPen(theme.GOLD)
@@ -108,7 +108,7 @@ def render(rows, picks, title, subtitle, grade_color, level_pick=None):
         sold, kind = r.sales.verdict()
         cells = [
             (r.product + (f" ×{r.count}" if r.count > 1 else ""),
-             theme.MUTED if locked else QColor(grade_color.get(r.recipe.get("grade"), "#D6DAE3"))),
+             theme.MUTED if locked else QColor(grade_color.get(r.recipe.get("grade")) or theme.grade_color(None))),
             (level_text(r.needs) if r.needs else "—", theme.WARN if locked else theme.MUTED),
             (_kinah(r.sell), theme.TEXT),
             (f"{1 - r.success:.0%}" if r.success is not None else "—", theme.TEXT),

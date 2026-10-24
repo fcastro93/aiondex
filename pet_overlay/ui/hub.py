@@ -11,12 +11,12 @@ import time
 
 from PySide6.QtCore import QPoint, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QFont, QIcon
-from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSizePolicy,
-                               QStackedWidget, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QComboBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea,
+                               QSizePolicy, QStackedWidget, QVBoxLayout, QWidget)
 
 from .. import APP_NAME, __version__
 from . import theme
-from .design import HUB_STYLE, Card, Divider, Hero, Meter, NavItem, Stat, hub_font
+from .design import HUB_STYLE, Card, Divider, Hero, Meter, NavItem, PageHeader, Stat, hub_font
 from .mapwindow import badge_label
 from .theme import Fonts
 from .widgets import label
@@ -45,25 +45,25 @@ NAV = (
     (tr("Personaje"), (("upgrades", tr("Mejoras"), None, "open_upgrades", {}),
                        ("arcana", tr("Arcanas"), None, "open_arcana", {}),
                        ("builds", tr("Builds"), None, "open_builds", {}),
-                       ("status", "Status", GLYPH_STATUS, "open_status", {}),
-                       ("dps", "DPS", GLYPH_DPS, "open_dps_details", {}))),
+                       ("status", "Status", GLYPH_STATUS, "open_status", {}))),
+    (tr("Combate"), (("dps", "DPS", GLYPH_DPS, "open_dps_details", {}),
+                     ("players", tr("Jugadores"), GLYPH_PEOPLE, "open_players", {}),
+                     ("arena", "Arena", GLYPH_ARENA, "open_arena", {}))),
     (tr("Progreso"), (("missions", "Season Missions", None, "open_missions", {}),
                       ("achievements", tr("Logros"), None, "open_achievements", {}),
                       ("events", tr("Eventos"), None, "open_events", {}),
-                      ("passes", tr("Pase"), None, "open_panel_page", {"key": "passes"}))),
-    (tr("Pets"), (("pets", tr("Pets"), None, "open_panel_page", {"key": "pets"}),
+                      ("passes", tr("Pase"), None, "open_passes", {}))),
+    (tr("Pets"), (("pets", tr("Pets"), None, "open_pets_page", {}),
                   ("collection", tr("Colección"), GLYPH_COLLECTION, "open_collection", {}),
                   ("exclusive", tr("Exclusivos"), GLYPH_EXCLUSIVE, "open_exclusive_pets", {}),
                   ("map", tr("Mapa de pets"), GLYPH_MAP, "open_map", {}))),
     (tr("Mundo"), (("world", tr("Mapa del mundo"), GLYPH_WORLD, "open_world_map", {}),
-                   ("tracker", "Tracker", GLYPH_TRACKER, "open_tracker", {}),
-                   ("players", tr("Jugadores"), GLYPH_PEOPLE, "open_players", {}),
-                   ("arena", "Arena", GLYPH_ARENA, "open_arena", {}))),
+                   ("tracker", "Tracker", GLYPH_TRACKER, "open_tracker", {}))),
     (tr("Profesiones"), (("crafting", "Crafting", None, "open_crafting", {"tab": "crafting"}),
                          ("market", "Market", None, "open_crafting", {"tab": "market"}),
                          ("leveling", tr("Levear"), None, "open_crafting", {"tab": "leveling"}),
                          ("gathering", "Gathering", None, "open_crafting", {"tab": "gathering"}))),
-    (tr("Sistema"), (("notifications", tr("Notificaciones"), GLYPH_BELL, "open_panel_page", {"key": "notifications"}),
+    (tr("Sistema"), (("notifications", tr("Notificaciones"), GLYPH_BELL, "open_notifications", {}),
                      ("diagnostics", tr("Diagnóstico"), GLYPH_DIAG, "open_diagnostics", {}),
                      ("settings", tr("Ajustes"), GLYPH_SETTINGS, "open_panel_page", {"key": "settings"}))),
 )
@@ -164,21 +164,40 @@ class NowPanel(QWidget):
         row.addWidget(self.il, 1)
         row.addWidget(self.cp, 1)
         lay.addLayout(row)
-        lay.addWidget(Divider())
+        # the Tracker's next activities: the first thing to go when the docked HUD (the Dashboard) leaves no room
+        self.next_box = QWidget()
+        nb = QVBoxLayout(self.next_box)
+        nb.setContentsMargins(0, 0, 0, 0)
+        nb.setSpacing(fonts.px(6))
+        nb.addWidget(Divider())
         self.next_title = label(tr("Lo siguiente"), fonts.name, theme.TEXT)
-        lay.addWidget(self.next_title)
+        nb.addWidget(self.next_title)
         self.next_rows = QVBoxLayout()
         self.next_rows.setSpacing(fonts.px(2))
-        lay.addLayout(self.next_rows)
+        nb.addLayout(self.next_rows)
         self.tracker_link = QPushButton(tr("Abrir Tracker"))
         self.tracker_link.setProperty("flat", True)
         self.tracker_link.clicked.connect(ctl.open_tracker)
-        lay.addWidget(self.tracker_link, 0, Qt.AlignLeft)
+        nb.addWidget(self.tracker_link, 0, Qt.AlignLeft)
+        lay.addWidget(self.next_box)
         lay.addWidget(Divider())
         self.unread = QPushButton("")
         self.unread.setProperty("flat", True)
-        self.unread.clicked.connect(lambda: ctl.open_panel_page("notifications"))
+        self.unread.clicked.connect(ctl.open_notifications)
         lay.addWidget(self.unread, 0, Qt.AlignLeft)
+        self._room = None
+
+    def fit(self, room):
+        """Show what fits in `room` pixels under the docked HUD: everything, then without the Tracker's rows, then
+        nothing (the HUD window would cover it)."""
+        self._room = room
+        self.next_box.show()
+        self.show()
+        if self.sizeHint().height() <= room:
+            return
+        self.next_box.hide()
+        if self.sizeHint().height() > room:
+            self.hide()
 
     def refresh(self):
         from .upgradeswindow import _clear
@@ -190,7 +209,7 @@ class NowPanel(QWidget):
             self.who.setText(ch.name + (f" · {cls}" if cls else "") + (tr(" · Nv. {0}", ch.level) if getattr(ch, "level", 0) else ""))
         else:
             self.who.setText(name or tr("Sin personaje"))
-        self.where.setText(zone_name(ctl) or (tr("Entra al juego con AionDex abierto") if not ch else tr("Zona: aún no la sé")))
+        self.where.setText(zone_name(ctl) or (tr("Fuera del juego") if not ch else tr("Zona: aún no la sé")))
         il = cp = None
         try:
             me = ctl.upgrades_me(name) if name else None
@@ -228,12 +247,10 @@ class HomePage(QWidget):
         root = QVBoxLayout(self)
         root.setContentsMargins(fonts.px(22), fonts.px(16), fonts.px(22), fonts.px(16))
         root.setSpacing(fonts.px(12))
-        head = QHBoxLayout()
-        head.addWidget(badge_label(30, self.devicePixelRatioF()))
-        head.addWidget(label(tr("Inicio"), fonts.name_big, theme.TEXT), 1)
+        header = PageHeader(fonts, tr("Inicio"), tr("Tu siguiente paso, tus cifras y lo que necesita de ti ahora"))
         self.stamp = label("", fonts.small, theme.MUTED)
-        head.addWidget(self.stamp)
-        root.addLayout(head)
+        header.add_right(self.stamp)
+        root.addWidget(header)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -403,6 +420,15 @@ class HubWindow(QWidget):
         brand.addWidget(label(APP_NAME, f.name_big, theme.TEXT), 1)
         rl.addLayout(brand)
         rl.addSpacing(f.px(6))
+        # the character every page talks about (Controller.focus_character): the one you play, or one you pick
+        self.who = QComboBox()
+        self.who.setToolTip(tr("El personaje del que hablan todas las páginas: el que juegas, o el que elijas aquí"))
+        self.who.setFont(f.body)
+        self.who.setCursor(Qt.PointingHandCursor)
+        self._who_names = None
+        self.who.currentIndexChanged.connect(self._who_changed)
+        rl.addWidget(self.who)
+        rl.addSpacing(f.px(4))
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -442,6 +468,7 @@ class HubWindow(QWidget):
         root.addWidget(rail)
         # --- the pages ---
         self.stack = QStackedWidget()
+        self.stack.setObjectName("Pages")
         self.stack.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         root.addWidget(self.stack, 1)
         # --- the right rail: the HUD's place (the overlay sits exactly on the slot) and the Now panel ---
@@ -500,6 +527,41 @@ class HubWindow(QWidget):
     def page(self, key):
         return self.pages.get(key)
 
+    # --- the character picker ---
+    def fill_who(self):
+        """The picker's entries: «El que juegas» (naming them) and every character AionDex knows; refilled only when
+        that changes, so an open list is never pulled from under the mouse."""
+        ctl = self.ctl
+        playing = ctl.character_name()
+        names = ctl.known_characters()
+        chosen = ctl.settings.get("character_choice")
+        key = (playing, tuple(names), chosen)
+        if key == self._who_names:
+            return
+        self._who_names = key
+        self.who.blockSignals(True)
+        self.who.clear()
+        self.who.addItem(tr("El que juegas") + (f" · {playing}" if playing else ""), None)
+        for n in names:
+            self.who.addItem(n + (tr(" (en juego)") if n == playing else ""), n)
+        self.who.setCurrentIndex(max(0, self.who.findData(chosen)) if chosen in names else 0)
+        self.who.blockSignals(False)
+
+    def _who_changed(self, _index):
+        self.ctl.set_character_choice(self.who.currentData())
+
+    def character_changed(self):
+        """The picker changed (here or from a page): the Now card and the page on screen are drawn again."""
+        self.fill_who()
+        self.now.refresh()
+        page = self.stack.currentWidget()
+        if page is not None and hasattr(page, "refresh"):
+            try:
+                page.refresh()
+            except Exception:                   # noqa: BLE001 - a page that cannot refresh on its own
+                import logging
+                logging.getLogger(__name__).exception("page refresh after a character change")
+
     def refresh(self):
         """The badges and the Now card; the current page if it is one of ours (the pages refresh themselves)."""
         if not self.isVisible():
@@ -512,12 +574,14 @@ class HubWindow(QWidget):
             self.items["diagnostics"].set_badge(len(open_problems(self.ctl)))
         except Exception:                       # noqa: BLE001
             pass
+        self.fill_who()
         self.now.refresh()
+        self._fit_now()
         hidden = not self.ctl.window.isVisible()
         self.hud_hidden.setVisible(hidden)
         self.hud_show.setVisible(hidden)
         page = self.stack.currentWidget()
-        if isinstance(page, (PanelPage, HomePage)):
+        if isinstance(page, (PanelPage, HomePage)) or getattr(page, "live", False):
             page.refresh()
 
     # --- the HUD's place ---
@@ -527,6 +591,13 @@ class HubWindow(QWidget):
 
     def hud_resized(self, size):
         self.hud_slot.setFixedSize(size)
+        self._fit_now()
+
+    def _fit_now(self):
+        """The Now card takes the room the docked HUD leaves in the right column."""
+        m = self.fonts.px(HUD_MARGIN)
+        room = self.right.height() - 2 * m - self.hud_slot.height() - self.fonts.px(12)
+        self.now.fit(room)
 
     # --- window events ---
     def showEvent(self, event):
@@ -560,6 +631,7 @@ class HubWindow(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        self._fit_now()
         self.moved.emit()
 
     def keyPressEvent(self, event):

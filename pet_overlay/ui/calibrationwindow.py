@@ -46,7 +46,7 @@ class CalibrationWindow(QWidget):
         self.font = QFont("Segoe UI", 9, QFont.Bold)
         panel = QWidget(self)
         panel.setObjectName("CalPanel")
-        panel.setStyleSheet(f"QWidget#CalPanel {{ background: rgba(11,18,34,235); border: 1px solid #2ec0f2; "
+        panel.setStyleSheet(f"QWidget#CalPanel {{ background: rgba(11,18,34,235); border: 1px solid #3ad1f5; "
                             f"border-radius: 10px; }} QLabel {{ color: {theme.TEXT.name()}; }} "
                             f"QPushButton {{ background: {theme.ACCENT.name()}; color: #06101f; border: none; "
                             f"border-radius: 6px; padding: 6px 12px; font-weight: 600; }}")

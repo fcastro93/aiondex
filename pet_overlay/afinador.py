@@ -132,6 +132,8 @@ class Afinador:
         if own is None:
             return False
         own.specs = specializations(variant) if variant != own.base else []
+        if 0 <= level - points <= 15:          # the bonus goes with them (2.5.0: it kept the login's, level != sum)
+            own.bonus = level - points
         own.level, own.learned = level, points
         self._store_pending = True
         return True

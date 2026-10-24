@@ -474,7 +474,7 @@ class PetCard(QFrame):
 
     def _paint(self, hover):
         self.setStyleSheet(f"PetCard {{ background: {'#18264a' if hover else '#12161f'}; border-radius: 8px; "
-                           f"border: 1px solid {'#2f4a80' if hover else '#262c3a'}; }}")
+                           f"border: 1px solid {'#2f4a80' if hover else '#1e2532'}; }}")
 
     def enterEvent(self, _):
         self._paint(True)

@@ -4,21 +4,24 @@ enemies one by one (who hit each); the fights of the last 48 hours (★ keeps on
 Names only for you and your party/force; everyone else is "Jugador N" (also in the saved fights)."""
 import time
 import webbrowser
+from collections import Counter
 from dataclasses import dataclass, field
 
 from PySide6.QtCore import QRect, QRectF, QSize, Qt, QTimer
-from PySide6.QtGui import QColor, QFont, QPainter, QPixmap
+from PySide6.QtGui import QColor, QFontMetrics, QPainter, QPixmap
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDialog, QFrame, QHBoxLayout, QHeaderView,
-                               QLineEdit, QPushButton, QSplitter, QStyledItemDelegate, QTableWidget, QTableWidgetItem,
-                               QVBoxLayout, QWidget)
+                               QLineEdit, QMenu, QPushButton, QSplitter, QStackedWidget, QStyledItemDelegate,
+                               QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
 from ..combat import aggro_counts, in_instance
-from ..sessions import history_entries
+from ..fightlog import MIN_SECONDS
+from ..sessions import RUN_GAP
 from . import theme
+from .design import HUB_STYLE, ChipGroup, GameTabs, PageHeader, SearchBox
 from .dps_panel import mmss, short_number
-from .mapwindow import STYLE, badge_label
-from .theme import Fonts
+from .mapwindow import STYLE
+from .theme import GLYPH_COLLAPSE, GLYPH_EXPAND, Fonts
 from .tunerwindow import EXTRA_STYLE
 from .widgets import label
 from ..i18n import tr
@@ -29,6 +32,20 @@ ICON_ROLE = Qt.UserRole + 3         # QPixmap shown before the text
 KEY_ROLE = Qt.UserRole + 4          # what the row stands for (actor eid, skill id...)
 
 ROW_BG, ROW_ALT, ROW_HOVER, ROW_SELECTED = QColor("#10131b"), QColor("#0f192e"), QColor("#16243f"), QColor("#1b3156")
+HEAD_ROLE = Qt.UserRole + 5         # a header row of the history: "day" or "visit" (drawn plain, never selected)
+
+# «Ocultar peleas cortas», on by default (the setting dps_hide_short). A fight is short when
+#   - it lasted less than SHORT_SECONDS and no boss died in it (a pull that went nowhere, a mob hit in passing), or
+#   - nobody but you hit anything, there was no boss and it lasted less than fightlog.MIN_SECONDS (30 s): a lone farm
+#     mob, the same rule by which such a fight is not even saved to disk.
+# The fights you pinned (★) and the one going on always show. Of the author's 739 saved fights it hides 314.
+SHORT_SECONDS = 20
+HISTORY_KINDS = [("all", tr("Todas")), ("boss", tr("Jefes")), ("instance", tr("Mazmorras")),
+                 ("pinned", tr("Marcadas ★"))]
+HISTORY_COLUMNS = [tr("Enemigo"), tr("Tipo"), tr("Lugar"), tr("Duración"), tr("Hora"), tr("Tu DPS"), tr("Tu parte")]
+HISTORY_WIDTHS = [0, 150, 190, 74, 92, 76, 76]      # px at 100%; the enemy takes the rest
+TOP_PLACES = 5                      # places with a chip of their own; the rest under «Más lugares»
+VIEWS = [("fight", tr("Pelea")), ("history", tr("Historial"))]
 CLASS_COLOR = {"Gladiador": "#e8a35c", "Templario": "#d9c27a", "Asesino": "#c77dff", "Cazador": "#7bd88f",
                "Hechicero": "#6cb4ff", "Invocador": "#9d8cff", "Clérigo": "#ffe08a", "Cantor": "#ff9e6b"}
 TABLE_STYLE = f"""
@@ -40,13 +57,76 @@ QHeaderView::section {{ background: #141822; color: {theme.MUTED.name()}; border
 QHeaderView::section:first {{ border-top-left-radius: 10px; }}
 QHeaderView::section:last {{ border-top-right-radius: 10px; }}
 QLineEdit {{ padding: 6px 10px; }}
-QFrame#Card {{ background: #141822; border: 1px solid #20262f; border-radius: 10px; }}
+QFrame#Card {{ background: {theme.SURFACE.name()}; border: 1px solid {theme.LINE.name()}; border-radius: 6px; }}
 QSplitter::handle {{ background: transparent; width: 10px; }}
+QSplitter::handle:vertical {{ height: 10px; }}
 """
 GROUPS = [("all", tr("Todos")), ("group", tr("Tú y tu grupo")), ("others", tr("Fuera de tu grupo"))]
 ENEMY_NOTE = (tr("«Enemigo» a secas: un monstruo que ya estaba a la vista cuando AionDex empezó a escuchar (el "
                  "juego solo dice qué es cuando aparece). «Enemigo (40K HP)»: una variante que la base de datos no "
                  "tiene con nombre."))
+
+
+def _place(item):
+    """Where a fight of the history was: its dungeon (fightlog keeps it since 1.44), else the kind of place."""
+    return tr(item["place"]) if item.get("place") else (tr("Mazmorra") if item.get("instance") else tr("Mundo abierto"))
+
+
+def _when(item, now=None):
+    if item.get("live"):
+        return tr("en curso")
+    now = now or time.time()
+    same_day = time.strftime("%d/%m", time.localtime(item["last"])) == time.strftime("%d/%m", time.localtime(now))
+    return time.strftime("%H:%M" if same_day else "%d/%m %H:%M", time.localtime(item["last"]))
+
+
+def _day_title(ts, now):
+    today, then = time.localtime(now), time.localtime(ts)
+    if (then.tm_year, then.tm_yday) == (today.tm_year, today.tm_yday):
+        return tr("Hoy")
+    if (then.tm_year, then.tm_yday) == (today.tm_year, today.tm_yday - 1):
+        return tr("Ayer")
+    return time.strftime("%d/%m", then)
+
+
+def _short(item):
+    """A fight «Ocultar peleas cortas» leaves out (see SHORT_SECONDS)."""
+    if item.get("pinned") or item.get("live"):
+        return False
+    seconds = item.get("duration", 0)
+    if seconds < SHORT_SECONDS and not (item.get("boss") and item.get("killed")):
+        return True
+    return not item.get("boss") and item.get("players", 2) <= 1 and seconds < MIN_SECONDS
+
+
+def _of_kind(item, kind):
+    return bool(kind == "all" or kind == "boss" and item.get("boss") or kind == "instance" and item.get("instance")
+                or kind == "pinned" and item.get("pinned"))
+
+
+def _visits(items, now):
+    """The history's rows, newest first: ("day", title); ("visit", place, fights) over two or more fights in a row in
+    the same dungeon (a visit ends with its last boss, or after RUN_GAP without fighting there); ("fight", item,
+    indented)."""
+    groups = []                                   # [day title, dungeon or None, fights newest first]
+    for item in items:
+        day = _day_title(item["last"], now)
+        place = item.get("place") if item.get("instance") and not item.get("live") else None
+        last = groups[-1] if groups else None
+        if (last is not None and place and last[0] == day and last[1] == place and not item.get("final")
+                and last[2][-1]["start"] - item["last"] <= RUN_GAP):
+            last[2].append(item)
+        else:
+            groups.append([day, place, [item]])
+    rows, day = [], None
+    for title, place, fights in groups:
+        if title != day:
+            day = title
+            rows.append(("day", title))
+        if place and len(fights) > 1:
+            rows.append(("visit", place, fights))
+        rows += [("fight", i, bool(place and len(fights) > 1)) for i in fights]
+    return rows
 
 
 def _empty(layout):
@@ -249,6 +329,21 @@ class MeterTable(QTableWidget):
 
 class RowDelegate(QStyledItemDelegate):
     def paint(self, p, option, index):
+        head = index.data(HEAD_ROLE)
+        if head:                                  # a day or a dungeon visit of the history: plain, no hover
+            r = option.rect
+            p.save()
+            p.fillRect(r, ROW_BG)
+            if head == "day":
+                p.fillRect(QRect(r.left() + 8, r.bottom(), r.width() - 16, 1), theme.LINE)
+            fg = index.data(Qt.ForegroundRole)
+            p.setPen(fg.color() if hasattr(fg, "color") else theme.MUTED)
+            p.setFont(index.data(Qt.FontRole) or option.font)
+            text_rect = r.adjusted(10, 0, -10, 0)
+            p.drawText(text_rect, int(Qt.AlignLeft | Qt.AlignVCenter),
+                       p.fontMetrics().elidedText(index.data(Qt.DisplayRole) or "", Qt.ElideRight, text_rect.width()))
+            p.restore()
+            return
         table = self.parent()
         row = index.row()
         selected = table.selectionModel().isRowSelected(row, index.parent())
@@ -326,72 +421,87 @@ class DpsDetailsWindow(QWidget):
         self.setObjectName("MapWindow")
         self.setWindowTitle(tr("{0} — Detalles del combate", APP_NAME))
         self.setWindowIcon(ctl.app_icon)
-        self.setStyleSheet(STYLE + EXTRA_STYLE + TABLE_STYLE)
+        self.setStyleSheet(STYLE + EXTRA_STYLE + HUB_STYLE + TABLE_STYLE)
         self.resize(1360, 860)
         f = self.fonts
+
+        self.current_id = None           # the fight on screen (an id of ctl.fight_list())
+        self._items = []                 # ctl.fight_list(), newest first
+        self._visible_ids = []           # the fights the history shows with its filters, in its order
+        self._history_row_of = {}        # fight id -> its row in the history table
+        self._summary_text = ""
+        self._history_text = tr("Las peleas de esta sesión y las guardadas: 48 horas, y las marcadas con ★ hasta que "
+                                "las quites")
 
         root = QVBoxLayout(self)
         root.setContentsMargins(18, 14, 18, 12)
         root.setSpacing(10)
-        head = QHBoxLayout()
-        head.addWidget(badge_label(34, self.devicePixelRatioF()))
-        titles = QVBoxLayout()
-        titles.setSpacing(0)
-        titles.addWidget(label(tr("Detalles del combate"), f.name_big, theme.TEXT))
-        self.summary = label("", f.small, theme.MUTED)
-        self.summary.setWordWrap(True)
-        titles.addWidget(self.summary)
-        head.addLayout(titles, 1)
-        self.encounter_box = QComboBox()
-        self.encounter_box.setMinimumContentsLength(30)
-        self.encounter_box.setMaxVisibleItems(20)
-        self.encounter_box.currentIndexChanged.connect(lambda _: self._fill())
-        head.addWidget(self.encounter_box)
+        self.header = PageHeader(f, tr("Detalles del combate"))
         self.pin_button = QPushButton(tr("☆ Conservar"))
+        self.pin_button.setProperty("ghost", True)
         self.pin_button.setCheckable(True)
         self.pin_button.setToolTip(tr("Las peleas se guardan 48 horas; las marcadas con ★ se quedan hasta que las "
                                       "quites"))
         self.pin_button.clicked.connect(self._toggle_pin)
-        head.addWidget(self.pin_button)
+        self.header.add_right(self.pin_button)
         sessions = QPushButton(tr("Sesiones"))
+        sessions.setProperty("ghost", True)
         sessions.setToolTip(tr("Comenzar o terminar una sesión (varios runs con la misma party) y ver sus informes"))
         sessions.clicked.connect(self._sessions)
-        head.addWidget(sessions)
+        self.header.add_right(sessions)
+        self.sim_button = QPushButton(tr("Simulación"))
+        self.sim_button.setProperty("ghost", True)
+        self.sim_button.clicked.connect(self._simulation)
+        self.header.add_right(self.sim_button)
         report = QPushButton(tr("Informe"))
-        report.setProperty("primary", True)
         report.setToolTip(tr("Una imagen con la pelea, los números de tu grupo y su MVP, para guardar o pegar"))
         report.clicked.connect(self._report)
-        head.addWidget(report)
-        self.sim_button = QPushButton(tr("Simulación"))
-        self.sim_button.clicked.connect(self._simulation)
-        head.addWidget(self.sim_button)
-        root.addLayout(head)
+        self.header.add_right(report)
+        root.addWidget(self.header)
+
+        bar = QHBoxLayout()                          # Pelea / Historial, and where the fight on screen is in it
+        bar.setSpacing(f.px(4))
+        self.view_tabs = GameTabs(f, VIEWS, "fight")
+        self.view_tabs.changed.connect(self._show_view)
+        bar.addWidget(self.view_tabs, 1)
+        self.nav = QWidget()
+        nav = QHBoxLayout(self.nav)
+        nav.setContentsMargins(0, 0, 0, 0)
+        nav.setSpacing(f.px(2))
+        self.newer_button = self._nav_button(GLYPH_COLLAPSE, tr("La pelea de arriba en el historial (más reciente)"),
+                                             -1)
+        nav.addWidget(self.newer_button)
+        self.nav_label = QPushButton()
+        self.nav_label.setProperty("link", True)
+        self.nav_label.setToolTip(tr("Ver el historial"))
+        self.nav_label.clicked.connect(lambda: self._show_view("history"))
+        nav.addWidget(self.nav_label)
+        self.older_button = self._nav_button(GLYPH_EXPAND, tr("La pelea de abajo en el historial (más antigua)"), 1)
+        nav.addWidget(self.older_button)
+        bar.addWidget(self.nav)
+        root.addLayout(bar)
+
+        self.views = QStackedWidget()
+        details = QWidget()
+        body = QVBoxLayout(details)
+        body.setContentsMargins(0, 0, 0, 0)
+        body.setSpacing(10)
+        self.views.addWidget(details)
+        self.views.addWidget(self._build_history())
+        root.addWidget(self.views, 1)
 
         self.cards = QHBoxLayout()
         self.cards.setSpacing(10)
-        root.addLayout(self.cards)
+        body.addLayout(self.cards)
 
-        tabs = QHBoxLayout()
-        tabs.setSpacing(6)
-        self.metric_buttons = {}
-        for m in METRICS:
-            button = QPushButton(m.tab)
-            button.setProperty("tab", True)
-            button.setCheckable(True)
-            button.clicked.connect(lambda _=False, k=m.key: self._set_metric(k))
-            tabs.addWidget(button)
-            self.metric_buttons[m.key] = button
         self.enemy_view = False          # the Enemigos tab: the enemies one by one
         self.selected_enemy = None
-        self.enemy_button = QPushButton(tr("Enemigos"))
-        self.enemy_button.setProperty("tab", True)
-        self.enemy_button.setCheckable(True)
-        self.enemy_button.setToolTip(tr("Cada enemigo por separado: su vida, si murió, el daño que recibió y quién "
-                                        "se lo hizo, y el daño que hizo"))
-        self.enemy_button.clicked.connect(self._show_enemies)
-        tabs.addWidget(self.enemy_button)
-        tabs.addStretch(1)
-        root.addLayout(tabs)
+        self.tabs = GameTabs(f, [(m.key, m.tab) for m in METRICS] + [("enemies", tr("Enemigos"))], METRICS[0].key,
+                             sub=True)
+        self.tabs.setToolTip(tr("Cada contribución de la pelea; Enemigos: cada enemigo por separado (su vida, si "
+                                "murió, el daño que recibió y quién se lo hizo, y el daño que hizo)"))
+        self.tabs.changed.connect(self._tab_changed)
+        body.addWidget(self.tabs)
 
         filters = QHBoxLayout()
         filters.setSpacing(8)
@@ -400,26 +510,18 @@ class DpsDetailsWindow(QWidget):
         self.target_box.addItem(tr("Solo al jefe"), "boss")
         self.target_box.currentIndexChanged.connect(lambda _: self._fill())
         filters.addWidget(self.target_box)
-        self.group_buttons = {}
-        for key, text in GROUPS:
-            button = QPushButton(text)
-            button.setProperty("tab", True)
-            button.setCheckable(True)
-            button.setChecked(key == self.group_filter)
-            button.clicked.connect(lambda _=False, k=key: self._set_group(k))
-            filters.addWidget(button)
-            self.group_buttons[key] = button
+        self.group_chips = ChipGroup(f, GROUPS, self.group_filter)
+        self.group_chips.changed.connect(lambda: self._set_group(self.group_chips.selected()))
+        filters.addWidget(self.group_chips)
         self.class_box = QComboBox()
         self.class_box.currentIndexChanged.connect(lambda _: self._fill())
         filters.addWidget(self.class_box)
-        self.search = QLineEdit()
-        self.search.setPlaceholderText(tr("Buscar jugador o clase…"))
-        self.search.setClearButtonEnabled(True)
+        self.search = SearchBox(f, tr("Buscar jugador o clase…"))
         self.search.textChanged.connect(lambda _: self._fill())
         filters.addWidget(self.search, 1)
-        root.addLayout(filters)
+        body.addLayout(filters)
 
-        split = QSplitter(Qt.Horizontal)
+        split = self.split = QSplitter(Qt.Horizontal)     # players | breakdown; stacked when the page is narrow
         split.setChildrenCollapsible(False)
         self.table = MeterTable([tr("Jugador")], f)
         self.table.itemSelectionChanged.connect(self._on_select)
@@ -443,11 +545,12 @@ class DpsDetailsWindow(QWidget):
         split.setStretchFactor(0, 3)
         split.setStretchFactor(1, 2)
         split.setSizes([830, 490])
-        root.addWidget(split, 1)
+        body.addWidget(split, 1)
 
         foot = QHBoxLayout()
         self.note = label("", f.small, theme.MUTED)
         self.note.setWordWrap(True)
+        self.note.setMinimumWidth(f.px(260))        # in a splitter pane a wrapping label shrinks to a column
         foot.addWidget(self.note, 1)
         foot.addWidget(label(tr("En el overlay:"), f.small, theme.MUTED))
         for key, text, tip in (("dps_boss_only", tr("En jefes, solo el daño al jefe"),
@@ -463,15 +566,316 @@ class DpsDetailsWindow(QWidget):
         link.setProperty("flat", True)
         link.clicked.connect(lambda: webbrowser.open(credit["url"]))
         foot.addWidget(link)
-        root.addLayout(foot)
+        body.addLayout(foot)
 
         self._timer = QTimer(self, interval=1000, timeout=self._live)
         self.refresh()
+
+    # --- the history (its tab) --------------------------------------------------------------------------
+    def _build_history(self):
+        """The Historial tab: the fights of this session and the saved ones with filters on top (kind, place, a
+        search, short fights hidden), grouped by day and by dungeon visit; a click opens the fight in Pelea."""
+        f = self.fonts
+        page = QWidget()
+        col = QVBoxLayout(page)
+        col.setContentsMargins(0, f.px(2), 0, 0)
+        col.setSpacing(f.px(8))
+        bar = QHBoxLayout()
+        bar.setSpacing(f.px(14))
+        self.kind_chips = ChipGroup(f, HISTORY_KINDS, "all")
+        self.kind_chips.changed.connect(self._fill_history)
+        bar.addWidget(self.kind_chips, 1)
+        self.hide_short = QCheckBox(tr("Ocultar peleas cortas"))
+        self.hide_short.setToolTip(tr("Corta: menos de {0} s sin que caiga un jefe, o un mob suelto que solo "
+                                      "golpeaste tú en menos de {1} s. Las marcadas con ★ y la que está en curso se "
+                                      "ven siempre.", SHORT_SECONDS, MIN_SECONDS))
+        self.hide_short.setChecked(bool(self.ctl.settings.get("dps_hide_short", True)))
+        self.hide_short.toggled.connect(self._hide_short_changed)
+        bar.addWidget(self.hide_short)
+        self.history_search = SearchBox(f, tr("Buscar enemigo o lugar…"))
+        self.history_search.setMinimumWidth(f.px(230))
+        self.history_search.changed.connect(lambda _t: self._fill_history())
+        bar.addWidget(self.history_search)
+        col.addLayout(bar)
+
+        self.place_row = QHBoxLayout()               # Todos los lugares · the most fought places · Más lugares ▾
+        self.place_row.setSpacing(f.px(6))
+        self.place = None                            # the place chosen (None: all of them)
+        self.place_chips = None
+        self._rest_places = []
+        self.more_places = QPushButton()
+        self.more_places.setProperty("chip", True)
+        self.more_places.setFont(f.small)
+        self.more_places.setCursor(Qt.PointingHandCursor)
+        self.more_places.setToolTip(tr("Los demás lugares donde peleaste"))
+        self.more_places.clicked.connect(self._more_places_menu)
+        self.place_row.addWidget(self.more_places)
+        self.place_row.addStretch(1)
+        col.addLayout(self.place_row)
+        self._place_counts = None
+
+        table = self.history = MeterTable(HISTORY_COLUMNS, f)
+        table.setSortingEnabled(False)               # the rows are grouped by day and visit
+        table.verticalHeader().setDefaultSectionSize(f.px(30))
+        table.viewport().setCursor(Qt.PointingHandCursor)
+        header = table.horizontalHeader()
+        for c, width in enumerate(HISTORY_WIDTHS):
+            if width:
+                header.setSectionResizeMode(c, QHeaderView.Interactive)
+                table.setColumnWidth(c, f.px(width))
+        for c in (1, 2):
+            table.horizontalHeaderItem(c).setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        table.setToolTip(tr("Un clic abre la pelea"))
+        table.cellClicked.connect(self._history_clicked)
+        col.addWidget(table, 1)
+
+        foot = QHBoxLayout()
+        foot.setSpacing(f.px(6))
+        self.hidden_note = label("", f.small, theme.MUTED)
+        foot.addWidget(self.hidden_note)
+        self.show_short = QPushButton(tr("Mostrarlas"))
+        self.show_short.setProperty("flat", True)
+        self.show_short.clicked.connect(lambda: self.hide_short.setChecked(False))
+        foot.addWidget(self.show_short)
+        foot.addStretch(1)
+        self.history_count = label("", f.small, theme.MUTED)
+        foot.addWidget(self.history_count)
+        col.addLayout(foot)
+        return page
+
+    def _hide_short_changed(self, on):
+        self.ctl.settings["dps_hide_short"] = bool(on)
+        self.ctl._save_settings()
+        self._fill_history()
+
+    def _fill_history(self):
+        """The list with the filters on. Each chip counts what it would show with the other filters as they are."""
+        f = self.fonts
+        hide = self.hide_short.isChecked()
+        items = [i for i in self._items if not (hide and _short(i))]
+        hidden = len(self._items) - len(items)
+        query = self.history_search.text().strip().lower()
+        if query:
+            items = [i for i in items if query in (i.get("target") or "").lower() or query in _place(i).lower()]
+        in_place = [i for i in items if not self.place or _place(i) == self.place]
+        for key, text in HISTORY_KINDS:
+            self.kind_chips.set_label(key, f"{text} · {sum(1 for i in in_place if _of_kind(i, key))}")
+        kind = self.kind_chips.selected() or "all"
+        of_kind = [i for i in items if _of_kind(i, kind)]
+        self._fill_places(Counter(_place(i) for i in of_kind), len(of_kind))
+        shown = [i for i in of_kind if not self.place or _place(i) == self.place]
+        self._visible_ids = [i["id"] for i in shown]
+
+        table = self.history
+        table.setUpdatesEnabled(False)
+        table.clearSelection()
+        table.clearSpans()
+        rows = _visits(shown, time.time()) if shown else [("empty",)]
+        table.setRowCount(0)
+        table.setRowCount(len(rows))
+        self._history_row_of = {}
+        for r, row in enumerate(rows):
+            if row[0] == "fight":
+                self._history_fight(r, row[1], row[2])
+                continue
+            if row[0] == "day":
+                text, font, color, height = row[1].upper(), f.section, theme.MUTED, 26
+            elif row[0] == "visit":
+                place, fights = row[1], row[2]
+                bosses = sum(1 for i in fights if i.get("boss"))
+                span = (time.strftime("%H:%M", time.localtime(fights[-1]["start"])) + "–"
+                        + time.strftime("%H:%M", time.localtime(fights[0]["last"])))
+                text = " · ".join(x for x in (tr(place), tr("{0} peleas", len(fights)),
+                                              (tr("1 jefe") if bosses == 1 else tr("{0} jefes", bosses)) if bosses
+                                              else "", span) if x)
+                font, color, height = f.name, theme.ACCENT, 30
+            else:
+                text = tr("Ninguna pelea con estos filtros.") if self._items else tr("Aún no hay peleas guardadas.")
+                font, color, height = f.body, theme.MUTED, 40
+            item = QTableWidgetItem(text)
+            item.setFlags(Qt.ItemIsEnabled)
+            item.setData(HEAD_ROLE, row[0] if row[0] == "day" else "visit")
+            item.setFont(font)
+            item.setForeground(color)
+            table.setItem(r, 0, item)
+            table.setSpan(r, 0, 1, table.columnCount())
+            table.setRowHeight(r, f.px(height))
+        table.setUpdatesEnabled(True)
+
+        self.history_count.setText(tr("{0} de {1} peleas", len(shown), len(self._items)))
+        self.hidden_note.setText(("" if not hidden else tr("1 pelea corta oculta.") if hidden == 1 else
+                                  tr("{0} peleas cortas ocultas.", hidden)))
+        self.hidden_note.setVisible(bool(hidden))
+        self.show_short.setVisible(bool(hidden))
+        self.view_tabs.set_label("history", f"{tr('Historial')} · {len(shown)}")
+        self._mark_selected()
+
+    def _history_fight(self, r, item, indent):
+        """A fight's row: ★ and the enemy (gold when a boss, ✓ when it died), the kind of fight, where, how long,
+        when, your DPS and your share (in boss fights, of the damage to the boss)."""
+        table = self.history
+        name = (("     " if indent else "") + ("★ " if item.get("pinned") else "") + (item.get("target") or tr("Pelea"))
+                + (" ✓" if item.get("killed") else ""))
+        first = SortItem(name, None, Qt.AlignLeft | Qt.AlignVCenter)
+        first.setData(KEY_ROLE, item["id"])
+        first.setFont(self.fonts.name)
+        first.setForeground(theme.GOLD if item.get("boss") else theme.TEXT)
+        if item.get("deaths"):
+            first.setToolTip(tr("1 muerte en tu grupo") if item["deaths"] == 1 else
+                             tr("{0} muertes en tu grupo", item["deaths"]))
+        table.setItem(r, 0, first)
+        left, right = Qt.AlignLeft | Qt.AlignVCenter, Qt.AlignRight | Qt.AlignVCenter
+        cells = [(tr(item.get("label") or ""), left, theme.MUTED),
+                 (_place(item), left, theme.MUTED),
+                 (mmss(item.get("duration", 0)), right, theme.TEXT),
+                 (_when(item), right, theme.COMBAT if item.get("live") else theme.MUTED),
+                 (short_number(item["dps"]) if item.get("dps") else "—", right, theme.TEXT),
+                 (_pct(item["share"]) if item.get("share") else "—", right, theme.MUTED)]
+        for c, (text, align, color) in enumerate(cells, 1):
+            cell = SortItem(text, None, align)
+            cell.setForeground(color)
+            table.setItem(r, c, cell)
+        self._history_row_of[item["id"]] = r
+
+    def _fill_places(self, counts, total):
+        """The place chips: all of them, the TOP_PLACES most fought (and the one chosen), the rest in a menu."""
+        self._place_counts = (counts, total)
+        order = [p for p, _ in counts.most_common()]
+        fm = QFontMetrics(self.fonts.small)
+        width = lambda p: fm.horizontalAdvance(f"{p} · {counts.get(p, 0)}") + self.fonts.px(30)  # noqa: E731
+        room = (self.views.width() if hasattr(self, "views") else self.width()) - self.fonts.px(150)
+        used = fm.horizontalAdvance(f"{tr('Todos los lugares')} · {total}") + self.fonts.px(30)
+        chips = []
+        for p in order[:TOP_PLACES]:                 # as many as fit in the row
+            if used + width(p) > room:
+                break
+            chips.append(p)
+            used += width(p)
+        if self.place and self.place not in chips:
+            while chips and used + width(self.place) > room:
+                used -= width(chips.pop())
+            chips.append(self.place)
+        self._rest_places = [(p, counts[p]) for p in order if p not in chips]
+        self.more_places.setText(tr("Más lugares ({0}) ▾", len(self._rest_places)))
+        self.more_places.setVisible(bool(self._rest_places))
+        spec = [("*", f"{tr('Todos los lugares')} · {total}")] + [(p, f"{p} · {counts.get(p, 0)}") for p in chips]
+        if self.place_chips is not None and list(self.place_chips.buttons) == [k for k, _ in spec]:
+            for key, text in spec:
+                self.place_chips.set_label(key, text)
+            return
+        if self.place_chips is not None:             # other places: new chips (the old ones go after this event)
+            self.place_row.removeWidget(self.place_chips)
+            self.place_chips.hide()
+            self.place_chips.deleteLater()
+        self.place_chips = ChipGroup(self.fonts, spec, self.place or "*")
+        self.place_chips.setToolTip(tr("Solo las peleas de un lugar o una mazmorra"))
+        self.place_chips.changed.connect(self._place_chosen)
+        self.place_row.insertWidget(0, self.place_chips)
+
+    def _place_chosen(self):
+        key = self.place_chips.selected()
+        self.place = None if key in (None, "*") else key
+        self._fill_history()
+
+    def _more_places_menu(self):
+        menu = QMenu(self)
+        for place, n in self._rest_places:
+            menu.addAction(f"{place} · {n}", lambda p=place: self._choose_place(p))
+        menu.exec(self.more_places.mapToGlobal(self.more_places.rect().bottomLeft()))
+
+    def _choose_place(self, place):
+        self.place = place
+        self._fill_history()
+
+    def _history_clicked(self, row, _col):
+        item = self.history.item(row, 0)
+        fid = item.data(KEY_ROLE) if item is not None else None
+        if fid:
+            self._open_fight(fid)
+
+    def _open_fight(self, fid):
+        self.current_id = fid
+        self._show_view("fight")
+        self._fill()
+
+    def _mark_selected(self):
+        """The fight on screen: its row in the history and where it is in it (the arrows next to the tabs)."""
+        row = self._history_row_of.get(self.current_id)
+        self.history.blockSignals(True)
+        if row is None:
+            self.history.clearSelection()
+        else:
+            self.history.selectRow(row)
+        self.history.blockSignals(False)
+        ids = self._visible_ids
+        pos = ids.index(self.current_id) if self.current_id in ids else -1
+        self.nav_label.setText(tr("{0} de {1}", pos + 1, len(ids)) if pos >= 0 else
+                               tr("fuera de los filtros") if ids and self.current_id else "")
+        self.newer_button.setEnabled(pos > 0 or (pos < 0 and bool(ids)))
+        self.older_button.setEnabled(0 <= pos < len(ids) - 1 or (pos < 0 and bool(ids)))
+
+    def _nav_button(self, glyph, tip, step):
+        button = QPushButton(glyph)
+        button.setProperty("link", True)
+        button.setFont(self.fonts.glyph)
+        button.setToolTip(tip)
+        button.clicked.connect(lambda: self._step(step))
+        return button
+
+    def _step(self, step):
+        """The next fight of the history up (newer) or down (older)."""
+        ids = self._visible_ids
+        if not ids:
+            return
+        pos = ids.index(self.current_id) + step if self.current_id in ids else 0
+        if 0 <= pos < len(ids):
+            self.current_id = ids[pos]
+            self._fill()
+
+    def _show_view(self, key):
+        self.view_tabs.set_current(key)
+        self.views.setCurrentIndex(0 if key == "fight" else 1)
+        self.nav.setVisible(key == "fight")
+        self.header.set_subtitle(self._summary_text if key == "fight" else self._history_text)
+        row = self._history_row_of.get(self.current_id)
+        if key == "history" and row is not None:
+            self.history.scrollToItem(self.history.item(row, 0), QAbstractItemView.PositionAtCenter)
+
+    def show_tab(self, key):
+        """Pelea / Historial, or a tab of the fight (damage, healing… enemies)."""
+        if key in dict(VIEWS):
+            self._show_view(key)
+        else:
+            self._show_view("fight")
+            self.tabs.set_current(key, emit=True)
+
+    def _tab_changed(self, key):
+        if key == "enemies":
+            self._show_enemies()
+        else:
+            self._set_metric(key)
+
+    def _set_summary(self, text):
+        self._summary_text = text
+        if self.views.currentIndex() == 0:
+            self.header.set_subtitle(text)
 
     def _overlay_option(self, key, on):
         self.ctl.settings[key] = on
         self.ctl.settings.save()
         self.ctl.refresh()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if not hasattr(self, "split"):
+            return
+        wide = self.width() >= self.fonts.px(1150)
+        orientation = Qt.Horizontal if wide else Qt.Vertical
+        if self.split.orientation() != orientation:
+            self.split.setOrientation(orientation)
+            self.split.setSizes([3000, 2000] if wide else [2000, 3000])
+        if self._place_counts is not None:            # as many place chips as fit now
+            self._fill_places(*self._place_counts)
 
     def showEvent(self, event):
         self._timer.start()
@@ -487,54 +891,22 @@ class DpsDetailsWindow(QWidget):
         return self.ctl.fight_list()
 
     def refresh(self):
-        """Reload the encounter list (keeps the selection when it still exists)."""
-        current = self.encounter_box.currentData()
-        self.encounter_box.blockSignals(True)
-        self.encounter_box.clear()
-        today = time.strftime("%d/%m")
-        items = self.encounters()
+        """Reload the fights (the one on screen stays while it exists; at first, the newest the history shows)."""
+        items = self._items = self.encounters()
         self._listed = [(i["id"], i["pinned"]) for i in items]
-
-        def when(item):
-            day = time.strftime("%d/%m", time.localtime(item["last"]))
-            return tr("en curso") if item["live"] else time.strftime("%H:%M" if day == today else "%d/%m %H:%M",
-                                                                 time.localtime(item["last"]))
-
-        def add(item, indent=""):
-            self.encounter_box.addItem(f"{indent}{'★ ' if item['pinned'] else ''}{item['target']}"
-                                       f"{' ✓' if item['killed'] else ''} · {mmss(item['duration'])} · {when(item)}",
-                                       item["id"])
-
-        bold = QFont(self.encounter_box.font())
-        bold.setBold(True)
-        for kind, entry in history_entries(items):     # a dungeon visit: its name, then its boss fights
-            if kind == "fight":
-                add(entry)
-                continue
-            n = len(entry.bosses)
-            self.encounter_box.addItem(f"{tr(entry.place)} · " + (tr("1 jefe") if n == 1 else tr("{0} jefes", n))
-                                       + f" · {when(entry.bosses[-1])}")
-            header = self.encounter_box.model().item(self.encounter_box.count() - 1)
-            header.setFlags(Qt.NoItemFlags)
-            header.setData(bold, Qt.FontRole)
-            header.setData(theme.ACCENT, Qt.ForegroundRole)
-            for item in entry.bosses:
-                add(item, "    ↳ ")
-        idx = self.encounter_box.findData(current)
-        if idx < 0:
-            idx = next((i for i in range(self.encounter_box.count()) if self.encounter_box.itemData(i)), 0)
-        self.encounter_box.setCurrentIndex(idx)
-        self.encounter_box.blockSignals(False)
+        self._fill_history()
+        if self.current_id not in {i["id"] for i in items}:
+            self.current_id = self._visible_ids[0] if self._visible_ids else (items[0]["id"] if items else None)
         self._fill()
 
     def show_encounter(self, enc):
-        idx = self.encounter_box.findData(enc if isinstance(enc, str) else enc.id)
-        if idx >= 0:
-            self.encounter_box.setCurrentIndex(idx)
+        """Open a fight (or its id) in Pelea: from the HUD's history, a session report, the Simulación."""
+        fid = enc if isinstance(enc, str) else enc.id
+        if any(i["id"] == fid for i in self._items):
+            self._open_fight(fid)
 
     def encounter(self):
-        key = self.encounter_box.currentData()
-        return self.ctl.fight(key) if key else None
+        return self.ctl.fight(self.current_id) if self.current_id else None
 
     def _group(self, enc):
         return enc.group_names(self.ctl.combat.group)
@@ -572,9 +944,8 @@ class DpsDetailsWindow(QWidget):
         self._fill()
 
     def _set_group(self, key):
-        self.group_filter = key
-        for k, button in self.group_buttons.items():
-            button.setChecked(k == key)
+        self.group_filter = key or "all"
+        self.group_chips.set_selected(self.group_filter)
         self._fill()
 
     def _set_metric(self, key):
@@ -611,14 +982,10 @@ class DpsDetailsWindow(QWidget):
         enc = self.encounter()
         for m in METRICS:
             has = enc is not None and any(m.value(a) for a in enc.actors.values())
-            button = self.metric_buttons[m.key]
-            button.setEnabled(has or m is METRICS[0])
-            button.setToolTip("" if has else
-                              tr("Se calcula al terminar la pelea (desde la versión 1.45)") if m.key == "upkeep" else
-                              tr("No hay datos de esto en esta pelea"))
-            button.setChecked(m is self.shown_metric and not self.enemy_view)
-        self.enemy_button.setChecked(self.enemy_view)
-        self.enemy_button.setEnabled(enc is not None and bool(enc.targets or enc.enemy_damage))
+            self.tabs.set_enabled(m.key, has or m is METRICS[0])
+        self.tabs.set_enabled("enemies", enc is not None and bool(enc.targets or enc.enemy_damage))
+        self.tabs.set_current("enemies" if self.enemy_view else self.shown_metric.key)
+        self._mark_selected()
         self.pin_button.setEnabled(enc is not None)
         self.pin_button.setChecked(bool(enc is not None and enc.pinned))
         self.pin_button.setText(tr("★ Conservada") if enc is not None and enc.pinned else tr("☆ Conservar"))
@@ -636,9 +1003,9 @@ class DpsDetailsWindow(QWidget):
         else:
             why = tr("Solo hay simulación de las peleas de jefe dentro de mazmorras")
         self.sim_button.setToolTip(why)
-        if enc is not None and not self.metric_buttons[self.shown_metric.key].isEnabled():
+        if enc is not None and self.shown_metric.key not in self.tabs.enabled_keys:
             self.shown_metric = METRICS[0]
-            self.metric_buttons[self.shown_metric.key].setChecked(True)
+            self.tabs.set_current(self.shown_metric.key)
         metric = self.shown_metric
         if enc is not None and self._target_set_for != enc.id:
             # boss fights open on the damage to the boss (what LOXIN shows); the player can switch
@@ -668,7 +1035,7 @@ class DpsDetailsWindow(QWidget):
             table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
             table.horizontalHeaderItem(1).setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         if enc is None:
-            self.summary.setText(tr("Aún no hay peleas en esta sesión."))
+            self._set_summary(tr("Aún no hay peleas en esta sesión."))
             self._fill_breakdown(None, None)
             return
         rows = self._rows(enc, metric)
@@ -689,7 +1056,7 @@ class DpsDetailsWindow(QWidget):
             if contribution.hp_lost and contribution.seen < 0.9:
                 summary += (tr(" · el jefe perdió {0} de vida y solo ves el {1:.1f}% de los golpes: el % es sobre "
                                "su vida perdida", short_number(contribution.hp_lost), 100 * contribution.seen))
-        self.summary.setText(summary)
+        self._set_summary(summary)
         top = max((r.value for r in shown), default=1) or 1
         table.setRowCount(len(shown))
         for i, row in enumerate(shown):
@@ -792,7 +1159,7 @@ class DpsDetailsWindow(QWidget):
         counts = {r[0]: r[6] for r in merged.values()}
         total = sum(enc.targets.values()) or 1
         dead = sum(1 for e in rows if e[3])
-        self.summary.setText(tr("{0} enemigos · {1} derrotados · daño total {2} · {3}", len(rows), dead, short_number(total), mmss(enc.duration)))
+        self._set_summary(tr("{0} enemigos · {1} derrotados · daño total {2} · {3}", len(rows), dead, short_number(total), mmss(enc.duration)))
         top = max((r[5] for r in rows), default=1) or 1
         table.setRowCount(len(rows))
         for i, (eid, name, ratio, is_dead, dealt, took) in enumerate(rows):
@@ -899,14 +1266,7 @@ class DpsDetailsWindow(QWidget):
             self._side_tabs(views)
             self._fill_upkeep(enc, actor, kind, names)
             return
-        if len(views) > 1:
-            for i, v in enumerate(views):
-                button = QPushButton(v[0])
-                button.setProperty("tab", True)
-                button.setCheckable(True)
-                button.setChecked(i == self.side_view)
-                button.clicked.connect(lambda _=False, i=i: self._set_side_view(i))
-                self.side_buttons.addWidget(button)
+        self._side_tabs(views)
         rows = self._breakdown_rows(enc, actor, attr, hits_attr, kind, names)
         total = sum(r[1] for r in rows) or 1
         top = max((r[1] for r in rows), default=1) or 1
@@ -940,13 +1300,9 @@ class DpsDetailsWindow(QWidget):
 
     def _side_tabs(self, views):
         if len(views) > 1:
-            for i, v in enumerate(views):
-                button = QPushButton(v[0])
-                button.setProperty("tab", True)
-                button.setCheckable(True)
-                button.setChecked(i == self.side_view)
-                button.clicked.connect(lambda _=False, i=i: self._set_side_view(i))
-                self.side_buttons.addWidget(button)
+            tabs = GameTabs(self.fonts, [(str(i), v[0]) for i, v in enumerate(views)], str(self.side_view), sub=True)
+            tabs.changed.connect(lambda k: self._set_side_view(int(k)))
+            self.side_buttons.addWidget(tabs)
 
     def _fill_upkeep(self, enc, actor, kind, names):
         """Buffs: each one with the share of the fight it was on, how many times it was put and by whom.

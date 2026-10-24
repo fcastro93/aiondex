@@ -193,3 +193,22 @@ def parse_skill_page(page):
 
 def tile_url(map_id, z, x, y):
     return f"{BASE}/web/aion2/worldmap/{map_id}/{z}/{x}/{y}.webp"
+
+
+def slugify(name):
+    """metabot's page slug of an item name ("Lazuli Hammer (Bound)" -> lazuli-hammer-bound)."""
+    return re.sub(r"[^a-z0-9]+", "-", name.lower().replace("'", "")).strip("-")
+
+
+def parse_item_icon(page):
+    """/en/aion-2/items/<slug> -> the item's icon path under /web/aion2/ (items/icon_....webp), or None. The page's
+    og:image is the item's own icon (the most repeated icon is not: a weapon's page lists its enchant stones more
+    times than its own picture); the site's own card there means it has no such item."""
+    for tag in re.findall(r"<meta[^>]+og:image[\"'][^>]*>", page):
+        icon = re.search(r"/web/aion2/(items/[A-Za-z0-9_.\-]+\.webp)", tag)
+        if icon:
+            return icon.group(1)
+        if "content=" in tag:
+            return None
+    found = re.findall(r"items(?:/|%2F)([A-Za-z0-9_.\-]+\.webp)", page)    # no og:image at all: the most shown
+    return "items/" + max(set(found), key=found.count) if found else None

@@ -41,8 +41,8 @@ PAINT_MS = 16
 HIDE_AFTER = 1.5                 # seconds without the grid before it hides (no blinking)
 TOP_EVERY = 0.5                  # seconds between two "stay over the game" (the game in front can cover it)
 DIAGNOSE_AFTER = 6.0             # seconds with the game in front and no grid before one capture is kept to look at
-TO_ADD = QColor("#2ec0f2")
-ADDED = QColor("#7bd88f")
+TO_ADD = QColor("#3ad1f5")
+ADDED = QColor("#5fdc7c")
 
 
 class ArcanaOverlay(QWidget):

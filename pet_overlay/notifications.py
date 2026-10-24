@@ -14,7 +14,8 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal
 
-HISTORY_MAX = 200
+HISTORY_MAX = 60        # 2.5: 200 before, and «y 117 más» was nobody's idea of a readable list
+KEEP_DAYS = 7           # kept notices older than this are dropped at the next start
 MERGE_SECONDS = 5.0     # same-key notices within this window update the previous one ("+1" -> "+3")
 
 # kind -> meaning (colors live in ui/theme)
@@ -37,6 +38,7 @@ class Notice:
     read: bool = False
     keep: bool = True            # in the history (False: only the toast)
     same: str | None = None      # what it is about, when the title alone does not say it (replaces older ones)
+    page: str | None = None      # the AionDex window's page a click opens (a nav key), if any
 
     @property
     def ident(self):
@@ -56,7 +58,8 @@ class NotificationCenter(QObject):
         self._next_id = 1
         self._load()
 
-    def post(self, kind, title, body="", pet_id=None, key=None, amount=0, title_template=None, keep=None, same=None):
+    def post(self, kind, title, body="", pet_id=None, key=None, amount=0, title_template=None, keep=None, same=None,
+             page=None):
         """Add a notice (keep: into the history; by default only the KEEP_KINDS, the rest are toasts only). With a
         key, a matching notice from the last few seconds is updated instead: its amount accumulates and
         title_template.format(amount=...) becomes the new title."""
@@ -69,6 +72,7 @@ class NotificationCenter(QObject):
                 last.amount += amount
                 last.title = title_template.format(amount=last.amount) if title_template else title
                 last.body, last.updated, last.read = body, now, False
+                last.page = page or last.page
                 if keep:
                     self._save()
                 self.updated.emit(last)
@@ -76,7 +80,7 @@ class NotificationCenter(QObject):
                     self.changed.emit()
                 return last
         notice = Notice(self._next_id, kind, title_template.format(amount=amount) if title_template else title,
-                        body, pet_id, key, amount, now, now, keep=keep, same=same)
+                        body, pet_id, key, amount, now, now, keep=keep, same=same, page=page)
         self._next_id += 1
         if keep:                                 # the older ones saying the same thing go: no duplicates
             for old in [n for n in self.history if n.ident == notice.ident]:
@@ -100,6 +104,15 @@ class NotificationCenter(QObject):
             self._save()
             self.changed.emit()
 
+    def remove(self, nid):
+        """Drop one notice from the history."""
+        for n in list(self.history):
+            if n.id == nid:
+                self.history.remove(n)
+                self._save()
+                self.changed.emit()
+                return
+
     def clear(self):
         self.history.clear()
         self._save()
@@ -115,6 +128,7 @@ class NotificationCenter(QObject):
             items = json.loads(self.path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return
+        cutoff = time.time() - KEEP_DAYS * 86400
         for item in items[-HISTORY_MAX:]:
             try:
                 notice = Notice(**item)
@@ -122,6 +136,8 @@ class NotificationCenter(QObject):
                 continue
             if "keep" not in item and not _important(notice):
                 continue                 # before 1.39: everything went to the history
+            if notice.updated < cutoff:
+                continue                 # a week old: gone (2.5)
             self.history.append(notice)
         newest = {}
         for n in self.history:                   # histories from before 1.56.3 can hold duplicates: the latest stays

@@ -25,8 +25,8 @@ CARD_LINE = QColor(255, 255, 255, 26)
 TEXT = QColor("#eef2f8")
 MUTED = QColor("#8b95ab")
 TEAL = QColor("#5ed6c6")
-GOLD = QColor("#f0c24e")
-GREEN = QColor("#7bd88f")
+GOLD = QColor("#e9c45c")
+GREEN = QColor("#5fdc7c")
 ROW_H = 48
 
 

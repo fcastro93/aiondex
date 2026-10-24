@@ -1245,3 +1245,123 @@ def _load(path, default):
         return json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return default
+
+
+class ItemIcons:
+    """The items' pictures for Profesiones (recipes, materials, market goods), from metabot's item pages: each name
+    is looked up once (its page's og:image, an icon under /web/aion2/items/) and remembered in
+    data/crafting/item_icons.json; the picture itself is kept with the Tracker's in data/tracker_icons/. A name
+    metabot has no page for is tried again after a week. want() queues the unknown names (the ones on screen first)
+    for a background thread, and on_done is called, from that thread, each time a few more pictures are on disk."""
+    VERSION = 2                 # 1 (unreleased) took the most repeated icon: wrong for gear pages
+    BATCH = 6
+    RETRY_SECONDS = 600         # after a network failure, no lookups for a while
+    MISS_DAYS = 7               # a name with no page is looked up again after this
+
+    def __init__(self, data_dir, online=True):
+        self.data_dir = Path(data_dir)
+        self.path = self.data_dir / "crafting" / "item_icons.json"
+        self.online = online
+        saved = _load(self.path, {})
+        if not isinstance(saved, dict) or saved.get("v") != self.VERSION:
+            saved = {}
+        self.map = {k: v for k, v in (saved.get("icons") or {}).items() if isinstance(v, str) and v}
+        now = time.time()
+        self.miss = {k: t for k, t in (saved.get("miss") or {}).items()
+                     if isinstance(t, (int, float)) and now - t < self.MISS_DAYS * 86400}
+        self.on_done = None
+        self._queue = []
+        self._queued = set()
+        self._lock = threading.Lock()
+        self._thread = None
+        self._failed_at = 0.0
+
+    @staticmethod
+    def key(name):
+        """One entry per item: the bound copy of a product has the same picture."""
+        return (name or "").replace(" (Bound)", "").strip()
+
+    def file(self, name):
+        """The PNG of an item's icon, or None (not looked up yet, metabot has none, or not downloaded)."""
+        from .tracker import image_file
+        path = self.map.get(self.key(name))
+        if not path:
+            return None
+        file = image_file(self.data_dir, path)
+        return file if file.exists() else None
+
+    def want(self, names):
+        """Look up (and download) the icons of these names that are not known yet, in the background."""
+        if not self.online or time.time() - self._failed_at < self.RETRY_SECONDS:
+            return
+        with self._lock:
+            for name in names:
+                key = self.key(name)
+                if key and key not in self.map and key not in self.miss and key not in self._queued:
+                    self._queue.append(key)
+                    self._queued.add(key)
+            if self._queue and self._thread is None:
+                self._thread = threading.Thread(target=self._run, daemon=True, name="item-icons")
+                self._thread.start()
+
+    def _lookup(self, key):
+        """The icon path of one item from its metabot page ("" when it has none). Raises OSError when metabot
+        cannot be reached (or turns us away)."""
+        import urllib.error
+        from . import metabot
+        for slug in (metabot.slugify(key), metabot.slugify(key + " (Bound)")):   # some only have the bound page
+            try:
+                page = metabot.fetch(f"/en/aion-2/items/{slug}").decode("utf-8", "ignore")
+            except urllib.error.HTTPError as exc:
+                if exc.code == 404:
+                    continue                                            # no such page
+                raise OSError(f"metabot answered {exc.code}") from exc
+            except Exception as exc:                                    # noqa: BLE001 - the network is down
+                raise OSError(str(exc)) from exc
+            path = metabot.parse_item_icon(page)
+            if path:
+                return path
+        return ""
+
+    def _run(self):
+        from . import dbupdate
+        while True:
+            with self._lock:
+                batch, self._queue = self._queue[:self.BATCH], self._queue[self.BATCH:]
+                if not batch:
+                    self._thread = None
+                    return
+            paths = []
+            for key in batch:
+                try:
+                    path = self._lookup(key)
+                except OSError as exc:
+                    log.info("item icons: metabot unreachable (%s), giving up for a while", exc)
+                    with self._lock:
+                        self._queue, self._queued, self._thread = [], set(), None
+                    self._failed_at = time.time()
+                    self._save()
+                    return
+                if path:
+                    self.map[key] = path
+                    paths.append(path)
+                else:
+                    self.miss[key] = time.time()
+            if paths:
+                try:
+                    dbupdate.download_tracker_images(self.data_dir, paths)
+                except Exception:                                       # noqa: BLE001
+                    log.exception("item icons: download")
+            with self._lock:
+                self._queued.difference_update(batch)
+            self._save()
+            if self.on_done:
+                self.on_done()
+
+    def _save(self):
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            data = {"v": self.VERSION, "icons": dict(self.map), "miss": dict(self.miss)}
+            self.path.write_text(json.dumps(data, ensure_ascii=False, indent=0), encoding="utf-8")
+        except OSError:
+            log.exception("item icons: save")

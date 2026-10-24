@@ -790,7 +790,7 @@ class Timeline(QWidget):
         top, bottom = 26, self.height() - 14
         bar = QRectF(12, top, self.width() - 24, bottom - top)
         p.setPen(Qt.NoPen)
-        p.setBrush(QColor("#10131b"))
+        p.setBrush(QColor("#0a0d14"))
         p.drawRoundedRect(bar, 6, 6)
         boss = r.bosses[0]["eid"] if r.bosses else None
         rows = r.hp.get(boss) if boss is not None else None

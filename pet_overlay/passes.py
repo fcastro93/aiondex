@@ -29,6 +29,13 @@ CLAIM_OPCODE = bytes.fromhex("23e3")
 # the pass "slot" (id % 1000: 44 Ishalgen Mercenary / Dawn Legion, 45 Planet's Call) -> (levels: [(how many, EXP
 # each)], the last one repeating; weekly EXP limit)
 TABLES = {44: ([(10, 1350), (None, 1700)], 50_000), 45: ([(None, 700)], 15_000)}
+# Levels read off the game's window above where the table holds: slot -> [(level, total EXP at its start, EXP each
+# level from there)]. 2026-10-23: Agame's Ishalgen Mercenary Lv 95 with 1,470/2,500 at 180,870 EXP (week 30,870/
+# 50,000), and Lv 99 at 191,180 with 98 levels collected: 2,500 a level from 95.
+ANCHORS = {44: [(95, 179_400, 2_500)]}
+# the levels the table (and the anchors) are known to give right; between them the cost per level grows and only
+# the rewards collected tell the level
+HOLDS = {44: ((1, 32), (95, None)), 45: ((1, 31),)}
 KEEP_DAYS = 30
 
 
@@ -82,6 +89,10 @@ def level_of(pass_id, exp):
     table = TABLES.get(pass_id % 1000)
     if table is None:
         return None
+    for level, start, cost in reversed(ANCHORS.get(pass_id % 1000, [])):
+        if exp >= start:
+            more, into = divmod(exp - start, cost)
+            return level + more, into, cost
     level, left = 1, exp
     for count, cost in table[0]:
         steps = count if count is not None else 10_000
@@ -96,6 +107,25 @@ def level_of(pass_id, exp):
 def weekly_limit(pass_id):
     table = TABLES.get(pass_id % 1000)
     return table[1] if table else None
+
+
+def level_estimate(pass_id, state):
+    """(level, exact, EXP into it, EXP the level needs) of a pass as the game would show it. The EXP table holds at
+    the levels it was read at and drifts above (each level costs more as you go up: 2026-10-23, Agame's Ishalgen
+    Mercenary was Lv 95 in the game with 1,470/2,500 into it, and Lv 109 by the table), so when the table says more
+    than one level past the last reward you collected, the level is that one (you collect as you go) and `exact` is
+    False (no EXP into the level then). Without a table: the last level collected plus one, if any. Between the
+    levels the table holds (HOLDS: the early ones and the anchors' range) the EXP into the level is not known either."""
+    lv = level_of(pass_id, state.exp)
+    claimed = max(state.claimed.values(), default=0)
+    if lv is None:
+        return (claimed + 1, False, 0, 0) if claimed else (None, False, 0, 0)
+    if claimed and lv[0] > claimed + 1:
+        return claimed + 1, False, 0, lv[2]
+    holds = HOLDS.get(pass_id % 1000)
+    if holds and not any(lo <= lv[0] and (hi is None or lv[0] <= hi) for lo, hi in holds):
+        return max(lv[0], claimed + 1), False, 0, lv[2]
+    return lv[0], True, lv[1], lv[2]
 
 
 class Passes:
@@ -190,13 +220,14 @@ class Passes:
         return out
 
     def waiting(self, state):
-        """Rewards reached and not collected (levels on each track)."""
-        lv = level_of(state.pass_id, state.exp)
-        if lv is None:
+        """Rewards of completed levels not collected (levels on each track). A level's reward unlocks when the level
+        is completed (the game greys «Collect Rewards» for the level you are in), and the level counts only while
+        the EXP table holds (level_estimate): past that, nothing can be said and 0 is returned (2.4.1 said «70 por
+        cobrar» from a table 35 levels off)."""
+        level, exact, _, _ = level_estimate(state.pass_id, state)
+        if not level or not exact or not state.tracks:
             return 0
-        tracks = state.tracks or [None]
-        return sum(max(0, lv[0] - state.claimed.get(str(t), 0)) for t in tracks if t is not None) if state.tracks \
-            else 0
+        return sum(max(0, level - 1 - state.claimed.get(str(t), 0)) for t in state.tracks)
 
     def _save(self):
         if not self.persist:

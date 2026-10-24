@@ -73,7 +73,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .arcana import effects_text, feed_text
+from .arcana import effects_text, feed_text, feeding_pays
 from .gear import CLASS_OF_JOB, POSITIONS, SLOTS
 from .i18n import tr, tr_data
 
@@ -1110,7 +1110,7 @@ def _steps(plan, by_pos, kina, bound, stones, db, levels, prices, recipes, gear_
         elif s.bad:                                       # keep the good lines: reroll the bad ones one by one
             eat = food(piece, len(s.bad))
             if eat:
-                how = tr("Usa como comida: ") + ", ".join(x.text for x in eat) + "."
+                how = tr("Para el Sync gasta: ") + ", ".join(x.text for x in eat) + "."
             else:                                         # no piece of its kind: a Sync Stone from any spare Unique
                 stone = [x for x in plan.spare if not x.use and x.item.grade == "Unique"][:max(0, len(s.bad) - sync)]
                 for x in stone:
@@ -1120,11 +1120,11 @@ def _steps(plan, by_pos, kina, bound, stones, db, levels, prices, recipes, gear_
                           + ", ".join(x.text for x in stone) + "." if stone else "."))
             soul.append((2, Step("soul", tr("Sync de {0}: {1}", tr(" y ").join(s.bad), piece.item.name),
                                  tr("Soul Binding {0:.0%} ({1}). Sync vuelve a tirar una línea (las demás se "
-                                    "quedan) comiéndose una pieza del mismo tipo y grado, o una Sync Stone, por "
+                                    "quedan) gastando una pieza del mismo tipo y grado, o una Sync Stone, por "
                                     "intento. {2} Después, Bind.", s.rate, lines, how), len(s.bad),
                                  ready=bool(eat or sync or any(x.item.grade == "Unique" for x in plan.spare)),
                                  pos=piece.pos, uses=("sync", "soul_codex"),
-                                 summary=tr("{0:.0%} · cambiar {1} · comida: ", s.rate, ', '.join(s.bad))
+                                 summary=tr("{0:.0%} · cambiar {1} · gasta: ", s.rate, ', '.join(s.bad))
                                          + (", ".join(f"{x.item.name} +{x.enchant}" for x in eat) if eat
                                             else tr("una Sync Stone")))))
         else:
@@ -1307,7 +1307,7 @@ def _steps(plan, by_pos, kina, bound, stones, db, levels, prices, recipes, gear_
                               + tr(". Qué buscar en cada carta y el resto, en Personaje › Arcanas."), 0, ready=True,
                               key="arcana-wear", boosts=(CP,),
                               summary=tr("+{0} niveles de skill que te faltan", sum(g for *_, g in wear))))
-        if cards.feeds:
+        if feeding_pays(cards):           # food that raises nothing you want is no step (Arcanas says to farm then)
             kinah = sum(f.kinah for f in cards.feeds)
             ups = sum(f.to - f.target.enchant for f in cards.feeds)
             n = sum(1 for f in cards.feeds for w, _ in f.fodder if not isinstance(w, tuple))

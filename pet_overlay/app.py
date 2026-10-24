@@ -634,6 +634,8 @@ class Controller(QObject):
         self.bridge.field_list.connect(lambda event: self._tracker_changed(self.tracker.on_field_list(*event)))
         self.crafting = Crafting(self.data_dir, self.settings)
         self.crafting_window = None
+        from .crafting import ItemIcons
+        self.item_icons = ItemIcons(self.data_dir, online=self.persist)    # item pictures by name, one for all pages
         from .upgrades import UpgradesDB
         self.upgrades_db = UpgradesDB(self.data_dir / "upgrades_db.json")    # Mejoras (upgrades.py)
         self.crafting.inventory.track(self.upgrades_db.tracked_names())     # Kina, Enhance / Transfer Stones...
@@ -723,6 +725,7 @@ class Controller(QObject):
         self.hub = None                 # the AionDex window (ui/hub.py), made on first use
         self._next_cache = (0.0, None, None)      # (when, character, NextStep) - next_step() keeps it 30 s
         self._hud_home = None           # (anchor, visible) of the HUD before it docked in the hub
+        self._hud_module_home = None    # the HUD's module before it docked (docked, it shows the Dashboard)
         self._hub_refreshed = 0.0
         from .blinkwatch import BlinkWatch
         self.blink_watch = BlinkWatch(self)          # Diagnóstico → "El overlay parpadea"
@@ -939,8 +942,8 @@ class Controller(QObject):
             self._encounter_notice(finished)
             self.refresh()
 
-    def _tracker_notice(self, title, body, kind):
-        self.notify("tracker", title, body)
+    def _tracker_notice(self, title, body, kind, same=None):
+        self.notify("tracker", title, body, same=same, page="tracker")
         if kind != "reminder":
             self.sounds.play("event_alert" if kind == "event" else "boss_alert")
 
@@ -1232,7 +1235,8 @@ class Controller(QObject):
                 if now.ready > before.ready:
                     mission_name, text, _ = mission.view(faction)
                     self.notify("info", f"{title}: {mission_name}",
-                                tr("Paso {0}/{1} hecho ({2}). Recoge la recompensa en la ventana {3} del juego.", now.reached, now.total, text, window), keep=True)
+                                tr("Paso {0}/{1} hecho ({2}). Recoge la recompensa en la ventana {3} del juego.", now.reached, now.total, text, window), keep=True,
+                                same=f"mission:{mission.id}", page="missions" if model is self.missions else "achievements")
         self.missions_changed()
 
     def _passes_settle(self):
@@ -1261,6 +1265,9 @@ class Controller(QObject):
         model = model or self.missions
         playing = self.character.name if self.character else None
         names = model.names(current=playing)
+        chosen = self.settings.get("character_choice")
+        if chosen and chosen in names:
+            return chosen
         return playing if playing in names else (names[0] if names else None)
 
     def missions_place(self, model=None):
@@ -1330,14 +1337,15 @@ class Controller(QObject):
             self.notify("status", tr("Season M.: expiran en {0}", countdown(left)),
                         tr("{0}: {1} sin terminar ({2})", name, len(items), shown)
                         + (tr("; {0} con la recompensa esperando, recógela antes", ready) if ready else "") + ".",
-                        keep=True, same=f"missions-expiry|{name}")
+                        keep=True, same=f"missions-expiry|{name}", page="missions")
 
     def _on_status_tick(self, refresh=True):
         """The alerts whose bell is on: a notice (and sound) when one starts holding, then every hour."""
         self._missions_expiring()
         due = self.status.due()
         for key, chars in due:
-            self.notify("status", f"Status: {STATUS_ALERTS[key][0].lower()}", alert_text(self.status, key, chars))
+            self.notify("status", f"Status: {STATUS_ALERTS[key][0].lower()}", alert_text(self.status, key, chars),
+                        same=f"status:{key}", page="status")
         if due:
             self.sounds.play("status_alert")
         if refresh and self.active_module.key == "status":
@@ -1947,18 +1955,48 @@ class Controller(QObject):
             if pet.level == 1:
                 self.notify("unlock", tr("¡Desbloqueaste un pet nuevo: {0}!", name),
                             tr("Ya está en tu colección (nivel 1). {0}", _next_step(pet)), pet_id=pet.pet_id)
+            elif pet.is_max:
+                self._maxed_notice(name, pet)
             else:
-                self.notify("levelup", tr("¡{0} subió a nivel {1}!", name, pet.level),
-                            tr("Llegó al nivel máximo.") if pet.is_max else _next_step(pet), pet_id=pet.pet_id,
-                            keep=pet.is_max)
+                self.notify("levelup", tr("¡{0} subió a nivel {1}!", name, pet.level), _next_step(pet),
+                            pet_id=pet.pet_id, keep=False)
             self.sounds.play("pet_level_up")
         elif self.settings["toast_progress"]:
             self.notify("progress", "", _progress_sentence(pet), pet_id=pet.pet_id, key=f"progress:{pet.pet_id}",
                         amount=event.gain, title_template=tr("{0}: +{{amount}} de progreso", name))
 
+    def _maxed_notice(self, name, pet):
+        """One notice for every pet that reaches its max level, updated each time («3 pets llegaron al nivel 3»):
+        the history keeps only the latest, so a farming session is one line, not one per pet. The count starts
+        again when you clear the history."""
+        maxed = self.settings.setdefault("pets_maxed_log", [])
+        maxed.append(name)
+        del maxed[:-40]
+        self._save_settings()
+        n = len(maxed)
+        earlier = maxed[:-1][-4:]
+        body = tr("El último: {0}.", name) + (tr(" Antes: {0}.", ", ".join(earlier)) if earlier else "")
+        self.notify("levelup", tr("{0} pets llegaron al nivel {1} (máximo)", n, pet.level) if n != 1 else
+                    tr("1 pet llegó al nivel {0} (máximo)", pet.level), body, pet_id=pet.pet_id, keep=True,
+                    same="pets:max", page="collection")
+
     # --- notifications ------------------------------------------------------------------------
     def notify(self, kind, title, body="", **kwargs):
         return self.notifications.post(kind, title, body, **kwargs)
+
+    def clear_notifications(self):
+        self.notifications.clear()
+        self.settings.pop("pets_maxed_log", None)
+        self._save_settings()
+
+    def open_notifications(self):
+        """Sistema › Notificaciones: the whole history, with filters and a search."""
+        from .ui.notificationspage import NotificationsPage
+        if self.hub is None:
+            self.open_hub()
+        page = self.hub.page("notifications") or NotificationsPage(self, self.hub.fonts)
+        page.refresh()
+        self.show_page("notifications", page)
 
     def _notifications_changed(self):
         self.window.set_unread(self.notifications.unread)
@@ -1980,6 +2018,51 @@ class Controller(QObject):
     # --- character / faction ---------------------------------------------------------------
     def character_name(self):
         return self.character.name if self.character else None
+
+    def focus_character(self):
+        """The character every page talks about: the one chosen in the AionDex window's picker (while AionDex knows
+        it), else the one you play, else the last one you played."""
+        chosen = self.settings.get("character_choice")
+        if chosen and chosen in self.known_characters():
+            return chosen
+        return self.character_name() or self.settings.get("last_character")
+
+    def known_characters(self):
+        """Every character AionDex has read something of (its gear, bag, missions, pass...), the one you play first."""
+        names = []
+        playing = self.character_name()
+        if playing:
+            names.append(playing)
+        pools = [self.settings.get("characters", {}), self.settings.get("gear", {}),
+                 self.settings.get("crafting", {}).get("inventory", {})]
+        for pool in pools:
+            for n in pool or ():
+                if n and n not in names:
+                    names.append(n)
+        try:
+            for model in (self.missions, self.achievements):
+                for n in (model.names(current=playing) if model.available else []):
+                    if n not in names:
+                        names.append(n)
+            for n in (self.passes.names(time.time(), playing) if self.passes.available else []):
+                if n not in names:
+                    names.append(n)
+        except Exception:                        # noqa: BLE001 - a model without names yet
+            pass
+        return names
+
+    def set_character_choice(self, name):
+        """The AionDex window's character picker: a name, or None for the one you play."""
+        if (name or None) == self.settings.get("character_choice"):
+            return
+        self.settings["character_choice"] = name or None
+        self._save_settings()
+        self._plan_cache = (0.0, None, None)
+        self._arcana_cache = (0.0, None, None)
+        self._next_cache = (0.0, None, None)
+        if self.hub is not None:
+            self.hub.character_changed()
+        self.refresh()
 
     def character_faction(self):
         """The faction the user set for the current character (never guessed: rifts cross sides)."""
@@ -2440,7 +2523,8 @@ class Controller(QObject):
             if now - self._problems_seen[title] >= 25 and title not in self._problems_notified:
                 self._problems_notified.add(title)
                 self.notify("warn", tr("Problema: {0}", title.lower()),
-                            tr("{0} Abre Diagnóstico en el menú: AionDex busca la causa y te dice cómo arreglarlo.", check.detail))
+                            tr("{0} Abre Diagnóstico en el menú: AionDex busca la causa y te dice cómo arreglarlo.", check.detail),
+                            same=f"problem:{title}", page="diagnostics")
         if self.active_module.key == "diagnostics":
             self.refresh()
 
@@ -2511,7 +2595,7 @@ class Controller(QObject):
         """The dungeons a character runs, from the final bosses it killed (kept 14 days per character: the fight log
         keeps 48 hours)."""
         from .upgrades import dungeons_you_run
-        name = name or self.character_name() or self.settings.get("last_character")
+        name = name or self.focus_character()
         if not name:
             return []
         cfg = self.upgrades_config()
@@ -2527,7 +2611,7 @@ class Controller(QObject):
 
     def set_upgrades_dungeons(self, dungeons, name=None):
         """The dungeons you picked in Mejoras for a character (None: the detected ones)."""
-        name = name or self.character_name() or self.settings.get("last_character")
+        name = name or self.focus_character()
         by = self.upgrades_config().setdefault("dungeons_by", {})
         self.upgrades_config().pop("dungeons", None)          # before 1.63.3: one choice for every character
         if dungeons is None:
@@ -2567,7 +2651,7 @@ class Controller(QObject):
     def upgrades_refresh(self, name=None):
         """Mejoras' «Actualizar»: the plan made again now and the official profile (item level, CP) asked for again;
         Mejoras is redrawn once more when it comes."""
-        name = name or self.character_name() or self.settings.get("last_character")
+        name = name or self.focus_character()
         server = self._server_of(name) if name else None
         if server:
             self._profile_asked[name] = time.time()
@@ -2603,7 +2687,7 @@ class Controller(QObject):
         """The Mejoras plan of a character (the one you play when None), or None without their gear. Built at most
         every 2 seconds (the panel and the window both ask)."""
         from .upgrades import build_plan
-        name = name or self.character_name() or self.settings.get("last_character")
+        name = name or self.focus_character()
         gear = self.settings.get("gear", {}).get(name)
         if not name or not gear:
             return None
@@ -2689,16 +2773,19 @@ class Controller(QObject):
     def skill_targets_from_build(self, name, build_id):
         """A build's skill levels as the character's skill targets (Builds → Arcanas): every skill the build has at
         a level above your base (what you have without cards), the highest first; the rest of your list goes."""
-        from .builds import entry_levels
+        from .builds import bonus_now, game_level
         build = self.builds.get(build_id)
         if not build:
             return 0
         _, levels, _ = self._arcana_skills(name)
         kinds = self.tuner.skills
+        # the level the game shows for each skill of the build: its points plus the character's bonus now (the total
+        # kept when the build was saved goes stale as gear and Arcana grow; 2.5)
+        bonus = bonus_now(build, self.settings, self.character_name(), self.tuner.own)
         wanted = []
         for sid, entry in (build.get("skills") or {}).items():
             base = int(sid)
-            _, _, total = entry_levels(entry)
+            total = game_level(entry, bonus.get(base))
             if not total or (kinds.get(str(base)) or {}).get("type") not in ("active", "passive"):
                 continue
             now = levels.get(base) or 0
@@ -2775,7 +2862,7 @@ class Controller(QObject):
             else:
                 body = tr("✗ No salió: esa skill no está en tus skills objetivo.")
                 kind = "info"
-            self.notify(kind, title, body, keep=True)
+            self.notify(kind, title, body, keep=True, same="arcana:enhance", page="arcana")
             log.info("arcana: %s +%s -> +%s rose %s (%s)", stack, old_n, new_n, rose, kind)
 
     def arcana_characters(self):
@@ -2786,7 +2873,7 @@ class Controller(QObject):
     def arcana_plan(self, name=None):
         """The Arcanas plan of a character (the one you play when None), or None before their cards were read."""
         from .arcana import build, cards_of
-        name = name or self.character_name() or self.settings.get("last_character")
+        name = name or self.focus_character()
         stored = self.crafting.inventory.cards(name) if name else None
         if stored is None:
             return None
@@ -2851,14 +2938,14 @@ class Controller(QObject):
     def upgrades_skip(self, key, title, name=None):
         """«No quiero hacer este paso» for a character: its plan is made again without it (title: what the list of
         skipped says)."""
-        name = name or self.character_name() or self.settings.get("last_character")
+        name = name or self.focus_character()
         self.upgrades_config().setdefault("skipped_by", {}).setdefault(name, {})[key] = title
         self._save_settings()
         self.upgrades_changed()
 
     def upgrades_unskip(self, key=None, name=None):
         """Take a skipped step (every one when None) into account again."""
-        name = name or self.character_name() or self.settings.get("last_character")
+        name = name or self.focus_character()
         cfg = self.upgrades_config()
         for skipped in (cfg.setdefault("skipped", {}), cfg.setdefault("skipped_by", {}).setdefault(name, {})):
             if key is None:
@@ -2873,7 +2960,7 @@ class Controller(QObject):
         do now (not a farm, a boss, an activity or a goal), else Arcanas' next feed, else Mejoras' first step of any
         kind, else the Tracker's next activity. A NextStep or None; kept 30 s per character."""
         from .upgrades import next_steps
-        name = name or self.character_name() or self.settings.get("last_character")
+        name = name or self.focus_character()
         at, who, cached = self._next_cache
         if who == name and time.time() - at < 30:
             return cached
@@ -2894,11 +2981,24 @@ class Controller(QObject):
                 cards = self.arcana_plan(name) if name else None
             except Exception:                    # noqa: BLE001
                 log.exception("next step: arcana plan")
-            if cards is not None and cards.feeds:
+            from .arcana import TYPES, farm_options, feeding_pays, short_kind
+            if feeding_pays(cards):
                 fd = cards.feeds[0]
                 found = NextStep("arcana", None, tr("Subamos tu {0} +{1}", fd.target.name, fd.target.enchant),
                                  tr("Con la comida que ya tienes llega a +{0}.", fd.to), self.open_arcana,
                                  tr("Abrir Arcanas"))
+            elif cards is not None:          # the food left raises nothing you want: Arcanas says where to farm
+                il = plan.me.item_level if plan is not None and plan.me and plan.me.item_level else None
+                farms = farm_options(cards, self.arcana_db, il)
+                if farms:
+                    farm = farms[0]
+                    kinds = ", ".join(f"{short_kind(k)} {farm.better[k]:.0%}" for k in TYPES if k in farm.better)
+                    found = NextStep("arcana", None, tr("Farmea {0} · {1}", farm.dungeon,
+                                                         farm.stage.replace("Transcendence ", "")),
+                                     (tr("Lo que te queda de comida ya no sube tus skills. ") if cards.feeds else
+                                      tr("Ya no te queda comida para tus cartas. "))
+                                     + (tr("Suelta cartas mejores que las tuyas, con esta probabilidad por clear: {0}.",
+                                           kinds) if kinds else ""), self.open_arcana, tr("Abrir Arcanas"))
         if found is None and plan is not None and plan.steps:
             first = plan.steps[0]
             found = NextStep("upgrades", first, first.title, first.summary or "", self.open_upgrades,
@@ -2942,6 +3042,25 @@ class Controller(QObject):
             self.builds_window.select(build, plan)
         self.builds_window.show_tab(tab)
         self.show_page("builds", self.builds_window)
+
+    def open_pets_page(self):
+        """Pets › Pets: the page (ui/petspage.py): what you can farm here, your collection, your session, the
+        switches of what is drawn over the game."""
+        from .ui.petspage import PetsPage
+        if self.hub is None:
+            self.open_hub()
+        page = self.hub.page("pets") or PetsPage(self, self.hub.fonts)
+        page.refresh()
+        self.show_page("pets", page)
+
+    def open_passes(self):
+        """Progreso › Pase: the Daeva Pass laid out like the game's, with what the game does not say."""
+        from .ui.passeswindow import PassesWindow
+        if self.hub is None:
+            self.open_hub()
+        page = self.hub.page("passes") or PassesWindow(self)
+        page.refresh()
+        self.show_page("passes", page)
 
     # --- the mob route over the minimap ---
     def _mob_names(self):
@@ -3305,6 +3424,9 @@ class Controller(QObject):
         if self._hud_home is None:
             self._hud_home = (w._anchor or w.pos(), w.isVisible())
         w.set_docked(True)
+        if self._hud_module_home is None:            # docked, the HUD is the Dashboard (the right column)
+            self._hud_module_home = self.active_module.key
+            self.switch_module("dashboard", remember=False)
         if not w.isVisible():
             w.show()
             w.apply_lock(self.settings["locked"])
@@ -3328,6 +3450,9 @@ class Controller(QObject):
         self._hud_home = None
         w = self.window
         w.set_docked(False)
+        if self._hud_module_home is not None:        # back to the module you had in the HUD
+            key, self._hud_module_home = self._hud_module_home, None
+            self.switch_module(key, remember=False)
         w._anchor = anchor
         w.move(anchor)
         w.setVisible(bool(self.settings["visible"]))
@@ -3336,13 +3461,20 @@ class Controller(QObject):
         """The Afinador of the macro: the Builds window's second tab."""
         self.open_builds(tab="afinador")
 
-    def switch_module(self, key):
+    def switch_module(self, key, remember=True):
+        """The HUD shows module `key`. While the HUD is docked in the AionDex window it always shows the Dashboard:
+        another module opens as a page of the window instead. remember=False: a switch of AionDex's own (docking),
+        not the player's choice."""
+        if self._hud_module_home is not None and key != "dashboard" and remember:
+            self.open_hub(key)
+            return
         module = next((m for m in self.modules if m.key == key), None)
         if module is None or module is self.active_module:
             return
         self.active_module = module
-        self.settings["module"] = key
-        self._save_settings()
+        if remember:
+            self.settings["module"] = key
+            self._save_settings()
         self.window.show_module(module)
         self.refresh()
 

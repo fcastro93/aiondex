@@ -13,14 +13,14 @@ GLYPH_PEOPLE = ""       # People in Segoe MDL2 / Fluent
 GLYPH_RESTART = ""     # Refresh
 
 MENU_STYLE = f"""
-QMenu {{ background: #10131b; border: 1px solid #363e52; border-radius: 9px; padding: 5px;
+QMenu {{ background: #0a0d14; border: 1px solid #2a3444; border-radius: 9px; padding: 5px;
     color: {theme.TEXT.name()}; font-family: 'Segoe UI'; font-size: 10pt; }}
 QMenu::item {{ padding: 6px 22px 6px 8px; border-radius: 6px; }}
-QMenu::item:selected {{ background: #2c3344; }}
+QMenu::item:selected {{ background: #243041; }}
 QMenu::item:checked {{ color: {theme.GOLD.name()}; }}
 QMenu::indicator {{ width: 0; height: 0; }}
 QMenu::icon {{ padding-left: 6px; }}
-QMenu::separator {{ height: 1px; background: #363e52; margin: 4px 8px; }}
+QMenu::separator {{ height: 1px; background: #2a3444; margin: 4px 8px; }}
 QMenu::right-arrow {{ width: 8px; height: 8px; padding-right: 8px; }}
 """
 # modules shown together in a submenu (a "›" row that opens to the side), at the place of the first one
@@ -65,10 +65,18 @@ def glyph_icon(glyph, color, family, size=64):
     return QIcon(px)
 
 
-def build_app_menu(ctl, fonts, parent=None):
+def build_app_menu(ctl, fonts, parent=None, docked=False):
     """Modules (exclusive, the active one highlighted; some in a submenu of their own), the players of your group,
-    Reiniciar and Salir."""
+    Reiniciar and Salir. Docked in the AionDex window (docked=True) the HUD is the Dashboard and every feature is a
+    page of the window, so the menu keeps only Ajustes, Reiniciar and Salir."""
     menu = styled_menu(parent)
+    if docked:
+        settings = next((m for m in ctl.modules if m.key == "settings"), None)
+        menu.addAction(settings.icon() if settings else glyph_icon(GLYPH_WINDOW, theme.GOLD, fonts.icons_family),
+                       tr("Ajustes"), lambda: ctl.open_panel_page("settings"))
+        menu.addAction(glyph_icon(GLYPH_RESTART, theme.MUTED, fonts.icons_family), tr("Reiniciar"), ctl.restart_app)
+        menu.addAction(glyph_icon(GLYPH_EXIT, theme.MUTED, fonts.icons_family), tr("Salir"), ctl.quit)
+        return menu
     menu.addAction(glyph_icon(GLYPH_WINDOW, theme.GOLD, fonts.icons_family), tr("Abrir la ventana de AionDex"),
                    ctl.open_hub)
     menu.addSeparator()

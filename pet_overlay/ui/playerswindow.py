@@ -25,7 +25,7 @@ from ..i18n import tr
 CLASS_ES = {"Gladiator": "Gladiador", "Templar": "Templario", "Ranger": "Cazador", "Assassin": "Asesino",
             "Sorcerer": "Hechicero", "Spiritmaster": "Invocador", "Elementalist": "Invocador", "Cleric": "Clérigo",
             "Chanter": "Cantor"}
-ROLE_COLOR = {"tanque": "#7cc4ff", "sanador": "#7bd88f", "apoyo": "#f0c24e", "daño": "#ff7a59"}
+ROLE_COLOR = {"tanque": "#7cc4ff", "sanador": "#5fdc7c", "apoyo": "#e9c45c", "daño": "#ff6b57"}
 SLOT_ES = {"MainHand": tr("Arma"), "SubHand": tr("Secundaria"), "Helmet": tr("Casco"), "Shoulder": tr("Hombreras"), "Torso": tr("Pecho"),
            "Pants": tr("Grebas"), "Gloves": tr("Guantes"), "Boots": tr("Botas"), "Cape": tr("Capa"), "Necklace": tr("Collar"),
            "Earring1": tr("Pendiente"), "Earring2": tr("Pendiente"), "Ring1": tr("Anillo"), "Ring2": tr("Anillo"),
@@ -36,10 +36,10 @@ GRADE_COLOR = {"Common": "#C3C3C3", "Rare": "#19E048", "Legend": "#379AFF", "Uni
 COLUMNS = 5
 PORTRAIT = 78
 WINDOW_STYLE = """
-QFrame#PCard { background: #12161f; border: 1px solid #262c3a; border-radius: 10px; }
-QFrame#PCard[selected="true"] { border-color: #2ec0f2; }
+QFrame#PCard { background: #12161f; border: 1px solid #1e2532; border-radius: 10px; }
+QFrame#PCard[selected="true"] { border-color: #3ad1f5; }
 QFrame#PCard[fail="true"] { border-color: #ff5a5a; background: #1c1420; }
-QFrame#PartyCol { background: #141822; border: 1px solid #262c3a; border-radius: 8px; }
+QFrame#PartyCol { background: #0f131b; border: 1px solid #1e2532; border-radius: 8px; }
 """
 
 
@@ -72,29 +72,24 @@ class PlayersWindow(QWidget):
         root = QVBoxLayout(self)
         root.setContentsMargins(16, 12, 16, 12)
         root.setSpacing(10)
-        head = QHBoxLayout()
-        head.addWidget(badge_label(30, self.devicePixelRatioF()))
-        titles = QVBoxLayout()
-        titles.setSpacing(0)
-        self.title = label("", f.name_big, theme.TEXT)
-        titles.addWidget(self.title)
-        about = label(tr("Los jugadores de tu partida de Arena (el juego manda su servidor y su rating al empezar). "
-                         "El perfil (CP, item level, equipo, habilidades, Daevanion) es el oficial de NCSOFT, el "
-                         "mismo de shugo.gg, pedido a su servidor, de uno en uno.") if arena else
-                               tr("CP e item level: los envía el juego con la lista de tu party / force (al "
-                                  "momento). El perfil completo (equipo, habilidades, Daevanion) es el oficial de "
-                                  "NCSOFT, el mismo de shugo.gg: se pide al abrir y con Refrescar, antes que todo "
-                                  "lo demás: primero el CP y el item level de todos (los que aún no tienen CP, "
-                                  "primero) y luego su equipo."),
-                               f.small, theme.MUTED)
-        about.setWordWrap(True)                  # a long line wraps instead of widening the window
-        titles.addWidget(about)
-        head.addLayout(titles, 1)
+        from .design import PageHeader
+        header = PageHeader(f, "", tr("Tu partida de Arena: rivales y tu equipo, con su perfil oficial") if arena
+                            else tr("Tu party / force: CP e item level del juego, y el perfil oficial de NCSOFT"))
+        header.subtitle.setToolTip(
+            tr("Los jugadores de tu partida de Arena (el juego manda su servidor y su rating al empezar). "
+               "El perfil (CP, item level, equipo, habilidades, Daevanion) es el oficial de NCSOFT, el "
+               "mismo de shugo.gg, pedido a su servidor, de uno en uno.") if arena else
+            tr("CP e item level: los envía el juego con la lista de tu party / force (al "
+               "momento). El perfil completo (equipo, habilidades, Daevanion) es el oficial de "
+               "NCSOFT, el mismo de shugo.gg: se pide al abrir y con Refrescar, antes que todo "
+               "lo demás: primero el CP y el item level de todos (los que aún no tienen CP, "
+               "primero) y luego su equipo."))
+        self.title = header.title
         refresh = QPushButton(tr("Refrescar todos"))
         refresh.setToolTip(tr("Vuelve a pedir el perfil de cada jugador (los datos de ahora mismo)"))
         refresh.clicked.connect(lambda: self._fetch(True))
-        head.addWidget(refresh)
-        root.addLayout(head)
+        header.add_right(refresh)
+        root.addWidget(header)
 
         bar = QHBoxLayout()
         bar.setSpacing(6)
@@ -298,7 +293,7 @@ class PlayersWindow(QWidget):
         box.setFixedSize(PORTRAIT, PORTRAIT)
         box.setAlignment(Qt.AlignCenter)
         role = ROLE.get(cls, "daño")
-        box.setStyleSheet(f"border: 2px solid {ROLE_COLOR[role]}; border-radius: 12px; background: #0b0d12;")
+        box.setStyleSheet(f"border: 2px solid {ROLE_COLOR[role]}; border-radius: 12px; background: #05070b;")
         path = self.armory.image(profile) if profile else None
         pix = QPixmap(str(path)) if path else self._class_pixmap(cls)
         if pix and not pix.isNull():

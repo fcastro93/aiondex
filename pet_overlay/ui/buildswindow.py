@@ -7,33 +7,43 @@ what does not, one tab at a time. AION 2 drops simulated clicks (SendInput and p
 import time
 import webbrowser
 
-from PySide6.QtCore import QSize, Qt, QTimer
-from PySide6.QtGui import QColor, QPixmap
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (QApplication, QComboBox, QStackedWidget, QFrame, QGridLayout, QHBoxLayout, QInputDialog, QLabel,
                                QLineEdit, QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
 from ..armory import shugo_url
-from ..builds import Builds, class_of_build, entry_levels
+from ..builds import Builds, bonus_now, character_of, class_of_build, class_of_job, entry_levels, game_level
 from ..skills import SLOT_KEYS
 from . import theme
-from .mapwindow import STYLE, badge_label
+from .design import GameTabs, PageHeader
+from .mapwindow import STYLE
+from .skilltiles import ACTIVE_BORDER, PASSIVE_BORDER, SkillTile
 from .theme import Fonts
 from .tunerwindow import EXTRA_STYLE
 from .widgets import SectionTitle, label
 from ..i18n import tr
 
-ICON = 34
-SIDE_STYLE = """
-QFrame#BuildRow { background: #12161f; border: 1px solid #262c3a; border-radius: 8px; }
-QFrame#BuildRow[selected="true"] { border-color: #2ec0f2; background: #13233f; }
-QFrame#Panel { background: #141822; border: 1px solid #262c3a; border-radius: 10px; }
-QLabel#PresetChip { background: #2a2208; color: #f0c24e; border: 1px solid #6b5418; border-radius: 6px; padding: 0 5px; }
-QLabel#PresetChip[active="true"] { background: #f0c24e; color: #1a1406; border-color: #f0c24e; }
-QPushButton[flat="true"] { background: transparent; color: #2ec0f2; padding: 4px 8px; }
-QPushButton[flat="true"]:hover { color: #7fe0ff; }
+ICON = 40                      # a skill tile: big enough for its «Lv. N» like the game's
+BAR_ICON = 34                  # the bar's and the macro's tiles: 12 keys must fit the detail column
+CELL = 230                     # a skill cell's least width in the skills panel
+SIDE_STYLE = f"""
+QFrame#BuildRow {{ background: {theme.SURFACE.name()}; border: 1px solid {theme.LINE.name()}; border-radius: 5px; }}
+QFrame#BuildRow[selected="true"] {{ border-color: {theme.ACCENT.name()}; background: {theme.SURFACE_2.name()}; }}
+QFrame#Panel {{ background: {theme.SURFACE.name()}; border: 1px solid {theme.LINE.name()}; border-radius: 6px; }}
+QLabel#PresetChip {{ background: transparent; color: {theme.GOLD.name()}; border: 1px solid {theme.GOLD_DARK.name()};
+    border-radius: 3px; padding: 0 5px; }}
+QLabel#PresetChip[active="true"] {{ background: {theme.GOLD.name()}; color: {theme.WINDOW_BG.name()};
+    border-color: {theme.GOLD.name()}; }}
+QPushButton[flat="true"] {{ background: transparent; color: {theme.ACCENT.name()}; border: none; padding: 3px 6px; }}
+QPushButton[flat="true"]:hover {{ color: {theme.ACCENT_GLOW.name()}; }}
+QPushButton[ghost="true"] {{ background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 {theme.SURFACE_2.name()},
+    stop:1 {theme.SURFACE.name()}); color: {theme.TEXT.name()}; border: 1px solid {theme.LINE.name()};
+    padding: 6px 14px; }}
+QPushButton[ghost="true"]:hover {{ border-color: {theme.GOLD.name()}; }}
 """
-SOURCE_TEXT = {"own": (tr("Tu preset"), "#7bd88f"), "player": (tr("Perfil oficial"), "#c38bff"), "code": (tr("Código"), "#f0c24e")}
+SOURCE_TEXT = {"own": (tr("Tu preset"), theme.GAIN), "player": (tr("Perfil oficial"), theme.ASMODIAN),
+               "code": (tr("Código"), theme.GOLD)}
 KIND_TITLE = (("active", tr("Activas")), ("passive", tr("Pasivas")), ("stigma", tr("Estigmas")))
 
 
@@ -70,18 +80,11 @@ class BuildsWindow(QWidget):
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 8, 0, 0)
         outer.setSpacing(0)
+        self.tabs = GameTabs(f, [("builds", "Builds"), ("afinador", tr("Afinador del macro"))], "builds")
+        self.tabs.changed.connect(self.show_tab)
         tabs = QHBoxLayout()
         tabs.setContentsMargins(16, 0, 16, 4)
-        tabs.setSpacing(6)
-        self.tab_buttons = {}
-        for key, text in (("builds", "Builds"), ("afinador", tr("Afinador del macro"))):
-            button = QPushButton(text)
-            button.setProperty("tab", True)
-            button.setCheckable(True)
-            button.clicked.connect(lambda _=False, k=key: self.show_tab(k))
-            tabs.addWidget(button)
-            self.tab_buttons[key] = button
-        tabs.addStretch(1)
+        tabs.addWidget(self.tabs)
         outer.addLayout(tabs)
         self.stack = QStackedWidget()
         outer.addWidget(self.stack, 1)
@@ -92,30 +95,30 @@ class BuildsWindow(QWidget):
         root = QVBoxLayout(page)
         root.setContentsMargins(16, 6, 16, 12)
         root.setSpacing(10)
-        head = QHBoxLayout()
-        head.addWidget(badge_label(34, self.devicePixelRatioF()))
-        titles = QVBoxLayout()
-        titles.setSpacing(0)
-        titles.addWidget(label("Builds", f.name_big, theme.TEXT))
-        self.subtitle = label("", f.small, theme.MUTED)
-        titles.addWidget(self.subtitle)
-        head.addLayout(titles, 1)
+        self.header = PageHeader(f, "Builds", " ")
+        self.subtitle = self.header.subtitle              # the status line (what was saved, imported, read)
         self.cls = QComboBox()
+        self.cls.setToolTip(tr("Clase de las builds de la lista (por defecto, la de tu personaje)"))
         self.cls.currentIndexChanged.connect(lambda _: self.refresh())
-        head.addWidget(self.cls)
+        self.header.add_right(self.cls)
         save = QPushButton(tr("Guardar mi preset"))
         save.setToolTip(tr("Guarda el preset que tienes puesto en el juego (sus puntos, especialidades, estigmas y "
                            "barra)"))
         save.clicked.connect(self._save_preset)
-        head.addWidget(save)
+        self.header.add_right(save)
         imp = QPushButton(tr("Importar de jugador"))
+        imp.setProperty("ghost", True)
         imp.clicked.connect(lambda: self.import_row.setVisible(not self.import_row.isVisible()))
-        head.addWidget(imp)
+        self.header.add_right(imp)
         paste = QPushButton(tr("Pegar código"))
+        paste.setProperty("ghost", True)
         paste.setToolTip(tr("Importa la build cuyo código copiaste (de AionDex de otro jugador)"))
         paste.clicked.connect(self._paste_code)
-        head.addWidget(paste)
-        root.addLayout(head)
+        self.header.add_right(paste)
+        root.addWidget(self.header)
+        self._focus = None                 # the character the class list was picked for (Controller.focus_character)
+        self._grids = []                   # [(grid, skill cells)] of the build drawn: placed again on a resize
+        self._drawn_cols = None
 
         self.import_row = QFrame()
         self.import_row.setObjectName("Panel")
@@ -185,8 +188,7 @@ class BuildsWindow(QWidget):
             self.stack.setCurrentWidget(self.tuner_page)
         else:
             self.stack.setCurrentIndex(0)
-        for k, button in self.tab_buttons.items():
-            button.setChecked(k == key)
+        self.tabs.set_current(key)
         self.setWindowTitle(f"{APP_NAME} — {tr('Afinador del macro') if key == 'afinador' else 'Builds'}")
 
     def select(self, build_id, plan=False):
@@ -200,6 +202,7 @@ class BuildsWindow(QWidget):
     def _fill_classes(self):
         mine = self._my_class()
         classes = sorted(set(self.builds.classes()) | ({mine} if mine else set()))
+        self._focus = self.ctl.focus_character()
         self.cls.blockSignals(True)
         self.cls.clear()
         self.cls.addItem(tr("Todas las clases"), None)
@@ -209,11 +212,26 @@ class BuildsWindow(QWidget):
         self.cls.blockSignals(False)
 
     def _my_class(self):
+        """The class the list opens on: that of the character every page talks about (Controller.focus_character:
+        the one chosen in the AionDex window's picker, else the one in play, else the last one played) - its skills
+        when it is the one in play, else its job as the game sent it."""
+        name = self.ctl.focus_character()
+        if name and name == self.ctl.character_name() and self._tuner_class():
+            return self._tuner_class()
+        job = (self.ctl.settings.get("characters", {}).get(name) or {}).get("job") if name else None
+        return class_of_job(job) or self._tuner_class()
+
+    def _tuner_class(self):
+        """The class of the skills the Afinador holds (the character in play, or the last one read)."""
         own = self.ctl.tuner.own
         return class_of_build({"skills": {str(b): None for b in own}}) if own else None
 
     def refresh(self):
         f = self.fonts
+        focus = self.ctl.focus_character()
+        if focus != self._focus:                   # the picker changed: the list opens on that character's class
+            self._focus = focus
+            self._fill_classes()
         builds = self.builds.list(self.cls.currentData())
         self.subtitle.setText(tr("Guardadas en tu PC · {0} {1}", len(self.builds.items), 'build' if len(self.builds.items) == 1 else 'builds'))
         _clear(self.list)
@@ -244,8 +262,8 @@ class BuildsWindow(QWidget):
         top.addWidget(label(b.get("name") or "Build", f.name, theme.TEXT, elide=True), 1)
         for number in self._presets_of(b):
             top.addWidget(self._preset_chip(number))
-        text, color = SOURCE_TEXT.get(b.get("source"), ("", "#8a93a6"))
-        top.addWidget(label(text, f.small, QColor(color)))
+        text, color = SOURCE_TEXT.get(b.get("source"), ("", theme.MUTED))
+        top.addWidget(label(text, f.small, color))
         col.addLayout(top)
         col.addWidget(label(f"{class_of_build(b)} · {b.get('origin', '')} · {_ago(b.get('at'))}", f.small, theme.MUTED,
                             elide=True))
@@ -254,7 +272,7 @@ class BuildsWindow(QWidget):
     def _presets_of(self, b):
         """The presets (1-3) of the character in play that have this build on."""
         tuner = self.ctl.tuner
-        if class_of_build(b) != self._my_class():
+        if class_of_build(b) != self._tuner_class():
             return []
         return Builds.in_presets(b, tuner.presets, tuner.own, tuner.active_preset)
 
@@ -285,6 +303,7 @@ class BuildsWindow(QWidget):
     def _draw_detail(self):
         f = self.fonts
         _clear(self.detail)
+        self._grids = []
         b = self.builds.get(self.selected) if self.selected else None
         if b is None:
             self.detail.addStretch(1)
@@ -298,6 +317,19 @@ class BuildsWindow(QWidget):
         for number in self._presets_of(b):
             name_row.addWidget(self._preset_chip(number))
         name_row.addStretch(1)
+        for text, action in ((tr("Copiar código"), lambda: self._copy_code(b)), (tr("Renombrar"), lambda: self._rename(b)),
+                             (tr("Borrar"), lambda: self._delete(b))):
+            button = QPushButton(text)
+            button.setProperty("flat", True)
+            button.clicked.connect(action)
+            name_row.addWidget(button)
+        if b.get("player"):
+            shugo = QPushButton(tr("Ver en shugo.gg"))
+            shugo.setProperty("flat", True)
+            name, server = b["player"]
+            shugo.clicked.connect(lambda: webbrowser.open(shugo_url(name, server,
+                                                                    self.ctl.server_name(server) or "zikel")))
+            name_row.addWidget(shugo)
         titles.addLayout(name_row)
         titles.addWidget(label(tr("{0} · {1} · guardada {2}", class_of_build(b), b.get('origin', ''), _ago(b.get('at'))),
                                f.small, theme.MUTED))
@@ -322,19 +354,6 @@ class BuildsWindow(QWidget):
                              "puesta (niveles, especialidades y barra), o el perfil oficial del jugador"))
         update.clicked.connect(lambda: self._update(b))
         head.addWidget(update)
-        for text, action in ((tr("Copiar código"), lambda: self._copy_code(b)), (tr("Renombrar"), lambda: self._rename(b)),
-                             (tr("Borrar"), lambda: self._delete(b))):
-            button = QPushButton(text)
-            button.setProperty("flat", True)
-            button.clicked.connect(action)
-            head.addWidget(button)
-        if b.get("player"):
-            shugo = QPushButton(tr("Ver en shugo.gg"))
-            shugo.setProperty("flat", True)
-            name, server = b["player"]
-            shugo.clicked.connect(lambda: webbrowser.open(shugo_url(name, server,
-                                                                    self.ctl.server_name(server) or "zikel")))
-            head.addWidget(shugo)
         head.addStretch(1)
         self.detail.addLayout(head)
         if self.compare and self.compare[0] == b["id"]:
@@ -357,10 +376,26 @@ class BuildsWindow(QWidget):
         col = QVBoxLayout(panel)
         col.setContentsMargins(14, 10, 14, 12)
         equipped = set(b.get("equipped") or [])
+        bonus = self._bonus(b)
         groups = {}
         for sid, entry in b.get("skills", {}).items():
-            points, specs, total = entry_levels(entry)
-            groups.setdefault(self.builds.kind_of(sid) or "active", []).append((int(sid), points, total, specs))
+            points, specs, _ = entry_levels(entry)
+            level = game_level(entry, bonus.get(int(sid)))
+            groups.setdefault(self.builds.kind_of(sid) or "active", []).append((int(sid), points, level, specs))
+        # 2.5.0: the level drawn is the one the game shows (points + the bonus of Daevanion, gear and Arcana, the
+        # character's as it is now); 2.4 drew the points first, and every maxed skill read «Lv 10», their cap
+        if bonus:
+            text = tr("Nivel: el que muestra el juego con esta build hoy, sus puntos más el bonus que {0} tiene ahora "
+                      "(Daevanion, equipo y arcanas).", character_of(b))
+        elif b.get("source") == "player":
+            text = tr("Nivel: el del perfil oficial del jugador (sus puntos más su bonus de Daevanion, equipo y "
+                      "arcanas).")
+        else:
+            text = tr("Nivel: el que muestra el juego, puntos más el bonus de Daevanion, equipo y arcanas, como estaba "
+                      "al guardarla.")
+        note = label(text, f.small, theme.MUTED)
+        note.setWordWrap(True)
+        col.addWidget(note)
         for kind, title in KIND_TITLE:
             rows = sorted(groups.get(kind, []), key=lambda r: (r[0] not in equipped, r[0]))
             if not rows:
@@ -369,26 +404,79 @@ class BuildsWindow(QWidget):
             grid = QGridLayout()
             grid.setHorizontalSpacing(14)
             grid.setVerticalSpacing(6)
-            for i, (sid, points, total, specs) in enumerate(rows):
+            cols = self._drawn_cols = self._cols()
+            holders = []
+            for sid, points, level, specs in rows:
                 cell = QHBoxLayout()
-                cell.setSpacing(6)
-                cell.addWidget(self._icon(sid, faded=kind == "stigma" and sid not in equipped))
+                cell.setContentsMargins(0, 0, 0, 0)
+                cell.setSpacing(8)
+                cell.addWidget(self._icon(sid, faded=kind == "stigma" and sid not in equipped, level=level or None))
                 text = QVBoxLayout()
                 text.setSpacing(0)
-                text.addWidget(label(self.builds.name_of(sid), f.small, theme.TEXT, elide=True))
-                extra = (f"Lv {points}" + (f" (total {total})" if total and total != points else "") if points
-                         else f"Lv total {total}")
-                extra += f" · espec. {'·'.join(map(str, specs))}" if specs else ""
+                name_row = QHBoxLayout()
+                name_row.setSpacing(6)
+                name_row.addWidget(label(self.builds.name_of(sid), f.small, theme.TEXT, elide=True), 1)
+                name_row.addWidget(label(f"Lv {level}" if level else "—", f.name, theme.GOLD))
+                text.addLayout(name_row)
+                if points is not None and level and level > points:
+                    extra = (tr("1 punto + {0} de bonus", level - points) if points == 1 else
+                             tr("{0} puntos + {1} de bonus", points, level - points))
+                elif points is not None:
+                    extra = tr("1 punto") if points == 1 else tr("{0} puntos", points)
+                else:
+                    extra = tr("nivel del perfil oficial")
+                extra += tr(" · espec. {0}", "·".join(map(str, specs))) if specs else ""
                 if kind == "stigma":
-                    extra += " · equipado" if sid in equipped else " · no equipado"
-                text.addWidget(label(extra, f.small, theme.MUTED))
+                    extra += tr(" · equipado") if sid in equipped else tr(" · no equipado")
+                text.addWidget(label(extra, f.small, theme.MUTED, elide=True))
                 cell.addLayout(text, 1)
                 holder = QWidget()
                 holder.setLayout(cell)
-                holder.setFixedWidth(250)
-                grid.addWidget(holder, i // 3, i % 3)
+                holder.setMinimumWidth(CELL)
+                holders.append(holder)
+            self._place(grid, holders, cols)
+            self._grids.append((grid, holders))
             col.addLayout(grid)
         return panel
+
+    @staticmethod
+    def _place(grid, holders, cols):
+        """The skill cells in rows of cols, the columns sharing the width."""
+        for holder in holders:
+            grid.removeWidget(holder)
+        for c in range(grid.columnCount()):
+            grid.setColumnStretch(c, 0)
+        for i, holder in enumerate(holders):
+            grid.addWidget(holder, i // cols, i % cols)
+        for c in range(cols):
+            grid.setColumnStretch(c, 1)
+
+    def _cols(self):
+        """Skill cells per row: as many as the detail column holds (the window's width less the list and the
+        margins: two in the AionDex window, three on a wide screen)."""
+        avail = self.width() - 404
+        return max(1, min(3, (avail - 14) // (CELL + 14)))
+
+    def resizeEvent(self, event):
+        """Another number of skill columns fits now: the cells drawn move (drawing the build again would show it
+        for a moment with its new cells not laid out yet, and loses the scroll)."""
+        super().resizeEvent(event)
+        cols = self._cols()
+        if self._grids and cols != self._drawn_cols:
+            self._drawn_cols = cols
+            for grid, holders in self._grids:
+                self._place(grid, holders, cols)
+
+    def _bonus(self, b):
+        """{base: the bonus its character has now} of one of your builds ({} for the rest): builds.bonus_now."""
+        tuner = self.ctl.tuner
+        return bonus_now(b, self.ctl.settings, self.ctl.character_name(), tuner.own)
+
+    def _levels(self, b):
+        """{base: the level the game shows} of a build's skills (builds.game_level), for the bar and the macro."""
+        bonus = self._bonus(b)
+        return {int(sid): game_level(entry, bonus.get(int(sid))) or None
+                for sid, entry in (b.get("skills") or {}).items()}
 
     def _bar_panel(self, b):
         """The bar as the game's Skill window draws it: one column per key, priority 0 at the bottom."""
@@ -402,12 +490,14 @@ class BuildsWindow(QWidget):
         grid.setHorizontalSpacing(6)
         grid.setVerticalSpacing(4)
         by_slot = {slot: prio for slot, _, prio in b["bar"]}
+        levels = self._levels(b)
         rows = 4
         for c, slot in enumerate(SLOT_KEYS):
             column = c + (1 if c >= 4 else 0) + (1 if c >= 8 else 0)            # gaps like the game's groups
             for r in range(rows):
                 prio = by_slot.get(slot, [])
-                cell = self._icon(prio[r]) if r < len(prio) else _empty_cell()
+                cell = (self._icon(prio[r], level=levels.get(prio[r]), size=BAR_ICON) if r < len(prio)
+                        else _empty_cell())
                 if r < len(prio):
                     cell.setToolTip(tr("{0} · prioridad {1}: {2}", tr(SLOT_KEYS[slot]), r, self.builds.name_of(prio[r])))
                 grid.addWidget(cell, rows - 1 - r, column, Qt.AlignCenter)
@@ -432,10 +522,11 @@ class BuildsWindow(QWidget):
             row = QHBoxLayout()
             row.setSpacing(8)
             keys = {p: SLOT_KEYS.get(slot) for slot, _, prio in (b.get("bar") or []) for p in prio[:1]}
+            levels = self._levels(b)
             for n, base, name, delay in steps:
                 cell = QVBoxLayout()
                 cell.setSpacing(2)
-                cell.addWidget(self._icon(base), 0, Qt.AlignCenter)
+                cell.addWidget(self._icon(base, level=levels.get(base), size=BAR_ICON), 0, Qt.AlignCenter)
                 key = keys.get(base)
                 cell.addWidget(label(f"{n}. {name}" + (f" ({key})" if key else ""), f.small, theme.TEXT), 0,
                                Qt.AlignCenter)
@@ -667,23 +758,16 @@ class BuildsWindow(QWidget):
         return c.server if c else None
 
     # --- icons ---
-    def _icon(self, sid, faded=False):
-        lbl = QLabel()
-        lbl.setFixedSize(ICON, ICON)
+    def _icon(self, sid, faded=False, level=None, size=ICON):
+        """A skill tile like the game's: its icon, «Lv. N» (the level the game shows) and the frame of its kind
+        (orange for actives and stigmas, green for passives); dim for a stigma the build does not equip."""
+        kind = self.builds.kind_of(sid)
         path = self.ctl.tuner.icons_dir / f"{sid}.png"
-        pix = QPixmap(str(path)) if path.exists() else QPixmap()
-        if not pix.isNull():
-            dpr = self.devicePixelRatioF()
-            pix = pix.scaled(QSize(ICON, ICON) * dpr, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            pix.setDevicePixelRatio(dpr)
-            lbl.setPixmap(pix)
-        else:
-            lbl.setStyleSheet("background: #262c3a; border-radius: 6px;")
-        if faded:
-            lbl.setStyleSheet(lbl.styleSheet() + "opacity: 0.4;")
-            lbl.setEnabled(False)
-        lbl.setToolTip(self.builds.name_of(sid))
-        return lbl
+        name = self.builds.name_of(sid)
+        initials = "".join(w[0] for w in name.split()[:2]).upper()
+        return SkillTile(size, icon=str(path) if path.exists() else None, level=level, dim=faded, initials=initials,
+                         border=PASSIVE_BORDER if kind == "passive" else ACTIVE_BORDER if kind else None,
+                         tooltip=name + (f" · Lv {level}" if level else ""))
 
     def _want_icons(self, b):
         ids = [int(s) for s in b.get("skills", {})] + [p for _, _, prio in (b.get("bar") or []) for p in prio]
@@ -698,10 +782,7 @@ class BuildsWindow(QWidget):
 
 
 def _empty_cell():
-    cell = QLabel()
-    cell.setFixedSize(ICON, ICON)
-    cell.setStyleSheet("background: #151923; border: 1px solid #2b3242; border-radius: 6px;")
-    return cell
+    return SkillTile(BAR_ICON, empty=True)
 
 
 def _clear(layout):

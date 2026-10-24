@@ -194,7 +194,7 @@ class OverlayWindow(QWidget):
         self.btn_bell.setToolTip(tr("Notificaciones ({0} sin leer)", count) if count else tr("Notificaciones"))
 
     def open_menu(self):
-        menu = build_app_menu(self.ctl, self.fonts, self)
+        menu = build_app_menu(self.ctl, self.fonts, self, docked=self._docked)
         menu.exec(self.menu_button.mapToGlobal(QPoint(0, self.menu_button.height() + self.fonts.px(4))))
 
     def moveEvent(self, event):
@@ -216,7 +216,7 @@ class OverlayWindow(QWidget):
         radius = self.fonts.px(10)
         if self._docked:                                   # one more card of the AionDex window
             p.setBrush(theme.SURFACE)
-            p.setPen(QPen(QColor("#3a4256"), 1))
+            p.setPen(QPen(QColor("#2a3444"), 1))
             p.drawRoundedRect(r, radius, radius)
             return
         p.setBrush(theme.panel_color(self.ctl.settings["opacity"]))
