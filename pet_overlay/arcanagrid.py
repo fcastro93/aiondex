@@ -21,6 +21,7 @@ X0, Y0, PITCH_X, PITCH_Y, CELL_W, CELL_H = 211, 313, 201.3, 291.0, 177, 274
 VIEW_TOP, VIEW_BOTTOM = 296, 2018            # the list's scrolling area
 X_SEARCH = 0.012                             # how far (of the height) from X0 the frames' line is looked for
 REF_H = 2158
+STALE_MISS = 3                               # past this, the grid on screen is not the list AionDex read (2.5.8)
 
 
 def grid_order(cards):
@@ -151,14 +152,15 @@ def locate(order, rows):
 
 
 def best_view(orders, rows):
-    """(order, first index on screen) of the list the grid shows - all your bag, or one kind when you filter it -
-    or (None, None)."""
+    """(order, first index on screen, mismatches) of the list the grid shows - all your bag, or one kind when you
+    filter it - or (None, None, None). Mismatches of STALE_MISS or more: the cards on screen are not the ones AionDex
+    read (2.5.8: with 2 cards less in the game, every frame fell one cell off - the gold one on a Rare Bell of Vigor)."""
     best = (None, None, None)
     for order in orders:
         first, miss = locate(order, rows)
         if first is not None and (best[2] is None or miss < best[2]):
             best = (order, first, miss)
-    return best[0], best[1]
+    return best
 
 
 class GridReader:

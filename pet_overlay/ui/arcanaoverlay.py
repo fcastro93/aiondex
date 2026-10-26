@@ -6,14 +6,16 @@ register, green the ones already registered - and in gold the card to enhance, o
 frames move with the list while you scroll; rows half in view are drawn clipped to the list's area. The window is left
 out of screen captures (SetWindowDisplayAffinity), so the reads keep seeing the game under it. It never clicks nor
 moves the mouse. status (and status_changed) says what it sees, for Arcanas: "off", "searching" (the game in front
-but no grid), "black" (the capture comes out black: the game not in front, or exclusive fullscreen), "ok"."""
+but no grid), "black" (the capture comes out black: the game not in front, or exclusive fullscreen), "stale" (the grid
+does not match the cards AionDex read - some were eaten or added while it was not looking: nothing is framed, only a
+line asking to change channel, 2.5.8), "ok"."""
 import ctypes
 import logging
 import threading
 import time
 from ctypes import wintypes
 
-from PySide6.QtCore import QRectF, Qt, QTimer, Signal
+from PySide6.QtCore import QRect, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import QWidget
 
@@ -46,6 +48,9 @@ TO_ADD = QColor("#3ad1f5")
 ADDED = QColor("#5fdc7c")
 TARGET = QColor("#e9c45c")
 CHECK = QColor("#ff9f43")        # food that looks like a card that is not food: check its effects (2.5.7)
+INK = QColor("#0b0f17")
+BADGES = {None: (TARGET, "★"), "check": (CHECK, "?"), True: (ADDED, "✓"), False: (TO_ADD, "+")}   # 2.5.8: each framed
+#                                  card also gets a badge in its top-right corner, to see it better
 
 
 class ArcanaOverlay(QWidget):
@@ -65,6 +70,7 @@ class ArcanaOverlay(QWidget):
         self._target = None              # the Card to enhance or to put on, framed in gold
         self._mode = "feed"              # "feed" (Subir) or "wear" (the one to put on)
         self._doubtful = []              # cards that are not food but look like a pick (arcana.twins)
+        self._note = ""                  # how to tell the gold one from the ones just like it (its effects)
         self._seen = None                # (area on screen, client height, boxes, cards off screen) of the last read
         self._shown = None               # the same, as drawn
         self._lost_since = None
@@ -80,16 +86,18 @@ class ArcanaOverlay(QWidget):
         self._timer = QTimer(self, interval=PAINT_MS, timeout=self._tick)
 
     # --- on / off ---
-    def set_picks(self, orders, picks, target=None, mode="feed", doubtful=()):
+    def set_picks(self, orders, picks, target=None, mode="feed", doubtful=(), note=""):
         """Frame these cards in the game's grid. orders: the lists your bag may show in the grid's order (with and
         without the card being enhanced, when it is in the bag); each kind alone is tried too (a filter). target: the
         card to enhance (when it is in the bag) or, mode "wear", the one to put on, in gold. doubtful: cards that are
-        not food but look like a pick: all of that group is framed in orange, to check its effects."""
+        not food but look like a pick: all of that group is framed in orange, to check its effects. note: the effects
+        that tell the target from the cards just like it."""
         with self._lock:
             self._orders = [o for order in orders for o in [order] + [[c for c in order if c.kind == k] for k in TYPES]]
             self._picks = list(picks)
             self._target, self._mode = target, mode
             self._doubtful = list(doubtful)
+            self._note = note
         if not picks and target is None:
             self.stop()
             return
@@ -150,11 +158,13 @@ class ArcanaOverlay(QWidget):
         rows = self._grid.read(a, height)
         with self._lock:
             orders, picks, target, doubtful = self._orders, self._picks, self._target, self._doubtful
-        order, first = arcanagrid.best_view(orders, rows)
+        order, first, miss = arcanagrid.best_view(orders, rows)
         if order is None:
             self._diagnose(found[0], img)
             return ("searching", None)
         self._searching_since = None
+        if miss >= arcanagrid.STALE_MISS:          # not the list AionDex read: any frame could be on the wrong card
+            return ("stale", ((left, top, left + width, bottom), height, [], (0, 0), 0))
         boxes, off = arcanagrid.cells_to_frame(order, rows, first, [c for c in picks if c in order], height,
                                                self._grid.x0, doubtful)
         gold, gold_off, alike = (arcanagrid.target_cells(order, rows, first, target, height, self._grid.x0)
@@ -190,11 +200,11 @@ class ArcanaOverlay(QWidget):
         if seen is None:
             return
         status, data = seen
-        if status == "ok":
+        if status in ("ok", "stale"):
             self._lost_since = None
             self._shown = data
             area, _, boxes, off, _ = data
-            self._set_status("ok", len(boxes), *off)
+            self._set_status(status, len(boxes), *off)
             if not self.isVisible():
                 self.show()
                 self._exclude_from_capture()
@@ -237,21 +247,37 @@ class ArcanaOverlay(QWidget):
         x0, y0, _, _, _, _ = arcanagrid.geometry(height)
         p.save()
         p.setClipRect(QRectF(0, top - line * 2, area[2] - area[0], bottom - top + line * 4))
+        badge_font = QFont("Segoe UI Symbol")
+        badge_font.setBold(True)
         for x, y, w, h, registered in boxes:
             pad = line * (2 if registered is None else 1)      # the gold one a little outside, around the others
-            p.setPen(QPen(TARGET if registered is None else CHECK if registered == "check" else
-                          ADDED if registered else TO_ADD, line))
+            color, glyph = BADGES[registered if registered in (None, "check") else bool(registered)]
+            p.setPen(QPen(color, line))
             p.setBrush(Qt.NoBrush)
             p.drawRoundedRect(QRectF(x - pad, y - pad, w + 2 * pad, h + 2 * pad), line * 1.5, line * 1.5)
+            r = max(9.0, w * 0.13)                             # the badge: a disc on the top-right corner
+            disc = QRectF(x + w - 2 * r - line, y + line, 2 * r, 2 * r)
+            p.setPen(QPen(INK, max(2.0, line / 2)))
+            p.setBrush(color)
+            p.drawEllipse(disc)
+            badge_font.setPixelSize(max(10, int(r * 1.3)))
+            p.setFont(badge_font)
+            p.setPen(INK)
+            p.drawText(disc, Qt.AlignCenter, glyph)
         p.restore()
         above, below = off
         gold = any(r is None for *_, r in boxes)
-        if self._mode == "wear":
+        if self.status == "stale":
+            text = tr("AionDex: tu lista no coincide con la que leí · cambia de canal y vuelve a abrir Arcanas")
+        elif self._mode == "wear":
             text = (tr("AionDex: póntela (la dorada)") if alike <= 1 else
+                    tr("AionDex: póntela: la de {0} (una de las {1} doradas)", self._note, alike) if self._note else
                     tr("AionDex: póntela: es una de las {0} doradas (mira sus efectos)", alike))
         elif gold and alike > 1:
-            text = tr("AionDex: la que subes es una de las {0} doradas (mira sus efectos) · registra las marcadas",
-                      alike)
+            text = (tr("AionDex: sube la de {0} (una de las {1} doradas) · registra las marcadas", self._note, alike)
+                    if self._note else
+                    tr("AionDex: la que subes es una de las {0} doradas (mira sus efectos) · registra las marcadas",
+                       alike))
         else:
             text = (tr("AionDex: la dorada es la que subes · registra las marcadas") if gold else
                     tr("AionDex: registra las marcadas"))
@@ -261,10 +287,14 @@ class ArcanaOverlay(QWidget):
         font = QFont(self._font)
         font.setPixelSize(max(12, int(height / 75)))
         p.setFont(font)
-        tw = p.fontMetrics().horizontalAdvance(text) + font.pixelSize()
-        box = QRectF(x0, y0 - height * 0.05, tw, height * 0.032)
+        # as wide as the grid at most: a longer line (the effects that tell the gold one apart) wraps upwards
+        room = (area[2] - area[0]) * dpr - x0 - font.pixelSize()
+        fits = p.fontMetrics().boundingRect(QRect(0, 0, int(room), int(height)), Qt.TextWordWrap, text)
+        pad = font.pixelSize() / 2
+        bottom = y0 - height * 0.018
+        box = QRectF(x0, bottom - fits.height() - pad, fits.width() + 2 * pad, fits.height() + pad)
         p.setPen(Qt.NoPen)
         p.setBrush(QColor(10, 18, 38, 225))
         p.drawRoundedRect(box, 6, 6)
-        p.setPen(TARGET if self._mode == "wear" else TO_ADD)
-        p.drawText(box, Qt.AlignCenter, text)
+        p.setPen(CHECK if self.status == "stale" else TARGET if self._mode == "wear" else TO_ADD)
+        p.drawText(box.adjusted(pad, pad / 2, -pad, 0), Qt.TextWordWrap | Qt.AlignLeft | Qt.AlignVCenter, text)

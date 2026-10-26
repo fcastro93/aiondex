@@ -379,6 +379,22 @@ def twins(plan, card, eater=None, skip=()):
             and (eater is None or c.stack != eater.stack) and (c.item, c.enchant) == (card.item, card.enchant)]
 
 
+def tells_apart(plan, card, others):
+    """The names of the fewest of the card's effects that none of `others` (cards just like it in the game's list) has
+    all of: what to look for in the game's tooltip to find it (2.5.8). All of its effects when that is not enough."""
+    names = {n.skill: n.name for n in plan.skills}
+    mine = [s for s, _ in card.effects]
+    chosen, left = [], list(others)
+    while left:
+        lacking = {s: sum(1 for o in left if not o.levels(s)) for s in mine if s not in chosen}
+        if not lacking or not max(lacking.values()):
+            return [names.get(s, str(s)) for s in mine]
+        s = max(lacking, key=lacking.get)
+        chosen.append(s)
+        left = [o for o in left if o.levels(s)]
+    return [names.get(s, str(s)) for s in chosen]
+
+
 def _enhance_value(card, needs, have, pool, db, weights=None):
     """Expected levels the card's next enhance adds to skills that still need them, each weighed by its priority: a
     new effect (from its kind's pool) while it has fewer than 4, then +1 to one of its effects at random."""

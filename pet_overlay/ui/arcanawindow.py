@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxL
 from .. import APP_NAME
 from ..arcanagrid import grid_order
 from ..arcana import (DEFAULT_ACTIVE_TARGET, TYPES, Card, alternative_to_try, effect_notes, effects_text, farm_options,
-                      feeding_pays, level_food, pantheon, raise_luck, short_kind, twins, worth)
+                      feeding_pays, level_food, pantheon, raise_luck, short_kind, tells_apart, twins, worth)
 from .charpicker import CharacterPicker
 from . import theme
 from .design import Chip, ChipGroup, GameCard, GameTabs, Meter, PageHeader, SearchBox
@@ -310,7 +310,7 @@ class ArcanaWindow(QWidget):
                 self._wear_mark = None
                 self._marks(None)
             else:
-                self._marks(([grid_order(plan.cards)], [], wear, "wear"), force=True)
+                self._marks(([grid_order(plan.cards)], [], wear, "wear", (), self._note_for(plan, wear)), force=True)
         self.card_bar.setVisible(plan is not None and self.tab in ("verdict", "cards"))
         self.skill_bar.setVisible(plan is not None and self.tab == "skills")
         if plan is None:
@@ -632,6 +632,14 @@ class ArcanaWindow(QWidget):
         lay.addLayout(buttons)
         self.body.addWidget(box)
 
+    @staticmethod
+    def _note_for(plan, card, used=()):
+        """«Empyrean Lord's Grace + Immortal Veil»: what tells the card from the ones just like it in the game's list
+        (same card and +N), for the gold frame's line; "" when it is the only one."""
+        alike = [c for c in plan.cards if c.stack != card.stack and not c.worn and c.stack not in used
+                 and (c.item, c.enchant) == (card.item, card.enchant)]
+        return " + ".join(tells_apart(plan, card, alike)) if alike else ""
+
     def _toggle_wear_mark(self, stack):
         """«Marcarla en el juego» of the card to put on: on / off (it stops by itself once you wear it)."""
         if self._wear_mark == stack:
@@ -905,6 +913,11 @@ class ArcanaWindow(QWidget):
                 text += " · " + ", ".join(([tr("{0} más arriba", above)] if above else []) +
                                           ([tr("{0} más abajo", below)] if below else [])) + tr(": mueve la lista")
             return text, theme.GAIN
+        if status == "stale":
+            return tr("La lista de cartas del juego no coincide con la que leí (te faltan o sobran cartas), así que no "
+                      "marco nada para no marcar la que no es. Cambia de canal (el juego me manda la lista de nuevo) y "
+                      "vuelve a abrir Arcanas en el juego. Si sigue igual, puede que tengas cartas en otro preset de "
+                      "arcanas."), theme.WARN
         if status == "black":
             return tr("No veo la pantalla del juego: ponlo al frente (ventana o sin bordes; en pantalla completa "
                       "exclusiva Windows no deja leerla)."), theme.WARN
@@ -1071,7 +1084,8 @@ class ArcanaWindow(QWidget):
         # the card itself in gold too, when it is in your bag (2.5.5): the one to pick in the game's list to enhance it
         doubtful = {c.stack: c for w, _, _ in picks if isinstance(w, Card) for c in twins(plan, w, card, lv["used"])}
         self._marks((orders, [w for w, _, _ in picks if isinstance(w, Card)], None if card.worn else card, "feed",
-                     list(doubtful.values())) if picks else None)
+                     list(doubtful.values()), "" if card.worn else self._note_for(plan, card, lv["used"]))
+                    if picks else None)
         if not picks:
             self.body.addWidget(label(tr("No te queda comida: junta más cartas o Training Arcana."), f.body, theme.WARN))
             return
