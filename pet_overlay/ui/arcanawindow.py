@@ -15,8 +15,8 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxL
 
 from .. import APP_NAME
 from ..arcanagrid import grid_order
-from ..arcana import (DEFAULT_ACTIVE_TARGET, TYPES, Card, alternative_to_try, effect_notes, farm_options, feeding_pays,
-                      level_food, pantheon, raise_luck, short_kind, worth)
+from ..arcana import (DEFAULT_ACTIVE_TARGET, TYPES, Card, alternative_to_try, effect_notes, effects_text, farm_options,
+                      feeding_pays, level_food, pantheon, raise_luck, short_kind, twins, worth)
 from .charpicker import CharacterPicker
 from . import theme
 from .design import Chip, ChipGroup, GameCard, GameTabs, Meter, PageHeader, SearchBox
@@ -962,6 +962,13 @@ class ArcanaWindow(QWidget):
         text.addWidget(label(title, f.name_big, theme.grade_color(card.grade) if card else theme.WARN))
         if card is not None:
             text.addWidget(label(f"{short_kind(card.kind)} · {card.grade} · {card.set}", f.small, theme.MUTED))
+            alike = [c for c in plan.cards if c.stack != card.stack and not c.worn and c.stack not in lv["used"]
+                     and (c.item, c.enchant) == (card.item, card.enchant)]
+            if alike and not card.worn:
+                mine = label(tr("En el juego tienes {0} {1} +{2} iguales: la tuya es la de {3}.", len(alike) + 1,
+                                card.name, card.enchant, effects_text(card, plan)), f.small, theme.GOLD)
+                mine.setWordWrap(True)
+                text.addWidget(mine)
         if lv["history"]:                       # how the last enhance went, big
             a, b, rose = lv["history"][-1]
             good = rose and all(serves(s) for s, _, _ in rose)
@@ -1062,8 +1069,9 @@ class ArcanaWindow(QWidget):
         base = [c for c in plan.cards if c.stack not in lv["used"]]
         orders = [grid_order(base)] + ([grid_order([c for c in base if c.stack != card.stack])] if not card.worn else [])
         # the card itself in gold too, when it is in your bag (2.5.5): the one to pick in the game's list to enhance it
-        self._marks((orders, [w for w, _, _ in picks if isinstance(w, Card)], None if card.worn else card)
-                    if picks else None)
+        doubtful = {c.stack: c for w, _, _ in picks if isinstance(w, Card) for c in twins(plan, w, card, lv["used"])}
+        self._marks((orders, [w for w, _, _ in picks if isinstance(w, Card)], None if card.worn else card, "feed",
+                     list(doubtful.values())) if picks else None)
         if not picks:
             self.body.addWidget(label(tr("No te queda comida: junta más cartas o Training Arcana."), f.body, theme.WARN))
             return
@@ -1075,15 +1083,28 @@ class ArcanaWindow(QWidget):
         food = QGridLayout()
         food.setHorizontalSpacing(f.px(16))
         food.setVerticalSpacing(f.px(3))
+        warnings = []
         for r, (n, exp, w) in enumerate(counts.values()):
             if isinstance(w, Card):
                 food.addWidget(label(w.name, f.body, theme.grade_color(w.grade)), r, 0)
                 food.addWidget(label(f"{w.grade} +{w.enchant}", f.small, theme.MUTED), r, 1)
+                twin = twins(plan, w, card, lv["used"])
+                if twin:                # the game shows them alike: say which one by its effects
+                    food.addWidget(label(tr("la de {0}", effects_text(w, plan)), f.small, theme.WARN, elide=True), r, 3)
+                    warnings.append(tr("⚠ Tu {0} +{1} de {2} no es comida ({3}): en el juego se ve igual que la de "
+                                       "{4}. Antes de registrarla, mira sus efectos.", twin[0].name, twin[0].enchant,
+                                       effects_text(twin[0], plan),
+                                       tr("Alternativa") if plan.best.get(twin[0].kind) is not twin[0] else
+                                       tr("Llévala"), effects_text(w, plan)))
             else:
                 food.addWidget(label((f"{n}× " if n > 1 else "") + w[0], f.body, theme.TEXT), r, 0)
             food.addWidget(label(tr("{0:,} exp", exp), f.small, theme.TEXT), r, 2, Qt.AlignRight)
         food.setColumnStretch(3, 1)
         self.body.addLayout(food)
+        for text_ in dict.fromkeys(warnings):
+            warn = label(text_, f.small, theme.WARN)
+            warn.setWordWrap(True)
+            self.body.addWidget(warn)
         kinah = sum(k for _, _, k in picks)
         reach, rest = card.enchant, total
         while db.to_next(card.grade, reach) is not None and rest >= db.to_next(card.grade, reach):

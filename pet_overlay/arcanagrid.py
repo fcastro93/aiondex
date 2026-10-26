@@ -220,12 +220,14 @@ def target_cells(order, rows, first, card, height, x0=None):
     return out, (above, below), alike
 
 
-def cells_to_frame(order, rows, first, picks, height, x0=None):
+def cells_to_frame(order, rows, first, picks, height, x0=None, doubtful=()):
     """([(x, y, w, h, registered)] in client pixels of the cells to feed, (picks above the view, picks below)): also
     the cells of the rows half in view at the top and bottom (the caller clips them to view()). For each pick, a cell
     of a card that looks the same (same card, grade and +N: as food they are all alike), the ones already registered
-    first, then the ones on screen."""
+    first, then the ones on screen. doubtful: cards that are not food but look like a pick (an alternative: twins()):
+    every cell of such a look-alike group is framed with registered = "check" - only its effects tell them apart."""
     where, seen, cw, ch, vt = _placer(rows, first, height, x0)
+    unsure = {(c.item, c.enchant) for c in doubtful if c in order}
     registered = {first + r * 4 + col: reg for r, (_, cells) in enumerate(rows) for col, (_, _, reg) in enumerate(cells)}
     want = {}
     for c in picks:
@@ -235,11 +237,12 @@ def cells_to_frame(order, rows, first, picks, height, x0=None):
         groups.setdefault((card.item, card.enchant), []).append(k)
     out, above, below = [], 0, 0
     for key, n in want.items():
-        ks = sorted(groups.get(key, []), key=lambda k: (not registered.get(k, False), not seen(k), k))[:n]
+        ks = sorted(groups.get(key, []), key=lambda k: (not registered.get(k, False), not seen(k), k))
+        ks = ks if key in unsure else ks[:n]
         for k in ks:
             x, y = where(k)
             if seen(k):
-                out.append((x, y, cw, ch, registered.get(k, False)))
+                out.append((x, y, cw, ch, "check" if key in unsure else registered.get(k, False)))
             elif y < vt:
                 above += 1
             else:

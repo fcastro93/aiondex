@@ -45,6 +45,7 @@ DIAGNOSE_AFTER = 6.0             # seconds with the game in front and no grid be
 TO_ADD = QColor("#3ad1f5")
 ADDED = QColor("#5fdc7c")
 TARGET = QColor("#e9c45c")
+CHECK = QColor("#ff9f43")        # food that looks like a card that is not food: check its effects (2.5.7)
 
 
 class ArcanaOverlay(QWidget):
@@ -63,6 +64,7 @@ class ArcanaOverlay(QWidget):
         self._picks = []                 # [Card] to feed for the next level
         self._target = None              # the Card to enhance or to put on, framed in gold
         self._mode = "feed"              # "feed" (Subir) or "wear" (the one to put on)
+        self._doubtful = []              # cards that are not food but look like a pick (arcana.twins)
         self._seen = None                # (area on screen, client height, boxes, cards off screen) of the last read
         self._shown = None               # the same, as drawn
         self._lost_since = None
@@ -78,14 +80,16 @@ class ArcanaOverlay(QWidget):
         self._timer = QTimer(self, interval=PAINT_MS, timeout=self._tick)
 
     # --- on / off ---
-    def set_picks(self, orders, picks, target=None, mode="feed"):
+    def set_picks(self, orders, picks, target=None, mode="feed", doubtful=()):
         """Frame these cards in the game's grid. orders: the lists your bag may show in the grid's order (with and
         without the card being enhanced, when it is in the bag); each kind alone is tried too (a filter). target: the
-        card to enhance (when it is in the bag) or, mode "wear", the one to put on, in gold."""
+        card to enhance (when it is in the bag) or, mode "wear", the one to put on, in gold. doubtful: cards that are
+        not food but look like a pick: all of that group is framed in orange, to check its effects."""
         with self._lock:
             self._orders = [o for order in orders for o in [order] + [[c for c in order if c.kind == k] for k in TYPES]]
             self._picks = list(picks)
             self._target, self._mode = target, mode
+            self._doubtful = list(doubtful)
         if not picks and target is None:
             self.stop()
             return
@@ -145,14 +149,14 @@ class ArcanaOverlay(QWidget):
             return ("black", None)
         rows = self._grid.read(a, height)
         with self._lock:
-            orders, picks, target = self._orders, self._picks, self._target
+            orders, picks, target, doubtful = self._orders, self._picks, self._target, self._doubtful
         order, first = arcanagrid.best_view(orders, rows)
         if order is None:
             self._diagnose(found[0], img)
             return ("searching", None)
         self._searching_since = None
         boxes, off = arcanagrid.cells_to_frame(order, rows, first, [c for c in picks if c in order], height,
-                                               self._grid.x0)
+                                               self._grid.x0, doubtful)
         gold, gold_off, alike = (arcanagrid.target_cells(order, rows, first, target, height, self._grid.x0)
                                  if target is not None and target in order else ([], (0, 0), 0))
         boxes += [(x, y, w, h, None) for x, y, w, h in gold]
@@ -235,7 +239,8 @@ class ArcanaOverlay(QWidget):
         p.setClipRect(QRectF(0, top - line * 2, area[2] - area[0], bottom - top + line * 4))
         for x, y, w, h, registered in boxes:
             pad = line * (2 if registered is None else 1)      # the gold one a little outside, around the others
-            p.setPen(QPen(TARGET if registered is None else ADDED if registered else TO_ADD, line))
+            p.setPen(QPen(TARGET if registered is None else CHECK if registered == "check" else
+                          ADDED if registered else TO_ADD, line))
             p.setBrush(Qt.NoBrush)
             p.drawRoundedRect(QRectF(x - pad, y - pad, w + 2 * pad, h + 2 * pad), line * 1.5, line * 1.5)
         p.restore()
@@ -244,9 +249,14 @@ class ArcanaOverlay(QWidget):
         if self._mode == "wear":
             text = (tr("AionDex: póntela (la dorada)") if alike <= 1 else
                     tr("AionDex: póntela: es una de las {0} doradas (mira sus efectos)", alike))
+        elif gold and alike > 1:
+            text = tr("AionDex: la que subes es una de las {0} doradas (mira sus efectos) · registra las marcadas",
+                      alike)
         else:
             text = (tr("AionDex: la dorada es la que subes · registra las marcadas") if gold else
                     tr("AionDex: registra las marcadas"))
+        if any(r == "check" for *_, r in boxes):
+            text += tr(" · naranja: mira sus efectos, una igual no es comida")
         text += (tr(" · {0} más arriba", above) if above else "") + (tr(" · {0} más abajo", below) if below else "")
         font = QFont(self._font)
         font.setPixelSize(max(12, int(height / 75)))

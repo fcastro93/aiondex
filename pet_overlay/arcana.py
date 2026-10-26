@@ -369,6 +369,16 @@ def _food_rank(what):
     return GRADE_ORDER.get(what.grade, 0) if isinstance(what, Card) else -1
 
 
+def twins(plan, card, eater=None, skip=()):
+    """The cards that look exactly like this one in the game's list (the same card and +N) but are not food - an
+    alternative, the one to wear - other than `eater` (the card being enhanced) and the stacks in skip. The game shows
+    them alike and its order among them is not known, so AionDex cannot tell which cell is which (2.5.7: a Bell of
+    Magic +0 with Empyrean Lord's Grace, an alternative, was framed as food in place of one just like it)."""
+    keep = {r.card.stack for rows in plan.alternatives.values() for r in rows} | {c.stack for c in plan.best.values()}
+    return [c for c in plan.cards if c.stack in keep and c.stack != card.stack and c.stack not in skip and not c.worn
+            and (eater is None or c.stack != eater.stack) and (c.item, c.enchant) == (card.item, card.enchant)]
+
+
 def _enhance_value(card, needs, have, pool, db, weights=None):
     """Expected levels the card's next enhance adds to skills that still need them, each weighed by its priority: a
     new effect (from its kind's pool) while it has fewer than 4, then +1 to one of its effects at random."""
@@ -734,7 +744,8 @@ def worth(card, plan, db):
 
 def level_food(plan, db, card, skip=()):
     """The food for the card's next level only, out of what the plan feeds it (Training Arcana one by one): the lowest
-    rarity that is enough (2.5.5: the Training Arcana, then up to Common, Rare, Epic, Unique), then the least exp past
+    rarity that is enough (2.5.5: the Training Arcana, then up to Common, Rare, Epic, Unique; last the ones that look
+    like a card that is not food, twins(): the game cannot tell them apart), then the least exp past
     what it needs (that carries over to the level after), then the fewest items. The card you wear, when the plan feeds
     it to this new one, goes first and whole. skip: stacks already eaten (the game may not say so until the next full
     list). -> (picks [(Card or (Training Arcana name, 1), exp, Kinah)], exp it needs, exp of the picks); the picks fall
@@ -764,12 +775,15 @@ def level_food(plan, db, card, skip=()):
         for name, n, exp in plan.training:
             if name not in given:
                 items += [((name, 1), exp, 0)] * n
-    items.sort(key=lambda it: _food_rank(it[0]))
+    def rank(what):
+        return 9 if isinstance(what, Card) and twins(plan, what, card, skip) else _food_rank(what)
+
+    items.sort(key=lambda it: rank(it[0]))
     total = sum(e for _, e, _ in items)
     if total <= need:
         return items, need, total
-    for rank in sorted({_food_rank(w) for w, _, _ in items}):
-        tier = [it for it in items if _food_rank(it[0]) <= rank]
+    for top in sorted({rank(w) for w, _, _ in items}):
+        tier = [it for it in items if rank(it[0]) <= top]
         if sum(e for _, e, _ in tier) >= need:
             items = tier
             break
