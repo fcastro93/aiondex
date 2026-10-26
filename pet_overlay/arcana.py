@@ -50,6 +50,9 @@ PANTHEON = {      # what a card's Pantheon stat gives at 20 (aion2maps' cleric g
 }
 PRIORITY_DECAY = 0.75               # a skill target's weight is this to the power of its place in your list (1, 0.75,
 #                                     0.56...): the first one counts most, but a lot of the next ones can still win
+MAX_CONTENDERS = 3                  # alternatives kept out of the food per kind (2.5.5)
+MIN_CHANCE = 0.1                    # an alternative that does not tie now: its least chance of beating the card to
+#                                     wear once enhanced to its top
 
 
 def _u32(b, p):
@@ -237,6 +240,29 @@ class Feed:
 
 
 @dataclass
+class Contender:
+    """A card that is not the one to wear of its kind but may be (2.5.5): kept out of the food, so a card that may
+    serve is not eaten before you know."""
+    card: Card
+    rival: Card              # the one to wear of its kind (the plan's pick)
+    useful: int              # levels it adds to your skill targets, in the best mix of your cards with it
+    base: int                # the same with the plan's pick
+    chance: float            # the chance that, enhanced to its top, it beats the pick (each skill by its priority)
+    tie: float               # the chance that it ends even
+    top: int                 # its top +N
+    exp: int                 # the exp to take it there
+    rival_edge: list = field(default_factory=list)   # [skill] the pick gives more of, by priority
+    own_edge: list = field(default_factory=list)     # [skill] it gives more of, by priority
+    mix: list = field(default_factory=list)          # [Card] of other kinds its best mix wears instead of the plan's
+    reach: int = 0           # the +N your food takes it to now (all of it, the one you wear aside)
+    reach_chance: float = 0.0    # its chance of beating the pick there
+
+    @property
+    def can_win(self):
+        return self.chance > 0
+
+
+@dataclass
 class ArcanaPlan:
     cards: list = field(default_factory=list)       # [Card], worn first
     skills: list = field(default_factory=list)      # [SkillNeed], the ones with a target first
@@ -254,6 +280,8 @@ class ArcanaPlan:
     pick: dict = field(default_factory=dict)        # kind -> the version you want (Set y versión) or, if you left it
     pick_from: dict = field(default_factory=dict)   # to the top, the one most of them wear (VERSION_PICK): "you" / "top"
     top_pick: dict = field(default_factory=dict)    # kind -> the top's version (VERSION_PICK), for the tab
+    alternatives: dict = field(default_factory=dict)   # kind -> [Contender], the most likely to win first
+    level_pick: Card = None          # the alternative you chose to enhance to settle it (it gets the food first)
     useful_now: int = 0
     useful_best: int = 0
 
@@ -313,6 +341,33 @@ def _fed(db, card, food, pool):
                 [[s, v] for s, v in got.items()], card.worn, card.stat, 0, food, card)
 
 
+def _outcomes(effects, raises, pool):
+    """{the effects after `raises` enhances, as a sorted tuple of (skill, level): its chance}: each enhance adds an
+    effect of its kind's pool (any it lacks) while it has fewer than 4, then raises one of the ones under +4 at random."""
+    states = {tuple(sorted((s, lv) for s, lv in effects)): 1.0}
+    for _ in range(raises):
+        after = {}
+        for eff, p in states.items():
+            have = dict(eff)
+            moves = ([(s, 1) for s in pool if s not in have] if len(have) < MAX_EFFECTS else []) or \
+                [(s, lv + 1) for s, lv in eff if lv < MAX_EFFECT_LEVEL]
+            for s, lv in moves or [(None, 0)]:
+                key = tuple(sorted({**have, s: lv}.items())) if s is not None else eff
+                after[key] = after.get(key, 0.0) + p / max(1, len(moves))
+        states = after
+    return states
+
+
+@dataclass
+class _Effects:
+    effects: tuple
+
+
+def _food_rank(what):
+    """Lower rarity first (2.5.5): the Training Arcana, then Common, Rare, Epic, Unique."""
+    return GRADE_ORDER.get(what.grade, 0) if isinstance(what, Card) else -1
+
+
 def _enhance_value(card, needs, have, pool, db, weights=None):
     """Expected levels the card's next enhance adds to skills that still need them, each weighed by its priority: a
     new effect (from its kind's pool) while it has fewer than 4, then +1 to one of its effects at random."""
@@ -327,14 +382,17 @@ def _enhance_value(card, needs, have, pool, db, weights=None):
     return sum(w.get(s, 1.0) for s, _ in open_ if needs.get(s, 0) > have.get(s, 0)) / len(open_) if open_ else 0.0
 
 
-def build(db, prefix, cards, levels, targets, names, kinds, training=None, versions=None, final_first=False):
+def build(db, prefix, cards, levels, targets, names, kinds, training=None, versions=None, final_first=False,
+          picks=None):
     """The plan of one character. levels: {skill: level now} or {skill: (level, points, [Daevanion, 0, gear, Arcana])}
     (the game's skill list, with the worn cards); targets: {skill: level wanted}, in priority order (the first counts
     most: PRIORITY_DECAY; 0 / missing = no target); names / kinds: skill -> name / "active" | "passive"; training:
     [(name, count, exp)] of the Training Arcana in the bag; versions: kind -> "Vigor" | "Magic" | "any" (the version you
     want of each card; a kind left out goes by the top's, VERSION_PICK); final_first: the food goes first to the cards
     that are already the best possible of their kind for your skill targets (they never have to be replaced), then to
-    the one that gives the most per exp."""
+    the one that gives the most per exp; picks: {"level": the stack of the alternative you chose to enhance (it gets
+    the food first, and never eats the one you wear), "food": [stacks of alternatives you sent back to the food]}."""
+    picks = picks or {}
     plan = ArcanaPlan()
     plan.cards = sorted(cards, key=lambda c: (not c.worn, TYPES.index(c.kind) if c.kind in TYPES else 9,
                                               -GRADE_ORDER.get(c.grade, 0), -c.enchant, -c.total))
@@ -374,7 +432,9 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
     # dealt again among the eater's effects): an enhanced card of yours does not hide a better one that shows up later.
     # The food is the one you wear when it is enhanced AND the enhanced one with the most exp: before 2.4.2 only the
     # worn one, so once you put on the new card (+0) the old +3 was no longer seen as its food and AionDex told you to
-    # wear the old one again - a loop
+    # wear the old one again - a loop. The alternative you chose to enhance never pictures eating the one you wear: you
+    # enhance it to see which of the two ends better, without breaking yours (2.5.5)
+    leveling = picks.get("level")
     options = []
     for kind in TYPES:
         mine = [c for c in plan.cards if c.kind == kind]
@@ -386,16 +446,21 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
         if richest is not None and richest not in foods:
             foods.append(richest)
         tops += [_fed(db, c, food, plan.pool[kind]) for food in foods for c in list(tops)
-                 if c is not food and db.to_next(c.grade, c.enchant) is not None]
+                 if c is not food and c.stack != leveling and db.to_next(c.grade, c.enchant) is not None]
         options.append(tops or [None])
-    best, best_key = None, None
-    for combo in itertools.product(*options):
-        chosen = [c for c in combo if c is not None]
-        key = (_useful(chosen, needs, weights), _set_bonus(chosen), sum(plan.pick.get(c.kind) == c.set for c in chosen),
-               sum(c.total for c in chosen),
-               sum(GRADE_ORDER.get(c.grade, 0) * 10 + c.enchant for c in chosen), sum(c.worn for c in chosen))
-        if best_key is None or key > best_key:
-            best, best_key = chosen, key
+
+    def best_of(opts):
+        best, best_key = None, None
+        for combo in itertools.product(*opts):
+            chosen = [c for c in combo if c is not None]
+            key = (_useful(chosen, needs, weights), _set_bonus(chosen),
+                   sum(plan.pick.get(c.kind) == c.set for c in chosen), sum(c.total for c in chosen),
+                   sum(GRADE_ORDER.get(c.grade, 0) * 10 + c.enchant for c in chosen), sum(c.worn for c in chosen))
+            if best_key is None or key > best_key:
+                best, best_key = chosen, key
+        return best or [], best_key
+
+    best, best_key = best_of(options)
     expected = {c.kind: c for c in best or []}            # with the new cards as they would be after a transfer
     plan.best = {k: c.real or c for k, c in expected.items()}
     for kind, c in expected.items():
@@ -425,17 +490,90 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
             plan.look_for[kind] = sorted(rows, key=lambda r: (-weights.get(r[0], 0), -r[2]))
     plan.look_for = dict(sorted(plan.look_for.items(), key=lambda kv: -max(weights.get(r[0], 0) for r in kv[1])))
 
-    # food: the cards you do not wear and that are not the best of their kind, fed to the best cards where their next
-    # levels most likely raise a skill you need
-    plan.spare = [c for c in plan.cards if plan.best.get(c.kind) is not c and not c.worn]
-    plan.training = [t for t in training or [] if t[1]]
+    # the alternatives (2.5.5): of each kind, the cards of its highest item level that are not the one to wear but may
+    # be - in the best mix of your cards with them (they can change what serves in the other slots too) they add as
+    # many levels to your skill targets as the plan's, or enhancing them to their top beats it with MIN_CHANCE or more
+    # (every way its enhances can fall, each skill by its priority). Up to MAX_CONTENDERS a kind stay out of the food,
+    # and the one you chose to enhance always does
     moving = {w.stack for w, _, _, _ in plan.transfers.values()}     # fed whole to the new card (added below once)
-    food = sorted([(c, db.food(c.grade, c.enchant, c.exp), db.feed_kinah(c.grade, c.enchant)) for c in plan.spare
-                   if c.stack not in moving], key=lambda f: f[1])
+    dropped = set(picks.get("food") or ())
+    lead = next((c for c in plan.cards if c.stack == leveling and not c.worn and plan.best.get(c.kind) is not c
+                 and db.to_next(c.grade, c.enchant) is not None), None)
+    mixes = {}                          # stack -> the cards of the other kinds in its best mix
+
+    def odds(c, raises):
+        """(win, tie) of the card after `raises` enhances, against the pick."""
+        win = tie = 0.0
+        for eff, p in _outcomes(c.effects, raises, plan.pool[c.kind]).items():
+            v = _useful(mixes[c.stack] + [_Effects(eff)], needs, weights)
+            if v > best_key[0] + 1e-9:
+                win += p
+            elif v > best_key[0] - 1e-9:
+                tie += p
+        return win, tie
+
+    base_raw = _useful(best, needs)
+    base_got = {}
+    for c in best:
+        for s, lv in c.effects:
+            base_got[s] = base_got.get(s, 0) + lv
+    for i, kind in enumerate(TYPES):
+        rival = plan.best.get(kind)
+        if rival is None:
+            continue
+        rows = []
+        for c in options[i]:
+            if c is None or c.real is not None or c is rival or c.worn or c.stack in moving:
+                continue
+            chosen = c is lead
+            if c.stack in dropped and not chosen:
+                continue
+            mix, _ = best_of(options[:i] + [[c]] + options[i + 1:])
+            useful = _useful(mix, needs)
+            others = mixes[c.stack] = [m for m in mix if m.kind != kind]
+            top = db.max_level(c.grade)
+            exp = sum(db.to_next(c.grade, lv) for lv in range(c.enchant, top)) - c.exp
+            win, tie = odds(c, top - c.enchant)
+            if not chosen and not (useful and useful >= base_raw) and win < MIN_CHANCE:
+                continue                    # an even 0 (no skill targets) is no reason to keep it
+            got = {}
+            for m in mix:
+                for s, lv in m.effects:
+                    got[s] = got.get(s, 0) + lv
+            ranked_needs = sorted(needs, key=lambda s: -weights.get(s, 0))
+            edge = [(s, min(needs[s], base_got.get(s, 0)) - min(needs[s], got.get(s, 0))) for s in ranked_needs]
+            rows.append(Contender(c, rival, useful, base_raw, win, tie, top, max(0, exp),
+                                  [s for s, d in edge if d > 0], [s for s, d in edge if d < 0],
+                                  [m.real or m for m in others if (m.real or m) is not plan.best.get(m.kind)]))
+        rows.sort(key=lambda r: (r.card is not lead, -r.chance, -r.useful, -r.tie))
+        if rows:
+            plan.alternatives[kind] = rows[:MAX_CONTENDERS + (rows[0].card is lead)]
+    kept = {r.card.stack for rows in plan.alternatives.values() for r in rows}
+    plan.level_pick = lead if lead is not None and lead.stack in kept else None
+
+    # food: the cards you do not wear, that are not the best of their kind nor an alternative, fed to the best cards
+    # where their next levels most likely raise a skill you need - the lower rarity first (2.5.5: the Training Arcana,
+    # then Common, Rare, Epic, Unique: the higher ones stay longer in your bag, as options); the alternative you chose
+    # to enhance gets the food before the rest
+    plan.spare = [c for c in plan.cards if plan.best.get(c.kind) is not c and not c.worn and c.stack not in kept]
+    plan.training = [t for t in training or [] if t[1]]
+    food = [(c, db.food(c.grade, c.enchant, c.exp), db.feed_kinah(c.grade, c.enchant)) for c in plan.spare
+            if c.stack not in moving]
     food += [((name, n), exp * n, 0) for name, n, exp in plan.training]
     food += [(w, exp, db.feed_kinah(w.grade, w.enchant)) for w, _, exp, _ in plan.transfers.values()]
     into_new = {w.stack: new.stack for w, new, _, _ in plan.transfers.values()}     # the one you wear -> the new one
     targets_ = [c for c in plan.best.values() if db.to_next(c.grade, c.enchant) is not None]
+    if plan.level_pick is not None:
+        targets_.append(plan.level_pick)
+    pantry = sum(exp for what, exp, _ in food if not (isinstance(what, Card) and what.stack in moving))
+    for rows in plan.alternatives.values():
+        for r in rows:
+            lvl, left = r.card.enchant, pantry + r.card.exp
+            while db.to_next(r.card.grade, lvl) is not None and left >= db.to_next(r.card.grade, lvl):
+                left -= db.to_next(r.card.grade, lvl)
+                lvl += 1
+            r.reach = lvl
+            r.reach_chance = odds(r.card, lvl - r.card.enchant)[0] if lvl < r.top else r.chance
     if food and targets_:
         have = dict(adds)
         state = {c.stack: [c.enchant, c.exp] for c in targets_}
@@ -451,11 +589,13 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
         first_ratio = {c.stack: value(c)[0] / value(c)[1] for c in targets_}     # what its next level gives per exp
         final = {c.stack: final_first and _final(c, plan) for c in targets_}
         for what, exp, kinah in sorted(food, key=lambda f: (not (isinstance(f[0], Card) and f[0].stack in into_new),
-                                                             -f[1])):
+                                                             _food_rank(f[0]), -f[1])):
             open_ = [c for c in targets_ if db.to_next(c.grade, state[c.stack][0]) is not None]
             if not open_:
                 break
             forced = into_new.get(what.stack) if isinstance(what, Card) else None
+            if forced is None and plan.level_pick is not None:
+                forced = plan.level_pick.stack
             target = (next((c for c in open_ if c.stack == forced), None) if forced else None) or max(
                 open_, key=lambda c: (final[c.stack], value(c)[0] / value(c)[1], -value(c)[1]))
             f = plans[target.stack]
@@ -477,14 +617,16 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
         # the order to enhance them: what the next level gives in your skills (weighed by priority) per exp, the
         # same measure the food went by - Qué hacer's next step and Mejoras' steps follow it
         plan.feeds = sorted((f for f in plans.values() if f.fodder),
-                            key=lambda f: (not final[f.target.stack], -first_ratio[f.target.stack], -f.useful))
+                            key=lambda f: (f.target is not plan.level_pick, not final[f.target.stack],
+                                           -first_ratio[f.target.stack], -f.useful))
     return plan
 
 
 def feeding_pays(plan):
     """Does feeding your spare cards raise a skill you want? The one rule Arcanas, Mejoras and the next step share
-    (2.5: Mejoras said «dales de comer las 12 que no usas · +0 en tus cartas» while Arcanas said to farm)."""
-    return plan is not None and any(f.useful > 0 for f in plan.feeds)
+    (2.5: Mejoras said «dales de comer las 12 que no usas · +0 en tus cartas» while Arcanas said to farm). The
+    alternative you chose to enhance counts too: you feed it to settle which of the two serves (2.5.5)."""
+    return plan is not None and any(f.useful > 0 or f.target is plan.level_pick for f in plan.feeds)
 
 
 def effects_text(card, plan):
@@ -579,11 +721,12 @@ def worth(card, plan, db):
 
 
 def level_food(plan, db, card, skip=()):
-    """The food for the card's next level only, out of what the plan feeds it (Training Arcana one by one): the least
-    exp past what it needs (that carries over to the level after), then the fewest items. The card you wear, when the
-    plan feeds it to this new one, goes first and whole. skip: stacks already eaten (the game may not say so until the
-    next full list). -> (picks [(Card or (Training Arcana name, 1), exp, Kinah)], exp it needs, exp of the picks); the
-    picks fall short when the food does."""
+    """The food for the card's next level only, out of what the plan feeds it (Training Arcana one by one): the lowest
+    rarity that is enough (2.5.5: the Training Arcana, then up to Common, Rare, Epic, Unique), then the least exp past
+    what it needs (that carries over to the level after), then the fewest items. The card you wear, when the plan feeds
+    it to this new one, goes first and whole. skip: stacks already eaten (the game may not say so until the next full
+    list). -> (picks [(Card or (Training Arcana name, 1), exp, Kinah)], exp it needs, exp of the picks); the picks fall
+    short when the food does."""
     need = db.to_next(card.grade, card.enchant)
     if need is None:
         return [], 0, 0
@@ -609,9 +752,15 @@ def level_food(plan, db, card, skip=()):
         for name, n, exp in plan.training:
             if name not in given:
                 items += [((name, 1), exp, 0)] * n
+    items.sort(key=lambda it: _food_rank(it[0]))
     total = sum(e for _, e, _ in items)
     if total <= need:
         return items, need, total
+    for rank in sorted({_food_rank(w) for w, _, _ in items}):
+        tier = [it for it in items if _food_rank(it[0]) <= rank]
+        if sum(e for _, e, _ in tier) >= need:
+            items = tier
+            break
     unit = 100                                  # every exp of the tables is a multiple of 100
     cap = -(-need // unit) + max(-(-e // unit) for _, e, _ in items)
     reach = {0: ()}

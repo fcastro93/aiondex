@@ -30,6 +30,8 @@ TABS = (("todo", tr("Qué hacer")), ("verdict", tr("¿Sirven?")), ("cards", tr("
 SHEET = "https://docs.google.com/spreadsheets/d/1YdTWoOg2cQYMVPyKdRuQ9rkdlOo0mvpfiywZcgPpSV4"
 GRADES = ("Unique", "Epic", "Rare", "Common")
 VERDICTS = (("keep", tr("Llévala"), tr("La mejor de su tipo: la que llevas o la que te tienes que poner")),
+            ("alt", tr("Alternativa"), tr("Puede ser la mejor de su tipo: empata con ella o, si la subes, puede "
+                                          "superarla. No es comida mientras no se sepa")),
             ("food", tr("Comida"), tr("Para subir las que usas (la que cambias pasa su exp a la nueva)")),
             ("extra", tr("De más"), tr("Comida que sobra: las que usas llegan al máximo sin ella")))
 EFFECT_W, RAISED_W = 270, 130          # ¿Sirven?'s columns: the effect, «Subió»
@@ -87,6 +89,7 @@ class ArcanaWindow(QWidget):
         self.unfolded = set()              # Qué hacer's folded sections that are open
         self.overlay = None                # «Marcar en el juego»: ArcanaOverlay over the game's grid, made when on
         self._marks_label = None           # the line that says what it sees
+        self._wear_mark = None             # the stack of the card to put on, framed in the game (Qué hacer, 2.5.5)
         self._missing_icons = set()        # skills drawn without their icon: asked for after each drawing
         self.setWindowTitle(f"{APP_NAME} — {tr('Arcanas')}")
         self.setWindowIcon(ctl.app_icon)
@@ -248,7 +251,14 @@ class ArcanaWindow(QWidget):
         or "extra" (food nothing needs: the ones you use reach their top without it)."""
         if plan.best.get(card.kind) is card:
             return "keep"
+        if any(r.card is card for rows in plan.alternatives.values() for r in rows):
+            return "alt"
         return "food" if card.worn or card.stack in fed_to else "extra"
+
+    @staticmethod
+    def _alt_of(plan):
+        """{stack: Contender} of the alternatives (2.5.5)."""
+        return {r.card.stack: r for rows in plan.alternatives.values() for r in rows}
 
     def _card_filtering(self):
         return any(group.selected() not in (None, "all") for group, _ in self._card_groups.values()) or \
@@ -292,6 +302,15 @@ class ArcanaWindow(QWidget):
             self.leveling = None
             self._marks(None)
         plan = self.ctl.arcana_plan(name)
+        self._marks_label = None
+        if self._wear_mark and not self.leveling:       # «Marcarla en el juego»: until it is on (or no longer the pick)
+            wear = next((c for _, _, c, _ in plan.changes if c.stack == self._wear_mark and not c.worn),
+                        None) if plan else None
+            if wear is None:
+                self._wear_mark = None
+                self._marks(None)
+            else:
+                self._marks(([grid_order(plan.cards)], [], wear, "wear"), force=True)
         self.card_bar.setVisible(plan is not None and self.tab in ("verdict", "cards"))
         self.skill_bar.setVisible(plan is not None and self.tab == "skills")
         if plan is None:
@@ -339,6 +358,17 @@ class ArcanaWindow(QWidget):
             grid.addWidget(self._card_tile(plan, kind), 0, i)
             grid.setColumnStretch(i, 1)
         self.body.addLayout(grid)
+        alts = [r for kind in TYPES for r in plan.alternatives.get(kind, [])]
+        if alts:
+            self.body.addWidget(SectionTitle(tr("Alternativas: no son comida"), f))
+            hint = label(tr("Cartas que pueden ser la mejor de su tipo: empatan con la tuya o, si las subes, pueden "
+                            "superarla. No las doy de comida para que tengas opciones en ese hueco y para mezclarlas con "
+                            "las de otros huecos. «Subir esta»: la comida va primero a ella y la tuya no se toca; cuando "
+                            "una de las dos gane, la otra vuelve a ser comida."), f.small, theme.MUTED)
+            hint.setWordWrap(True)
+            self.body.addWidget(hint)
+            for r in alts:
+                self._alt_row(plan, r)
         if any(n.target for n in plan.skills):
             head = QHBoxLayout()
             head.addWidget(SectionTitle(tr("Tus skills objetivo"), f), 1)
@@ -472,6 +502,7 @@ class ArcanaWindow(QWidget):
         text.setSpacing(f.px(4))
         text.addWidget(label(tr("TU SIGUIENTE PASO"), f.section, theme.GOLD))
         action = None
+        wear = None                    # the card to put on: «Marcarla en el juego»
         skills = []
         gains = [(k, w, c, g) for k, w, c, g in plan.changes if g > 0 or k in plan.transfers]
         if not any(n.target for n in plan.skills):
@@ -482,6 +513,7 @@ class ArcanaWindow(QWidget):
             kind, worn, card, gain = max(gains, key=lambda x: x[3])
             skills = [e.skill for e in effect_notes(card, plan, db)[0] if e.serves]
             moved = plan.transfers.get(kind)
+            wear = card
             if moved:
                 title = tr("Ponte tu {0} nueva y dale de comer la vieja", card.name)
                 line = tr("Toda la exp de tu {0} +{1} pasa a la nueva ({2:,}): llega a +{3} y en promedio te da +{4:.1f} "
@@ -491,6 +523,20 @@ class ArcanaWindow(QWidget):
                 title = tr("Ponte tu {0} ({1} +{2})", card.name, card.grade, card.enchant)
                 line = tr("+{0:.0f} niveles en skills que te faltan, en lugar de tu {1}.", gain, worn.name) if worn else \
                     tr("+{0:.0f} niveles en skills que te faltan: ese hueco está vacío.", gain)
+        elif plan.level_pick is not None:
+            card = plan.level_pick
+            r = self._alt_of(plan)[card.stack]
+            fd = next((x for x in plan.feeds if x.target is card), None)
+            title = tr("Subamos tu {0} +{1} para desempatar", card.name, card.enchant)
+            line = tr("Compite con tu {0} +{1}, que no se toca: la comida va primero a esta.", r.rival.name,
+                      r.rival.enchant) + " " + tr("Si llega a +{0}: {1:.0%} de superarla y {2:.0%} de empatar.",
+                                                   r.top, r.chance, r.tie)
+            skills = [e.skill for e in effect_notes(card, plan, db)[0] if e.status == "want"]
+            if fd:
+                line += " " + tr("Con la comida que ya tienes llega a +{0}.", fd.to)
+                action = (tr("Empezar"), lambda _=False, st=card.stack: self._start_leveling(st))
+            else:
+                line += " " + tr("No te queda comida para subirla: junta más cartas o Training Arcana.")
         elif not feeding_pays(plan) and self._farms(plan):
             farm = self._farms(plan)[0]
             title = tr("Farmea {0} · {1}", farm.dungeon, self._stage(farm.stage))
@@ -516,6 +562,7 @@ class ArcanaWindow(QWidget):
             action = (tr("Empezar"), lambda _=False, st=card.stack: self._start_leveling(st))
         elif plan.changes:
             kind, worn, card, gain = plan.changes[0]
+            wear = card
             title = tr("Ponte tu {0} ({1} +{2})", card.name, card.grade, card.enchant)
             line = self._version_why(plan, card, worn) or tr("Mismos niveles en tus skills, más +N o mejor set.")
         else:
@@ -538,12 +585,148 @@ class ArcanaWindow(QWidget):
             row.addStretch(1)
             text.addLayout(row)
         lay.addLayout(text, 1)
+        buttons = QVBoxLayout()
+        buttons.setSpacing(f.px(6))
+        buttons.addStretch(1)
         if action:
             go = QPushButton(action[0])
             go.setMinimumWidth(f.px(140))
             go.clicked.connect(action[1])
-            lay.addWidget(go, 0, Qt.AlignVCenter)
+            buttons.addWidget(go)
+        if wear is not None and not wear.worn:
+            on = self._wear_mark == wear.stack
+            mark = QPushButton(tr("Dejar de marcarla") if on else tr("Marcarla en el juego"))
+            mark.setProperty("ghost", True)
+            mark.setMinimumWidth(f.px(140))
+            mark.setToolTip(tr("Con la ventana de Arcanas del juego abierta, AionDex enmarca en dorado esta carta en tu "
+                               "lista (si tienes varias iguales, todas: sus efectos dicen cuál). Solo mira la pantalla "
+                               "del juego: no hace clics ni mueve el ratón."))
+            mark.clicked.connect(lambda _=False, st=wear.stack: self._toggle_wear_mark(st))
+            buttons.addWidget(mark)
+            if on:
+                last = getattr(self.overlay, "_last_status", None) or ("searching",)
+                said, color = self._marks_text(*last)
+                self._marks_label = label(said, f.small, color)
+                self._marks_label.setWordWrap(True)
+                self._marks_label.setMaximumWidth(f.px(220))
+                buttons.addWidget(self._marks_label)
+        buttons.addStretch(1)
+        lay.addLayout(buttons)
         self.body.addWidget(box)
+
+    def _toggle_wear_mark(self, stack):
+        """«Marcarla en el juego» of the card to put on: on / off (it stops by itself once you wear it)."""
+        if self._wear_mark == stack:
+            self._wear_mark = None
+            self._marks(None)
+        else:
+            self._wear_mark = stack
+        self.refresh()
+
+    def _alt_row(self, plan, r):
+        """One alternative in Qué hacer: the card against the one to wear, its effects (✓ the ones that serve), why
+        and its buttons."""
+        f = self.fonts
+        db = self.ctl.arcana_db
+        box = QFrame()
+        box.setObjectName("Row")
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(f.px(12), f.px(8), f.px(12), f.px(8))
+        lay.setSpacing(f.px(4))
+        top = QHBoxLayout()
+        top.setSpacing(f.px(8))
+        top.addWidget(Chip(tr("Subiendo") if r.card is plan.level_pick else tr("Alternativa"), theme.GOLD, f), 0,
+                      Qt.AlignTop)
+        title = label(tr("{0} {1} +{2} ({3}) frente a tu {4} +{5}", r.card.name, r.card.grade, r.card.enchant,
+                         short_kind(r.card.kind), r.rival.name, r.rival.enchant), f.name,
+                      theme.grade_color(r.card.grade))
+        title.setWordWrap(True)
+        top.addWidget(title, 1)
+        if r.can_win:
+            top.addWidget(label(tr("{0:.0%} de ganar", r.chance), f.small, theme.GAIN), 0, Qt.AlignTop)
+        lay.addLayout(top)
+        effects = QHBoxLayout()
+        effects.setSpacing(f.px(14))
+        for e in effect_notes(r.card, plan, db)[0]:
+            effects.addWidget(self._skill(e.skill, ("✓ " if e.serves else "") + f"{e.name} +{e.level}", f.small,
+                                          theme.GAIN if e.serves else theme.MUTED, size=16))
+        effects.addStretch(1)
+        lay.addLayout(effects)
+        why = label(self._alt_why(plan, r), f.small, theme.MUTED)
+        why.setWordWrap(True)
+        lay.addWidget(why)
+        lay.addLayout(self._alt_buttons(plan, r))
+        self.body.addWidget(box)
+
+    def _alt_why(self, plan, r):
+        """Why a card is an alternative: the levels it adds against the one to wear, the skills each gives more of,
+        its chance once enhanced to its top and what its best mix changes in the other slots."""
+        needs = {n.skill: n for n in plan.skills}
+        named = lambda s: tr("{0} (prioridad {1})", needs[s].name, needs[s].priority) if s in needs else str(s)
+        rival = f"{r.rival.name} +{r.rival.enchant}"
+        useful, base = round(r.useful), round(r.base)
+        if useful == base:
+            text = tr("Empata con tu {0}: las dos suman {1} niveles en tus skills objetivo.", rival, useful)
+        elif useful > base:
+            text = tr("Suma {0} niveles en tus skills objetivo, más que tu {1} ({2}).", useful, rival, base)
+        else:
+            text = tr("Suma {0} niveles en tus skills objetivo; tu {1}, {2}.", useful, rival, base)
+        if r.rival_edge:
+            text += " " + tr("La tuya da más de {0}", named(r.rival_edge[0]))
+            text += (tr("; esta, de {0}.", ", ".join(needs[s].name for s in r.own_edge[:2] if s in needs))
+                     if r.own_edge else ".")
+        elif r.own_edge:
+            text += " " + tr("Esta da más de {0}.", named(r.own_edge[0]))
+        if r.can_win:
+            text += " " + tr("Si la subes a +{0} ({1:,} de exp): {2:.0%} de superarla", r.top, r.exp, r.chance)
+            text += (tr(" y {0:.0%} de empatar.", r.tie) if r.tie >= 0.05 else ".")
+            if r.reach <= r.card.enchant:
+                text += " " + tr("Con la comida que tienes no llega a +{0}.", r.card.enchant + 1)
+            elif r.reach < r.top:
+                text += " " + tr("Con la comida que tienes llega a +{0}: ahí, {1:.0%} de superarla.", r.reach,
+                                 r.reach_chance)
+        elif self.ctl.arcana_db.to_next(r.card.grade, r.card.enchant) is not None:
+            text += " " + tr("Subirla no la haría ganar: ninguna forma en que caigan sus mejoras supera a tu {0}.", rival)
+        if r.mix:
+            text += " " + tr("Con ella tu mejor mezcla cambia también: {0}.",
+                             ", ".join(f"{short_kind(m.kind)} {m.name} +{m.enchant}" for m in r.mix))
+        if r.card is plan.level_pick:
+            text += " " + tr("La estás subiendo: la comida va primero a ella y tu {0} no se toca.", rival)
+        return text
+
+    def _alt_buttons(self, plan, r):
+        """«Subir esta» (it can win: it gets the food first, a level at a time, and the one you wear stays as it is)
+        or «Dejar de subirla», and «Úsala de comida» (you settled it)."""
+        f = self.fonts
+        row = QHBoxLayout()
+        row.setSpacing(f.px(8))
+        who, stack = plan.character, r.card.stack
+        if r.card is plan.level_pick:
+            go = QPushButton(tr("Seguir subiéndola"))
+            go.clicked.connect(lambda: self._start_leveling(stack))
+            row.addWidget(go)
+            stop = QPushButton(tr("Dejar de subirla"))
+            stop.setProperty("ghost", True)
+            stop.clicked.connect(lambda: self.ctl.set_arcana_pick(who, "level", stack, False))
+            row.addWidget(stop)
+        elif r.can_win:
+            go = QPushButton(tr("Subir esta"))
+            go.setToolTip(tr("La comida va primero a esta, de un nivel en uno; tu {0} +{1} no se toca. Cuando una de "
+                             "las dos gane, la otra vuelve a ser comida.", r.rival.name, r.rival.enchant))
+            go.clicked.connect(lambda: self._level_alternative(who, stack))
+            row.addWidget(go)
+        food = QPushButton(tr("Úsala de comida"))
+        food.setProperty("ghost", True)
+        food.setToolTip(tr("Ya lo decidiste: vuelve a la comida (en ¿Sirven? puedes deshacerlo)."))
+        food.clicked.connect(lambda: self.ctl.set_arcana_pick(who, "food", stack))
+        row.addWidget(food)
+        row.addStretch(1)
+        return row
+
+    def _level_alternative(self, who, stack):
+        """«Subir esta»: the alternative gets the food first, and we enhance it a level at a time."""
+        self.ctl.set_arcana_pick(who, "level", stack)
+        self._start_leveling(stack)
 
     def _card_tile(self, plan, kind):
         """One of your five cards, as a card of the game: the one to wear, its version, +N, effects (✓ yours, with
@@ -675,6 +858,7 @@ class ArcanaWindow(QWidget):
             return
         self.leveling = {"who": plan.character, "stack": stack, "enchant": card.enchant,
                          "effects": [list(e) for e in card.effects], "history": [], "used": set(), "picks": []}
+        self._wear_mark = None                  # the leveling view frames the food (and this card) instead
         self.show_tab("todo")
 
     def _stop_leveling(self):
@@ -682,9 +866,10 @@ class ArcanaWindow(QWidget):
         self._marks(None)
         self.refresh()
 
-    def _marks(self, what):
-        """The frames over the game's grid: (orders, picks) to draw, or None to stop."""
-        if what is None or not self.ctl.settings.get("arcana_marks"):
+    def _marks(self, what, force=False):
+        """The frames over the game's grid: (orders, picks[, target, mode]) to draw (ArcanaOverlay.set_picks), or None
+        to stop. Without force only with «Marcarlas en el juego» on (force: a button of its own turned it on)."""
+        if what is None or not (force or self.ctl.settings.get("arcana_marks")):
             if self.overlay is not None:
                 self.overlay.stop()
             return
@@ -706,6 +891,8 @@ class ArcanaWindow(QWidget):
             return tr("No veo la pantalla del juego: ponlo al frente (ventana o sin bordes; en pantalla completa "
                       "exclusiva Windows no deja leerla)."), theme.WARN
         if status == "searching":
+            if self._wear_mark and not self.leveling:
+                return tr("Buscando tu lista de cartas: abre en el juego la ventana de Arcanas."), theme.MUTED
             return tr("Buscando la lista de cartas: abre en el juego Arcanas y la mejora de esta carta."), theme.MUTED
         return "", theme.MUTED
 
@@ -856,7 +1043,9 @@ class ArcanaWindow(QWidget):
             self._marks_label = None
         base = [c for c in plan.cards if c.stack not in lv["used"]]
         orders = [grid_order(base)] + ([grid_order([c for c in base if c.stack != card.stack])] if not card.worn else [])
-        self._marks((orders, [w for w, _, _ in picks if isinstance(w, Card)]) if picks else None)
+        # the card itself in gold too, when it is in your bag (2.5.5): the one to pick in the game's list to enhance it
+        self._marks((orders, [w for w, _, _ in picks if isinstance(w, Card)], None if card.worn else card)
+                    if picks else None)
         if not picks:
             self.body.addWidget(label(tr("No te queda comida: junta más cartas o Training Arcana."), f.body, theme.WARN))
             return
@@ -1032,6 +1221,8 @@ class ArcanaWindow(QWidget):
                         "son comida para subir las que sí usas. «La mejor» mira primero el grado (nivel de objeto), "
                         "luego los niveles en tus skills objetivo y luego el bonus de set.")
                      + ("" if targets else " " + tr("Sin skills objetivo solo cuentan el grado, el +N y los sets."))
+                     + " " + tr("«Alternativa»: empata con la mejor o, si la subes, puede superarla; no es comida "
+                                "mientras no se sepa.")
                      + " " + tr("Cada efecto empieza en +1. «Subió»: los niveles que ganó al mejorar la carta, y si "
                                 "fueron a una de tus skills objetivo. «Si sube»: qué te da que la próxima mejora le "
                                 "toque a ese efecto (con 4 efectos, cada mejora sube uno al azar de los que no están en "
@@ -1039,7 +1230,8 @@ class ArcanaWindow(QWidget):
         hint.setWordWrap(True)
         self.body.addWidget(hint)
         shown = self._filtered_cards(plan)
-        order = sorted(shown, key=lambda c: (plan.best.get(c.kind) is not c and not c.worn,
+        alts = self._alt_of(plan)
+        order = sorted(shown, key=lambda c: (plan.best.get(c.kind) is not c and not c.worn, c.stack not in alts,
                                              not c.worn, TYPES.index(c.kind) if c.kind in TYPES else 9,
                                              -db.max_level(c.grade), -c.enchant))
         if not order:
@@ -1061,6 +1253,8 @@ class ArcanaWindow(QWidget):
         keep = sum(1 for c in plan.cards if plan.best.get(c.kind) is c)
         total = tr("{0} sirven · {1} son comida ({2:,} de exp en total)", keep, len(plan.spare),
                    sum(db.food(c.grade, c.enchant, c.exp) for c in plan.spare))
+        if alts:
+            total += " · " + tr("{0} alternativas (no son comida)", len(alts))
         if len(shown) != len(plan.cards):
             total += " · " + tr("se ven {0} de {1}", len(shown), len(plan.cards))
         self.body.addWidget(label(total, f.name, theme.TEXT))
@@ -1072,6 +1266,8 @@ class ArcanaWindow(QWidget):
         db = self.ctl.arcana_db
         notes, (left, good) = effect_notes(c, plan, db)
         best = plan.best.get(c.kind)
+        alt = self._alt_of(plan).get(c.stack)
+        dropped = c.stack in (self.ctl.arcana_picks(plan.character).get("food") or ())
         color = theme.grade_color(c.grade)
         box = QFrame()
         box.setObjectName("Row")
@@ -1101,6 +1297,9 @@ class ArcanaWindow(QWidget):
             if c.stack in fed_to:
                 why += ". " + tr("Dásela de comer a esa: pasa toda su exp ({0:,}).",
                                  db.food(c.grade, c.enchant, c.exp))
+        elif alt is not None:
+            text, col = (tr("Subiendo") if c is plan.level_pick else tr("Alternativa")), theme.GOLD
+            why = self._alt_why(plan, alt)
         elif c.stack in fed_to:
             text, col = tr("Comida"), theme.ACCENT
             target = fed_to[c.stack]
@@ -1164,6 +1363,18 @@ class ArcanaWindow(QWidget):
             why_lbl = label(why, f.small, theme.MUTED)
             why_lbl.setWordWrap(True)
             lay.addWidget(why_lbl)
+        if alt is not None:
+            lay.addLayout(self._alt_buttons(plan, alt))
+        elif dropped:
+            row = QHBoxLayout()
+            row.addWidget(label(tr("La mandaste a la comida."), f.small, theme.MUTED))
+            undo = QPushButton(tr("Deshacer"))
+            undo.setProperty("flat", True)
+            undo.clicked.connect(lambda _=False, who=plan.character, st=c.stack:
+                                 self.ctl.set_arcana_pick(who, "food", st, False))
+            row.addWidget(undo)
+            row.addStretch(1)
+            lay.addLayout(row)
         return box
 
     def _worth_short(self, card, plan):
@@ -1267,11 +1478,16 @@ class ArcanaWindow(QWidget):
         if not card.worn:
             verdict = self._card_verdict(plan, card, fed_to)
             text, col = {"keep": (tr("Equípala"), theme.GAIN), "food": (tr("Comida"), theme.ACCENT),
+                         "alt": (tr("Subiendo") if card is plan.level_pick else tr("Alternativa"), theme.GOLD),
                          "extra": (tr("De más"), theme.MUTED)}[verdict]
             row = QHBoxLayout()
             row.addWidget(Chip(text, col, f))
             row.addStretch(1)
-            if verdict != "keep":
+            alt = self._alt_of(plan).get(card.stack)
+            if alt is not None:
+                row.addWidget(label(tr("{0:.0%} de ganar", alt.chance) if alt.can_win else tr("empata"), f.small,
+                                    theme.GAIN if alt.can_win else theme.MUTED))
+            elif verdict != "keep":
                 row.addWidget(label(tr("{0:,} de exp", db.food(card.grade, card.enchant, card.exp)), f.small,
                                     theme.MUTED))
             lay.addLayout(row)

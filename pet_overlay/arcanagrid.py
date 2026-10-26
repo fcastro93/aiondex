@@ -179,18 +179,15 @@ class GridReader:
         return rows
 
 
-def cells_to_frame(order, rows, first, picks, height, x0=None):
-    """([(x, y, w, h, registered)] in client pixels of the cells to feed, (picks above the view, picks below)): also
-    the cells of the rows half in view at the top and bottom (the caller clips them to view()). For each pick, a cell
-    of a card that looks the same (same card, grade and +N: as food they are all alike), the ones already registered
-    first, then the ones on screen."""
+def _placer(rows, first, height, x0=None):
+    """(where(k) -> (x, y), seen(k), cell w, cell h, top of the view) of the grid as read: k is an index in the list
+    the grid shows, first the index of the first card of the first row on screen."""
     gx0, _, px, py, cw, ch = geometry(height)
     x0 = (gx0 if x0 is None else x0) - 2 * height / REF_H         # the frame's outer edge, from its line
     if len(rows) > 1:
         py = (rows[-1][0] - rows[0][0]) / (len(rows) - 1)
     top0 = rows[0][0]
     vt, vb = view(height)
-    registered = {first + r * 4 + col: reg for r, (_, cells) in enumerate(rows) for col, (_, _, reg) in enumerate(cells)}
 
     def where(k):
         row = (k - first) // 4
@@ -200,6 +197,36 @@ def cells_to_frame(order, rows, first, picks, height, x0=None):
         y = where(k)[1]
         return y + ch > vt and y < vb
 
+    return where, seen, cw, ch, vt
+
+
+def target_cells(order, rows, first, card, height, x0=None):
+    """([(x, y, w, h)] of the cells that may be this one card - the one to wear or to enhance (2.5.5) -, (how many of
+    them are above the view, below), how many there are): every card that looks the same (same card and +N) - the
+    game's order among them is not known, so all of them are framed and the effects tell which."""
+    where, seen, cw, ch, vt = _placer(rows, first, height, x0)
+    out, above, below, alike = [], 0, 0, 0
+    for k, c in enumerate(order):
+        if (c.item, c.enchant) != (card.item, card.enchant):
+            continue
+        alike += 1
+        x, y = where(k)
+        if seen(k):
+            out.append((x, y, cw, ch))
+        elif y < vt:
+            above += 1
+        else:
+            below += 1
+    return out, (above, below), alike
+
+
+def cells_to_frame(order, rows, first, picks, height, x0=None):
+    """([(x, y, w, h, registered)] in client pixels of the cells to feed, (picks above the view, picks below)): also
+    the cells of the rows half in view at the top and bottom (the caller clips them to view()). For each pick, a cell
+    of a card that looks the same (same card, grade and +N: as food they are all alike), the ones already registered
+    first, then the ones on screen."""
+    where, seen, cw, ch, vt = _placer(rows, first, height, x0)
+    registered = {first + r * 4 + col: reg for r, (_, cells) in enumerate(rows) for col, (_, _, reg) in enumerate(cells)}
     want = {}
     for c in picks:
         want[(c.item, c.enchant)] = want.get((c.item, c.enchant), 0) + 1

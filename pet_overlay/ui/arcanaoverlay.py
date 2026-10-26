@@ -1,6 +1,7 @@
 """«Marcar en el juego» (Arcanas › Subir, off unless you turn it on): a click-through window over the game's Arcana
 window that frames, right on the game's grid, the cards AionDex picked to feed for the next level - blue the ones to
-register, green the ones already registered. A thread reads the game's pixels about READ_FPS times a second
+register, green the ones already registered - and in gold the card to enhance, or the one to put on (Qué hacer's
+«Marcarla en el juego», 2.5.5). A thread reads the game's pixels about READ_FPS times a second
 (arcanagrid: where the grid is, which part of your bag is on screen after a scroll or with a kind filter), so the
 frames move with the list while you scroll; rows half in view are drawn clipped to the list's area. The window is left
 out of screen captures (SetWindowDisplayAffinity), so the reads keep seeing the game under it. It never clicks nor
@@ -43,6 +44,7 @@ TOP_EVERY = 0.5                  # seconds between two "stay over the game" (the
 DIAGNOSE_AFTER = 6.0             # seconds with the game in front and no grid before one capture is kept to look at
 TO_ADD = QColor("#3ad1f5")
 ADDED = QColor("#5fdc7c")
+TARGET = QColor("#e9c45c")
 
 
 class ArcanaOverlay(QWidget):
@@ -59,6 +61,8 @@ class ArcanaOverlay(QWidget):
         self._lock = threading.Lock()
         self._orders = []                # the lists the grid may show: your bag, then each kind alone (a filter)
         self._picks = []                 # [Card] to feed for the next level
+        self._target = None              # the Card to enhance or to put on, framed in gold
+        self._mode = "feed"              # "feed" (Subir) or "wear" (the one to put on)
         self._seen = None                # (area on screen, client height, boxes, cards off screen) of the last read
         self._shown = None               # the same, as drawn
         self._lost_since = None
@@ -74,13 +78,15 @@ class ArcanaOverlay(QWidget):
         self._timer = QTimer(self, interval=PAINT_MS, timeout=self._tick)
 
     # --- on / off ---
-    def set_picks(self, orders, picks):
+    def set_picks(self, orders, picks, target=None, mode="feed"):
         """Frame these cards in the game's grid. orders: the lists your bag may show in the grid's order (with and
-        without the card being enhanced, when it is in the bag); each kind alone is tried too (a filter)."""
+        without the card being enhanced, when it is in the bag); each kind alone is tried too (a filter). target: the
+        card to enhance (when it is in the bag) or, mode "wear", the one to put on, in gold."""
         with self._lock:
             self._orders = [o for order in orders for o in [order] + [[c for c in order if c.kind == k] for k in TYPES]]
             self._picks = list(picks)
-        if not picks:
+            self._target, self._mode = target, mode
+        if not picks and target is None:
             self.stop()
             return
         if not self._run:
@@ -139,7 +145,7 @@ class ArcanaOverlay(QWidget):
             return ("black", None)
         rows = self._grid.read(a, height)
         with self._lock:
-            orders, picks = self._orders, self._picks
+            orders, picks, target = self._orders, self._picks, self._target
         order, first = arcanagrid.best_view(orders, rows)
         if order is None:
             self._diagnose(found[0], img)
@@ -147,7 +153,11 @@ class ArcanaOverlay(QWidget):
         self._searching_since = None
         boxes, off = arcanagrid.cells_to_frame(order, rows, first, [c for c in picks if c in order], height,
                                                self._grid.x0)
-        return ("ok", ((left, top, left + width, bottom), height, boxes, off))
+        gold, gold_off, alike = (arcanagrid.target_cells(order, rows, first, target, height, self._grid.x0)
+                                 if target is not None and target in order else ([], (0, 0), 0))
+        boxes += [(x, y, w, h, None) for x, y, w, h in gold]
+        off = (off[0] + gold_off[0], off[1] + gold_off[1])
+        return ("ok", ((left, top, left + width, bottom), height, boxes, off, alike))
 
     def _diagnose(self, game, img):
         """Once a session: the game in front for a while and no grid found -> keep that capture (diagnostics), so the
@@ -179,7 +189,7 @@ class ArcanaOverlay(QWidget):
         if status == "ok":
             self._lost_since = None
             self._shown = data
-            area, _, boxes, off = data
+            area, _, boxes, off, _ = data
             self._set_status("ok", len(boxes), *off)
             if not self.isVisible():
                 self.show()
@@ -213,7 +223,7 @@ class ArcanaOverlay(QWidget):
     def paintEvent(self, _event):
         if not self._shown:
             return
-        area, height, boxes, off = self._shown
+        area, height, boxes, off, alike = self._shown
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         dpr = self.devicePixelRatioF()
@@ -224,13 +234,20 @@ class ArcanaOverlay(QWidget):
         p.save()
         p.setClipRect(QRectF(0, top - line * 2, area[2] - area[0], bottom - top + line * 4))
         for x, y, w, h, registered in boxes:
-            p.setPen(QPen(ADDED if registered else TO_ADD, line))
+            pad = line * (2 if registered is None else 1)      # the gold one a little outside, around the others
+            p.setPen(QPen(TARGET if registered is None else ADDED if registered else TO_ADD, line))
             p.setBrush(Qt.NoBrush)
-            p.drawRoundedRect(QRectF(x - line, y - line, w + 2 * line, h + 2 * line), line * 1.5, line * 1.5)
+            p.drawRoundedRect(QRectF(x - pad, y - pad, w + 2 * pad, h + 2 * pad), line * 1.5, line * 1.5)
         p.restore()
         above, below = off
-        text = tr("AionDex: registra las marcadas") + (tr(" · {0} más arriba", above) if above else "") + (
-            tr(" · {0} más abajo", below) if below else "")
+        gold = any(r is None for *_, r in boxes)
+        if self._mode == "wear":
+            text = (tr("AionDex: póntela (la dorada)") if alike <= 1 else
+                    tr("AionDex: póntela: es una de las {0} doradas (mira sus efectos)", alike))
+        else:
+            text = (tr("AionDex: la dorada es la que subes · registra las marcadas") if gold else
+                    tr("AionDex: registra las marcadas"))
+        text += (tr(" · {0} más arriba", above) if above else "") + (tr(" · {0} más abajo", below) if below else "")
         font = QFont(self._font)
         font.setPixelSize(max(12, int(height / 75)))
         p.setFont(font)
@@ -239,5 +256,5 @@ class ArcanaOverlay(QWidget):
         p.setPen(Qt.NoPen)
         p.setBrush(QColor(10, 18, 38, 225))
         p.drawRoundedRect(box, 6, 6)
-        p.setPen(TO_ADD)
+        p.setPen(TARGET if self._mode == "wear" else TO_ADD)
         p.drawText(box, Qt.AlignCenter, text)

@@ -2975,6 +2975,25 @@ class Controller(QObject):
         self._save_settings()
         self.arcana_changed()
 
+    def arcana_picks(self, name):
+        """{"level": stack, "food": [stacks]} of a character (Arcanas, 2.5.5): the alternative they chose to enhance to
+        settle which of it and the one they wear serves (it gets the food first, never the one they wear), and the
+        alternatives they sent back to the food."""
+        return dict(self.settings.get("arcana_picks", {}).get(name) or {})
+
+    def set_arcana_pick(self, name, what, stack, on=True):
+        """what: "level" (one at a time: on=False stops it) or "food" (on=False: an alternative again)."""
+        picks = self.arcana_picks(name)
+        if what == "level":
+            picks["level"] = stack if on else None
+        else:
+            picks["food"] = [s for s in picks.get("food", []) if s != stack] + ([stack] if on else [])
+            if on and picks.get("level") == stack:          # the one you were enhancing: settled
+                picks["level"] = None
+        self.settings.setdefault("arcana_picks", {})[name] = picks
+        self._save_settings()
+        self.arcana_changed()
+
     def clear_arcana_versions(self, name):
         self.settings.setdefault("arcana_versions", {})[name] = {}
         self._save_settings()
@@ -3052,8 +3071,19 @@ class Controller(QObject):
             if item in self.arcana_db.training:
                 counts[item] = counts.get(item, 0) + n
         training = [(self.arcana_db.training[i]["name"], n, self.arcana_db.training[i]["exp"]) for i, n in counts.items()]
+        picks = self.arcana_picks(name)
         plan = build(self.arcana_db, prefix, cards_of(stored, self.arcana_db), levels, self.skill_targets(name),
-                     names, kinds, training, self.arcana_versions(name), bool(self.settings.get("arcana_final_first")))
+                     names, kinds, training, self.arcana_versions(name), bool(self.settings.get("arcana_final_first")),
+                     picks)
+        # the picks of cards that are gone (eaten), or the one to enhance once it is worn or at its top: done
+        stacks = {c.stack: c for c in plan.cards}
+        lead = stacks.get(picks.get("level"))
+        tidy = {"level": picks.get("level") if lead is not None and not lead.worn and
+                self.arcana_db.to_next(lead.grade, lead.enchant) is not None else None,
+                "food": [s for s in picks.get("food", []) if s in stacks]}
+        if picks and tidy != {"level": picks.get("level"), "food": picks.get("food", [])}:
+            self.settings.setdefault("arcana_picks", {})[name] = tidy
+            self._save_settings()
         plan.character = name
         plan.read_at = self.crafting.inventory.read_at(name)
         self._arcana_cache = (time.time(), name, plan)
@@ -3144,7 +3174,9 @@ class Controller(QObject):
             from .arcana import TYPES, farm_options, feeding_pays, short_kind
             if feeding_pays(cards):
                 fd = cards.feeds[0]
-                found = NextStep("arcana", None, tr("Subamos tu {0} +{1}", fd.target.name, fd.target.enchant),
+                found = NextStep("arcana", None, (tr("Subamos tu {0} +{1} para desempatar", fd.target.name,
+                                                     fd.target.enchant) if fd.target is cards.level_pick else
+                                                  tr("Subamos tu {0} +{1}", fd.target.name, fd.target.enchant)),
                                  tr("Con la comida que ya tienes llega a +{0}.", fd.to), self.open_arcana,
                                  tr("Abrir Arcanas"))
             elif cards is not None:          # the food left raises nothing you want: Arcanas says where to farm
