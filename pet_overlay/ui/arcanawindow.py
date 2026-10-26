@@ -936,6 +936,25 @@ class ArcanaWindow(QWidget):
         except RuntimeError:                    # the view was drawn again: that label is gone
             self._marks_label = None
 
+    def _food_why(self, plan, c):
+        """Why a card is food, in a few words (the food list of «Subir», 2.5.9)."""
+        if c.stack in (self.ctl.arcana_picks(plan.character).get("food") or ()):
+            return tr("la mandaste a la comida")
+        moved = next((new for w, new, _, _ in plan.transfers.values() if w.stack == c.stack), None)
+        if moved is not None:
+            return tr("su exp pasa a tu {0} nueva", moved.name)
+        notes, _ = effect_notes(c, plan, self.ctl.arcana_db)
+        best = plan.best.get(c.kind)
+        if not any(e.status != "off" for e in notes):
+            return tr("ninguna de sus skills es objetivo")
+        if not any(e.status == "want" for e in notes):
+            return tr("sus skills objetivo ya están cubiertas")
+        if best is not None and c.level < best.level:
+            return tr("menos nivel de objeto que tu {0} +{1}", best.name, best.enchant)
+        if best is not None:
+            return tr("tu {0} +{1} da más en tus skills", best.name, best.enchant)
+        return ""
+
     def _toggle_marks(self, on):
         self.ctl.settings["arcana_marks"] = bool(on)
         self.ctl._save_settings()
@@ -1089,32 +1108,52 @@ class ArcanaWindow(QWidget):
         if not picks:
             self.body.addWidget(label(tr("No te queda comida: junta más cartas o Training Arcana."), f.body, theme.WARN))
             return
+        # one line per card (the same card, +N and effects together: «3×»): its effects with their icons, ✓ the
+        # ones that are skill targets and ✗ the rest, and in a few words why it is food (2.5.9)
         counts = {}
         for w, exp, _ in picks:
-            key = w.stack if isinstance(w, Card) else w[0]
+            key = (w.item, w.enchant, tuple(sorted(map(tuple, w.effects)))) if isinstance(w, Card) else w[0]
             n, e, item = counts.get(key, (0, 0, w))
             counts[key] = (n + 1, e + exp, item)
-        food = QGridLayout()
-        food.setHorizontalSpacing(f.px(16))
-        food.setVerticalSpacing(f.px(3))
         warnings = []
-        for r, (n, exp, w) in enumerate(counts.values()):
+        for n, exp, w in counts.values():
+            row = QFrame()
+            row.setObjectName("Row")
+            rl = QVBoxLayout(row)
+            rl.setContentsMargins(f.px(10), f.px(5), f.px(10), f.px(5))
+            rl.setSpacing(f.px(2))
+            top = QHBoxLayout()
+            top.setSpacing(f.px(10))
             if isinstance(w, Card):
-                food.addWidget(label(w.name, f.body, theme.grade_color(w.grade)), r, 0)
-                food.addWidget(label(f"{w.grade} +{w.enchant}", f.small, theme.MUTED), r, 1)
+                top.addWidget(label((f"{n}× " if n > 1 else "") + w.name, f.body, theme.grade_color(w.grade)))
+                top.addWidget(label(f"{w.grade} +{w.enchant}", f.small, theme.MUTED))
+                why = self._food_why(plan, w)
+            else:
+                top.addWidget(label((f"{n}× " if n > 1 else "") + w[0], f.body, theme.TEXT))
+                why = tr("solo sirve de comida")
+            if why:
+                top.addWidget(label("· " + why, f.small, theme.MUTED, elide=True), 1)
+            else:
+                top.addStretch(1)
+            top.addWidget(label(tr("{0:,} exp", exp), f.small, theme.TEXT))
+            rl.addLayout(top)
+            if isinstance(w, Card):
+                skills = QHBoxLayout()
+                skills.setSpacing(f.px(14))
+                for e in effect_notes(w, plan, db)[0]:
+                    target = e.status != "off"
+                    skills.addWidget(self._skill(e.skill, ("✓ " if target else "✗ ") + f"{e.name} +{e.level}", f.small,
+                                                 theme.GAIN if target else theme.MUTED, size=16))
+                skills.addStretch(1)
+                rl.addLayout(skills)
                 twin = twins(plan, w, card, lv["used"])
-                if twin:                # the game shows them alike: say which one by its effects
-                    food.addWidget(label(tr("la de {0}", effects_text(w, plan)), f.small, theme.WARN, elide=True), r, 3)
+                if twin:                # the game shows them alike: its effects tell which one
                     warnings.append(tr("⚠ Tu {0} +{1} de {2} no es comida ({3}): en el juego se ve igual que la de "
                                        "{4}. Antes de registrarla, mira sus efectos.", twin[0].name, twin[0].enchant,
                                        effects_text(twin[0], plan),
                                        tr("Alternativa") if plan.best.get(twin[0].kind) is not twin[0] else
                                        tr("Llévala"), effects_text(w, plan)))
-            else:
-                food.addWidget(label((f"{n}× " if n > 1 else "") + w[0], f.body, theme.TEXT), r, 0)
-            food.addWidget(label(tr("{0:,} exp", exp), f.small, theme.TEXT), r, 2, Qt.AlignRight)
-        food.setColumnStretch(3, 1)
-        self.body.addLayout(food)
+            self.body.addWidget(row)
         for text_ in dict.fromkeys(warnings):
             warn = label(text_, f.small, theme.WARN)
             warn.setWordWrap(True)
