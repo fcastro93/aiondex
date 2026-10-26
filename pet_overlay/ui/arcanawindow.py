@@ -15,8 +15,8 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxL
 
 from .. import APP_NAME
 from ..arcanagrid import grid_order
-from ..arcana import (DEFAULT_ACTIVE_TARGET, TYPES, Card, effect_notes, farm_options, feeding_pays, level_food, pantheon,
-                      raise_luck, short_kind, worth)
+from ..arcana import (DEFAULT_ACTIVE_TARGET, TYPES, Card, alternative_to_try, effect_notes, farm_options, feeding_pays,
+                      level_food, pantheon, raise_luck, short_kind, worth)
 from .charpicker import CharacterPicker
 from . import theme
 from .design import Chip, ChipGroup, GameCard, GameTabs, Meter, PageHeader, SearchBox
@@ -537,6 +537,24 @@ class ArcanaWindow(QWidget):
                 action = (tr("Empezar"), lambda _=False, st=card.stack: self._start_leveling(st))
             else:
                 line += " " + tr("No te queda comida para subirla: junta más cartas o Training Arcana.")
+                if self._farms(plan):
+                    farm = self._farms(plan)[0]
+                    line += " " + tr("Para eso, farmea {0} · {1}.", farm.dungeon, self._stage(farm.stage))
+        elif alternative_to_try(plan) is not None:
+            # your cards no longer go up with the food you have, but an alternative can beat one of them: improve
+            # with what you have before farming more (2.5.5)
+            r = alternative_to_try(plan)
+            card = r.card
+            title = tr("Prueba a subir tu {0} +{1}", card.name, card.enchant)
+            line = (tr("Con la comida que tienes ya no sube ninguna de tus cartas puestas, pero esta puede mejorar tu "
+                       "{0} +{1}: llega a +{2}, con {3:.0%} de superarla y {4:.0%} de empatar.", r.rival.name,
+                       r.rival.enchant, r.reach, r.reach_chance, r.reach_tie)
+                    + " " + tr("No pierdes exp: si no gana, dásela de comer a tu {0} y le pasa toda la que le pusiste "
+                               "(solo pagas otra vez el Kinah de moverla, unos {1:,}).", r.rival.name,
+                               db.feed_kinah(card.grade, r.reach)))
+            skills = [e.skill for e in effect_notes(card, plan, db)[0] if e.status == "want"]
+            action = (tr("Subir esta"), lambda _=False, who=plan.character, st=card.stack:
+                      self._level_alternative(who, st))
         elif not feeding_pays(plan) and self._farms(plan):
             farm = self._farms(plan)[0]
             title = tr("Farmea {0} · {1}", farm.dungeon, self._stage(farm.stage))

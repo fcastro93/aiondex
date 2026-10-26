@@ -256,6 +256,7 @@ class Contender:
     mix: list = field(default_factory=list)          # [Card] of other kinds its best mix wears instead of the plan's
     reach: int = 0           # the +N your food takes it to now (all of it, the one you wear aside)
     reach_chance: float = 0.0    # its chance of beating the pick there
+    reach_tie: float = 0.0       # and of ending even
 
     @property
     def can_win(self):
@@ -573,7 +574,7 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
                 left -= db.to_next(r.card.grade, lvl)
                 lvl += 1
             r.reach = lvl
-            r.reach_chance = odds(r.card, lvl - r.card.enchant)[0] if lvl < r.top else r.chance
+            r.reach_chance, r.reach_tie = odds(r.card, lvl - r.card.enchant) if lvl < r.top else (r.chance, r.tie)
     if food and targets_:
         have = dict(adds)
         state = {c.stack: [c.enchant, c.exp] for c in targets_}
@@ -627,6 +628,17 @@ def feeding_pays(plan):
     (2.5: Mejoras said «dales de comer las 12 que no usas · +0 en tus cartas» while Arcanas said to farm). The
     alternative you chose to enhance counts too: you feed it to settle which of the two serves (2.5.5)."""
     return plan is not None and any(f.useful > 0 or f.target is plan.level_pick for f in plan.feeds)
+
+
+def alternative_to_try(plan):
+    """When feeding the cards you wear raises nothing you want: the alternative to enhance with the food you have, the
+    one most likely to beat the one you wear at the +N that food takes it to (2.5.5: improve with what you have before
+    farming more), or None (then farm). Trying it costs no exp: if it loses, fed to the one you wear it passes all of
+    it - only the Kinah of moving it again."""
+    if plan is None or plan.level_pick is not None or feeding_pays(plan):
+        return None
+    rows = [r for rows in plan.alternatives.values() for r in rows if r.reach > r.card.enchant and r.reach_chance > 0]
+    return max(rows, key=lambda r: (r.reach_chance, r.reach_tie, r.useful), default=None)
 
 
 def effects_text(card, plan):

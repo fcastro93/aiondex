@@ -3171,13 +3171,19 @@ class Controller(QObject):
                 cards = self.arcana_plan(name) if name else None
             except Exception:                    # noqa: BLE001
                 log.exception("next step: arcana plan")
-            from .arcana import TYPES, farm_options, feeding_pays, short_kind
+            from .arcana import TYPES, alternative_to_try, farm_options, feeding_pays, short_kind
+            alt = alternative_to_try(cards)
             if feeding_pays(cards):
                 fd = cards.feeds[0]
                 found = NextStep("arcana", None, (tr("Subamos tu {0} +{1} para desempatar", fd.target.name,
                                                      fd.target.enchant) if fd.target is cards.level_pick else
                                                   tr("Subamos tu {0} +{1}", fd.target.name, fd.target.enchant)),
                                  tr("Con la comida que ya tienes llega a +{0}.", fd.to), self.open_arcana,
+                                 tr("Abrir Arcanas"))
+            elif alt is not None:            # improve with what you have before farming more (2.5.5)
+                found = NextStep("arcana", None, tr("Prueba a subir tu {0} +{1}", alt.card.name, alt.card.enchant),
+                                 tr("Con tu comida llega a +{0}: {1:.0%} de superar a tu {2} +{3}.", alt.reach,
+                                    alt.reach_chance, alt.rival.name, alt.rival.enchant), self.open_arcana,
                                  tr("Abrir Arcanas"))
             elif cards is not None:          # the food left raises nothing you want: Arcanas says where to farm
                 il = plan.me.item_level if plan is not None and plan.me and plan.me.item_level else None

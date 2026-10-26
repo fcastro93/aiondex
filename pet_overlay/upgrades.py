@@ -73,7 +73,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .arcana import effects_text, feed_text, feeding_pays
+from .arcana import alternative_to_try, effects_text, feed_text, feeding_pays
 from .gear import CLASS_OF_JOB, POSITIONS, SLOTS
 from .i18n import tr, tr_data
 
@@ -1380,6 +1380,16 @@ def _steps(plan, by_pos, kina, bound, stones, db, levels, prices, recipes, gear_
                                    "comida. Cada +1 sube 1 el nivel de objeto y el stat de la carta, y añade un efecto "
                                    "de skill o sube uno al azar."), ups, kinah or None, ready=fees >= kinah,
                               key="arcana-feed", summary=tr("{0:,} de exp · +{1} en tus cartas", cards.fodder_exp, ups)))
+        alt = alternative_to_try(cards)
+        if alt is not None:              # the food raises none of yours, but it can make an alternative beat one (2.5.5)
+            steps.append(Step("arcana", tr("Arcanas: prueba a subir tu {0} +{1}", alt.card.name, alt.card.enchant),
+                              tr("Con la comida que tienes ya no sube ninguna de tus cartas puestas, pero esta puede "
+                                 "mejorar tu {0} +{1}: llega a +{2}, con {3:.0%} de superarla y {4:.0%} de empatar.",
+                                 alt.rival.name, alt.rival.enchant, alt.reach, alt.reach_chance, alt.reach_tie)
+                              + " " + tr("Si no gana, dásela de comer a tu {0}: le pasa toda la exp que le pusiste.",
+                                         alt.rival.name), alt.reach - alt.card.enchant, None, ready=True,
+                              key="arcana-try", summary=tr("{0:.0%} de superar a tu {1} +{2}", alt.reach_chance,
+                                                           alt.rival.name, alt.rival.enchant)))
     # 10. Theostones: weapons and guards, under 1% of the damage (the guide): last
     for pos in (1, 2):
         piece = by_pos.get(pos)
