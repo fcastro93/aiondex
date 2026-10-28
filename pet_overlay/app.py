@@ -2976,16 +2976,20 @@ class Controller(QObject):
         self.arcana_changed()
 
     def arcana_picks(self, name):
-        """{"level": stack, "food": [stacks]} of a character (Arcanas, 2.5.5): the alternative they chose to enhance to
-        settle which of it and the one they wear serves (it gets the food first, never the one they wear), and the
-        alternatives they sent back to the food."""
+        """{"level": stack, "food": [stacks], "direct": [stacks]} of a character (Arcanas, 2.5.5): the alternative they
+        chose to enhance to settle which of it and the one they wear serves (it gets the food first, never the one they
+        wear), the alternatives they sent back to the food, and the new cards they chose to feed the old one to at once
+        instead of trying them first (2.5.11)."""
         return dict(self.settings.get("arcana_picks", {}).get(name) or {})
 
     def set_arcana_pick(self, name, what, stack, on=True):
-        """what: "level" (one at a time: on=False stops it) or "food" (on=False: an alternative again)."""
+        """what: "level" (one at a time: on=False stops it), "direct" (feed it the old one without trying it first) or
+        "food" (on=False: an alternative again)."""
         picks = self.arcana_picks(name)
         if what == "level":
             picks["level"] = stack if on else None
+        elif what == "direct":
+            picks["direct"] = [s for s in picks.get("direct", []) if s != stack] + ([stack] if on else [])
         else:
             picks["food"] = [s for s in picks.get("food", []) if s != stack] + ([stack] if on else [])
             if on and picks.get("level") == stack:          # the one you were enhancing: settled
@@ -3080,8 +3084,10 @@ class Controller(QObject):
         lead = stacks.get(picks.get("level"))
         tidy = {"level": picks.get("level") if lead is not None and not lead.worn and
                 self.arcana_db.to_next(lead.grade, lead.enchant) is not None else None,
-                "food": [s for s in picks.get("food", []) if s in stacks]}
-        if picks and tidy != {"level": picks.get("level"), "food": picks.get("food", [])}:
+                "food": [s for s in picks.get("food", []) if s in stacks],
+                "direct": [s for s in picks.get("direct", []) if s in stacks and not stacks[s].worn]}
+        if picks and tidy != {"level": picks.get("level"), "food": picks.get("food", []),
+                              "direct": picks.get("direct", [])}:
             self.settings.setdefault("arcana_picks", {})[name] = tidy
             self._save_settings()
         plan.character = name
@@ -3175,9 +3181,14 @@ class Controller(QObject):
             alt = alternative_to_try(cards)
             if feeding_pays(cards):
                 fd = cards.feeds[0]
-                found = NextStep("arcana", None, (tr("Subamos tu {0} +{1} para desempatar", fd.target.name,
+                trial = cards.trial if cards.trial and fd.target is cards.level_pick else None
+                found = NextStep("arcana", None, (tr("Prueba tu {0} antes de darle tu {1}", fd.target.name,
+                                                     trial[1].name) if trial else
+                                                  tr("Subamos tu {0} +{1} para desempatar", fd.target.name,
                                                      fd.target.enchant) if fd.target is cards.level_pick else
                                                   tr("Subamos tu {0} +{1}", fd.target.name, fd.target.enchant)),
+                                 tr("Con la comida que te sobra llega a +{0}, sin tocar tu {1}.", fd.to,
+                                    trial[1].name) if trial else
                                  tr("Con la comida que ya tienes llega a +{0}.", fd.to), self.open_arcana,
                                  tr("Abrir Arcanas"))
             elif alt is not None:            # improve with what you have before farming more (2.5.5)

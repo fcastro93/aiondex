@@ -260,6 +260,21 @@ class ArcanaWindow(QWidget):
         """{stack: Contender} of the alternatives (2.5.5)."""
         return {r.card.stack: r for rows in plan.alternatives.values() for r in rows}
 
+    @staticmethod
+    def _alt_chip(plan, card):
+        """The chip of an alternative: «Probando» (AionDex tries it before it eats the one you wear, 2.5.11),
+        «Subiendo» (you chose to enhance it) or «Alternativa»."""
+        if card is plan.level_pick:
+            return tr("Probando") if plan.trial else tr("Subiendo")
+        return tr("Alternativa")
+
+    @staticmethod
+    def _trade_text(plan, kind):
+        """«Condemnation +1.0, Divine Aura −1.0»: what a transfer adds or takes in your skill targets on average."""
+        names = {n.skill: n.name for n in plan.skills}
+        return ", ".join(f"{names.get(s, s)} {'+' if d > 0 else '−'}{abs(d):.1f}"
+                         for s, d in plan.transfer_trade.get(kind, []))
+
     def _card_filtering(self):
         return any(group.selected() not in (None, "all") for group, _ in self._card_groups.values()) or \
             bool(self.f_search.text().strip())
@@ -519,13 +534,36 @@ class ArcanaWindow(QWidget):
             wear = card
             if moved:
                 title = tr("Ponte tu {0} nueva y dale de comer la vieja", card.name)
-                line = tr("Toda la exp de tu {0} +{1} pasa a la nueva ({2:,}): llega a +{3} y en promedio te da +{4:.1f} "
-                          "niveles en tus skills.", moved[0].name, moved[0].enchant, moved[2], moved[3], gain)
+                line = tr("Toda la exp de tu {0} +{1} pasa a la nueva ({2:,}) y llega a +{3}.", moved[0].name,
+                          moved[0].enchant, moved[2], moved[3])
+                trade = self._trade_text(plan, kind)
+                if trade:
+                    line += " " + tr("En promedio, en tus skills objetivo: {0}.", trade)
+                worse = plan.transfer_odds.get(kind, (0, 0, 0))[2]
+                line += " " + (tr("{0:.0%} de quedar peor que ahora, y la vieja ya no vuelve.", worse) if worse > 1e-9
+                               else tr("Caigan como caigan sus mejoras, no quedas peor que ahora."))
                 action = (tr("Empezar"), lambda _=False, st=card.stack: self._start_leveling(st))
             else:
                 title = tr("Ponte tu {0} ({1} +{2})", card.name, card.grade, card.enchant)
                 line = tr("+{0:.0f} niveles en skills que te faltan, en lugar de tu {1}.", gain, worn.name) if worn else \
                     tr("+{0:.0f} niveles en skills que te faltan: ese hueco está vacío.", gain)
+        elif plan.trial is not None and plan.level_pick is not None:
+            # a transfer that can leave you worse: the new card first gets the food you have to spare (2.5.11)
+            kind, old, card, odds, _ = plan.trial
+            r = self._alt_of(plan)[card.stack]
+            fd = next((x for x in plan.feeds if x.target is card), None)
+            title = tr("Prueba tu {0} antes de darle tu {1}", card.name, old.name)
+            trade = self._trade_text(plan, kind)
+            line = (tr("Darle ya tu {0} +{1} es una apuesta: en promedio {2}, pero {3:.0%} de quedar peor que ahora, "
+                       "sin vuelta atrás.", old.name, old.enchant, trade, odds[2]) if trade else
+                    tr("Darle ya tu {0} +{1} es una apuesta: {2:.0%} de quedar peor que ahora, sin vuelta atrás.",
+                       old.name, old.enchant, odds[2]))
+            line += " " + tr("Súbela antes con la comida que te sobra: llega a +{0} sin tocar tu {1}, y ahí ya tiene "
+                             "{2:.0%} de superarla.", fd.to, old.name, r.reach_chance)
+            line += " " + tr("Si gana, te digo que le des tu {0}; si no, te quedas con la tuya y esta vuelve a la "
+                             "comida con toda su exp.", old.name)
+            skills = [e.skill for e in effect_notes(card, plan, db)[0] if e.status == "want"]
+            action = (tr("Empezar"), lambda _=False, st=card.stack: self._start_leveling(st))
         elif plan.level_pick is not None:
             card = plan.level_pick
             r = self._alt_of(plan)[card.stack]
@@ -667,8 +705,7 @@ class ArcanaWindow(QWidget):
         lay.setSpacing(f.px(4))
         top = QHBoxLayout()
         top.setSpacing(f.px(8))
-        top.addWidget(Chip(tr("Subiendo") if r.card is plan.level_pick else tr("Alternativa"), theme.GOLD, f), 0,
-                      Qt.AlignTop)
+        top.addWidget(Chip(self._alt_chip(plan, r.card), theme.GOLD, f), 0, Qt.AlignTop)
         title = label(tr("{0} {1} +{2} ({3}) frente a tu {4} +{5}", r.card.name, r.card.grade, r.card.enchant,
                          short_kind(r.card.kind), r.rival.name, r.rival.enchant), f.name,
                       theme.grade_color(r.card.grade))
@@ -722,7 +759,10 @@ class ArcanaWindow(QWidget):
         if r.mix:
             text += " " + tr("Con ella tu mejor mezcla cambia también: {0}.",
                              ", ".join(f"{short_kind(m.kind)} {m.name} +{m.enchant}" for m in r.mix))
-        if r.card is plan.level_pick:
+        if r.card is plan.level_pick and plan.trial:
+            text += " " + tr("AionDex la está probando antes de darle tu {0}: la comida que te sobra va primero a ella "
+                             "y tu {0} no se toca.", rival)
+        elif r.card is plan.level_pick:
             text += " " + tr("La estás subiendo: la comida va primero a ella y tu {0} no se toca.", rival)
         return text
 
@@ -733,7 +773,18 @@ class ArcanaWindow(QWidget):
         row = QHBoxLayout()
         row.setSpacing(f.px(8))
         who, stack = plan.character, r.card.stack
-        if r.card is plan.level_pick:
+        if r.card is plan.level_pick and plan.trial:
+            go = QPushButton(tr("Seguir subiéndola"))
+            go.clicked.connect(lambda: self._start_leveling(stack))
+            row.addWidget(go)
+            old, worse = plan.trial[1], plan.trial[3][2]
+            now = QPushButton(tr("Pasarle tu {0} ya", old.name))
+            now.setProperty("ghost", True)
+            now.setToolTip(tr("Sin probarla: toda la exp de tu {0} +{1} pasa a esta ahora ({2:.0%} de quedar peor que "
+                              "ahora).", old.name, old.enchant, worse))
+            now.clicked.connect(lambda: self.ctl.set_arcana_pick(who, "direct", stack))
+            row.addWidget(now)
+        elif r.card is plan.level_pick:
             go = QPushButton(tr("Seguir subiéndola"))
             go.clicked.connect(lambda: self._start_leveling(stack))
             row.addWidget(go)
@@ -1396,7 +1447,7 @@ class ArcanaWindow(QWidget):
                 why += ". " + tr("Dásela de comer a esa: pasa toda su exp ({0:,}).",
                                  db.food(c.grade, c.enchant, c.exp))
         elif alt is not None:
-            text, col = (tr("Subiendo") if c is plan.level_pick else tr("Alternativa")), theme.GOLD
+            text, col = self._alt_chip(plan, c), theme.GOLD
             why = self._alt_why(plan, alt)
         elif c.stack in fed_to:
             text, col = tr("Comida"), theme.ACCENT
@@ -1576,7 +1627,7 @@ class ArcanaWindow(QWidget):
         if not card.worn:
             verdict = self._card_verdict(plan, card, fed_to)
             text, col = {"keep": (tr("Equípala"), theme.GAIN), "food": (tr("Comida"), theme.ACCENT),
-                         "alt": (tr("Subiendo") if card is plan.level_pick else tr("Alternativa"), theme.GOLD),
+                         "alt": (self._alt_chip(plan, card), theme.GOLD),
                          "extra": (tr("De más"), theme.MUTED)}[verdict]
             row = QHBoxLayout()
             row.addWidget(Chip(text, col, f))

@@ -283,6 +283,11 @@ class ArcanaPlan:
     top_pick: dict = field(default_factory=dict)    # kind -> the top's version (VERSION_PICK), for the tab
     alternatives: dict = field(default_factory=dict)   # kind -> [Contender], the most likely to win first
     level_pick: Card = None          # the alternative you chose to enhance to settle it (it gets the food first)
+    transfer_odds: dict = field(default_factory=dict)  # kind -> (better, even, worse): the new card once it ate the old
+    #                                                    one, every way its enhances can fall, against keeping yours
+    transfer_trade: dict = field(default_factory=dict)  # kind -> [(skill, levels)] it adds (+) or takes (-) on average
+    trial: tuple = None              # (kind, the card it would eat, the new card, its transfer_odds, the +N it would
+    #                                  reach): the risky transfer AionDex tries first with the food you have to spare
     useful_now: int = 0
     useful_best: int = 0
 
@@ -418,7 +423,9 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
     want of each card; a kind left out goes by the top's, VERSION_PICK); final_first: the food goes first to the cards
     that are already the best possible of their kind for your skill targets (they never have to be replaced), then to
     the one that gives the most per exp; picks: {"level": the stack of the alternative you chose to enhance (it gets
-    the food first, and never eats the one you wear), "food": [stacks of alternatives you sent back to the food]}."""
+    the food first, and never eats the one you wear), "food": [stacks of alternatives you sent back to the food],
+    "direct": [stacks of new cards you chose to feed the old one to without trying them first], "hold": [kinds whose
+    transfer waits while another new card is tried - set by build itself]}."""
     picks = picks or {}
     plan = ArcanaPlan()
     plan.cards = sorted(cards, key=lambda c: (not c.worn, TYPES.index(c.kind) if c.kind in TYPES else 9,
@@ -460,8 +467,11 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
     # The food is the one you wear when it is enhanced AND the enhanced one with the most exp: before 2.4.2 only the
     # worn one, so once you put on the new card (+0) the old +3 was no longer seen as its food and AionDex told you to
     # wear the old one again - a loop. The alternative you chose to enhance never pictures eating the one you wear: you
-    # enhance it to see which of the two ends better, without breaking yours (2.5.5)
+    # enhance it to see which of the two ends better, without breaking yours (2.5.5). Nor does one you sent to the food,
+    # nor any of a kind whose transfer waits for another new card to be tried (2.5.11)
     leveling = picks.get("level")
+    dropped = set(picks.get("food") or ())
+    hold = set(picks.get("hold") or ())
     options = []
     for kind in TYPES:
         mine = [c for c in plan.cards if c.kind == kind]
@@ -473,7 +483,8 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
         if richest is not None and richest not in foods:
             foods.append(richest)
         tops += [_fed(db, c, food, plan.pool[kind]) for food in foods for c in list(tops)
-                 if c is not food and c.stack != leveling and db.to_next(c.grade, c.enchant) is not None]
+                 if c is not food and c.stack != leveling and c.stack not in dropped and kind not in hold
+                 and db.to_next(c.grade, c.enchant) is not None]
         options.append(tops or [None])
 
     def best_of(opts):
@@ -493,11 +504,39 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
     for kind, c in expected.items():
         if c.fed is not None:
             plan.transfers[kind] = (c.fed, c.real, db.food(c.fed.grade, c.fed.enchant, c.fed.exp), c.enchant)
+
+    def adds_of(chosen):
+        out = {}
+        for c in chosen:
+            for s, lv in c.effects:
+                out[s] = out.get(s, 0) + lv
+        return out
+
+    # what a transfer risks (2.5.11): every way the new card's enhances can fall once it ate the old one, against the
+    # best mix without that transfer, each skill by its priority. «+0.0 niveles» hid a coin toss: a Chalice of Magic
+    # +0 with Condemnation +1 eating a Chalice of Vigor +4 traded a level of Divine Aura for one of Condemnation on
+    # average, and 31% of the time no raise fell on Condemnation - a level down, with the old card already eaten
+    for kind, (old, new, _, to) in plan.transfers.items():
+        i = TYPES.index(kind)
+        keep, keep_key = best_of(options[:i] + [[c for c in options[i] if c is None or c.fed is None]]
+                                 + options[i + 1:])
+        others = [c for c in best if c.kind != kind]
+        better = even = worse = 0.0
+        for eff, p in _outcomes(new.effects, to - new.enchant, plan.pool[kind]).items():
+            v = _useful(others + [_Effects(eff)], needs, weights)
+            if v > keep_key[0] + 1e-9:
+                better += p
+            elif v > keep_key[0] - 1e-9:
+                even += p
+            else:
+                worse += p
+        plan.transfer_odds[kind] = (better, even, worse)
+        before, after = adds_of(keep), adds_of(best)
+        trade = [(s, min(needs[s], after.get(s, 0)) - min(needs[s], before.get(s, 0)))
+                 for s in sorted(needs, key=lambda s: -weights.get(s, 0))]
+        plan.transfer_trade[kind] = [(s, d) for s, d in trade if abs(d) >= 0.05]
     plan.useful_best = _useful(plan.best.values(), needs)
-    adds = {}
-    for c in plan.best.values():
-        for s, lv in c.effects:
-            adds[s] = adds.get(s, 0) + lv
+    adds = adds_of(plan.best.values())
     for need in plan.skills:
         need.best = adds.get(need.skill, 0)
     for kind in TYPES:
@@ -523,8 +562,7 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
     # (every way its enhances can fall, each skill by its priority). Up to MAX_CONTENDERS a kind stay out of the food,
     # and the one you chose to enhance always does
     moving = {w.stack for w, _, _, _ in plan.transfers.values()}     # fed whole to the new card (added below once)
-    dropped = set(picks.get("food") or ())
-    lead = next((c for c in plan.cards if c.stack == leveling and not c.worn and plan.best.get(c.kind) is not c
+    lead =next((c for c in plan.cards if c.stack == leveling and not c.worn and plan.best.get(c.kind) is not c
                  and db.to_next(c.grade, c.enchant) is not None), None)
     mixes = {}                          # stack -> the cards of the other kinds in its best mix
 
@@ -540,10 +578,7 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
         return win, tie
 
     base_raw = _useful(best, needs)
-    base_got = {}
-    for c in best:
-        for s, lv in c.effects:
-            base_got[s] = base_got.get(s, 0) + lv
+    base_got = adds_of(best)
     for i, kind in enumerate(TYPES):
         rival = plan.best.get(kind)
         if rival is None:
@@ -646,6 +681,27 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
         plan.feeds = sorted((f for f in plans.values() if f.fodder),
                             key=lambda f: (f.target is not plan.level_pick, not final[f.target.stack],
                                            -first_ratio[f.target.stack], -f.useful))
+
+    # a transfer that can leave you worse is tried first (2.5.11): the new card gets the food you have to spare, a level
+    # at a time, while the one you wear stays as it is. Its raises then show: once it is as good as yours by itself,
+    # the next plan feeds it the old one with nothing at risk; if it stays behind, you keep yours and it goes back to
+    # the food with all its exp. The same outcome as transferring at once when it goes well, without the risk. One at
+    # a time (the other risky ones wait); not while you enhance an alternative you chose, nor for a new card you chose
+    # to feed the old one to at once, nor without food to spare that raises it
+    direct = set(picks.get("direct") or ())
+    risky = [k for k, (_, _, worse) in plan.transfer_odds.items()
+             if worse > 1e-9 and plan.transfers[k][1].stack not in direct]
+    if risky and not leveling:
+        gains = {k: g for k, _, _, g in plan.changes}
+        first = max(risky, key=lambda k: (gains.get(k, 0), plan.transfer_odds[k][0], -TYPES.index(k)))
+        old, new, _, to = plan.transfers[first]
+        trial = build(db, prefix, cards, levels, targets, names, kinds, training, versions, final_first,
+                      {**picks, "level": new.stack, "hold": risky})
+        fd = next((f for f in trial.feeds if f.target is trial.level_pick), None)
+        if trial.level_pick is not None and trial.level_pick.stack == new.stack and fd and fd.to > new.enchant:
+            trial.trial = (first, old, new, plan.transfer_odds[first], to)
+            trial.transfer_trade.setdefault(first, plan.transfer_trade.get(first, []))
+            return trial
     return plan
 
 

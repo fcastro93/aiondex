@@ -1371,7 +1371,9 @@ def _steps(plan, by_pos, kina, bound, stones, db, levels, prices, recipes, gear_
             ups = sum(f.to - f.target.enchant for f in cards.feeds)
             n = sum(1 for f in cards.feeds for w, _ in f.fodder if not isinstance(w, tuple))
             lead = cards.level_pick          # the alternative you chose to enhance gets the food first (2.5.5)
-            steps.append(Step("arcana", tr("Arcanas: sube tu {0} +{1} para desempatar", lead.name, lead.enchant)
+            steps.append(Step("arcana", tr("Arcanas: prueba tu {0} antes de darle tu {1}", lead.name,
+                                           cards.trial[1].name) if lead is not None and cards.trial else
+                              tr("Arcanas: sube tu {0} +{1} para desempatar", lead.name, lead.enchant)
                               if lead is not None else tr("Arcanas: dales de comer las {0} que no usas", n) if n else
                               tr("Arcanas: usa tus Training Arcana"),
                               " ".join(feed_text(f) + "." for f in cards.feeds)
