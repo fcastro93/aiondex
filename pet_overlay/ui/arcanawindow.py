@@ -15,8 +15,9 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxL
 
 from .. import APP_NAME
 from ..arcanagrid import grid_order
-from ..arcana import (DEFAULT_ACTIVE_TARGET, TYPES, Card, alternative_to_try, effect_notes, effects_text, farm_options,
-                      feeding_pays, level_food, pantheon, raise_luck, short_kind, tells_apart, tied_farms, twins, worth)
+from ..arcana import (DEFAULT_ACTIVE_TARGET, TYPES, VERSION_COST, Card, alternative_to_try, effect_notes, effects_text,
+                      farm_options, feeding_pays, level_food, pantheon, raise_luck, short_kind, tells_apart, tied_farms,
+                      twins, worth)
 from .charpicker import CharacterPicker
 from . import theme
 from .design import Chip, ChipGroup, GameCard, GameTabs, Meter, PageHeader, SearchBox
@@ -267,6 +268,15 @@ class ArcanaWindow(QWidget):
         if card is plan.level_pick:
             return tr("Probando") if plan.trial else tr("Subiendo")
         return tr("Alternativa")
+
+    @staticmethod
+    def _version_note(plan, new, old):
+        """« Además es de Vigor, la versión que quieres…» when the version is part of why a new card wins (2.5.12)."""
+        want = plan.pick.get(new.kind)
+        if want and new.set == want and old.set != want and VERSION_COST.get(new.kind):
+            return " " + tr("Además es de {0}, la versión que quieres (tu {1} es de {2}): eso vale un nivel de tu "
+                            "primera skill objetivo.", new.set, old.name, old.set)
+        return ""
 
     @staticmethod
     def _trade_text(plan, kind):
@@ -539,6 +549,7 @@ class ArcanaWindow(QWidget):
                 trade = self._trade_text(plan, kind)
                 if trade:
                     line += " " + tr("En promedio, en tus skills objetivo: {0}.", trade)
+                line += self._version_note(plan, card, moved[0])
                 worse = plan.transfer_odds.get(kind, (0, 0, 0))[2]
                 line += " " + (tr("{0:.0%} de quedar peor que ahora, y la vieja ya no vuelve.", worse) if worse > 1e-9
                                else tr("Caigan como caigan sus mejoras, no quedas peor que ahora."))
@@ -558,6 +569,7 @@ class ArcanaWindow(QWidget):
                        "sin vuelta atrás.", old.name, old.enchant, trade, odds[2]) if trade else
                     tr("Darle ya tu {0} +{1} es una apuesta: {2:.0%} de quedar peor que ahora, sin vuelta atrás.",
                        old.name, old.enchant, odds[2]))
+            line += self._version_note(plan, card, old)
             line += " " + tr("Súbela antes con la comida que te sobra: llega a +{0} sin tocar tu {1}, y ahí ya tiene "
                              "{2:.0%} de superarla.", fd.to, old.name, r.reach_chance)
             line += " " + tr("Si gana, te digo que le des tu {0}; si no, te quedas con la tuya y esta vuelve a la "
@@ -756,6 +768,13 @@ class ArcanaWindow(QWidget):
                                  r.reach_chance)
         elif self.ctl.arcana_db.to_next(r.card.grade, r.card.enchant) is not None:
             text += " " + tr("Subirla no la haría ganar: ninguna forma en que caigan sus mejoras supera a tu {0}.", rival)
+        want = plan.pick.get(r.card.kind) if VERSION_COST.get(r.card.kind) else None
+        if want and r.card.set != want:
+            text += " " + tr("Es de {0} y quieres {1}: para ganar tiene que darte al menos un nivel más de tu primera "
+                             "skill objetivo.", r.card.set, want)
+        elif want and r.rival.set != want:
+            text += " " + tr("Es de {0}, la versión que quieres, y la tuya no: eso cuenta como un nivel de tu primera "
+                             "skill objetivo a su favor.", want)
         if r.mix:
             text += " " + tr("Con ella tu mejor mezcla cambia también: {0}.",
                              ", ".join(f"{short_kind(m.kind)} {m.name} +{m.enchant}" for m in r.mix))
@@ -1547,6 +1566,10 @@ class ArcanaWindow(QWidget):
         wear (arcana.VERSION_PICK), or ""."""
         if not worn or worn.set == card.set or plan.pick.get(card.kind) != card.set:
             return ""
+        gain = next((g for _, _, c, g in plan.changes if c is card), 0)
+        if gain < -1e-9:              # fewer levels, but the version is worth VERSION_COST (2.5.12)
+            return tr("Da {0:.0f} nivel(es) menos en tus skills, pero su versión ({1}: {2}) es la que quieres, y eso "
+                      "vale un nivel de tu primera skill objetivo.", -gain, card.set, card.stat[0])
         if plan.pick_from.get(card.kind) == "you":
             return tr("Mismos niveles en tus skills, pero su versión ({0}: {1}) es la que elegiste.", card.set,
                       card.stat[0])
@@ -1692,6 +1715,13 @@ class ArcanaWindow(QWidget):
         grid.setColumnStretch(1, 1)
         grid.setColumnStretch(2, 1)
         self.body.addLayout(grid)
+        rule = label(tr("En el Cáliz y la Campana, una carta de la versión que no quieres solo te la recomiendo si te da "
+                        "al menos un nivel más de tu primera skill objetivo (o lo que valga lo mismo según tus "
+                        "prioridades): es el precio de su stat de Pantheon (Combat Speed, Attack). En las otras la "
+                        "versión solo desempata: según el Aion 2 Bible de kanonxo, el Pergamino y la Brújula pueden ser "
+                        "de cualquier set, y las dos stats del Espejo valen."), f.small, theme.MUTED)
+        rule.setWordWrap(True)
+        self.body.addWidget(rule)
         # what the choice adds up to: the version wanted of each card, or the one you wear where it does not matter
         sets = {}
         loose = 0

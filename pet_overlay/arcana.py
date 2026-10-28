@@ -53,6 +53,15 @@ PRIORITY_DECAY = 0.75               # a skill target's weight is this to the pow
 MAX_CONTENDERS = 3                  # alternatives kept out of the food per kind (2.5.5)
 MIN_CHANCE = 0.1                    # an alternative that does not tie now: its least chance of beating the card to
 #                                     wear once enhanced to its top
+VERSION_COST = {                    # kind -> what a card of the version you do not want (Set y versión, or the top's)
+    # has to give more in your skills, in levels of your first skill target (2.5.12): its Pantheon stat is the price.
+    # Only where the stat matters - kanonxo's Aion 2 Bible (ch. 6): "the 3 most important lines here are Chalice (Time -
+    # Combat Speed), Bell (Destruction - Attack Increase %), and Mirror (Wisdom - Double Chance)", Parchment and Compass
+    # "can be from either set"; both Mirror stats are among its highest value ones (Illusion: cooldowns), so the Mirror
+    # and the rest only break ties. Before, the version only broke ties everywhere: a Chalice of Magic trading a level
+    # of Divine Aura for one of Condemnation beat the Vigor one and its +2% Combat Speed
+    "Chalice": 1.0, "Bell": 1.0,
+}
 
 
 def _u32(b, p):
@@ -460,8 +469,9 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
     plan.useful_now = _useful(plan.worn.values(), needs)
 
     # the cards to wear: of each kind, among the ones of its highest item level (a lower grade costs item level and god
-    # stat), the combination that adds the most to what you need, then the set bonuses, the version most of the top wear
-    # (with five cards any mix gives two bonuses: its Pantheon stat decides), the most levels, the +N. A card also
+    # stat), the combination that adds the most to what you need - each card of the version you do not want costing
+    # VERSION_COST (with five cards any mix gives two set bonuses: its Pantheon stat is what the version changes) -
+    # then the set bonuses, the version you want, the most levels, the +N. A card also
     # competes as it would be after eating an enhanced one of its kind (all its exp carries over and its levels are
     # dealt again among the eater's effects): an enhanced card of yours does not hide a better one that shows up later.
     # The food is the one you wear when it is enhanced AND the enhanced one with the most exp: before 2.4.2 only the
@@ -487,11 +497,21 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
                  and db.to_next(c.grade, c.enchant) is not None]
         options.append(tops or [None])
 
+    def off(chosen):
+        """What the cards of the version you do not want cost (VERSION_COST)."""
+        return sum(VERSION_COST.get(c.kind, 0.0) for c in chosen if plan.pick.get(c.kind) not in (None, c.set))
+
+    def score(chosen, effects=None, card=None):
+        """What a mix gives your skill targets (by priority), less VERSION_COST for each card of the version you do
+        not want; effects: one card's effects in place of `card` (one way its enhances can fall)."""
+        cards_ = chosen + ([_Effects(effects)] if effects is not None else [])
+        return _useful(cards_, needs, weights) - off(chosen + ([card] if card is not None else []))
+
     def best_of(opts):
         best, best_key = None, None
         for combo in itertools.product(*opts):
             chosen = [c for c in combo if c is not None]
-            key = (_useful(chosen, needs, weights), _set_bonus(chosen),
+            key = (score(chosen), _set_bonus(chosen),
                    sum(plan.pick.get(c.kind) == c.set for c in chosen), sum(c.total for c in chosen),
                    sum(GRADE_ORDER.get(c.grade, 0) * 10 + c.enchant for c in chosen), sum(c.worn for c in chosen))
             if best_key is None or key > best_key:
@@ -516,14 +536,16 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
     # best mix without that transfer, each skill by its priority. «+0.0 niveles» hid a coin toss: a Chalice of Magic
     # +0 with Condemnation +1 eating a Chalice of Vigor +4 traded a level of Divine Aura for one of Condemnation on
     # average, and 31% of the time no raise fell on Condemnation - a level down, with the old card already eaten
+    edges = {}                          # kind -> what its transfer adds on average, by priority (the trial goes first)
     for kind, (old, new, _, to) in plan.transfers.items():
         i = TYPES.index(kind)
         keep, keep_key = best_of(options[:i] + [[c for c in options[i] if c is None or c.fed is None]]
                                  + options[i + 1:])
+        edges[kind] = best_key[0] - keep_key[0]
         others = [c for c in best if c.kind != kind]
         better = even = worse = 0.0
         for eff, p in _outcomes(new.effects, to - new.enchant, plan.pool[kind]).items():
-            v = _useful(others + [_Effects(eff)], needs, weights)
+            v = score(others, eff, new)
             if v > keep_key[0] + 1e-9:
                 better += p
             elif v > keep_key[0] - 1e-9:
@@ -570,7 +592,7 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
         """(win, tie) of the card after `raises` enhances, against the pick."""
         win = tie = 0.0
         for eff, p in _outcomes(c.effects, raises, plan.pool[c.kind]).items():
-            v = _useful(mixes[c.stack] + [_Effects(eff)], needs, weights)
+            v = score(mixes[c.stack], eff, c)
             if v > best_key[0] + 1e-9:
                 win += p
             elif v > best_key[0] - 1e-9:
@@ -596,7 +618,8 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
             top = db.max_level(c.grade)
             exp = sum(db.to_next(c.grade, lv) for lv in range(c.enchant, top)) - c.exp
             win, tie = odds(c, top - c.enchant)
-            if not chosen and not (useful and useful >= base_raw) and win < MIN_CHANCE:
+            ties = useful and useful >= base_raw and off([c]) <= off([rival])    # not a tie if it pays VERSION_COST
+            if not chosen and not ties and win < MIN_CHANCE:
                 continue                    # an even 0 (no skill targets) is no reason to keep it
             got = {}
             for m in mix:
@@ -692,8 +715,7 @@ def build(db, prefix, cards, levels, targets, names, kinds, training=None, versi
     risky = [k for k, (_, _, worse) in plan.transfer_odds.items()
              if worse > 1e-9 and plan.transfers[k][1].stack not in direct]
     if risky and not leveling:
-        gains = {k: g for k, _, _, g in plan.changes}
-        first = max(risky, key=lambda k: (gains.get(k, 0), plan.transfer_odds[k][0], -TYPES.index(k)))
+        first = max(risky, key=lambda k: (edges[k], plan.transfer_odds[k][0], -TYPES.index(k)))
         old, new, _, to = plan.transfers[first]
         trial = build(db, prefix, cards, levels, targets, names, kinds, training, versions, final_first,
                       {**picks, "level": new.stack, "hold": risky})
