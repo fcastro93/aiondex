@@ -9,6 +9,7 @@ from ..i18n import tr
 GLYPH_WINDOW = "\ue8a7"      # OpenInNewWindow
 GLYPH_EXIT = ""
 GLYPH_WORLD = "\ue909"       # World
+GLYPH_RADAR = "\ue81d"       # Location: the Radar de cubos
 GLYPH_PEOPLE = ""       # People in Segoe MDL2 / Fluent
 GLYPH_RESTART = ""     # Refresh
 
@@ -114,6 +115,9 @@ def build_app_menu(ctl, fonts, parent=None, docked=False):
             entry.setFont(font)
     menu.addSeparator()
     menu.addAction(glyph_icon(GLYPH_WORLD, theme.ACCENT, fonts.icons_family), tr("Mapa del mundo"), ctl.open_world_map)
+    radar = menu.addAction(glyph_icon(GLYPH_RADAR, theme.GOLD, fonts.icons_family), tr("Radar de cubos"),
+                           lambda: ctl.open_cube_radar(floating=True))
+    radar.setToolTip(tr("Un radar chico sobre el juego con los hidden cubes que el juego anuncia cerca de ti"))
     menu.addAction(glyph_icon(GLYPH_PEOPLE, theme.ACCENT, fonts.icons_family), tr("Jugadores de tu party / force"),
                    ctl.open_players)
     restart = menu.addAction(glyph_icon(GLYPH_RESTART, theme.MUTED, fonts.icons_family), tr("Reiniciar"),

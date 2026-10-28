@@ -40,6 +40,54 @@ def start_simulation(controller, interval_ms=2500):
     QTimer.singleShot(2000, lambda: controller.on_zone_detected("southern-gribade-highland"))
     _simulate_fight(controller)
     _simulate_skills(controller)
+    _simulate_cubes(controller)
+    return timer
+
+
+def _simulate_cubes(controller, interval_ms=3000):
+    """Verteron, you walking towards a hidden cube with a few other objects around: the Radar de cubos has
+    something to show (the messages go through cubes.CubeTracker like the real 3436 / 4236 do)."""
+    import struct
+    from .cubes import KNOWN
+    from .nodes import SPAWN, DESPAWN
+
+    def varint(n):
+        out = bytearray()
+        while True:
+            b, n = n & 0x7F, n >> 7
+            out.append(b | 0x80 if n else b)
+            if not n:
+                return bytes(out)
+
+    def spawn(eid, oid, x, y, fresh=False):
+        return (varint(eid) + struct.pack("<HI3f", 4, oid, x * 100, y * 100, 15000) + struct.pack("<ff", 0, 0)
+                + b"\x01\x01" + bytes([6 if fresh else 1]) + struct.pack("<Q", int(time.time() * 1000)) + b"\x00" * 7)
+
+    from .nodes import MAP_ENTER
+    position = controller.bridge.position
+    position.game_map = 1010
+    you = [-500.0, 1200.0]
+    controller.bridge.cubes.on_message(MAP_ENTER, struct.pack("<IIQ3ff", 3, 1010, 0, you[0] * 100, you[1] * 100, 0, 0), None)
+    cube = next(iter(KNOWN))
+    objects = [(9001, cube, -502.0, 1263.0), (9002, 1234567, -480.0, 1190.0), (9003, 1234568, -530.0, 1240.0),
+               (9004, 1550021, -495.0, 1205.0)]          # the last one is a gathering node: not on the radar
+    state = {"i": 0}
+
+    def tick():
+        state["i"] += 1
+        position.set_fix(time.time(), you[0], you[1])
+        for eid, oid, x, y in objects:
+            controller.bridge.cubes.on_message(SPAWN, spawn(eid, oid, x, y, fresh=state["i"] == 1), None)
+        if state["i"] % 12 == 0:                           # the cube goes away for a while, then is back
+            controller.bridge.cubes.on_message(DESPAWN, varint(9001), None)
+        elif state["i"] % 12 < 6:
+            you[1] += 6.0                                  # you walk south, towards it
+        else:
+            you[1] -= 6.0
+
+    timer = QTimer(controller, interval=interval_ms, timeout=tick)
+    timer.start()
+    QTimer.singleShot(1500, tick)
     return timer
 
 

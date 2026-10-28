@@ -17,6 +17,7 @@ SOUNDS = {      # key -> (what it is for, file)
     "event_alert": (tr("Aviso de evento (Tracker)"), "event_alert.mp3"),
     "status_alert": (tr("Alerta de Status (energía, tickets, semanal)"), "event_alert.mp3"),
     "death": (tr("Tu personaje muere"), "death.mp3"),
+    "cube_radar": (tr("Radar de cubos: cubo a la vista"), "cube_radar.wav"),
 }
 DEFAULT_VOLUME = 70     # percent
 VOLUME_STEPS = 10       # the overlay sets the volume in 10 % steps

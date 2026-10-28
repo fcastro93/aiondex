@@ -41,6 +41,7 @@ DEFAULTS = {
         "toggle_compact": "Alt+Shift+C",
         "toggle_map": "Alt+Shift+M",
         "crafting_scan": "Alt+Shift+S",
+        "mark_cube": "Alt+Shift+R",      # Radar de cubos: «estoy frente a un cubo»
     },
 }
 

@@ -23,6 +23,7 @@ def main():
     parser.add_argument("--open-map", type=int, metavar="PET_ID", help="open the map window on a pet")
     parser.add_argument("--open-menu", action="store_true", help="(dev) open the app menu before --screenshot")
     parser.add_argument("--open-tuner", action="store_true", help="(dev) open the Afinador window")
+    parser.add_argument("--open-radar", choices=("page", "float"), help="(dev) open the Radar de cubos (page or floating)")
     parser.add_argument("--diagnose", metavar="PROBLEM", help="(dev) open Diagnóstico and run a problem (or 'none')")
     parser.add_argument("--restarted", action="store_true", help="started by AionDex itself: wait for the old one")
     args = parser.parse_args()
@@ -60,6 +61,9 @@ def main():
     if args.open_tuner:
         QTimer.singleShot(300, ctl.open_tuner)
 
+    if args.open_radar:
+        QTimer.singleShot(300, lambda: ctl.open_cube_radar(floating=args.open_radar == "float"))
+
     if args.diagnose:
         def diagnose():
             from pet_overlay.diagnostics import PROBLEMS
@@ -94,6 +98,10 @@ def main():
                 ctl.tuner_window.grab().save(args.screenshot.replace(".png", "_tuner.png"))
             if ctl.map_window and ctl.map_window.isVisible():
                 ctl.map_window.grab().save(args.screenshot.replace(".png", "_map.png"))
+            if ctl.hub and ctl.hub.isVisible():
+                ctl.hub.grab().save(args.screenshot.replace(".png", "_hub.png"))
+            if ctl.cube_float and ctl.cube_float.isVisible():
+                ctl.cube_float.grab().save(args.screenshot.replace(".png", "_radar.png"))
             ctl.quit()
         QTimer.singleShot(int(args.after * 1000), shoot)
 

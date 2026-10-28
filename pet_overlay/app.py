@@ -56,6 +56,7 @@ from .status import CLAIM_SECONDS
 from .armory import GROUP, LOW, Armory
 from .paths import ASSETS_DIR, DATA_DIR
 from .sounds import SoundPlayer
+from . import cubes
 from .pets import Collection, Pet, LEVEL_OPCODE, PROGRESS_OPCODE, SNAPSHOT_OPCODE, parse_level, parse_progress, \
     parse_snapshot
 from .session import Session
@@ -90,7 +91,7 @@ from .ui.window import OverlayWindow
 from .i18n import DEFAULT as DEFAULT_LANGUAGE, LANGUAGES, tr
 
 log = logging.getLogger(__name__)
-HOTKEY_ACTIONS = ["toggle_visible", "toggle_lock", "toggle_compact", "toggle_map", "crafting_scan"]
+HOTKEY_ACTIONS = ["toggle_visible", "toggle_lock", "toggle_compact", "toggle_map", "crafting_scan", "mark_cube"]
 NextStep = namedtuple("NextStep", "source step title summary open action")   # the one next step (next_step)
 GRAB_DELAY_MS = 180             # AionDex's own windows fade out of the way before a market capture
 ZONE_NOTICE_COOLDOWN = 600      # seconds before the same zone's "pets here" notice repeats
@@ -187,6 +188,7 @@ class Bridge(QObject):
     own_skill = Signal(object)       # ("press", ts, skill, result) | ("cast", ts, skill, cooldown ms) |
                                      # ("skills", {base: OwnSkill}) | ("bar", [QuickSlot])
     status = Signal(str)
+    cube = Signal(object)            # a hidden cube appeared around you: cubes.py's object dict (eid, oid, x, y...)
 
     def __init__(self, tracker=None, health=None):
         super().__init__()
@@ -207,6 +209,7 @@ class Bridge(QObject):
         self.position = whereami.OwnPosition()   # where you are, for the map windows
         self._position_failed = False
         self.nodes = nodes.NodeTracker()         # the gathering nodes around you
+        self.cubes = cubes.CubeTracker(on_cube=self.cube.emit)   # the other objects around you: the hidden cubes
         self.mobs = MobTracker()                 # the monsters around you: spawn points, deaths, respawns
         self.bigfoes = BigFoes()                 # the bosses and siege cores around you (their HP)
         self.recorder = None                     # combatrec.CombatRecorder (Diagnóstico › DPS › Grabar)
@@ -252,6 +255,7 @@ class Bridge(QObject):
             me = self.self_eid if self.self_eid is not None else self.feed.self_eid
             self.position.on_message(op, body, me)
             self.nodes.on_message(op, body, me)
+            self.cubes.on_message(op, body, me)
             if op == MAP_ENTER_OPCODE:
                 entry = parse_map_enter(body)
                 if entry:
@@ -568,6 +572,8 @@ class Controller(QObject):
         self.bridge = Bridge(self._make_tracker(), self.health)
         self.bridge.nodes.learned = json.loads(json.dumps(self.settings.get("gather_nodes") or nodes.SEED))
         self.bridge.nodes.load(self.settings.get("gather_spots"))
+        self.bridge.cubes.learned = self.settings.setdefault("cube_templates", {})   # the cubes you confirmed
+        self.bridge.cube.connect(self.on_cube_seen)
         self.spot_checks = self.settings.setdefault("gather_checks", {})   # map -> point -> [up, empty, last]
         self.spot_checks_version = 0
         self._nodes_timer = QTimer(self, interval=30_000, timeout=self._save_nodes)
@@ -678,6 +684,8 @@ class Controller(QObject):
         self.gathering = Gathering(self.data_dir, self.settings)
         self.gather_window = None
         self.world_window = None
+        self.cube_window = None                 # Mundo › Radar de cubos (ui/cuberadar.py)
+        self.cube_float = None                  # the small radar over the game (the HUD's menu)
         self._empty_spots = {}                  # (map, u, v) -> when you found that gathering spot empty
         self.minimap_overlay = None             # the route drawn over the game's minimap
         self._near_spots = {}                   # (map, u, v) -> since when you are close to it
@@ -994,6 +1002,63 @@ class Controller(QObject):
         if self.world_window is None:
             self.world_window = WorldMapWindow(self)
         self.show_page("world", self.world_window)
+
+    # --- hidden cubes ------------------------------------------------------------------------
+    def open_cube_radar(self, floating=False):
+        """Mundo › Radar de cubos. floating (the HUD's menu, the window closed): the small device over the game."""
+        from .ui.cuberadar import CubeRadarWindow, FloatingRadar
+        if floating and not (self.hub is not None and self.hub.isVisible()):
+            if self.cube_float is None:
+                self.cube_float = FloatingRadar(self)
+            self.cube_float.show()
+            self.cube_float.raise_()
+            return
+        if self.cube_window is None:
+            self.cube_window = CubeRadarWindow(self)
+        else:
+            self.cube_window.refresh()
+        self.show_page("cubes", self.cube_window)
+
+    def mark_cube(self, source="atajo"):
+        """«Estoy frente a un cubo» (hotkey, the page's button, the floating radar): the time, where you stand and
+        the objects near you, to confirm from the radar page which object the cube is."""
+        row = self.bridge.cubes.mark(self.bridge.position.fix, source)
+        unknown = sum(1 for o in row["near"] if not o.get("cube"))
+        log.info("cube sighting marked (%s): %s objects near, %s unknown", source, len(row["near"]), unknown)
+        body = (tr("{0} objeto(s) desconocido(s) cerca. Abre el Radar de cubos y di cuál era.", unknown) if unknown
+                else tr("Ningún objeto desconocido cerca; la marca quedó en diagnostics/cube_sightings.jsonl."))
+        self.notify("info", tr("Marca guardada: estás frente a un cubo"), body, page="cubes")
+        if self.cube_window is not None and self.cube_window.isVisible():
+            self.cube_window.refresh()
+
+    def confirm_cube(self, oid, name=None):
+        """The player says object id `oid` is a hidden cube: from now on the radar shows it as one."""
+        found = self.bridge.cubes.confirm(int(oid), name)
+        self.settings["cube_templates"] = self.bridge.cubes.learned
+        self._save_settings()
+        log.info("cube template learned: %s (%s in view)", oid, len(found))
+        self.notify("info", tr("Aprendido: el objeto {0} es un hidden cube", oid),
+                    tr("{0} a la vista ahora", len(found)) if found else "", page="cubes")
+        if self.cube_window is not None and self.cube_window.isVisible():
+            self.cube_window.refresh()
+
+    def forget_cube(self, oid):
+        self.bridge.cubes.forget(int(oid))
+        self.settings["cube_templates"] = self.bridge.cubes.learned
+        self._save_settings()
+        if self.cube_window is not None and self.cube_window.isVisible():
+            self.cube_window.refresh()
+
+    def on_cube_seen(self, obj):
+        """A known cube appeared around you (Bridge.cube): a beep and a notice with where it is."""
+        name = self.bridge.cubes.cube_name(obj["oid"]) or "Hidden Cube"
+        fix = self.bridge.position.fix
+        where = ""
+        if fix:
+            dist, point = cubes.distance_and_point((fix[1], fix[2]), obj)
+            where = tr(" a {0} m al {1}", int(dist), point)
+        self.sounds.play("cube_radar")
+        self.notify("info", tr("¡Cubo a la vista!"), f"{name}{where}", same=f"cube:{obj['eid']}", page="cubes")
 
     def boss_on_map(self, entry):
         """Has this Tracker boss a spawn point on your world map (data/world_db.json «Named Monsters»)?"""
@@ -3873,6 +3938,7 @@ class Controller(QObject):
         menu.addAction(tr("Abrir la ventana de AionDex"), self.open_hub)
         menu.addAction(tr("Abrir mapa de pets\t{0}", hk['toggle_map']), self.open_map)
         menu.addAction(tr("Mapa del mundo"), self.open_world_map)
+        menu.addAction(tr("Radar de cubos"), self.open_cube_radar)
         menu.addAction(tr("Colección de pets"), self.open_collection)
         menu.addAction(tr("Pets exclusivos (Asmodian / Elyos)"), self.open_exclusive_pets)
         menu.addAction(tr("Jugadores de tu party / force"), self.open_players)

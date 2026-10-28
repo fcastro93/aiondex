@@ -31,6 +31,7 @@ GLYPH_EXCLUSIVE = "\ue735"
 GLYPH_MAP = "\ue707"
 GLYPH_WORLD = ""
 GLYPH_TRACKER = "\ue823"
+GLYPH_RADAR = "\ue81d"
 GLYPH_PEOPLE = "\ue716"
 GLYPH_ARENA = "\ue7c1"
 GLYPH_DIAG = "\ue9d9"
@@ -59,7 +60,8 @@ NAV = (
                   ("exclusive", tr("Exclusivos"), GLYPH_EXCLUSIVE, "open_exclusive_pets", {}),
                   ("map", tr("Mapa de pets"), GLYPH_MAP, "open_map", {}))),
     (tr("Mundo"), (("world", tr("Mapa del mundo"), GLYPH_WORLD, "open_world_map", {}),
-                   ("tracker", "Tracker", GLYPH_TRACKER, "open_tracker", {}))),
+                   ("tracker", "Tracker", GLYPH_TRACKER, "open_tracker", {}),
+                   ("cubes", tr("Radar de cubos"), GLYPH_RADAR, "open_cube_radar", {}))),
     (tr("Profesiones"), (("crafting", "Crafting", None, "open_crafting", {"tab": "crafting"}),
                          ("market", "Market", None, "open_crafting", {"tab": "market"}),
                          ("leveling", tr("Levear"), None, "open_crafting", {"tab": "leveling"}),
