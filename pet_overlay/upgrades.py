@@ -103,7 +103,10 @@ IDEAL = {
     "boots": ("Perfect Chance", "Move Speed", "Movement Speed", "Attack"),
     "necklace": ("Combat Speed", "Might", "Attack", "Accuracy"),
     "earring": ("Move Speed", "Movement Speed", "Might", "Precision", "Attack", "Accuracy"),
-    "ring": ("Might", "Precision", "Attack"),
+    # rings carry the active skill lines (aion2maps' ring row is all skills; 49 top clerics wear ~3 a ring; r/Aion2's
+    # Substats guide: skill, Might, Precision): Attack is not one to keep on them (2.5.13: a ring with three Attack
+    # lines and no skill only got a Sync of its Defense line, not the Reset that fishes skill lines)
+    "ring": ("Might", "Precision"),
 }
 IDEAL["guard"] = IDEAL["weapon"]
 # the lines to aim for per piece, highest priority first; a tuple of two: as good as each other; "skill": a skill
@@ -1371,8 +1374,9 @@ def _steps(plan, by_pos, kina, bound, stones, db, levels, prices, recipes, gear_
             ups = sum(f.to - f.target.enchant for f in cards.feeds)
             n = sum(1 for f in cards.feeds for w, _ in f.fodder if not isinstance(w, tuple))
             lead = cards.level_pick          # the alternative you chose to enhance gets the food first (2.5.5)
-            steps.append(Step("arcana", tr("Arcanas: prueba tu {0} antes de darle tu {1}", lead.name,
-                                           cards.trial[1].name) if lead is not None and cards.trial else
+            steps.append(Step("arcana", tr("Arcanas: prueba tu {0} +{1} antes de darle tu {2} +{3}", lead.name,
+                                           lead.enchant, cards.trial[1].name, cards.trial[1].enchant)
+                              if lead is not None and cards.trial else
                               tr("Arcanas: sube tu {0} +{1} para desempatar", lead.name, lead.enchant)
                               if lead is not None else tr("Arcanas: dales de comer las {0} que no usas", n) if n else
                               tr("Arcanas: usa tus Training Arcana"),

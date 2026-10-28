@@ -563,7 +563,7 @@ class ArcanaWindow(QWidget):
             kind, old, card, odds, _ = plan.trial
             r = self._alt_of(plan)[card.stack]
             fd = next((x for x in plan.feeds if x.target is card), None)
-            title = tr("Prueba tu {0} antes de darle tu {1}", card.name, old.name)
+            title = tr("Prueba tu {0} +{1} antes de darle tu {2} +{3}", card.name, card.enchant, old.name, old.enchant)
             trade = self._trade_text(plan, kind)
             line = (tr("Darle ya tu {0} +{1} es una apuesta: en promedio {2}, pero {3:.0%} de quedar peor que ahora, "
                        "sin vuelta atrás.", old.name, old.enchant, trade, odds[2]) if trade else

@@ -3182,8 +3182,8 @@ class Controller(QObject):
             if feeding_pays(cards):
                 fd = cards.feeds[0]
                 trial = cards.trial if cards.trial and fd.target is cards.level_pick else None
-                found = NextStep("arcana", None, (tr("Prueba tu {0} antes de darle tu {1}", fd.target.name,
-                                                     trial[1].name) if trial else
+                found = NextStep("arcana", None, (tr("Prueba tu {0} +{1} antes de darle tu {2} +{3}", fd.target.name,
+                                                     fd.target.enchant, trial[1].name, trial[1].enchant) if trial else
                                                   tr("Subamos tu {0} +{1} para desempatar", fd.target.name,
                                                      fd.target.enchant) if fd.target is cards.level_pick else
                                                   tr("Subamos tu {0} +{1}", fd.target.name, fd.target.enchant)),
