@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxL
 from .. import APP_NAME
 from ..arcanagrid import grid_order
 from ..arcana import (DEFAULT_ACTIVE_TARGET, TYPES, Card, alternative_to_try, effect_notes, effects_text, farm_options,
-                      feeding_pays, level_food, pantheon, raise_luck, short_kind, tells_apart, twins, worth)
+                      feeding_pays, level_food, pantheon, raise_luck, short_kind, tells_apart, tied_farms, twins, worth)
 from .charpicker import CharacterPicker
 from . import theme
 from .design import Chip, ChipGroup, GameCard, GameTabs, Meter, PageHeader, SearchBox
@@ -448,12 +448,15 @@ class ArcanaWindow(QWidget):
             return
         f = self.fonts
         self.body.addWidget(SectionTitle(tr("Dónde conseguir más cartas"), f))
+        tied = tied_farms(farms)
         for i, farm in enumerate(farms):
             title = f"{farm.dungeon} · {self._stage(farm.stage)}" + (
                 "" if farm.can else " " + tr("(aún no entras)"))
-            chip, color = ((tr("La mejor para ti"), theme.GAIN) if i == 0 and farm.can else
+            chip, color = ((tr("Igual de buena"), theme.GAIN) if len(tied) > 1 and farm in tied else
+                           (tr("La mejor para ti"), theme.GAIN) if i == 0 and farm.can else
                            (tr("Transcendence"), theme.MUTED))
-            if i == 0 and farm.can and not farm.better and len(farms) > 1 and farm.future > farms[1].future:
+            if i == 0 and farm.can and not farm.better and len(tied) == 1 and len(farms) > 1 and \
+                    farm.future > farms[1].future:
                 chip = tr("Mejor a la larga")
             self._row(title + "  ·  " + ", ".join(short_kind(k) for k in farm.kinds), self._farm_short(farm), color, chip)
 
@@ -556,10 +559,13 @@ class ArcanaWindow(QWidget):
             action = (tr("Subir esta"), lambda _=False, who=plan.character, st=card.stack:
                       self._level_alternative(who, st))
         elif not feeding_pays(plan) and self._farms(plan):
-            farm = self._farms(plan)[0]
-            title = tr("Farmea {0} · {1}", farm.dungeon, self._stage(farm.stage))
+            tied = tied_farms(self._farms(plan))
+            farm = tied[0]
+            title = tr("Farmea {0} · {1}", tr(" o ").join(t.dungeon for t in tied), self._stage(farm.stage))
             line = ((tr("Ya no te queda comida para tus cartas. ") if not plan.feeds else
                      tr("Lo que te queda de comida ya no sube tus skills. ")) + self._farm_text(farm))
+            if len(tied) > 1:
+                line += " " + tr("Para ti dan lo mismo: elige la que prefieras.")
         elif plan.feeds:
             fd = plan.feeds[0]
             card = fd.target

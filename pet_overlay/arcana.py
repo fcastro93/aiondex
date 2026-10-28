@@ -855,7 +855,17 @@ def farm_options(plan, db, item_level):
         top = max((r[2] for r in rows), key=lambda g: GRADE_ORDER.get(g, -1), default="")
         out.append(Farm(dungeon, stage, data.get("il", 0), bool(open_), kinds, better, food, score,
                         (later[0][0], later[0][1].get("il", 0)) if later else None, top, first_at, future))
-    return sorted(out, key=lambda f: (not f.can, -round(f.score, 6), -f.future))
+    return sorted(out, key=lambda f: (not f.can, -round(f.score, 6), -round(f.future, 6)))
+
+
+def tied_farms(farms):
+    """The dungeons as good for you as the first one (the same score now and in the long run): «da igual cuál»
+    instead of picking the first of the list (2.5.10)."""
+    if not farms or not farms[0].can:
+        return farms[:1]
+    head = farms[0]
+    return [f for f in farms if f.can and round(f.score, 6) == round(head.score, 6)
+            and round(f.future, 6) == round(head.future, 6)]
 
 
 def _farm_value(plan, db, rows):
@@ -866,7 +876,10 @@ def _farm_value(plan, db, rows):
         card = plan.best.get(kind)
         mine = GRADE_ORDER.get(card.grade, -1) if card else -1
         w = worth(card, plan, db) if card else None
-        gap = (w.possible - w.mine) if w and w.verdict == "ok" else 0
+        # how many more of your missing skills a card of its kind could bring: also for one whose own raises no
+        # longer help ("ilvl") or that is at its top - a new card can still beat it (2.5.10: a Chalice with
+        # Judgment Thunder and Bolt already full counted as "the best possible", and no dungeon was for the Chalice)
+        gap = max(0, w.possible - w.mine) if w else 0
         want = plan.pick.get(kind) if plan.pick_from.get(kind) == "you" else None
         if card is None or mine < GRADE_ORDER["Unique"]:
             need, weight = mine + 1, 1.0 + gap           # any higher grade: item level, its stat, 4 effects

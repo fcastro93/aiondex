@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QFrame, QGrid
                                QLayout, QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
-from ..arcana import farm_options, short_kind
+from ..arcana import farm_options, short_kind, tied_farms
 from ..gear import SLOTS
 from ..upgrades import CATEGORIES, GUIDE, SUBSTATS, SUBSTATS_GUIDE, can_do, kinah_text, stat_value
 from .charpicker import CharacterPicker
@@ -602,9 +602,11 @@ class UpgradesWindow(QWidget):
         if cards is not None and getattr(ctl.arcana_db, "transcendence", None):
             farms = farm_options(cards, ctl.arcana_db, il)
             if farms:
-                fm = farms[0]
+                tied = tied_farms(farms)
+                fm = tied[0]
                 better = ", ".join(f"{short_kind(k)} {fm.better[k]:.0%}" for k in fm.better)
-                tiles.append(("Transcendence", f"{fm.dungeon} · {fm.stage.replace('Transcendence ', '')}",
+                tiles.append(("Transcendence", tr(" o ").join(f.dungeon for f in tied) +
+                              f" · {fm.stage.replace('Transcendence ', '')}",
                               (tr("cartas mejores: {0} por clear", better) if better else
                                tr("exp para tus cartas: ~{0:,.0f} por clear", fm.food)) if fm.can else
                               tr("pide {0:,} de nivel de objeto", fm.il),

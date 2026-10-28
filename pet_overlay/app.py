@@ -3171,7 +3171,7 @@ class Controller(QObject):
                 cards = self.arcana_plan(name) if name else None
             except Exception:                    # noqa: BLE001
                 log.exception("next step: arcana plan")
-            from .arcana import TYPES, alternative_to_try, farm_options, feeding_pays, short_kind
+            from .arcana import TYPES, alternative_to_try, farm_options, feeding_pays, short_kind, tied_farms
             alt = alternative_to_try(cards)
             if feeding_pays(cards):
                 fd = cards.feeds[0]
@@ -3189,9 +3189,10 @@ class Controller(QObject):
                 il = plan.me.item_level if plan is not None and plan.me and plan.me.item_level else None
                 farms = farm_options(cards, self.arcana_db, il)
                 if farms:
-                    farm = farms[0]
+                    tied = tied_farms(farms)         # as good as each other: «Farmea A o B»
+                    farm = tied[0]
                     kinds = ", ".join(f"{short_kind(k)} {farm.better[k]:.0%}" for k in TYPES if k in farm.better)
-                    found = NextStep("arcana", None, tr("Farmea {0} · {1}", farm.dungeon,
+                    found = NextStep("arcana", None, tr("Farmea {0} · {1}", tr(" o ").join(f.dungeon for f in tied),
                                                          farm.stage.replace("Transcendence ", "")),
                                      (tr("Lo que te queda de comida ya no sube tus skills. ") if cards.feeds else
                                       tr("Ya no te queda comida para tus cartas. "))
