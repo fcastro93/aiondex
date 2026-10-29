@@ -741,7 +741,10 @@ def alternative_to_try(plan):
     it - only the Kinah of moving it again."""
     if plan is None or plan.level_pick is not None or feeding_pays(plan):
         return None
-    rows = [r for rows in plan.alternatives.values() for r in rows if r.reach > r.card.enchant and r.reach_chance > 0]
+    # MIN_CHANCE where the food takes it (2.5.14: a Mirror with 2% at +3 was "the next step", eating the food a card
+    # you wear needed to reach its next level)
+    rows = [r for rows in plan.alternatives.values() for r in rows
+            if r.reach > r.card.enchant and r.reach_chance >= MIN_CHANCE]
     return max(rows, key=lambda r: (r.reach_chance, r.reach_tie, r.useful), default=None)
 
 

@@ -150,7 +150,9 @@ def main(folder, cache_dir=None):
             pools[kind] = found                         # the same skills on every grade; the Unique's chances
     training = {}
     for it in items:
-        if it.get("category") == "Arcana" and "Training Arcana" in it["name"]:
+        # the bound ones are "Arcana", the tradeable ones (market) "Materials": both feed a card (2.5.14: a bought
+        # Training Arcana was not counted as food)
+        if it.get("category") in ("Arcana", "Materials") and "Training Arcana" in it["name"]:
             m = re.search(r"Enhance EXP by ([\d,]+)", text_of(page(f"/items/{it['id']}-{slug(it['name'])}", cache)))
             if m:
                 training[str(it["id"])] = {"name": it["name"], "exp": int(m.group(1).replace(",", ""))}

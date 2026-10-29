@@ -20,7 +20,8 @@ SOUNDS = {      # key -> (what it is for, file)
     "cube_radar": (tr("Radar de cubos: cubo a la vista"), "cube_radar.wav"),
 }
 DEFAULT_VOLUME = 70     # percent
-VOLUME_STEPS = 10       # the overlay sets the volume in 10 % steps
+DEFAULT_VOLUMES = {"cube_radar": 25}    # the radar beeps over and over while a cube is in view: softer (2.5.14)
+VOLUME_STEPS = 20       # the overlay sets the volume in 5 % steps (2.5.14: 25 % for the radar's beeps)
 
 
 class SoundPlayer:
@@ -43,7 +44,7 @@ class SoundPlayer:
         level-up" switch counts as its mute)."""
         stored = self.settings.setdefault("sounds", {}).get(key, {})
         muted = stored.get("muted", key == "pet_level_up" and not self.settings.get("sound", True))
-        return {"volume": int(stored.get("volume", DEFAULT_VOLUME)), "muted": bool(muted),
+        return {"volume": int(stored.get("volume", DEFAULT_VOLUMES.get(key, DEFAULT_VOLUME))), "muted": bool(muted),
                 "file": str(stored.get("file") or "")}
 
     def path(self, key):

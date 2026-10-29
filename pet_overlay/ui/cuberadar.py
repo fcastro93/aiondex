@@ -35,6 +35,8 @@ from ..gathering import GAME_MAPS
 from . import theme
 from .design import Card, PageHeader, Toggle
 from .mapwindow import STYLE
+from .settings_panel import VolumeStep
+from ..sounds import VOLUME_STEPS
 from .minimapoverlay import (CAMERA_FRESH, HOLD, HWND_TOPMOST, KEY_BACK, KEY_FORWARD, KEY_LEFT, KEY_RIGHT,
                              LOOK_EVERY, MOVE_MIN, SWP_NOACTIVATE, SWP_SHOWWINDOW, WDA_EXCLUDEFROMCAPTURE, _user32)
 from .theme import Fonts
@@ -415,6 +417,14 @@ def _clear(layout):
             w.deleteLater()
 
 
+class _VolumeStep(VolumeStep):
+    """A segment of the beeps' volume: this page is no overlay shell, so it takes its own click."""
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.on_click()
+
+
 class CubeRadarWindow(QWidget):
     """Mundo › Radar de cubos: the device and, beside it, what it sees and the marks to teach it."""
 
@@ -471,6 +481,19 @@ class CubeRadarWindow(QWidget):
         opts.addWidget(self.sound_toggle)
         opts.addWidget(label(tr("Pitidos"), f.body, theme.TEXT), 1)
         self.state_card.body.addLayout(opts)
+        volume = QHBoxLayout()
+        volume.setSpacing(f.px(2))
+        self.volume_steps = []
+        for i in range(1, VOLUME_STEPS + 1):
+            step = _VolumeStep(False, False, f, lambda v=i * 100 // VOLUME_STEPS: self._set_volume(v))
+            step.setToolTip(tr("Volumen de los pitidos: {0}%", i * 100 // VOLUME_STEPS))
+            self.volume_steps.append(step)
+            volume.addWidget(step)
+        volume.addSpacing(f.px(6))
+        self.volume_label = label("", f.small, theme.TEXT)
+        volume.addWidget(self.volume_label, 1)
+        self.state_card.body.addLayout(volume)
+        self._show_volume()
         col.addWidget(self.state_card)
         # cubes in view (and the remembered ones)
         self.cubes_card = Card(f, tr("Cubos a la vista"))
@@ -515,6 +538,22 @@ class CubeRadarWindow(QWidget):
         conf = self.ctl.sounds.config("cube_radar")
         if conf["muted"] == on:
             self.ctl.sounds.toggle_mute("cube_radar")
+        self._show_volume()
+
+    def _set_volume(self, volume):
+        """A click on the beeps' bar: that volume (it also turns them back on), and one beep to hear it."""
+        self.ctl.sounds.set_volume("cube_radar", volume)
+        self.ctl.sounds.play("cube_radar", test=True)
+        self.sound_toggle.setChecked(True)
+        self._show_volume()
+
+    def _show_volume(self):
+        conf = self.ctl.sounds.config("cube_radar")
+        level = round(conf["volume"] / (100 / VOLUME_STEPS))
+        for i, step in enumerate(self.volume_steps, 1):
+            step.filled, step.muted = i <= level, conf["muted"]
+            step.update()
+        self.volume_label.setText(tr("silenciado") if conf["muted"] else f"{conf['volume']}%")
 
     def refresh(self):
         ctl = self.ctl
@@ -525,6 +564,8 @@ class CubeRadarWindow(QWidget):
         status = "" if ctl.sniffer is None or getattr(ctl.health, "sniffing", True) else ctl.capture_status
         self.screen.set_data(snap, fix, status, ctl.minimap_status())
         beat(self.screen.nearest(), self.screen.reach, ctl.sounds, not ctl.sounds.config("cube_radar")["muted"])
+        self.sound_toggle.setChecked(not ctl.sounds.config("cube_radar")["muted"])    # Ajustes / the floating one
+        self._show_volume()
         hk = ctl.settings["hotkeys"].get("mark_cube", "")
         self.mark_button.setText(tr("Estoy frente a un cubo") + (f"  ({hk})" if hk else ""))
         # state
@@ -551,8 +592,10 @@ class CubeRadarWindow(QWidget):
             self._rows_key = key
             _clear(self.cubes_box)
             if not snap["cubes"]:
-                self.cubes_box.addWidget(label(tr("Ninguno ahora. El juego avisa los objetos a unos 100 m: camina y mira el radar."),
-                                              self.fonts.body, theme.MUTED))
+                lbl = label(tr("Ninguno ahora. El juego avisa los objetos a unos 100 m: camina y mira el radar."),
+                            self.fonts.body, theme.MUTED)
+                lbl.setWordWrap(True)          # unwrapped, it widened the side and hid the «Olvidar» buttons
+                self.cubes_box.addWidget(lbl)
             for c in snap["cubes"][:12]:
                 where = tr("a {0} m al {1}", int(c["dist"]), c["point"]) if "dist" in c else tr("en ({0}, {1})", int(c["x"]), int(c["y"]))
                 opened = tr(" · abierto por ti") if c.get("opened_by") == "me" else tr(" · alguien lo está abriendo") if c.get("opened_by") else ""

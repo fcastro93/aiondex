@@ -80,13 +80,13 @@ class VolumeStep(QWidget):
         super().__init__()
         self.filled, self.muted = filled, muted
         self.on_click = on_click
-        self.setFixedSize(fonts.px(11), fonts.px(14))
+        self.setFixedSize(fonts.px(6), fonts.px(14))        # 20 of them (5 % each) in the old ten's room
         self.setCursor(Qt.PointingHandCursor)
 
     def paintEvent(self, _):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
-        r = QRectF(self.rect()).adjusted(1, 3, -1, -3)
+        r = QRectF(self.rect()).adjusted(0.5, 3, -0.5, -3)
         p.setPen(Qt.NoPen)
         p.setBrush((theme.MUTED if self.muted else theme.ACCENT) if self.filled else theme.BAR_BG)
         p.drawRoundedRect(r, 2, 2)

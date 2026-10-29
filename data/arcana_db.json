@@ -4,7 +4,7 @@
   "text": "Arcanas: aion2data.com",
   "url": "https://aion2data.com/arcana"
  },
- "generated_at": "2026-10-23",
+ "generated_at": "2026-10-28",
  "rule": "each enhance level adds a new skill effect at +1 until the card has 4, then raises one of them (random) by +1, up to +4 each",
  "slots": {
   "41": "Chalice",
@@ -2319,6 +2319,26 @@
   "565106003": {
    "name": "Superior Training Arcana (Bound)",
    "exp": 1500
+  },
+  "830060001": {
+   "name": "Lesser Training Arcana",
+   "exp": 200
+  },
+  "830060002": {
+   "name": "Intermediate Training Arcana",
+   "exp": 600
+  },
+  "830060003": {
+   "name": "Superior Training Arcana",
+   "exp": 1500
+  },
+  "830060004": {
+   "name": "Ultimate Training Arcana",
+   "exp": 3000
+  },
+  "830060005": {
+   "name": "Exalted Training Arcana",
+   "exp": 5000
   }
  },
  "transcendence": {
