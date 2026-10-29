@@ -45,8 +45,9 @@ def start_simulation(controller, interval_ms=2500):
 
 
 def _simulate_cubes(controller, interval_ms=3000):
-    """Verteron, you walking towards a hidden cube with a few other objects around: the Radar de cubos has
-    something to show (the messages go through cubes.CubeTracker like the real 3436 / 4236 do)."""
+    """Verteron, you walking towards a hidden cube with a few other objects around, one cube out of view and three
+    places where cubes appeared before: the Radar de cubos has something to show (the messages go through
+    cubes.CubeTracker like the real 3436 / 4236 do)."""
     import struct
     from .cubes import KNOWN
     from .nodes import SPAWN, DESPAWN
@@ -63,12 +64,20 @@ def _simulate_cubes(controller, interval_ms=3000):
         return (varint(eid) + struct.pack("<HI3f", 4, oid, x * 100, y * 100, 15000) + struct.pack("<ff", 0, 0)
                 + b"\x01\x01" + bytes([6 if fresh else 1]) + struct.pack("<Q", int(time.time() * 1000)) + b"\x00" * 7)
 
+    import tempfile
+    from .cubes import CubeSpots
     from .nodes import MAP_ENTER
     position = controller.bridge.position
     position.game_map = 1010
     you = [-500.0, 1200.0]
-    controller.bridge.cubes.on_message(MAP_ENTER, struct.pack("<IIQ3ff", 3, 1010, 0, you[0] * 100, you[1] * 100, 0, 0), None)
+    tracker = controller.bridge.cubes
+    tracker.on_message(MAP_ENTER, struct.pack("<IIQ3ff", 3, 1010, 0, you[0] * 100, you[1] * 100, 0, 0), None)
     cube = next(iter(KNOWN))
+    # the radar's memory, apart from the real one: places where cubes appeared on this map before
+    spots = CubeSpots(Path(tempfile.mkdtemp(prefix="aiondex-preview-")) / "cube_spots.json")
+    for i, (x, y) in enumerate([(-380.0, 1120.0), (-640.0, 1330.0), (-520.0, 980.0)]):
+        spots.note(1010, {"oid": cube, "x": x, "y": y, "z": 150.0}, "Hidden Cube", time.time() - 3600 * (i + 1))
+    tracker.spots = spots
     objects = [(9001, cube, -502.0, 1263.0), (9002, 1234567, -480.0, 1190.0), (9003, 1234568, -530.0, 1240.0),
                (9004, 1550021, -495.0, 1205.0)]          # the last one is a gathering node: not on the radar
     state = {"i": 0}
@@ -76,10 +85,14 @@ def _simulate_cubes(controller, interval_ms=3000):
     def tick():
         state["i"] += 1
         position.set_fix(time.time(), you[0], you[1])
+        fix = position.fix
         for eid, oid, x, y in objects:
-            controller.bridge.cubes.on_message(SPAWN, spawn(eid, oid, x, y, fresh=state["i"] == 1), None)
+            tracker.on_message(SPAWN, spawn(eid, oid, x, y, fresh=state["i"] == 1), None, fix=fix)
+        if state["i"] == 1:                                # a cube seen earlier, 250 m east, now out of view
+            tracker.on_message(SPAWN, spawn(9005, cube, -250.0, 1180.0), None, fix=fix)
+            tracker.on_message(DESPAWN, varint(9005), None)
         if state["i"] % 12 == 0:                           # the cube goes away for a while, then is back
-            controller.bridge.cubes.on_message(DESPAWN, varint(9001), None)
+            tracker.on_message(DESPAWN, varint(9001), None)
         elif state["i"] % 12 < 6:
             you[1] += 6.0                                  # you walk south, towards it
         else:

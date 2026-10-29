@@ -1,4 +1,5 @@
 """python -m unittest tests.test_cubes  (no Qt, no game: the tracker alone)"""
+import json
 import struct
 import sys
 import tempfile
@@ -7,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from pet_overlay import cubes  # noqa: E402
-from pet_overlay.nodes import DESPAWN, MAP_ENTER, SPAWN, START  # noqa: E402
+from pet_overlay.nodes import DESPAWN, MAP_ENTER, SPAWN, START, STATE  # noqa: E402
 
 # the two Verteron cubes dr89mh published (fixtures/cubes/2026-10-13_verteron_two_cubes.json): prefix only
 CUBE_A = bytes.fromhex("e5ff030400a74f1200001d44c780a5f64700647146")
@@ -64,7 +65,8 @@ class Tracker(unittest.TestCase):
         cubes.CANDIDATE_LOG, cubes.SIGHTING_LOG = base / "cand.jsonl", base / "sight.jsonl"
         self.seen = []
         self.learned = {}
-        self.t = cubes.CubeTracker(self.learned, on_cube=self.seen.append)
+        self.spots = cubes.CubeSpots(base / "spots.json")
+        self.t = cubes.CubeTracker(self.learned, on_cube=self.seen.append, spots=self.spots)
         self.t.on_message(MAP_ENTER, map_enter(1010, -500, 1200), None, now=1000.0)
 
     def tearDown(self):
@@ -87,7 +89,7 @@ class Tracker(unittest.TestCase):
         self.assertEqual(snap["cubes"][0]["point"], "S")
         self.assertEqual(snap["cubes"][0]["name"], "Hidden Cube")
         self.assertEqual([o["eid"] for o in snap["objects"]], [2])
-        self.assertEqual(snap["counts"], {"objects": 2, "cubes": 1})
+        self.assertEqual(snap["counts"], {"objects": 2, "cubes": 1, "reach": 0})
         lines = cubes.CANDIDATE_LOG.read_text(encoding="utf-8").splitlines()
         self.assertEqual(len(lines), 2)
 
@@ -124,10 +126,84 @@ class Tracker(unittest.TestCase):
         snap = self.t.snapshot(now=1021.0)
         self.assertEqual((snap["map"], snap["cubes"], snap["objects"]), (1110, [], []))
 
-    def test_old_objects_are_forgotten(self):
+    def test_old_objects_are_forgotten_but_a_cube_in_view_stays(self):
         self.feed()
         snap = self.t.snapshot(now=1004.0 + cubes.FORGET_AFTER + 1)      # last seen at 1004 (the repeat)
-        self.assertEqual(snap["cubes"], [])
+        self.assertEqual(snap["objects"], [])
+        self.assertEqual([c["eid"] for c in snap["cubes"]], [3])         # the game never repeats a 3436 in view
+
+    def test_a_cube_out_of_view_is_remembered_then_back(self):
+        self.feed()
+        self.t.on_message(DESPAWN, varint(3), None, now=1010.0)
+        snap = self.t.snapshot(fix=(1010.0, -500.0, 1200.0, True), now=1070.0)
+        self.assertEqual([(c["eid"], c.get("lost")) for c in snap["cubes"]], [(3, 1010.0)])
+        self.assertAlmostEqual(snap["cubes"][0]["lost_ago"], 60.0)
+        near = self.t.mark((1070.0, -500.0, 1200.0, True), now=1070.0)["near"]
+        self.assertEqual([o["eid"] for o in near], [2])                 # the lost cube is not near: out of view
+        self.t.on_message(SPAWN, spawn(3, 1200039, -502.05, 1262.83), None, now=1100.0)        # back in view
+        self.assertEqual([(o["eid"], o["back"]) for o in self.seen], [(3, False), (3, True)])
+        snap = self.t.snapshot(now=1101.0)
+        self.assertIsNone(snap["cubes"][0].get("lost"))
+        self.assertEqual(snap["counts"]["cubes"], 1)                   # a return is not a new sighting
+        self.t.on_message(DESPAWN, varint(3), None, now=1200.0)
+        self.assertEqual(self.t.snapshot(now=1200.0 + cubes.CUBE_KEEP + 1)["cubes"], [])
+
+    def test_a_cube_being_opened_or_used_up_goes_for_real(self):
+        self.feed()
+        self.t.on_message(START, varint(3) + varint(4242) + b"\x01", 4242, now=1006.0)
+        self.t.on_message(DESPAWN, varint(3), None, now=1008.0)
+        self.assertEqual(self.t.snapshot(now=1009.0)["cubes"], [])
+        self.feed()
+        self.t.on_message(STATE, varint(3) + b"\x04\x03", None, now=1010.0)
+        self.t.on_message(DESPAWN, varint(3), None, now=1011.0)
+        self.assertEqual(self.t.snapshot(now=1012.0)["cubes"], [])
+
+    def test_reach_is_measured_from_a_fresh_exact_fix(self):
+        fix = (1000.0, -500.0, 1200.0, True)
+        self.t.on_message(SPAWN, spawn(2, 1234567, -480, 1200), None, now=1002.0, fix=fix)
+        self.t.on_message(SPAWN, spawn(3, 1200039, -502.05, 1262.83), None, now=1003.0, fix=fix)
+        self.t.on_message(SPAWN, spawn(4, 1234568, -400, 1200), None, now=1003.0, fix=(1000.0, -500.0, 1200.0, False))
+        self.t.on_message(SPAWN, spawn(5, 1234569, -300, 1200), None, now=1100.0, fix=fix)   # stale fix: not counted
+        self.assertEqual(self.t.snapshot(now=1004.0)["counts"]["reach"], 62)
+        rows = [json.loads(l) for l in cubes.CANDIDATE_LOG.read_text(encoding="utf-8").splitlines()]
+        self.assertEqual([r["dist"] for r in rows], [20.0, 62.9, None, None])
+
+    def test_spots_remember_where_cubes_appeared(self):
+        self.feed()
+        snap = self.t.snapshot(fix=(1000.0, -500.0, 1200.0, True), now=1005.0)
+        self.assertEqual([(s["oid"], s["live"], s["times"]) for s in snap["spots"]], [(1200039, True, 1)])
+        self.assertEqual(snap["spots"][0]["id"], "1200039@-502,1263")
+        self.t.on_message(DESPAWN, varint(3), None, now=1010.0)
+        self.t.on_message(SPAWN, spawn(9, 1200039, -503.0, 1264.0), None, now=2000.0)      # same place, new entity
+        self.t.on_message(SPAWN, spawn(10, 1200041, 100.0, 100.0), None, now=2001.0)       # another place
+        spots = self.t.snapshot(fix=(2001.0, -500.0, 1200.0, True), now=2002.0)["spots"]
+        self.assertEqual([(s["oid"], s["times"], s["live"]) for s in spots], [(1200039, 2, True), (1200041, 1, True)])
+        # saved and loaded again
+        again = cubes.CubeSpots(self.spots.path)
+        self.assertEqual(again.count(), 2)
+        self.assertEqual(sorted(again.by_map), ["1010"])
+        # another map: its own spots
+        self.t.on_message(MAP_ENTER, map_enter(1110, 0, 0), None, now=3000.0)
+        self.assertEqual(self.t.snapshot(now=3001.0)["spots"], [])
+        # the player deletes one; un-learning an id deletes its spots
+        self.assertTrue(self.spots.remove(1010, "1200039@-502,1263"))
+        self.assertFalse(self.spots.remove(1010, "1200039@-502,1263"))
+        self.t.confirm(1234567)
+        self.t.on_message(SPAWN, spawn(11, 1234567, 5.0, 5.0), None, now=3002.0)
+        self.assertEqual(self.t.snapshot(now=3003.0)["spots"][0]["oid"], 1234567)
+        self.t.forget(1234567)
+        self.assertEqual(self.t.snapshot(now=3004.0)["spots"], [])
+        self.assertEqual(cubes.CubeSpots(self.spots.path).count(), 1)
+
+    def test_seed_spots_from_the_candidates_log(self):
+        self.feed()                                                     # logs the cube once
+        self.spots.path.unlink(missing_ok=True)
+        fresh = cubes.CubeSpots(self.spots.path)
+        t = cubes.CubeTracker(self.learned, spots=fresh)
+        self.assertEqual(t.seed_spots_from_log(), 1)
+        self.assertEqual([s["oid"] for s in fresh.on_map(1010)], [1200039])
+        self.assertTrue(fresh.path.exists())
+        self.assertEqual(t.seed_spots_from_log(), 0)                    # only when there is no file yet
 
 
 if __name__ == "__main__":

@@ -255,7 +255,7 @@ class Bridge(QObject):
             me = self.self_eid if self.self_eid is not None else self.feed.self_eid
             self.position.on_message(op, body, me)
             self.nodes.on_message(op, body, me)
-            self.cubes.on_message(op, body, me)
+            self.cubes.on_message(op, body, me, fix=self.position.fix)
             if op == MAP_ENTER_OPCODE:
                 entry = parse_map_enter(body)
                 if entry:
@@ -573,6 +573,11 @@ class Controller(QObject):
         self.bridge.nodes.learned = json.loads(json.dumps(self.settings.get("gather_nodes") or nodes.SEED))
         self.bridge.nodes.load(self.settings.get("gather_spots"))
         self.bridge.cubes.learned = self.settings.setdefault("cube_templates", {})   # the cubes you confirmed
+        self.bridge.cubes.spots = cubes.CubeSpots()                                   # where cubes appeared, per map
+        seeded = self.bridge.cubes.seed_spots_from_log()
+        if seeded:
+            log.info("cube spots: %s sightings from cube_candidates.jsonl became %s spots", seeded,
+                     self.bridge.cubes.spots.count())
         self.bridge.cube.connect(self.on_cube_seen)
         self.spot_checks = self.settings.setdefault("gather_checks", {})   # map -> point -> [up, empty, last]
         self.spot_checks_version = 0
@@ -1049,8 +1054,18 @@ class Controller(QObject):
         if self.cube_window is not None and self.cube_window.isVisible():
             self.cube_window.refresh()
 
+    def forget_spot(self, game_map, spot_id):
+        """The player deletes a place where the radar thought a cube appears (the radar page's «Borrar»)."""
+        spots = self.bridge.cubes.spots
+        if spots is not None and spots.remove(game_map, spot_id):
+            spots.save()
+            log.info("cube spot deleted: map %s, %s", game_map, spot_id)
+        if self.cube_window is not None and self.cube_window.isVisible():
+            self.cube_window.refresh()
+
     def on_cube_seen(self, obj):
-        """A known cube appeared around you (Bridge.cube): a beep and a notice with where it is."""
+        """A known cube appeared around you (Bridge.cube): a beep and a notice with where it is (also when one the
+        radar remembered comes back into view)."""
         name = self.bridge.cubes.cube_name(obj["oid"]) or "Hidden Cube"
         fix = self.bridge.position.fix
         where = ""
@@ -1058,7 +1073,8 @@ class Controller(QObject):
             dist, point = cubes.distance_and_point((fix[1], fix[2]), obj)
             where = tr(" a {0} m al {1}", int(dist), point)
         self.sounds.play("cube_radar")
-        self.notify("info", tr("¡Cubo a la vista!"), f"{name}{where}", same=f"cube:{obj['eid']}", page="cubes")
+        title = tr("Cubo de vuelta a la vista") if obj.get("back") else tr("¡Cubo a la vista!")
+        self.notify("info", title, f"{name}{where}", same=f"cube:{obj['eid']}", page="cubes")
 
     def boss_on_map(self, entry):
         """Has this Tracker boss a spawn point on your world map (data/world_db.json «Named Monsters»)?"""
