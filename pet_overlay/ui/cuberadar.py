@@ -46,6 +46,9 @@ log = logging.getLogger(__name__)
 RANGES = (50, 100, 200, 400, 800, 1600)    # metres from you to the edge of the screen (1600: the whole map)
 BEEP_FAR_MS, BEEP_NEAR_MS = 2600, 420   # between beeps with a cube at the edge / right on you
 FIX_STALE = 45                          # seconds: an older position is drawn, but doubted on screen
+RADAR_STALE = 5                         # the radar says it sooner: past this your blips stop following you (the
+#                                         game only tells your position when you cast, so between casts it is the
+#                                         minimap's read, and the face says why that fails)
 FLOAT_TICK_MS = 50                      # the radar over the minimap follows it and your movement this often
 FACE_SHARE = 0.86                       # the face's share of the floating radar's square (its rim around)
 _last_beep = [0.0]
@@ -225,12 +228,13 @@ def paint_face(p, face, reach, snap, fix, sweep, fonts, msg="", see_through=Fals
     p.restore()
 
 
-def fix_message(fix, now, status=""):
-    """What the face says about your position: none yet, or how old it is."""
+def fix_message(fix, now, status="", why="", stale=FIX_STALE):
+    """What the face says about your position: none yet, or how old it is (with why: the minimap reader's trouble,
+    when it has one)."""
     if fix is None:
         return status or tr("Sin tu posición: entra a un mapa o muévete")
-    if now - fix[0] > FIX_STALE:
-        return tr("Tu posición es de hace {0} s", int(now - fix[0]))
+    if now - fix[0] > stale:
+        return tr("Tu posición es de hace {0} s", int(now - fix[0])) + (f" · {why}" if why else "")
     return ""
 
 
@@ -256,8 +260,8 @@ class RadarScreen(QWidget):
         self._anim = QTimer(self, interval=90, timeout=self._tick)
 
     # --- data ---
-    def set_data(self, snap, fix, status=""):
-        self.snap, self.fix, self.status = snap, fix, status
+    def set_data(self, snap, fix, status="", why=""):
+        self.snap, self.fix, self.status, self.why = snap, fix, status, why
         self.now = time.time()
         self.update()
 
@@ -351,7 +355,7 @@ class RadarScreen(QWidget):
         fix = self.fix
         cubes = self.snap.get("cubes", [])
         paint_face(p, face, self.reach, self.snap, fix, self._sweep, self.fonts,
-                   fix_message(fix, self.now, self.status))
+                   fix_message(fix, self.now, self.status, getattr(self, "why", ""), RADAR_STALE))
         font = QFont(self.fonts.family)
         font.setPointSizeF(max(6.5, side * 0.028 * 72 / 96))
         # under the screen: how many cubes, the nearest
@@ -519,7 +523,7 @@ class CubeRadarWindow(QWidget):
         fix = ctl.bridge.position.fix
         snap = ctl.bridge.cubes.snapshot(fix, now)
         status = "" if ctl.sniffer is None or getattr(ctl.health, "sniffing", True) else ctl.capture_status
-        self.screen.set_data(snap, fix, status)
+        self.screen.set_data(snap, fix, status, ctl.minimap_status())
         beat(self.screen.nearest(), self.screen.reach, ctl.sounds, not ctl.sounds.config("cube_radar")["muted"])
         hk = ctl.settings["hotkeys"].get("mark_cube", "")
         self.mark_button.setText(tr("Estoy frente a un cubo") + (f"  ({hk})" if hk else ""))
@@ -808,7 +812,7 @@ class FloatingRadar(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         p.setRenderHint(QPainter.TextAntialiasing)
-        msg = fix_message(self.fix, time.time())
+        msg = fix_message(self.fix, time.time(), why=self.ctl.minimap_status(), stale=RADAR_STALE)
         paint_face(p, self._face(), self.reach, self.snap, self.fix, self._sweep, self.fonts, msg,
                    see_through=True, you=not self.docked)
         x = self._close_rect()

@@ -158,6 +158,14 @@ class Tracker(unittest.TestCase):
         self.t.on_message(DESPAWN, varint(3), None, now=1011.0)
         self.assertEqual(self.t.snapshot(now=1012.0)["cubes"], [])
 
+    def test_opened_cube_leaves_the_radar(self):
+        # the user's capture (2026-10-28): 3836 / 3a36 by them, then 3536 "eid 04 03 00" (used) - no despawn for long
+        self.feed()
+        self.t.on_message(STATE, varint(3) + b"\x04\x03\x00", 4242, now=1006.0)
+        self.assertEqual(self.t.snapshot(now=1007.0)["cubes"], [])
+        self.t.on_message(STATE, varint(3) + b"\x01\x01\x00", 4242, now=1008.0)        # available again
+        self.assertEqual([c["eid"] for c in self.t.snapshot(now=1009.0)["cubes"]], [3])
+
     def test_reach_is_measured_from_a_fresh_exact_fix(self):
         fix = (1000.0, -500.0, 1200.0, True)
         self.t.on_message(SPAWN, spawn(2, 1234567, -480, 1200), None, now=1002.0, fix=fix)

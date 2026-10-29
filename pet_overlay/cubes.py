@@ -291,11 +291,11 @@ class CubeTracker:
                         obj["opened_at"] = now
         elif op == STATE:
             state = parse_state(body)
-            if state and state[1]:
+            if state:
                 with self.lock:
                     obj = self.objects.get(state[0])
                     if obj:
-                        obj["used_up"] = True
+                        obj["used_up"] = bool(state[1])     # opened (it leaves the radar), or back again
 
     def _cube_seen(self, obj, back=False):
         with self.lock:
@@ -373,6 +373,8 @@ class CubeTracker:
             if obj.get("lost") is not None:
                 obj["lost_ago"] = now - obj["lost"]
             if self.is_cube(obj["oid"]):
+                if obj.get("used_up"):          # opened: the game says it is used (3536), long before any despawn
+                    continue
                 obj["name"] = self.cube_name(obj["oid"])
                 cubes.append(obj)
             else:
